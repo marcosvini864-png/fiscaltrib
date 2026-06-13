@@ -19,7 +19,7 @@ export default function Login() {
   return (
     <div style={styles.bg}>
       <div style={styles.card}>
-        <div style={styles.logo}>⚖️ FiscalTrib</div>
+        <div style={styles.logo}>⚖️ Sistema FiscalTrib</div>
         <div style={styles.sub}>Plataforma de diagnóstico tributário</div>
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.group}>
@@ -50,7 +50,7 @@ export default function Login() {
           </button>
         </form>
         <div style={styles.footer}>
-          FiscalTrib © 2026 · Todos os direitos reservados
+          Sistema FiscalTrib © 2026 · Todos os direitos reservados
         </div>
       </div>
     </div>
