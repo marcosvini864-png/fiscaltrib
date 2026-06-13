@@ -141,7 +141,7 @@ export default function Dashboard({ session }) {
    <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
       {/* TOPBAR */}
       <div style={{background:'#1e3a5f',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
-        <span style={{fontSize:18,fontWeight:700}}>⚖️ FiscalTrib</span>
+        <span style={{fontSize:18,fontWeight:700}}>⚖️ Sistema FiscalTrib</span>
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
         <span style={{fontSize:13,color:'#f0c040'}}>🟡 {active?.razao_social}</span>
         <button onClick={()=>supabase.auth.signOut()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
