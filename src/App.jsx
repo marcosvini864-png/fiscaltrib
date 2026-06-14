@@ -59,7 +59,7 @@ export default function App() {
   if (tela === 'cadastro')  return <Cadastro onVoltar={() => setTela('login')} />
   if (tela === 'perfil')    return <Perfil usuario={usuario} onConcluido={(nome) => { setNomeUser(nome); setTela('dashboard') }} />
   if (tela === 'admin')     return <Admin onVoltar={() => setTela('dashboard')} onLogout={handleLogout} />
-  if (tela === 'dashboard') return <Dashboard nomeUsuario={nomeUser} onLogout={handleLogout} onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null} />
+  if (tela === 'dashboard') return <Dashboard nomeUsuario={usuario?.email === ADMIN_EMAIL ? 'Marcos Alexandre' : nomeUser} onLogout={handleLogout} onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null} />
 
   return <Login onLogin={() => {}} onCadastro={() => setTela('cadastro')} />
 }
