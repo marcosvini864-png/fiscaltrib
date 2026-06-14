@@ -37,7 +37,7 @@ const ENTRADAS_DEMO = {
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
-export default function Dashboard({ nomeUsuario, onLogout }) {
+export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [page, setPage] = useState('painel')
   const [clientes, setClientes] = useState(CLIENTES_DEMO)
   const [entradas, setEntradas] = useState(ENTRADAS_DEMO)
