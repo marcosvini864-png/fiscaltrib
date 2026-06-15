@@ -282,7 +282,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                     <input
                       value={novoCliente[k]||''}
                       onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})}
-                      style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}
+                      placeholder={k==='cnaes_secundarios'?'Ex: 47.71-7-01, 47.72-1-00':k==='inscricao_estadual'?'Digite com pontos e traços conforme seu estado':k==='inscricao_municipal'?'Digite com pontos e traços conforme seu município':''}
+style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}
                     />
                   </div>
                 ))}
