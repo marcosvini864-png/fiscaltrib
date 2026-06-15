@@ -16,7 +16,7 @@ export default function Login({ onLogin, onCadastro }) {
     <div style={{minHeight:'100vh',background:'#1e3a5f',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:'#fff',borderRadius:16,padding:40,width:380,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
         <h1 style={{textAlign:'center',color:'#1e3a5f',marginBottom:24}}>FiscalTrib</h1>
-        {erro && <p style={{color:'red',marginBottom:12}}>{erro}</p>}
+        <p style={{textAlign:'center',color:'#64748b',fontSize:13,marginBottom:16,marginTop:-16}}>Sistema de Diagnóstico e Recuperação Tributária</p>{erro && <p style={{color:'red',marginBottom:12}}>{erro}</p>}
         <input style={{width:'100%',padding:10,marginBottom:12,border:'1px solid #ccc',borderRadius:8,boxSizing:'border-box',fontSize:14}} type="email" placeholder="E-mail" value={email} onChange={e=>setEmail(e.target.value)} />
         <input style={{width:'100%',padding:10,marginBottom:16,border:'1px solid #ccc',borderRadius:8,boxSizing:'border-box',fontSize:14}} type="password" placeholder="Senha" value={senha} onChange={e=>setSenha(e.target.value)} />
         <button style={{width:'100%',padding:12,background:'#1e3a5f',color:'#fff',border:'none',borderRadius:8,fontSize:15,cursor:'pointer',marginBottom:12}} onClick={handleLogin}>Entrar</button>
