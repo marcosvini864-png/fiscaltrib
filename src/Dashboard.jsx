@@ -35,6 +35,8 @@ const ENTRADAS_DEMO = {
   '5':[],'6':[],
 }
 
+const CLIENTE_VAZIO = {razao_social:'',cnpj:'',cnae_principal:'',municipio:'',uf:'',regime:'Simples Nacional',competencia_inicio:'',competencia_fim:'',responsavel_contabil:'',observacoes:''}
+
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
@@ -62,8 +64,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     }).length
   },0)
 
+  // CORREÇÃO: navItem para novo-cliente inicializa novoCliente automaticamente
   const navItem = (id,icon,label) => (
-    <div onClick={()=>setPage(id)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',fontSize:13,color:page===id?'#1e3a5f':'#475569',cursor:'pointer',borderLeft:`3px solid ${page===id?'#1e3a5f':'transparent'}`,background:page===id?'#eff6ff':'transparent',fontWeight:page===id?600:400}}>
+    <div onClick={()=>{
+      if(id==='novo-cliente') setNovoCliente({...CLIENTE_VAZIO})
+      setPage(id)
+    }} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',fontSize:13,color:page===id?'#1e3a5f':'#475569',cursor:'pointer',borderLeft:`3px solid ${page===id?'#1e3a5f':'transparent'}`,background:page===id?'#eff6ff':'transparent',fontWeight:page===id?600:400}}>
       <span style={{fontSize:16,width:20,textAlign:'center'}}>{icon}</span>{label}
     </div>
   )
@@ -145,7 +151,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
         <span style={{fontSize:13,color:'#f0c040'}}>👤 {nomeUsuario || 'Usuário'}</span>
         {onAdmin && <button onClick={onAdmin} style={{background:'#f0b429',border:'none',color:'#0f172a',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:'bold'}}>⚙️ Admin</button>}
-<button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
+        <button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
       </div>
 
      <div style={{display:'flex',flex:1,overflow:'hidden',width:'100%'}}>
@@ -220,7 +226,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='clientes' && <div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div style={{fontSize:22,fontWeight:700,color:'#1e293b'}}>Clientes cadastrados</div>
-              <button onClick={()=>{setNovoCliente({razao_social:'',cnpj:'',cnae_principal:'',municipio:'',uf:'',regime:'Simples Nacional',competencia_inicio:'',competencia_fim:'',responsavel_contabil:'',observacoes:''});setPage('novo-cliente')}} style={{padding:'8px 16px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer',fontWeight:500}}>+ Novo cliente</button>
+              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{padding:'8px 16px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer',fontWeight:500}}>+ Novo cliente</button>
             </div>
             {clientes.map(c=>{
               const ee=entradas[c.id]||[]; const tot=ee.reduce((s,e)=>s+(e.credito||0),0)
