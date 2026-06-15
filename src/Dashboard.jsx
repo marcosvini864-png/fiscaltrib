@@ -355,6 +355,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {[['Razão Social *', 'razao_social'], ['Nome Fantasia', 'nome_fantasia'], ['CNPJ *', 'cnpj'], ['CNAE Principal', 'cnae_principal'], ['CNAEs Secundários', 'cnaes_secundarios'], ['Inscrição Estadual', 'inscricao_estadual'], ['Inscrição Municipal', 'inscricao_municipal'], ['Município', 'municipio'], ['UF', 'uf']].map(([lb, k]) => (
                   <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+				  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
                   <input value={novoCliente[k] || ''} onChange={e => setNovoCliente({ ...novoCliente, [k]: k==='cnpj'?maskCNPJ(e.target.value):k==='cnae_principal'?maskCNAE(e.target.value):k==='inscricao_estadual'?maskIE(e.target.value):k==='inscricao_municipal'?maskIM(e.target.value):e.target.value })} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />  
                   </div>
                 ))}
