@@ -15,7 +15,7 @@ const maskIM = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
 const maskCNAE = v => { const n = v.replace(/\D/g,'').slice(0,7); if(n.length<=2) return n; if(n.length<=4) return n.slice(0,2)+'.'+n.slice(2); if(n.length<=6) return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4); return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4,5)+'-'+n.slice(5); }
 const maskCNAES = v => { const parts = v.split(','); return parts.map((c,i) => i < parts.length-1 ? maskCNAE(c.trim()) : c.replace(/\D/g,'').slice(0,7) ).join(', ') }
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-
+const maskMoeda = v => { const n = v.replace(/\D/g,''); if(!n) return ''; const num = parseFloat(n)/100; return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [page, setPage] = useState('painel')
   const [clientes, setClientes] = useState([])
@@ -355,7 +355,7 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
                 {[['Competência *','competencia','2022-03'],['Receita bruta (R$)','receita_bruta','0'],['Tributo pago (R$)','tributo_pago','0'],['Tributo devido (R$)','tributo_devido','0']].map(([lb,k,ph])=>(
                   <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
                     <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
-                    <input value={novaEntrada[k]} onChange={e=>setNovaEntrada({...novaEntrada,[k]:e.target.value})} placeholder={ph} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
+                    <input value={novaEntrada[k]} onChange={e=>setNovaEntrada({...novaEntrada,[k]:k==='receita_bruta'||k==='tributo_pago'||k==='tributo_devido'?maskMoeda(e.target.value):e.target.value})} placeholder={ph} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
                   </div>
                 ))}
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
