@@ -38,7 +38,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       .from('clientes')
       .select('*')
       .eq('usuario_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
     if (!error && data) {
       setClientes(data)
       if (data.length > 0) setActiveId(data[0].id)
