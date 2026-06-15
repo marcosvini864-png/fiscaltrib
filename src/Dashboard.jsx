@@ -369,7 +369,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', padding: 20, marginBottom: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#1e3a5f', marginBottom: 16 }}>📅 Período de análise</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {[['Competência inicial', 'competencia_inicio'], ['Competência final', 'competencia_fim'], ['Responsável contábil', 'responsavel_contabil'], ['Observações', 'observacoes']].map(([lb, k]) => (
+                {[['Responsável contábil','responsavel_contabil'],['Observações','observacoes']].map(([lb,k])=>(
                   <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{lb}</label>
                     <input value={novoCliente[k] || ''} onChange={e => setNovoCliente({ ...novoCliente, [k]: e.target.value })}
@@ -377,6 +377,16 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                   </div>
                 ))}
               </div>
+			  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Competência inicial</label>
+  <input type="month" value={novoCliente.competencia_inicio||''} onChange={e=>setNovoCliente({...novoCliente,competencia_inicio:e.target.value})}
+    style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
+</div>
+<div style={{display:'flex',flexDirection:'column',gap:6}}>
+  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Competência final</label>
+  <input type="month" value={novoCliente.competencia_fim||''} onChange={e=>setNovoCliente({...novoCliente,competencia_fim:e.target.value})}
+    style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
+</div>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <button onClick={salvarCliente} disabled={salvando} style={{ padding: '10px 20px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
