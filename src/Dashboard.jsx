@@ -85,14 +85,14 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   }
 
   async function adicionarEntrada() {
-    const credito = (parseFloat(novaEntrada.tributo_pago) || 0) - (parseFloat(novaEntrada.tributo_devido) || 0)
+    const credito = (parseFloat((novaEntrada.tributo_pago || '0').replace(/\./g, '').replace(',', '.')) || 0) - (parseFloat((novaEntrada.tributo_devido || '0').replace(/\./g, '').replace(',', '.')) || 0)
     const { data, error } = await supabase.from('entradas').insert([{
       cliente_id: activeId,
       competencia: novaEntrada.competencia,
       tributo: novaEntrada.tributo,
-      receita_bruta: parseFloat(novaEntrada.receita_bruta) || 0,
-      tributo_pago: parseFloat(novaEntrada.tributo_pago) || 0,
-      tributo_devido: parseFloat(novaEntrada.tributo_devido) || 0,
+      receita_bruta: parseFloat((novaEntrada.receita_bruta || '0').replace(/\./g, '').replace(',', '.')) || 0,
+      tributo_pago: parseFloat((novaEntrada.tributo_pago || '0').replace(/\./g, '').replace(',', '.')) || 0,
+      tributo_devido: parseFloat((novaEntrada.tributo_devido || '0').replace(/\./g, '').replace(',', '.')) || 0,      
       credito: credito < 0 ? 0 : credito,
       tipo_oportunidade: novaEntrada.tipo_oportunidade,
       risco: novaEntrada.risco,
