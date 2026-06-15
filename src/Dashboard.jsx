@@ -11,7 +11,7 @@ const CLIENTE_VAZIO = {razao_social:'',cnpj:'',cnae_principal:'',municipio:'',uf
 const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
 const maskIE = v => v.replace(/[^0-9A-Za-z.\-\/]/g,'').slice(0,20)
 const maskIM = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
-const maskCNAE = v => v.replace(/\D/g,'').slice(0,7).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{2})(\d)/,'$1-$2').replace(/(\d{1})(\d)/,'$1-$2')
+const maskCNAE = v => { const n = v.replace(/\D/g,'').slice(0,7); if(n.length<=2) return n; if(n.length<=4) return n.slice(0,2)+'.'+n.slice(2); if(n.length<=6) return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4); return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4,5)+'-'+n.slice(5); }
 const maskCNAES = v => v.split(',').map(c => maskCNAE(c.trim())).join(', ')
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
