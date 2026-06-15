@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import Relatorio from './Relatorio'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -456,29 +457,9 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
           </div>}
 
           {/* RELATÓRIO */}
-          {page==='relatorio' && <div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-              <div style={{fontSize:22,fontWeight:700,color:'#1e293b'}}>Relatório de diagnóstico tributário</div>
-              <button onClick={()=>window.print()} style={{padding:'7px 16px',background:'#fff',border:'1.5px solid #1e3a5f',borderRadius:6,fontSize:13,color:'#1e3a5f',cursor:'pointer'}}>🖨️ Imprimir / PDF</button>
-            </div>
-            <div style={{background:'#fff',borderRadius:10,border:'1.5px solid #1e3a5f',padding:20,marginBottom:16}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                {[['Cliente',active?.razao_social],['CNPJ',active?.cnpj],['Regime',active?.regime],['Período',`${active?.competencia_inicio||'—'} a ${active?.competencia_fim||'—'}`],['Responsável contábil',active?.responsavel_contabil||'—'],['Data do relatório',new Date().toLocaleDateString('pt-BR')]].map(([k,v])=>(
-                  <div key={k} style={{fontSize:13,color:'#374151',padding:'4px 0'}}><strong>{k}:</strong> {v}</div>
-                ))}
-              </div>
-            </div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:20,marginBottom:16}}>
-              <div style={{fontSize:14,fontWeight:600,color:'#1e293b',marginBottom:10}}>Resumo executivo</div>
-              <p style={{fontSize:13,color:'#374151',lineHeight:1.6}}>O diagnóstico tributário realizado identificou <strong>{ents.length}</strong> competência(s) com dados analisados. O valor total potencialmente recuperável estimado é de <strong style={{color:'#16a34a'}}>{fmtR(totalPot)}</strong>.</p>
-              {active?.observacoes && <p style={{fontSize:13,color:'#374151',marginTop:10}}><strong>Contexto:</strong> {active.observacoes}</p>}
-            </div>
-            <div style={{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:16,marginBottom:16}}>
-              <div style={{fontSize:13,fontWeight:700,color:'#92400e',marginBottom:8}}>⚠️ Disclaimer profissional</div>
-              <div style={{fontSize:12,color:'#92400e',lineHeight:1.6}}>Este relatório é de natureza preliminar e diagnóstica. As conclusões dependem de validação por profissional habilitado. Nenhuma declaração, retificação, PER/DCOMP ou pedido de restituição deve ser transmitido sem revisão humana completa.</div>
-            </div>
-          </div>}
-
+{page==='relatorio' && <div>
+  <Relatorio active={active} ents={ents} />
+</div>}
           {/* CALCULADORAS */}
           {page==='calculadoras' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>📊 Calculadoras Tributárias</div>
