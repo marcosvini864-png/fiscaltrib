@@ -13,7 +13,7 @@ const maskIE = v => v.replace(/[^0-9A-Za-z.\-\/]/g,'').slice(0,20)
 const maskIM = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
 const maskCNAE = v => v.replace(/\D/g,'').slice(0,7).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{2})(\d)/,'$1-$2').replace(/(\d{1})(\d)/,'$1-$2')
 const maskCNAES = v => v.split(',').map(c => maskCNAE(c.trim())).join(', ')
-
+const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [page, setPage] = useState('painel')
   const [clientes, setClientes] = useState([])
