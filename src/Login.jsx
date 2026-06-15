@@ -9,7 +9,7 @@ export default function Login({ onLogin, onCadastro }) {
   const handleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) { setErro('E-mail ou senha incorretos.'); return }
-    onLogin(data.session)
+    onLogin(data.user)
   }
 
   return (
