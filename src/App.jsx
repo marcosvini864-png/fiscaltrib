@@ -61,5 +61,5 @@ export default function App() {
   if (tela === 'admin')     return <Admin onVoltar={() => setTela('dashboard')} onLogout={handleLogout} />
   if (tela === 'dashboard') return <Dashboard nomeUsuario={usuario?.email === ADMIN_EMAIL ? 'Marcos Alexandre' : nomeUser} onLogout={handleLogout} onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null} />
 
-  return <Login onLogin={() => {}} onCadastro={() => setTela('cadastro')} />
+  return <Login onLogin={(user) => verificarPerfil(user)} onCadastro={() => setTela('cadastro')} />
 }
