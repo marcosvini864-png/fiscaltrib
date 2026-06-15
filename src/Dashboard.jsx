@@ -11,7 +11,7 @@ const CLIENTE_VAZIO = {razao_social:'',cnpj:'',cnae_principal:'',municipio:'',uf
 const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
 const maskIE = v => v.replace(/[^0-9A-Za-z.\-\/]/g,'').slice(0,20)
 const maskIM = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
-const maskCNAE = v => v.replace(/\D/g,'').slice(0,7).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{2})(\d)/,'$1-$2').replace(/(\d{1})(\d)/,'$1-$2')
+const maskCNAE = v => v.replace(/\D/g,'').slice(0,7).replace(/^(\d{2})(\d+)/,'$1.$2').replace(/^(\d{2})\.(\d{2})(\d+)/,'$1.$2-$2').replace(/(\d{2}\.\d{2}-\d{1})(\d+)/,'$1-$2')
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
