@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || ''
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrb2R5aHh1a3ZjbGd6eWR2enR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTU1OTEsImV4cCI6MjA5Njg3MTU5MX0.X_02n8Hy0LaFoZQmLdGwjIA_LixYkMlxeVaMay4rRfg'
 
 const PLANOS = [
   {
@@ -78,14 +78,12 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
       const { data: { session } } = await supabase.auth.getSession()
 
-      const anonKey = import.meta.env.VITE_SUPABASE_KEY
-
       const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': anonKey,
-          'Authorization': `Bearer ${session?.access_token ?? anonKey}`,
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${session?.access_token ?? ANON_KEY}`,
         },
         body: JSON.stringify({
           plano_id: plano.id,
