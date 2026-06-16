@@ -15,6 +15,9 @@ const PLANOS = [
     ],
     cor: '#1e3a5f',
     destaque: false,
+    destaqueTopo: true,
+    corTopo: '#1e3a5f',
+    labelTopo: 'PLANO INICIAL',
     link: 'https://pag.ae/81U7vb14m',
   },
   {
@@ -31,6 +34,9 @@ const PLANOS = [
     ],
     cor: '#b48c3c',
     destaque: true,
+    destaqueTopo: true,
+    corTopo: '#b48c3c',
+    labelTopo: 'MAIS POPULAR',
     link: 'https://pag.ae/81U7xKDCG',
   },
   {
@@ -46,8 +52,11 @@ const PLANOS = [
       'Painel de gestão avançado',
       'Suporte VIP via WhatsApp',
     ],
-    cor: '#1e3a5f',
+    cor: '#16a34a',
     destaque: false,
+    destaqueTopo: true,
+    corTopo: '#16a34a',
+    labelTopo: 'PLANO COMPLETO',
     link: 'https://pag.ae/81U7yz3Km',
   },
 ]
@@ -61,10 +70,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
   async function assinar(plano) {
     setLoading(plano.id)
     setErro('')
-
     try {
       const referencia = `FISCALTRIB-${user.id.slice(0, 8).toUpperCase()}-${Date.now()}`
-
       const { error } = await supabase.from('assinaturas').upsert({
         usuario_id: user.id,
         plano: plano.id,
@@ -74,12 +81,9 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         referencia,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'usuario_id' })
-
       if (error) throw error
-
       window.open(plano.link, '_blank')
       if (onPagamentoIniciado) onPagamentoIniciado()
-
     } catch (err) {
       setErro(err.message || 'Erro ao processar. Tente novamente.')
       console.error(err)
@@ -89,98 +93,101 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
   }
 
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto', padding: '20px 16px' }}>
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '16px 12px' }}>
 
-      {/* Cabeçalho */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1e3a5f', marginBottom: 6 }}>
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e3a5f', marginBottom: 4 }}>
           Escolha seu plano
         </h2>
-        <p style={{ fontSize: 13, color: '#64748b' }}>
+        <p style={{ fontSize: 12, color: '#64748b' }}>
           Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
         </p>
       </div>
 
-      {/* Assinatura atual */}
       {assinatura && (
-        <div style={{ background: assinatura.ativo ? '#f0fdf4' : '#fef9c3', border: `1px solid ${assinatura.ativo ? '#86efac' : '#fde047'}`, borderRadius: 8, padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16 }}>{assinatura.ativo ? '✅' : '⚠️'}</span>
+        <div style={{ background: assinatura.ativo ? '#f0fdf4' : '#fef9c3', border: `1px solid ${assinatura.ativo ? '#86efac' : '#fde047'}`, borderRadius: 7, padding: '8px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 14 }}>{assinatura.ativo ? '✅' : '⚠️'}</span>
           <div>
-            <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>
+            <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 12 }}>
               Plano atual: {assinatura.plano?.charAt(0).toUpperCase() + assinatura.plano?.slice(1)} — {fmtR(assinatura.valor)}/mês
             </div>
-            <div style={{ fontSize: 11, color: '#64748b' }}>
+            <div style={{ fontSize: 10, color: '#64748b' }}>
               Status: {assinatura.ativo ? 'Ativo ✅' : 'Pagamento pendente ⚠️'}
             </div>
           </div>
         </div>
       )}
 
-      {/* Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {PLANOS.map(plano => (
           <div key={plano.id} style={{
             background: '#fff',
-            border: plano.destaque ? `2px solid ${plano.cor}` : '1px solid #e2e8f0',
-            borderRadius: 10,
+            border: `2px solid ${plano.corTopo}`,
+            borderRadius: 9,
             overflow: 'hidden',
-            boxShadow: plano.destaque ? '0 4px 16px rgba(180,140,60,0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
-            position: 'relative',
+            boxShadow: `0 2px 12px ${plano.corTopo}22`,
+            display: 'flex',
+            flexDirection: 'column',
           }}>
-            {plano.destaque && (
-              <div style={{ background: plano.cor, color: '#fff', textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '3px 0', letterSpacing: 1 }}>
-                MAIS POPULAR
-              </div>
-            )}
-            <div style={{ padding: 18 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: plano.cor, marginBottom: 3 }}>{plano.nome}</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#1e3a5f', marginBottom: 3 }}>
-                {fmtR(plano.valor)}<span style={{ fontSize: 11, fontWeight: 400, color: '#64748b' }}>/mês</span>
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12, lineHeight: 1.5 }}>{plano.descricao}</div>
+            {/* Topo colorido */}
+            <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
+              {plano.labelTopo}
+            </div>
 
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, marginBottom: 16 }}>
+            {/* Conteúdo */}
+            <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: plano.corTopo, marginBottom: 2 }}>{plano.nome}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1e3a5f', marginBottom: 2 }}>
+                {fmtR(plano.valor)}<span style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>/mês</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>{plano.descricao}</div>
+
+              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, marginBottom: 14, flex: 1 }}>
                 {plano.recursos.map((r, i) => (
-                  <div key={i} style={{ fontSize: 11, color: '#374151', marginBottom: 6, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <div key={i} style={{ fontSize: 10, color: '#374151', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
                     <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
                     {r}
                   </div>
                 ))}
               </div>
 
+              {/* Botão sempre no rodapé */}
               <button
                 onClick={() => assinar(plano)}
                 disabled={loading === plano.id}
                 style={{
                   width: '100%',
-                  padding: '10px 0',
-                  background: plano.destaque ? plano.cor : '#1e3a5f',
+                  padding: '9px 0',
+                  background: plano.corTopo,
                   color: '#fff',
                   border: 'none',
-                  borderRadius: 7,
-                  fontSize: 13,
+                  borderRadius: 6,
+                  fontSize: 12,
                   fontWeight: 700,
                   cursor: loading === plano.id ? 'wait' : 'pointer',
                   opacity: loading === plano.id ? 0.7 : 1,
+                  marginTop: 'auto',
                 }}
               >
                 {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
               </button>
             </div>
+
+            {/* Rodapé colorido */}
+            <div style={{ background: plano.corTopo, height: 4 }} />
           </div>
         ))}
       </div>
 
       {erro && (
-        <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12, textAlign: 'center' }}>
+        <div style={{ marginTop: 10, padding: 8, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 11, textAlign: 'center' }}>
           {erro}
         </div>
       )}
 
-      {/* Rodapé informativo */}
-      <div style={{ marginTop: 20, padding: '14px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-        <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8, textAlign: 'center' }}>
-          🔒 <strong>Pagamento seguro</strong> processado pelo PagBank &nbsp;•&nbsp;
+      <div style={{ marginTop: 16, padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7 }}>
+        <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.9, textAlign: 'center' }}>
+          🔒 <strong>Pagamento seguro</strong> via PagBank &nbsp;•&nbsp;
           📅 Cobrança <strong>mensal automática</strong> no cartão de crédito &nbsp;•&nbsp;
           ❌ <strong>Cancelamento a qualquer momento</strong> com 30 dias de antecedência &nbsp;•&nbsp;
           ✅ Sem multas ou taxas adicionais
@@ -189,17 +196,16 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
       <div style={{ marginTop: 10, textAlign: 'center' }}>
         {onSair && (
-          <button onClick={onSair} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', marginRight: 16 }}>
+          <button onClick={onSair} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 10, cursor: 'pointer', textDecoration: 'underline', marginRight: 14 }}>
             Sair da conta
           </button>
         )}
         {onVoltar && (
-          <button onClick={onVoltar} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+          <button onClick={onVoltar} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>
             ← Voltar ao sistema
           </button>
         )}
       </div>
-
     </div>
   )
 }
