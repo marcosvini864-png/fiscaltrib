@@ -22,6 +22,7 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
 
     setLoad(true)
     try {
+      // Cria a conta
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password: senha,
@@ -30,7 +31,15 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
 
       if (authError) throw authError
 
-      const userId = authData.user?.id
+      // Faz login imediato após cadastro
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      })
+
+      if (loginError) throw loginError
+
+      const userId = loginData.user?.id
       if (userId) {
         const { error: dbError } = await supabase
           .from('usuarios')
@@ -38,8 +47,7 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
         if (dbError) console.warn('Aviso tabela usuarios:', dbError.message)
       }
 
-      // Após criar conta, vai para escolha de plano
-      onCadastrado(authData.user)
+      onCadastrado(loginData.user)
 
     } catch (e) {
       setErro(e.message || 'Erro ao criar conta.')
