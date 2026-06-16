@@ -116,7 +116,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               <strong>Como pagar:</strong><br />
               1. Abra o app do seu banco<br />
               2. Acesse a opção <strong>PIX → Pagar</strong><br />
-              3. Cole a chave abaixo<br />
+              3. Cole a chave abaixo ou escaneie o QR Code<br />
               4. Confirme o valor de <strong>R$ 300,00</strong><br />
               5. Após o pagamento, clique em <strong>"Já paguei o PIX"</strong>
             </div>
@@ -181,113 +181,114 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
     )
   }
 
-  // TELA DE PLANOS
+  // TELA DE PLANOS — Layout corrigido
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto', padding: '16px 12px' }}>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e3a5f', marginBottom: 4 }}>
-          Escolha seu plano
-        </h2>
-        <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
-          Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
-        </p>
-        <div style={{ background: '#fefce8', border: '2px solid #f0b429', borderRadius: 10, padding: '16px 24px', maxWidth: 620, margin: '0 auto' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#854d0e', marginBottom: 6 }}>
-            💳 Pague agora a taxa de adesão única de R$ 300,00 via PIX
-          </div>
-          <div style={{ fontSize: 14, color: '#92400e', lineHeight: 1.6 }}>
-            Em seguida, formalize a contratação do seu plano pelo cartão de crédito para ter acesso ao sistema.
-          </div>
-        </div>
-      </div>
+    <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 860 }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginTop: 20 }}>
-        {PLANOS.map(plano => (
-          <div key={plano.id} style={{
-            background: '#fff',
-            border: `2px solid ${plano.corTopo}`,
-            borderRadius: 9,
-            overflow: 'hidden',
-            boxShadow: `0 2px 12px ${plano.corTopo}22`,
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
-              {plano.labelTopo}
-            </div>
-            <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: plano.corTopo, marginBottom: 2 }}>{plano.nome}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#1e3a5f', marginBottom: 2 }}>
-                {fmtR(plano.valor)}<span style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>/mês</span>
+        {/* Cabeçalho */}
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1e3a5f', marginBottom: 6 }}>
+            Escolha seu Plano
+          </h1>
+          <p style={{ fontSize: 14, color: '#1e3a5f', marginBottom: 16 }}>
+            Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
+          </p>
+        </div>
+
+        {/* Avisos de implantação */}
+        <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '10px 16px', textAlign: 'center', marginBottom: 6, fontSize: 14, color: '#1e3a5f', fontWeight: 600 }}>
+          Ativação e implantação do sistema — R$ 300,00 à vista via PIX
+        </div>
+        <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '10px 16px', textAlign: 'center', marginBottom: 8, fontSize: 14, color: '#1e3a5f' }}>
+          Primeira mensalidade em 30 dias. Cobrança automática no cartão.
+        </div>
+        <div style={{ padding: '10px 16px', textAlign: 'center', marginBottom: 20 }}>
+          <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700, letterSpacing: 0.3 }}>
+            LIBERAÇÃO DO SISTEMA APÓS A CONFIRMAÇÃO DO PAGAMENTO DA IMPLANTAÇÃO
+          </span>
+        </div>
+
+        {/* Cards dos planos */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, marginBottom: 28 }}>
+          {PLANOS.map(plano => (
+            <div key={plano.id} style={{
+              background: '#fff',
+              border: `2px solid ${plano.corTopo}`,
+              borderRadius: 10,
+              overflow: 'hidden',
+              boxShadow: `0 2px 14px ${plano.corTopo}22`,
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {/* Topo colorido */}
+              <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '7px 0', letterSpacing: 1.2 }}>
+                {plano.labelTopo}
               </div>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>{plano.descricao}</div>
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, marginBottom: 14, flex: 1 }}>
-                {plano.recursos.map((r, i) => (
-                  <div key={i} style={{ fontSize: 10, color: '#374151', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
-                    <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
-                    {r}
-                  </div>
-                ))}
+              <div style={{ padding: '18px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: plano.corTopo, marginBottom: 4 }}>{plano.nome}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#1e3a5f', marginBottom: 2 }}>
+                  {fmtR(plano.valor)}<span style={{ fontSize: 12, fontWeight: 400, color: '#64748b' }}>/mês</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14, lineHeight: 1.5 }}>{plano.descricao}</div>
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, marginBottom: 18, flex: 1 }}>
+                  {plano.recursos.map((r, i) => (
+                    <div key={i} style={{ fontSize: 12, color: '#374151', marginBottom: 7, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                      <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                      {r}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => selecionarPlano(plano)}
+                  disabled={loading === plano.id}
+                  style={{
+                    width: '100%', padding: '11px 0', background: plano.corTopo, color: '#fff',
+                    border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700,
+                    cursor: loading === plano.id ? 'wait' : 'pointer',
+                    opacity: loading === plano.id ? 0.7 : 1,
+                  }}
+                >
+                  {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
+                </button>
               </div>
-              <button
-                onClick={() => selecionarPlano(plano)}
-                disabled={loading === plano.id}
-                style={{
-                  width: '100%', padding: '9px 0', background: plano.corTopo, color: '#fff',
-                  border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700,
-                  cursor: loading === plano.id ? 'wait' : 'pointer', opacity: loading === plano.id ? 0.7 : 1,
-                }}
-              >
-                {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
-              </button>
             </div>
-            <div style={{ background: plano.corTopo, height: 4 }} />
+          ))}
+        </div>
+
+        {erro && (
+          <div style={{ marginBottom: 16, padding: 10, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 13, textAlign: 'center' }}>
+            {erro}
           </div>
-        ))}
-      </div>
-
-      {erro && (
-        <div style={{ marginTop: 10, padding: 8, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 11, textAlign: 'center' }}>
-          {erro}
-        </div>
-      )}
-
-      {/* Rodapé segurança */}
-      <div style={{ marginTop: 16, padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7 }}>
-        <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.9, textAlign: 'center' }}>
-          🔒 <strong>Pagamento seguro</strong> via PagBank &nbsp;•&nbsp;
-          📅 Mensalidade <strong>automática</strong> no cartão &nbsp;•&nbsp;
-          ❌ <strong>Cancele quando quiser</strong> com 30 dias de antecedência &nbsp;•&nbsp;
-          ✅ Sem multas ou taxas adicionais
-        </div>
-      </div>
-
-      {/* Contato comercial */}
-      <div style={{ marginTop: 12, padding: '12px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, textAlign: 'center' }}>
-        <div style={{ fontSize: 12, color: '#1e40af', fontWeight: 700, marginBottom: 4 }}>
-          Dúvidas? Fale com nosso Departamento Comercial
-        </div>
-        
-          href="https://wa.me/5511999579822"
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 14, color: '#16a34a', fontWeight: 800, textDecoration: 'none' }}
-        >
-          📲 WhatsApp: (11) 99957-9822
-        </a>
-      </div>
-
-      <div style={{ marginTop: 10, textAlign: 'center' }}>
-        {onSair && (
-          <button onClick={onSair} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 10, cursor: 'pointer', textDecoration: 'underline', marginRight: 14 }}>
-            Sair da conta
-          </button>
         )}
-        {onVoltar && (
-          <button onClick={onVoltar} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>
-            ← Voltar ao sistema
-          </button>
-        )}
+
+        {/* Contato comercial */}
+        <div style={{ textAlign: 'center', marginBottom: 10 }}>
+          <p style={{ fontSize: 15, color: '#1e3a5f', fontWeight: 600, marginBottom: 0 }}>
+            Departamento comercial Telefone e WhatsApp: (11) 99957-9822
+          </p>
+        </div>
+
+        {/* Rodapé */}
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <a
+            href="https://wa.me/5511999579822"
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 13, color: '#16a34a', textDecoration: 'underline', marginRight: 8 }}
+          >
+            Cancele quando quiser com 30 dias de antecedência — Sem multas ou taxas adicionais
+          </a>
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          {onSair && (
+            <button onClick={onSair} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+              Sair da conta
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   )
