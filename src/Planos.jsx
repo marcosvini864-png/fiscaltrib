@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
+const PIX_CHAVE = 'd268e002-3ac0-4055-836c-616fb624141b'
+const PIX_VALOR = 300.00
+const ADESAO_LABEL = 'Taxa de Adesão FiscalTrib'
+
 const PLANOS = [
   {
     id: 'essencial',
@@ -14,8 +18,6 @@ const PLANOS = [
       'Suporte por e-mail',
     ],
     cor: '#1e3a5f',
-    destaque: false,
-    destaqueTopo: true,
     corTopo: '#1e3a5f',
     labelTopo: 'PLANO INICIAL',
     link: 'https://pag.ae/81U7vb14m',
@@ -33,8 +35,6 @@ const PLANOS = [
       'Suporte prioritário',
     ],
     cor: '#b48c3c',
-    destaque: true,
-    destaqueTopo: true,
     corTopo: '#b48c3c',
     labelTopo: 'MAIS POPULAR',
     link: 'https://pag.ae/81U7xKDCG',
@@ -53,8 +53,6 @@ const PLANOS = [
       'Suporte VIP via WhatsApp',
     ],
     cor: '#16a34a',
-    destaque: false,
-    destaqueTopo: true,
     corTopo: '#16a34a',
     labelTopo: 'PLANO COMPLETO',
     link: 'https://pag.ae/81U7yz3Km',
@@ -66,8 +64,17 @@ const fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDig
 export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado, onSair }) {
   const [loading, setLoading] = useState(null)
   const [erro, setErro] = useState('')
+  const [planoSelecionado, setPlanoSelecionado] = useState(null)
+  const [etapa, setEtapa] = useState('planos') // 'planos' | 'pix' | 'cartao'
+  const [copiado, setCopiado] = useState(false)
 
-  async function assinar(plano) {
+  function copiarPix() {
+    navigator.clipboard.writeText(PIX_CHAVE)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+
+  async function selecionarPlano(plano) {
     setLoading(plano.id)
     setErro('')
     try {
@@ -82,19 +89,134 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         updated_at: new Date().toISOString(),
       }, { onConflict: 'usuario_id' })
       if (error) throw error
-      window.open(plano.link, '_blank')
-      if (onPagamentoIniciado) onPagamentoIniciado()
+      setPlanoSelecionado(plano)
+      setEtapa('pix')
     } catch (err) {
       setErro(err.message || 'Erro ao processar. Tente novamente.')
-      console.error(err)
     } finally {
       setLoading(null)
     }
   }
 
+  function irParaCartao() {
+    window.open(planoSelecionado.link, '_blank')
+    setEtapa('cartao')
+    if (onPagamentoIniciado) onPagamentoIniciado()
+  }
+
+  // ETAPA PIX
+  if (etapa === 'pix' && planoSelecionado) {
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #16a34a', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          
+          {/* Topo */}
+          <div style={{ background: '#16a34a', padding: '14px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>PASSO 1 DE 2</div>
+            <div style={{ fontSize: 18, color: '#fff', fontWeight: 800 }}>Taxa de Adesão via PIX</div>
+            <div style={{ fontSize: 28, color: '#fff', fontWeight: 900, marginTop: 4 }}>R$ 300,00</div>
+            <div style={{ fontSize: 11, color: '#dcfce7', marginTop: 2 }}>Pagamento único — não recorrente</div>
+          </div>
+
+          <div style={{ padding: '20px 24px' }}>
+
+            {/* Instrução */}
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: '#166534', lineHeight: 1.7 }}>
+              <strong>Como pagar:</strong><br />
+              1. Abra o app do seu banco<br />
+              2. Acesse a opção <strong>PIX → Pagar</strong><br />
+              3. Cole a chave abaixo ou escaneie o QR Code<br />
+              4. Confirme o valor de <strong>R$ 300,00</strong><br />
+              5. Após o pagamento, clique em <strong>"Já paguei o PIX"</strong>
+            </div>
+
+            {/* Chave PIX */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, fontWeight: 600 }}>CHAVE PIX (chave aleatória):</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, padding: '10px 12px', fontSize: 11, color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  {PIX_CHAVE}
+                </div>
+                <button
+                  onClick={copiarPix}
+                  style={{ padding: '10px 14px', background: copiado ? '#16a34a' : '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {copiado ? '✓ Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Beneficiário */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, padding: '10px 14px', marginBottom: 20, fontSize: 11, color: '#64748b' }}>
+              <strong style={{ color: '#374151' }}>Beneficiário:</strong> Marcos Vinicius Alexandre de Souza<br />
+              <strong style={{ color: '#374151' }}>Valor:</strong> R$ 300,00<br />
+              <strong style={{ color: '#374151' }}>Descrição:</strong> {ADESAO_LABEL} — Plano {planoSelecionado.nome}
+            </div>
+
+            {/* Aviso */}
+            <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 7, padding: '10px 14px', marginBottom: 20, fontSize: 11, color: '#854d0e', textAlign: 'center' }}>
+              ⏱️ Após o pagamento, seu acesso será liberado em até <strong>2 horas</strong> pelo WhatsApp ou e-mail cadastrado.
+            </div>
+
+            {/* Botão principal */}
+            <button
+              onClick={irParaCartao}
+              style={{ width: '100%', padding: '12px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}
+            >
+              ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
+            </button>
+
+            <button
+              onClick={() => setEtapa('planos')}
+              style={{ width: '100%', padding: '8px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              ← Voltar e escolher outro plano
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ETAPA CARTÃO
+  if (etapa === 'cartao') {
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #1e3a5f', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <div style={{ background: '#1e3a5f', padding: '14px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>PASSO 2 DE 2</div>
+            <div style={{ fontSize: 18, color: '#fff', fontWeight: 800 }}>Cadastrar Cartão de Crédito</div>
+            <div style={{ fontSize: 12, color: '#bfdbfe', marginTop: 4 }}>Mensalidade recorrente — {fmtR(planoSelecionado?.valor)}/mês</div>
+          </div>
+          <div style={{ padding: '20px 24px' }}>
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: '#1e40af', lineHeight: 1.7 }}>
+              Uma nova aba foi aberta com o formulário do PagBank.<br />
+              Cadastre seu cartão de crédito para as mensalidades automáticas de <strong>{fmtR(planoSelecionado?.valor)}/mês</strong>.
+            </div>
+            <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 7, padding: '10px 14px', marginBottom: 20, fontSize: 11, color: '#854d0e', textAlign: 'center' }}>
+              ✅ PIX de adesão pago + cartão cadastrado = acesso liberado em até 2 horas!
+            </div>
+            <button
+              onClick={() => window.open(planoSelecionado?.link, '_blank')}
+              style={{ width: '100%', padding: '12px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}
+            >
+              Abrir formulário do cartão novamente
+            </button>
+            <button
+              onClick={() => setEtapa('pix')}
+              style={{ width: '100%', padding: '8px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              ← Voltar para o PIX
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // TELA DE PLANOS
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '16px 12px' }}>
-
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e3a5f', marginBottom: 4 }}>
           Escolha seu plano
@@ -102,6 +224,9 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         <p style={{ fontSize: 12, color: '#64748b' }}>
           Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
         </p>
+        <div style={{ display: 'inline-block', background: '#fefce8', border: '1px solid #fde047', borderRadius: 6, padding: '6px 14px', marginTop: 8, fontSize: 11, color: '#854d0e' }}>
+          💳 Taxa de adesão única: <strong>R$ 300,00 via PIX</strong> + mensalidade recorrente no cartão
+        </div>
       </div>
 
       {assinatura && (
@@ -129,19 +254,15 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             display: 'flex',
             flexDirection: 'column',
           }}>
-            {/* Topo colorido */}
             <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
               {plano.labelTopo}
             </div>
-
-            {/* Conteúdo */}
             <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: plano.corTopo, marginBottom: 2 }}>{plano.nome}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#1e3a5f', marginBottom: 2 }}>
                 {fmtR(plano.valor)}<span style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>/mês</span>
               </div>
               <div style={{ fontSize: 10, color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>{plano.descricao}</div>
-
               <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, marginBottom: 14, flex: 1 }}>
                 {plano.recursos.map((r, i) => (
                   <div key={i} style={{ fontSize: 10, color: '#374151', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
@@ -150,10 +271,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   </div>
                 ))}
               </div>
-
-              {/* Botão sempre no rodapé */}
               <button
-                onClick={() => assinar(plano)}
+                onClick={() => selecionarPlano(plano)}
                 disabled={loading === plano.id}
                 style={{
                   width: '100%',
@@ -166,14 +285,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   fontWeight: 700,
                   cursor: loading === plano.id ? 'wait' : 'pointer',
                   opacity: loading === plano.id ? 0.7 : 1,
-                  marginTop: 'auto',
                 }}
               >
                 {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
               </button>
             </div>
-
-            {/* Rodapé colorido */}
             <div style={{ background: plano.corTopo, height: 4 }} />
           </div>
         ))}
@@ -188,8 +304,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       <div style={{ marginTop: 16, padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7 }}>
         <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.9, textAlign: 'center' }}>
           🔒 <strong>Pagamento seguro</strong> via PagBank &nbsp;•&nbsp;
-          📅 Cobrança <strong>mensal automática</strong> no cartão de crédito &nbsp;•&nbsp;
-          ❌ <strong>Cancelamento a qualquer momento</strong> com 30 dias de antecedência &nbsp;•&nbsp;
+          📅 Mensalidade <strong>automática</strong> no cartão &nbsp;•&nbsp;
+          ❌ <strong>Cancele quando quiser</strong> com 30 dias de antecedência &nbsp;•&nbsp;
           ✅ Sem multas ou taxas adicionais
         </div>
       </div>
