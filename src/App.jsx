@@ -12,9 +12,9 @@ import Admin from './Admin'
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
 
 export default function App() {
-  const [tela,      setTela]      = useState('login')
-  const [usuario,   setUsuario]   = useState(null)
-  const [nomeUser,  setNomeUser]  = useState('')
+  const [tela,       setTela]       = useState('login')
+  const [usuario,    setUsuario]    = useState(null)
+  const [nomeUser,   setNomeUser]   = useState('')
   const [assinatura, setAssinatura] = useState(null)
 
   useEffect(() => {
@@ -31,20 +31,17 @@ export default function App() {
   async function verificarUsuario(user) {
     setUsuario(user)
 
-    // Admin vai direto
     if (user.email === ADMIN_EMAIL) {
       setTela('admin')
       return
     }
 
-    // Busca perfil
     const { data: perfil } = await supabase
       .from('usuarios')
       .select('nome_completo, perfil_completo')
       .eq('email', user.email)
       .single()
 
-    // Busca assinatura
     const { data: ass } = await supabase
       .from('assinaturas')
       .select('*')
@@ -53,19 +50,16 @@ export default function App() {
 
     setAssinatura(ass)
 
-    // Sem assinatura ativa → vai para Planos
     if (!ass || !ass.ativo) {
       setTela('planos')
       return
     }
 
-    // Com assinatura ativa mas perfil incompleto → vai para Perfil
     if (!perfil?.perfil_completo || !perfil?.nome_completo) {
       setTela('perfil')
       return
     }
 
-    // Tudo ok → Dashboard
     setNomeUser(perfil.nome_completo)
     setTela('dashboard')
   }
@@ -78,56 +72,49 @@ export default function App() {
     setAssinatura(null)
   }
 
-  // Tela 1 — Login
   if (tela === 'login')
     return <Login
       onLogin={(user) => verificarUsuario(user)}
       onCadastro={() => setTela('cadastro')}
     />
 
-  // Tela 2 — Criar Conta
   if (tela === 'cadastro')
     return <Cadastro
       onVoltar={() => setTela('login')}
       onCadastrado={(user) => { setUsuario(user); setTela('planos') }}
     />
 
-  // Tela 3 — Escolher Plano
   if (tela === 'planos')
     return <Planos
       user={usuario}
       assinatura={assinatura}
       onVoltar={null}
       onPagamentoIniciado={() => setTela('aguardando')}
+      onSair={handleLogout}
     />
 
-  // Tela 4/5 — Aguardando/Aprovado
   if (tela === 'aguardando')
     return <Aprovado
       onContinuar={() => setTela('tipoperfil')}
     />
 
-  // Tela 6 — Tipo de Perfil
   if (tela === 'tipoperfil')
     return <TipoPerfil
       onEscolher={(tipo) => { setTela('perfil') }}
     />
 
-  // Tela 7 — Completar Perfil
   if (tela === 'perfil')
     return <Perfil
       usuario={usuario}
       onConcluido={(nome) => { setNomeUser(nome); setTela('dashboard') }}
     />
 
-  // Admin
   if (tela === 'admin')
     return <Admin
       onVoltar={() => setTela('dashboard')}
       onLogout={handleLogout}
     />
 
-  // Tela 8 — Dashboard
   return <Dashboard
     nomeUsuario={usuario?.email === ADMIN_EMAIL ? 'Marcos Alexandre' : nomeUser}
     onLogout={handleLogout}

@@ -51,7 +51,7 @@ const PLANOS = [
 
 const fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
-export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado }) {
+export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado, onSair }) {
   const [loading, setLoading] = useState(null)
   const [erro, setErro] = useState('')
 
@@ -76,6 +76,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
       const { data: { session } } = await supabase.auth.getSession()
 
+      if (!session) throw new Error('Sessão expirada. Faça login novamente.')
+
       const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
         method: 'POST',
         headers: {
@@ -99,7 +101,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       if (onPagamentoIniciado) onPagamentoIniciado()
 
     } catch (err) {
-      setErro('Erro ao processar. Tente novamente.')
+      setErro(err.message || 'Erro ao processar. Tente novamente.')
       console.error(err)
     } finally {
       setLoading(null)
@@ -195,8 +197,14 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         Pagamento processado com segurança pelo PagBank • Cancele quando quiser
       </div>
 
+      {onSair && (
+        <button onClick={onSair} style={{ marginTop: 12, display: 'block', margin: '12px auto 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+          Sair da conta
+        </button>
+      )}
+
       {onVoltar && (
-        <button onClick={onVoltar} style={{ marginTop: 16, display: 'block', margin: '16px auto 0', background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+        <button onClick={onVoltar} style={{ marginTop: 8, display: 'block', margin: '8px auto 0', background: 'transparent', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
           ← Voltar ao sistema
         </button>
       )}
