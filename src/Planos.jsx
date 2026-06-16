@@ -58,11 +58,11 @@ const PLANOS = [
 const fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
 export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado, onSair }) {
-  const [loading, setLoading] = useState(null)
-  const [erro, setErro] = useState('')
+  const [loading,          setLoading]          = useState(null)
+  const [erro,             setErro]             = useState('')
   const [planoSelecionado, setPlanoSelecionado] = useState(null)
-  const [etapa, setEtapa] = useState('planos')
-  const [copiado, setCopiado] = useState(false)
+  const [etapa,            setEtapa]            = useState('planos')
+  const [copiado,          setCopiado]          = useState(false)
 
   function copiarPix() {
     navigator.clipboard.writeText(PIX_CHAVE)
@@ -181,7 +181,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
     )
   }
 
-  // TELA DE PLANOS — Layout corrigido
+  // TELA DE PLANOS
   return (
     <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ width: '100%', maxWidth: 860 }}>
@@ -196,7 +196,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </p>
         </div>
 
-        {/* Avisos de implantação */}
+        {/* Avisos */}
         <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '10px 16px', textAlign: 'center', marginBottom: 6, fontSize: 14, color: '#1e3a5f', fontWeight: 600 }}>
           Ativação e implantação do sistema — R$ 300,00 à vista via PIX
         </div>
@@ -209,7 +209,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </span>
         </div>
 
-        {/* Cards dos planos */}
+        {/* Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, marginBottom: 28 }}>
           {PLANOS.map(plano => (
             <div key={plano.id} style={{
@@ -221,7 +221,6 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               display: 'flex',
               flexDirection: 'column',
             }}>
-              {/* Topo colorido */}
               <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '7px 0', letterSpacing: 1.2 }}>
                 {plano.labelTopo}
               </div>
@@ -264,19 +263,15 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
         {/* Contato comercial */}
         <div style={{ textAlign: 'center', marginBottom: 10 }}>
-          <p style={{ fontSize: 15, color: '#1e3a5f', fontWeight: 600, marginBottom: 0 }}>
+          <p style={{ fontSize: 15, color: '#1e3a5f', fontWeight: 600 }}>
             Departamento comercial Telefone e WhatsApp: (11) 99957-9822
           </p>
         </div>
 
-        {/* Rodapé */}
+        {/* Cancelamento */}
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
-          <a
-            href="https://wa.me/5511999579822"
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 13, color: '#16a34a', textDecoration: 'underline', marginRight: 8 }}
-          >
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer"
+            style={{ fontSize: 13, color: '#16a34a', textDecoration: 'underline' }}>
             Cancele quando quiser com 30 dias de antecedência — Sem multas ou taxas adicionais
           </a>
         </div>

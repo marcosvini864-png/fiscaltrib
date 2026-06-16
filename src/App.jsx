@@ -12,10 +12,11 @@ import Admin from './Admin'
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
 
 export default function App() {
-  const [tela,       setTela]       = useState('login')
-  const [usuario,    setUsuario]    = useState(null)
-  const [nomeUser,   setNomeUser]   = useState('')
-  const [assinatura, setAssinatura] = useState(null)
+  const [tela,        setTela]        = useState('login')
+  const [usuario,     setUsuario]     = useState(null)
+  const [nomeUser,    setNomeUser]    = useState('')
+  const [assinatura,  setAssinatura]  = useState(null)
+  const [tipoPerfil,  setTipoPerfil]  = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,7 +39,7 @@ export default function App() {
 
     const { data: perfil } = await supabase
       .from('usuarios')
-      .select('nome_completo, perfil_completo')
+      .select('nome_completo, perfil_completo, tipo_perfil')
       .eq('email', user.email)
       .single()
 
@@ -50,17 +51,27 @@ export default function App() {
 
     setAssinatura(ass)
 
+    // Sem assinatura ativa → Planos
     if (!ass || !ass.ativo) {
       setTela('planos')
       return
     }
 
+    // Sem tipo de perfil → TipoPerfil
+    if (!perfil?.tipo_perfil) {
+      setTela('tipoperfil')
+      return
+    }
+
+    // Sem perfil completo → Perfil
     if (!perfil?.perfil_completo || !perfil?.nome_completo) {
+      setTipoPerfil(perfil.tipo_perfil)
       setTela('perfil')
       return
     }
 
     setNomeUser(perfil.nome_completo)
+    setTipoPerfil(perfil.tipo_perfil)
     setTela('dashboard')
   }
 
@@ -70,6 +81,7 @@ export default function App() {
     setUsuario(null)
     setNomeUser('')
     setAssinatura(null)
+    setTipoPerfil('')
   }
 
   if (tela === 'login')
@@ -100,12 +112,15 @@ export default function App() {
 
   if (tela === 'tipoperfil')
     return <TipoPerfil
-      onEscolher={(tipo) => { setTela('perfil') }}
+      user={usuario}
+      onEscolher={(tipo) => { setTipoPerfil(tipo); setTela('perfil') }}
     />
 
   if (tela === 'perfil')
     return <Perfil
       usuario={usuario}
+      tipoPerfil={tipoPerfil}
+      onVoltar={() => setTela('tipoperfil')}
       onConcluido={(nome) => { setNomeUser(nome); setTela('dashboard') }}
     />
 

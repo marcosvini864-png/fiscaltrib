@@ -1,12 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
-const tiposPerfil = [
-  { id: 'contador',  label: '👔 Contador / Escritório',     descricao: 'Escritório de contabilidade ou contador autônomo' },
-  { id: 'advogado', label: '⚖️ Advogado Tributarista',      descricao: 'Advogado com atuação em direito tributário' },
-  { id: 'pf',       label: '👤 Pessoa Física / Empresário', descricao: 'Empresário ou pessoa física sem registro profissional' },
-]
-
 function maskTel(v) {
   v = v.replace(/\D/g, '').slice(0, 11)
   if (v.length <= 10) return v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3')
@@ -29,9 +23,8 @@ function maskCEP(v) {
   return v.replace(/\D/g, '').slice(0, 8).replace(/(\d{5})(\d{1,3})/, '$1-$2')
 }
 
-export default function Perfil({ usuario, onConcluido }) {
-  const [tipo,     setTipo]     = useState('')
-  const [step,     setStep]     = useState(1)
+export default function Perfil({ usuario, tipoPerfil, onConcluido, onVoltar }) {
+  const tipo = tipoPerfil || ''
   const [erro,     setErro]     = useState('')
   const [load,     setLoad]     = useState(false)
 
@@ -56,7 +49,7 @@ export default function Perfil({ usuario, onConcluido }) {
   const [oab,       setOab]       = useState('')
   const [oabUF,     setOabUF]     = useState('')
 
-  // PF
+  // PF / Empresário
   const [cpf,         setCpf]         = useState('')
   const [empresa,     setEmpresa]     = useState('')
   const [cnpjEmpresa, setCnpjEmpresa] = useState('')
@@ -92,9 +85,9 @@ export default function Perfil({ usuario, onConcluido }) {
         telefone,
         cep, rua, numero, bairro, cidade, estado,
         perfil_completo: true,
-        ...(tipo === 'contador' && { nome_escritorio: escritorio, cnpj, crc }),
-        ...(tipo === 'advogado' && { nome_sociedade: sociedade, cnpj: cnpjAdv, oab, oab_uf: oabUF }),
-        ...(tipo === 'pf'       && { cpf, nome_empresa: empresa, cnpj: cnpjEmpresa }),
+        ...(tipo === 'contador'   && { nome_escritorio: escritorio, cnpj, crc }),
+        ...(tipo === 'advogado'   && { nome_sociedade: sociedade, cnpj: cnpjAdv, oab, oab_uf: oabUF }),
+        ...(tipo === 'empresario' && { cpf, nome_empresa: empresa, cnpj: cnpjEmpresa }),
       }
 
       const { error } = await supabase
@@ -111,28 +104,6 @@ export default function Perfil({ usuario, onConcluido }) {
     }
   }
 
-  // STEP 1
-  if (step === 1) return (
-    <div style={s.container}>
-      <div style={s.card}>
-        <h2 style={s.titulo}>Bem-vindo ao FiscalTrib! 🎉</h2>
-        <p style={s.sub}>Antes de começar, nos conte qual é o seu perfil:</p>
-        <div style={s.tipos}>
-          {tiposPerfil.map(t => (
-            <div key={t.id} style={{ ...s.tipoCard, ...(tipo === t.id ? s.tipoSel : {}) }} onClick={() => setTipo(t.id)}>
-              <span style={s.tipoLabel}>{t.label}</span>
-              <small style={s.tipoDesc}>{t.descricao}</small>
-            </div>
-          ))}
-        </div>
-        <button style={{ ...s.btn, opacity: tipo ? 1 : 0.5 }} onClick={() => tipo && setStep(2)} disabled={!tipo}>
-          Continuar →
-        </button>
-      </div>
-    </div>
-  )
-
-  // STEP 2
   return (
     <div style={s.container}>
       <div style={{ ...s.card, maxWidth: '540px' }}>
@@ -162,7 +133,7 @@ export default function Perfil({ usuario, onConcluido }) {
           </div>
         </>}
 
-        {tipo === 'pf' && <>
+        {tipo === 'empresario' && <>
           <p style={s.secao}>👤 Dados Complementares</p>
           <input style={s.input} placeholder="CPF ex: 000.000.000-00" value={cpf}
             onChange={e => setCpf(maskCPF(e.target.value))} />
@@ -188,26 +159,22 @@ export default function Perfil({ usuario, onConcluido }) {
         <button style={s.btn} onClick={handleSalvar} disabled={load}>
           {load ? 'Salvando...' : '✅ Salvar e Entrar no Sistema'}
         </button>
-        <button style={s.btnVoltar} onClick={() => setStep(1)}>← Voltar</button>
+        {onVoltar && (
+          <button style={s.btnVoltar} onClick={onVoltar}>← Voltar</button>
+        )}
       </div>
     </div>
   )
 }
 
 const s = {
-  container:  { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', padding: '20px' },
-  card:       { background: '#1e293b', borderRadius: '12px', padding: '36px', width: '100%', maxWidth: '460px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
-  titulo:     { color: '#f0b429', textAlign: 'center', marginBottom: '8px', fontSize: '22px' },
-  sub:        { color: '#94a3b8', textAlign: 'center', marginBottom: '24px', fontSize: '14px' },
-  tipos:      { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
-  tipoCard:   { background: '#0f172a', border: '2px solid #334155', borderRadius: '10px', padding: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px' },
-  tipoSel:    { borderColor: '#f0b429', background: '#1a1000' },
-  tipoLabel:  { color: '#e2e8f0', fontWeight: 'bold', fontSize: '15px' },
-  tipoDesc:   { color: '#64748b', fontSize: '13px' },
-  secao:      { color: '#f0b429', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', marginTop: '16px', borderBottom: '1px solid #334155', paddingBottom: '6px' },
-  input:      { width: '100%', padding: '11px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', fontSize: '14px', boxSizing: 'border-box' },
-  row:        { display: 'flex', gap: '10px' },
-  erro:       { color: '#f87171', fontSize: '13px', marginBottom: '10px' },
-  btn:        { width: '100%', padding: '13px', background: '#f0b429', color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', marginBottom: '10px' },
-  btnVoltar:  { width: '100%', padding: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
+  container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', padding: '20px' },
+  card:      { background: '#1e293b', borderRadius: '12px', padding: '36px', width: '100%', maxWidth: '460px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+  titulo:    { color: '#f0b429', textAlign: 'center', marginBottom: '8px', fontSize: '22px' },
+  secao:     { color: '#f0b429', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', marginTop: '16px', borderBottom: '1px solid #334155', paddingBottom: '6px' },
+  input:     { width: '100%', padding: '11px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', fontSize: '14px', boxSizing: 'border-box' },
+  row:       { display: 'flex', gap: '10px' },
+  erro:      { color: '#f87171', fontSize: '13px', marginBottom: '10px' },
+  btn:       { width: '100%', padding: '13px', background: '#f0b429', color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', marginBottom: '10px' },
+  btnVoltar: { width: '100%', padding: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
 }
