@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
+import Planos from './Planos'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -17,7 +18,9 @@ const maskCNAE = v => { const n = v.replace(/\D/g,'').slice(0,7); if(n.length<=2
 const maskCNAES = v => { const parts = v.split(','); return parts.map((c,i) => i < parts.length-1 ? maskCNAE(c.trim()) : c.replace(/\D/g,'').slice(0,7) ).join(', ') }
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 const maskMoeda = v => { const n = v.replace(/\D/g,''); if(!n) return ''; const num = parseFloat(n)/100; return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
+
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
+  const [user, setUser] = useState(null)
   const [page, setPage] = useState('painel')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
@@ -35,6 +38,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   async function carregarClientes() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
     const { data, error } = await supabase.from('clientes').select('*').eq('usuario_id', user.id).order('id', { ascending: false })
     if (!error && data) {
       setClientes(data)
@@ -93,7 +97,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       tributo: novaEntrada.tributo,
       receita_bruta: parseFloat((novaEntrada.receita_bruta || '0').replace(/\./g, '').replace(',', '.')) || 0,
       tributo_pago: parseFloat((novaEntrada.tributo_pago || '0').replace(/\./g, '').replace(',', '.')) || 0,
-      tributo_devido: parseFloat((novaEntrada.tributo_devido || '0').replace(/\./g, '').replace(',', '.')) || 0,      
+      tributo_devido: parseFloat((novaEntrada.tributo_devido || '0').replace(/\./g, '').replace(',', '.')) || 0,
       credito: credito < 0 ? 0 : credito,
       tipo_oportunidade: novaEntrada.tipo_oportunidade,
       risco: novaEntrada.risco,
@@ -134,7 +138,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const badge = regime => { const colors = {'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'}; const [bg,color] = (colors[regime]||'#f1f5f9|#475569').split('|'); return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {regime}</span> }
   const riskBadge = r => { const c = r==='baixo'?'#dcfce7|#166534':r==='medio'?'#fef9c3|#854d0e':'#fee2e2|#991b1b'; const [bg,color]=c.split('|'); return <span style={{background:bg,color,padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{r}</span> }
 
-  // Função para aplicar máscara conforme o campo
   const applyMask = (k, v) => {
     if (k === 'cnpj') return maskCNPJ(v)
     if (k === 'cnae_principal') return maskCNAE(v)
@@ -144,7 +147,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     return v
   }
 
-  // CALCULADORAS
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
@@ -164,7 +166,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
-      {/* TOPBAR */}
       <div style={{background:'#1e3a5f',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
         <span style={{fontSize:18,fontWeight:700}}>🏛 FiscalTrib</span>
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
@@ -174,7 +175,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       </div>
 
       <div style={{display:'flex',flex:1,overflow:'hidden',width:'100%'}}>
-        {/* SIDEBAR */}
         <div style={{width:220,background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',flexShrink:0,overflowY:'auto'}}>
           <div style={{padding:'12px 16px 6px',fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase'}}>Cliente ativo</div>
           <select value={activeId||''} onChange={e=>setActiveId(e.target.value)} style={{margin:'8px 12px',padding:'6px 10px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,width:'calc(100% - 24px)'}}>
@@ -189,15 +189,14 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('diagnostico','🔍','Diagnóstico')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
+            {navItem('planos','💳','Planos')}
             {navItem('calculadoras','📊','Calculadoras')}
           </nav>
           {clientes.length===0 && <div style={{margin:12,padding:10,background:'#fef9c3',borderRadius:8,fontSize:11,color:'#854d0e',lineHeight:1.5}}>Nenhum cliente cadastrado. Clique em <strong>Novo cliente</strong> para começar!</div>}
         </div>
 
-        {/* CONTENT */}
         <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'28px 32px',background:'#f0f2f5',minWidth:0}}>
 
-          {/* PAINEL */}
           {page==='painel' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Painel Geral</div>
             <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Visão consolidada dos casos em andamento.</div>
@@ -243,7 +242,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )}
           </div>}
 
-          {/* CLIENTES */}
           {page==='clientes' && <div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div style={{fontSize:22,fontWeight:700,color:'#1e293b'}}>Clientes cadastrados</div>
@@ -271,7 +269,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )})}
           </div>}
 
-          {/* NOVO CLIENTE */}
           {page==='novo-cliente' && novoCliente && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:20}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
             <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:20,marginBottom:16}}>
@@ -280,12 +277,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 {[['Razão Social *','razao_social'],['Nome Fantasia','nome_fantasia'],['CNPJ *','cnpj'],['CNAE Principal','cnae_principal'],['CNAEs Secundários (separados por vírgula)','cnaes_secundarios'],['Inscrição Estadual','inscricao_estadual'],['Inscrição Municipal','inscricao_municipal'],['Município','municipio'],['UF','uf']].map(([lb,k])=>(
                   <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
                     <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
-                    <input
-                      value={novoCliente[k]||''}
-                      onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})}
+                    <input value={novoCliente[k]||''} onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})}
                       placeholder={k==='cnaes_secundarios'?'Ex: 47.71-7-01, 47.72-1-00':k==='inscricao_estadual'?'Digite com pontos e traços conforme seu estado':k==='inscricao_municipal'?'Digite com pontos e traços conforme seu município':''}
-style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}
-                    />
+                      style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
                   </div>
                 ))}
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -325,7 +319,6 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
             </div>
           </div>}
 
-          {/* CHECKLIST */}
           {page==='checklist' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Checklist documental — {active?.razao_social}</div>
             <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Regime: {active?.regime} · Marque os documentos já obtidos.</div>
@@ -346,7 +339,6 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
             </div>
           </div>}
 
-          {/* ENTRADA */}
           {page==='entrada' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Entrada de dados — {active?.razao_social}</div>
             <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>Insira os dados por competência.</div>
@@ -393,7 +385,6 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
             ))}
           </div>}
 
-          {/* DIAGNÓSTICO */}
           {page==='diagnostico' && <div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
               <div>
@@ -437,7 +428,6 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
             </>}
           </div>}
 
-          {/* PRAZOS */}
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
             <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>{active?.razao_social} — prazo de 5 anos contados do pagamento indevido.</div>
@@ -456,11 +446,14 @@ style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13
             })}
           </div>}
 
-          {/* RELATÓRIO */}
-{page==='relatorio' && <div>
-  <Relatorio active={active} ents={ents} />
-</div>}
-          {/* CALCULADORAS */}
+          {page==='relatorio' && <div>
+            <Relatorio active={active} ents={ents} />
+          </div>}
+
+          {page==='planos' && <div>
+            <Planos user={user} assinatura={null} onVoltar={() => setPage('painel')} />
+          </div>}
+
           {page==='calculadoras' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>📊 Calculadoras Tributárias</div>
             <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Resultados estimados para fins de diagnóstico. Sempre valide com profissional habilitado.</div>
