@@ -76,17 +76,22 @@ export default function Planos({ user, assinatura, onVoltar }) {
     if (error) throw error
 
     // Chama a Edge Function para gerar o link de pagamento
-    const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        plano_id: plano.id,
-        plano_nome: plano.nome,
-        valor: plano.valor,
-        referencia,
-        email_comprador: user.email,
-      }),
-    })
+const { data: { session } } = await supabase.auth.getSession()
+
+const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify({
+    plano_id: plano.id,
+    plano_nome: plano.nome,
+    valor: plano.valor,
+    referencia,
+    email_comprador: user.email,
+  }),
+})
 
     const data = await res.json()
 
