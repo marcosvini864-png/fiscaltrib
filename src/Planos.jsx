@@ -56,50 +56,52 @@ export default function Planos({ user, assinatura, onVoltar }) {
   const [erro, setErro] = useState('')
 
   async function assinar(plano) {
-    setLoading(plano.id)
-    setErro('')
+  setLoading(plano.id)
+  setErro('')
 
-    try {
-      // Gera referência única
-      const referencia = `FISCALTRIB-${user.id.slice(0, 8).toUpperCase()}-${Date.now()}`
+  try {
+    const referencia = `FISCALTRIB-${user.id.slice(0, 8).toUpperCase()}-${Date.now()}`
 
-      // Salva assinatura pendente no Supabase
-      const { error } = await supabase.from('assinaturas').upsert({
-        usuario_id: user.id,
-        plano: plano.id,
+    // Salva assinatura pendente no Supabase
+    const { error } = await supabase.from('assinaturas').upsert({
+      usuario_id: user.id,
+      plano: plano.id,
+      valor: plano.valor,
+      status: 'pendente',
+      ativo: false,
+      referencia,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'usuario_id' })
+
+    if (error) throw error
+
+    // Chama a Edge Function para gerar o link de pagamento
+    const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plano_id: plano.id,
+        plano_nome: plano.nome,
         valor: plano.valor,
-        status: 'pendente',
-        ativo: false,
         referencia,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'usuario_id' })
+        email_comprador: user.email,
+      }),
+    })
 
-      if (error) throw error
+    const data = await res.json()
 
-      // Redireciona para o PagBank com os dados do plano
-      const email = user.email
-      const params = new URLSearchParams({
-        email: 'worldmktdigitali@gmail.com',
-        currency: 'BRL',
-        itemId1: plano.id,
-        itemDescription1: `FiscalTrib - Plano ${plano.nome}`,
-        itemAmount1: plano.valor.toFixed(2),
-        itemQuantity1: '1',
-        reference: referencia,
-        senderEmail: email,
-        redirectURL: 'https://fiscaltrib.com.br',
-        notificationURL: 'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-webhook',
-      })
+    if (!res.ok || !data.link) throw new Error(data.error ?? 'Link não gerado')
 
-      window.open(`https://pagseguro.uol.com.br/v2/checkout/payment.html?${params.toString()}`, '_blank')
+    // Redireciona para o checkout do PagBank
+    window.open(data.link, '_blank')
 
-    } catch (err) {
-      setErro('Erro ao processar. Tente novamente.')
-      console.error(err)
-    } finally {
-      setLoading(null)
-    }
+  } catch (err) {
+    setErro('Erro ao processar. Tente novamente.')
+    console.error(err)
+  } finally {
+    setLoading(null)
   }
+}
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 28 }}>
