@@ -105,67 +105,44 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
     return (
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
         <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #16a34a', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-
-          {/* Topo */}
           <div style={{ background: '#16a34a', padding: '16px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: 12, color: '#fff', fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>PASSO 1 DE 2</div>
             <div style={{ fontSize: 22, color: '#fff', fontWeight: 800 }}>Taxa de Adesão via PIX</div>
             <div style={{ fontSize: 36, color: '#fff', fontWeight: 900, marginTop: 4 }}>R$ 300,00</div>
             <div style={{ fontSize: 13, color: '#dcfce7', marginTop: 4 }}>Pagamento único — não recorrente</div>
           </div>
-
           <div style={{ padding: '24px 28px' }}>
-
-            {/* Instrução */}
             <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '14px 18px', marginBottom: 20, fontSize: 14, color: '#166534', lineHeight: 1.9 }}>
               <strong>Como pagar:</strong><br />
               1. Abra o app do seu banco<br />
               2. Acesse a opção <strong>PIX → Pagar</strong><br />
-              3. Cole a chave abaixo ou escaneie o QR Code<br />
+              3. Cole a chave abaixo<br />
               4. Confirme o valor de <strong>R$ 300,00</strong><br />
               5. Após o pagamento, clique em <strong>"Já paguei o PIX"</strong>
             </div>
-
-            {/* Chave PIX */}
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, fontWeight: 700, letterSpacing: 0.5 }}>CHAVE PIX (chave aleatória):</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, padding: '12px 14px', fontSize: 13, color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                   {PIX_CHAVE}
                 </div>
-                <button
-                  onClick={copiarPix}
-                  style={{ padding: '12px 16px', background: copiado ? '#16a34a' : '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                >
+                <button onClick={copiarPix} style={{ padding: '12px 16px', background: copiado ? '#16a34a' : '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {copiado ? '✓ Copiado!' : 'Copiar'}
                 </button>
               </div>
             </div>
-
-            {/* Beneficiário */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#64748b', lineHeight: 1.8 }}>
               <strong style={{ color: '#374151' }}>Beneficiário:</strong> Marcos Vinicius Alexandre de Souza<br />
               <strong style={{ color: '#374151' }}>Valor:</strong> R$ 300,00<br />
               <strong style={{ color: '#374151' }}>Descrição:</strong> {ADESAO_LABEL} — Plano {planoSelecionado.nome}
             </div>
-
-            {/* Aviso */}
             <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 7, padding: '12px 16px', marginBottom: 24, fontSize: 13, color: '#854d0e', textAlign: 'center', lineHeight: 1.6 }}>
               ⏱️ Após o pagamento, seu acesso será liberado em até <strong>2 horas</strong> pelo WhatsApp ou e-mail cadastrado.
             </div>
-
-            {/* Botão principal */}
-            <button
-              onClick={irParaCartao}
-              style={{ width: '100%', padding: '14px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}
-            >
+            <button onClick={irParaCartao} style={{ width: '100%', padding: '14px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
               ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
             </button>
-
-            <button
-              onClick={() => setEtapa('planos')}
-              style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
-            >
+            <button onClick={() => setEtapa('planos')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
               ← Voltar e escolher outro plano
             </button>
           </div>
@@ -192,16 +169,10 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 7, padding: '12px 16px', marginBottom: 24, fontSize: 13, color: '#854d0e', textAlign: 'center' }}>
               ✅ PIX de adesão pago + cartão cadastrado = acesso liberado em até 2 horas!
             </div>
-            <button
-              onClick={() => window.open(planoSelecionado?.link, '_blank')}
-              style={{ width: '100%', padding: '14px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}
-            >
+            <button onClick={() => window.open(planoSelecionado?.link, '_blank')} style={{ width: '100%', padding: '14px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
               Abrir formulário do cartão novamente
             </button>
-            <button
-              onClick={() => setEtapa('pix')}
-              style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
-            >
+            <button onClick={() => setEtapa('pix')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
               ← Voltar para o PIX
             </button>
           </div>
@@ -217,29 +188,20 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e3a5f', marginBottom: 4 }}>
           Escolha seu plano
         </h2>
-        <p style={{ fontSize: 12, color: '#64748b' }}>
+        <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
           Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
         </p>
-        <div style={{ display: 'inline-block', background: '#fefce8', border: '1px solid #fde047', borderRadius: 6, padding: '6px 14px', marginTop: 8, fontSize: 11, color: '#854d0e' }}>
-          💳 Taxa de adesão única: <strong>R$ 300,00 via PIX</strong> + mensalidade recorrente no cartão
+        <div style={{ background: '#fefce8', border: '2px solid #f0b429', borderRadius: 10, padding: '16px 24px', maxWidth: 620, margin: '0 auto' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#854d0e', marginBottom: 6 }}>
+            💳 Pague agora a taxa de adesão única de R$ 300,00 via PIX
+          </div>
+          <div style={{ fontSize: 14, color: '#92400e', lineHeight: 1.6 }}>
+            Em seguida, formalize a contratação do seu plano pelo cartão de crédito para ter acesso ao sistema.
+          </div>
         </div>
       </div>
 
-      {assinatura && (
-        <div style={{ background: assinatura.ativo ? '#f0fdf4' : '#fef9c3', border: `1px solid ${assinatura.ativo ? '#86efac' : '#fde047'}`, borderRadius: 7, padding: '8px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 14 }}>{assinatura.ativo ? '✅' : '⚠️'}</span>
-          <div>
-            <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 12 }}>
-              Plano atual: {assinatura.plano?.charAt(0).toUpperCase() + assinatura.plano?.slice(1)} — {fmtR(assinatura.valor)}/mês
-            </div>
-            <div style={{ fontSize: 10, color: '#64748b' }}>
-              Status: {assinatura.ativo ? 'Ativo ✅' : 'Pagamento pendente ⚠️'}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginTop: 20 }}>
         {PLANOS.map(plano => (
           <div key={plano.id} style={{
             background: '#fff',
@@ -271,16 +233,9 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 onClick={() => selecionarPlano(plano)}
                 disabled={loading === plano.id}
                 style={{
-                  width: '100%',
-                  padding: '9px 0',
-                  background: plano.corTopo,
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: loading === plano.id ? 'wait' : 'pointer',
-                  opacity: loading === plano.id ? 0.7 : 1,
+                  width: '100%', padding: '9px 0', background: plano.corTopo, color: '#fff',
+                  border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700,
+                  cursor: loading === plano.id ? 'wait' : 'pointer', opacity: loading === plano.id ? 0.7 : 1,
                 }}
               >
                 {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
@@ -297,6 +252,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         </div>
       )}
 
+      {/* Rodapé segurança */}
       <div style={{ marginTop: 16, padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7 }}>
         <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.9, textAlign: 'center' }}>
           🔒 <strong>Pagamento seguro</strong> via PagBank &nbsp;•&nbsp;
@@ -304,6 +260,21 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           ❌ <strong>Cancele quando quiser</strong> com 30 dias de antecedência &nbsp;•&nbsp;
           ✅ Sem multas ou taxas adicionais
         </div>
+      </div>
+
+      {/* Contato comercial */}
+      <div style={{ marginTop: 12, padding: '12px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: '#1e40af', fontWeight: 700, marginBottom: 4 }}>
+          Dúvidas? Fale com nosso Departamento Comercial
+        </div>
+        
+          href="https://wa.me/5511999579822"
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 14, color: '#16a34a', fontWeight: 800, textDecoration: 'none' }}
+        >
+          📲 WhatsApp: (11) 99957-9822
+        </a>
       </div>
 
       <div style={{ marginTop: 10, textAlign: 'center' }}>
