@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrb2R5aHh1a3ZjbGd6eWR2enR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTU1OTEsImV4cCI6MjA5Njg3MTU5MX0.X_02n8Hy0LaFoZQmLdGwjIA_LixYkMlxeVaMay4rRfg'
-
 const PLANOS = [
   {
     id: 'essencial',
@@ -17,6 +15,7 @@ const PLANOS = [
     ],
     cor: '#1e3a5f',
     destaque: false,
+    link: 'https://pag.ae/81U7vb14m',
   },
   {
     id: 'avancado',
@@ -32,6 +31,7 @@ const PLANOS = [
     ],
     cor: '#b48c3c',
     destaque: true,
+    link: 'https://pag.ae/81U7xKDCG',
   },
   {
     id: 'premium',
@@ -48,6 +48,7 @@ const PLANOS = [
     ],
     cor: '#1e3a5f',
     destaque: false,
+    link: 'https://pag.ae/81U7yz3Km',
   },
 ]
 
@@ -76,29 +77,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
       if (error) throw error
 
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': ANON_KEY,
-          'Authorization': `Bearer ${session?.access_token ?? ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          plano_id: plano.id,
-          plano_nome: plano.nome,
-          valor: plano.valor,
-          referencia,
-          email_comprador: user.email,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok || !data.link) throw new Error(data.error ?? 'Link não gerado')
-
-      window.open(data.link, '_blank')
+      window.open(plano.link, '_blank')
       if (onPagamentoIniciado) onPagamentoIniciado()
 
     } catch (err) {
