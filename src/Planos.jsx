@@ -51,66 +51,63 @@ const PLANOS = [
 
 const fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
-export default function Planos({ user, assinatura, onVoltar }) {
+export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado }) {
   const [loading, setLoading] = useState(null)
   const [erro, setErro] = useState('')
 
   async function assinar(plano) {
-  setLoading(plano.id)
-  setErro('')
+    setLoading(plano.id)
+    setErro('')
 
-  try {
-    const referencia = `FISCALTRIB-${user.id.slice(0, 8).toUpperCase()}-${Date.now()}`
+    try {
+      const referencia = `FISCALTRIB-${user.id.slice(0, 8).toUpperCase()}-${Date.now()}`
 
-    // Salva assinatura pendente no Supabase
-    const { error } = await supabase.from('assinaturas').upsert({
-      usuario_id: user.id,
-      plano: plano.id,
-      valor: plano.valor,
-      status: 'pendente',
-      ativo: false,
-      referencia,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'usuario_id' })
+      const { error } = await supabase.from('assinaturas').upsert({
+        usuario_id: user.id,
+        plano: plano.id,
+        valor: plano.valor,
+        status: 'pendente',
+        ativo: false,
+        referencia,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'usuario_id' })
 
-    if (error) throw error
+      if (error) throw error
 
-    // Chama a Edge Function para gerar o link de pagamento
-const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession()
 
-const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
-  },
-  body: JSON.stringify({
-    plano_id: plano.id,
-    plano_nome: plano.nome,
-    valor: plano.valor,
-    referencia,
-    email_comprador: user.email,
-  }),
-})
+      const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          plano_id: plano.id,
+          plano_nome: plano.nome,
+          valor: plano.valor,
+          referencia,
+          email_comprador: user.email,
+        }),
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (!res.ok || !data.link) throw new Error(data.error ?? 'Link não gerado')
+      if (!res.ok || !data.link) throw new Error(data.error ?? 'Link não gerado')
 
-    // Redireciona para o checkout do PagBank
-    window.open(data.link, '_blank')
+      window.open(data.link, '_blank')
+      if (onPagamentoIniciado) onPagamentoIniciado()
 
-  } catch (err) {
-    setErro('Erro ao processar. Tente novamente.')
-    console.error(err)
-  } finally {
-    setLoading(null)
+    } catch (err) {
+      setErro('Erro ao processar. Tente novamente.')
+      console.error(err)
+    } finally {
+      setLoading(null)
+    }
   }
-}
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 28 }}>
-      {/* Cabeçalho */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h2 style={{ fontSize: 26, fontWeight: 700, color: '#1e3a5f', marginBottom: 8 }}>
           Escolha seu plano
@@ -120,7 +117,6 @@ const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/p
         </p>
       </div>
 
-      {/* Assinatura atual */}
       {assinatura && (
         <div style={{ background: assinatura.ativo ? '#f0fdf4' : '#fef9c3', border: `1px solid ${assinatura.ativo ? '#86efac' : '#fde047'}`, borderRadius: 10, padding: '12px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>{assinatura.ativo ? '✅' : '⚠️'}</span>
@@ -135,7 +131,6 @@ const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/p
         </div>
       )}
 
-      {/* Cards de planos */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
         {PLANOS.map(plano => (
           <div key={plano.id} style={{
