@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || ''
+
 const PLANOS = [
   {
     id: 'essencial',
@@ -76,13 +78,14 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
       const { data: { session } } = await supabase.auth.getSession()
 
-      if (!session) throw new Error('Sessão expirada. Faça login novamente.')
+      const anonKey = import.meta.env.VITE_SUPABASE_KEY
 
       const res = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/pagbank-checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anonKey,
+          'Authorization': `Bearer ${session?.access_token ?? anonKey}`,
         },
         body: JSON.stringify({
           plano_id: plano.id,

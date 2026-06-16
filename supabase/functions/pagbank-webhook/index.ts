@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const PAGBANK_TOKEN = Deno.env.get('PAGBANK_TOKEN') ?? ''
-const PAGBANK_API = 'https://sandbox.api.pagseguro.com' // troca para https://api.pagseguro.com quando for produção
+const PAGBANK_API = 'https://api.pagseguro.com'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -26,7 +26,7 @@ serve(async (req) => {
           reference_id: plano_id,
           name: `FiscalTrib - Plano ${plano_nome}`,
           quantity: 1,
-          unit_amount: Math.round(valor * 100), // PagBank usa centavos
+          unit_amount: Math.round(valor * 100),
         },
       ],
       payment_methods: [
@@ -56,10 +56,9 @@ serve(async (req) => {
       throw new Error(JSON.stringify(data))
     }
 
-    // Pega o link de pagamento retornado pelo PagBank
     const link = data.links?.find((l: any) => l.rel === 'PAY')?.href ?? null
 
-    return new Response(JSON.stringify({ link, order_id: data.id }), {
+    return new Response(JSON.stringify({ link, order_id: data.id, debug: data }), {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
