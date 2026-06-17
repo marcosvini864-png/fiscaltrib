@@ -186,6 +186,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           <a href="https://wa.me/5511999579822?text=Olá, gostaria de saber mais sobre o FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#4ade80',fontSize:12,fontWeight:700,textDecoration:'none'}}>📲 Vendas</a>
           <a href="mailto:contato@fiscaltrib.com.br" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>📧 Contato</a>
           <a href="https://wa.me/5511999579822?text=Preciso de suporte no FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>🎧 Suporte</a>
+		  <a href="mailto:contato@fiscaltrib.com.br" style={{color:'#9db8d8',fontSize:11,fontWeight:600,textDecoration:'none'}}>✉️ contato@fiscaltrib.com.br</a>
           <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{background:'#16a34a',color:'#fff',fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:6,textDecoration:'none'}}>💬 (11) 99957-9822</a>
         </div>
         <span style={{fontSize:13,color:'#f0c040'}}>👤 {nomeUsuario || 'Usuário'}</span>

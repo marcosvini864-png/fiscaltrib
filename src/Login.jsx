@@ -21,10 +21,20 @@ export default function Login({ onLogin, onCadastro }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#1e3a5f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+    <div style={{ minHeight: '100vh', background: '#1e3a5f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
 
-        <h1 style={{ textAlign: 'center', color: '#1e3a5f', marginBottom: 8 }}>FiscalTrib</h1>
+      {/* Card de login */}
+      <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <img
+            src="/Logo FiscalTrib.png/image.png"
+            alt="e-FiscalTrib"
+            style={{ height: 80, objectFit: 'contain' }}
+          />
+        </div>
+
         <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 24 }}>
           Sistema de Diagnóstico e Recuperação Tributária
         </p>
@@ -63,7 +73,7 @@ export default function Login({ onLogin, onCadastro }) {
           Criar nova conta
         </button>
 
-        {/* Aviso para quem já se cadastrou mas não pagou */}
+        {/* Retomar pagamento */}
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20, textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: '#64748b', marginBottom: 10 }}>
             Já se cadastrou mas não conseguiu efetuar o pagamento?
@@ -79,7 +89,32 @@ export default function Login({ onLogin, onCadastro }) {
           </p>
         </div>
 
+        {/* Contato */}
+        <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 20, paddingTop: 16, textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>Dúvidas? Fale conosco:</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+            <a
+              href="https://wa.me/5511999579822"
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16a34a', color: '#fff', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+            >
+              📲 (11) 99957-9822
+            </a>
+            <a
+              href="mailto:contato@fiscaltrib.com.br"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#1e3a5f', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+            >
+              ✉️ contato@fiscaltrib.com.br
+            </a>
+          </div>
+        </div>
       </div>
+
+      {/* Rodapé */}
+      <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20 }}>
+        © 2026 e-FiscalTrib® — Todos os direitos reservados
+      </p>
     </div>
   )
 }
