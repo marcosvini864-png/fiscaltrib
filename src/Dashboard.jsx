@@ -194,7 +194,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('score','🎯','Score Fiscal')}
             {navItem('teses','🏛️','Teses Tributárias')}
             {navItem('monitor','📅','Monitor de Obrigações')}
-            {navItem('central','📥','Central de Importações')}
+            {navItem('importacoes','📥','Central de Importações')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -286,7 +286,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                   <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
                     <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
                     <input value={novoCliente[k]||''} onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})}
-                      placeholder={k==='cnaes_secundarios'?'Ex: 47.71-7-01, 47.72-1-00':k==='inscricao_estadual'?'Digite com pontos e traços conforme seu estado':k==='inscricao_municipal'?'Digite com pontos e traços conforme seu município':''}
                       style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
                   </div>
                 ))}
@@ -440,6 +439,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='score' && <ScoreFiscal />}
           {page==='teses' && <TesesTributarias />}
           {page==='monitor' && <MonitorObrigacoes />}
+          {page==='importacoes' && <CentralImportacoes />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
