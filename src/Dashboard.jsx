@@ -5,6 +5,7 @@ import Planos from './Planos'
 import ScoreFiscal from './ScoreFiscal'
 import TesesTributarias from './TesesTributarias'
 import MonitorObrigacoes from './MonitorObrigacoes'
+import CentralImportacoes from './CentralImportacoes'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -193,6 +194,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('score','🎯','Score Fiscal')}
             {navItem('teses','🏛️','Teses Tributárias')}
             {navItem('monitor','📅','Monitor de Obrigações')}
+            {navItem('central','📥','Central de Importações')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
