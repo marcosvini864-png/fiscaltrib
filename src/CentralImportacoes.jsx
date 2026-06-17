@@ -197,8 +197,10 @@ const ABAS = [
 
 // ─── COMPONENTE PRINCIPAL ───────────────────────────────────────────────────
 
-export default function CentralImportacoes() {
-  const [aba, setAba] = useState('nfe')
+export default function CentralImportacoes({ abaInicial = 'nfe' }) {
+  const [aba, setAba] = useState(abaInicial)
+
+  useEffect(() => { setAba(abaInicial) }, [abaInicial])
   const [clientes, setClientes] = useState([])
   const [clienteId, setClienteId] = useState('')
 

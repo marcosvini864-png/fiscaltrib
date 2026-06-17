@@ -36,6 +36,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [novaEntrada, setNovaEntrada] = useState({competencia:'',tributo:'',receita_bruta:'',tributo_pago:'',tributo_devido:'',tipo_oportunidade:'',risco:'baixo'})
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [abaImportacao, setAbaImportacao] = useState('nfe')
 
   useEffect(() => { carregarClientes() }, [])
 
@@ -132,12 +133,20 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const done = checks.filter(Boolean).length
   const pct = docs.length ? Math.round(done / docs.length * 100) : 0
 
-  const navItem = (id, icon, label) => (
-    <div onClick={() => { if (id === 'novo-cliente') setNovoCliente({ ...CLIENTE_VAZIO }); setPage(id) }}
-      style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 16px', fontSize:13, color:page===id?'#1e3a5f':'#475569', cursor:'pointer', borderLeft:`3px solid ${page===id?'#1e3a5f':'transparent'}`, background:page===id?'#eff6ff':'transparent', fontWeight:page===id?600:400 }}>
-      <span style={{ fontSize:16, width:20, textAlign:'center' }}>{icon}</span>{label}
-    </div>
-  )
+  const navItem = (id, icon, label) => {
+    const abaMap = { imp_nfe: 'nfe', imp_pgdas: 'pgdas', imp_dctfweb: 'dctfweb', imp_sped_f: 'sped_f', imp_sped_c: 'sped_c', imp_ecf: 'ecf', imp_debitos: 'debitos' }
+    const isSubItem = id.startsWith('imp_') && id !== 'importacoes'
+    return (
+      <div onClick={() => {
+        if (id === 'novo-cliente') setNovoCliente({ ...CLIENTE_VAZIO })
+        if (abaMap[id]) { setAbaImportacao(abaMap[id]); setPage('importacoes') }
+        else setPage(id)
+      }}
+        style={{ display:'flex', alignItems:'center', gap:10, padding: isSubItem ? '7px 16px 7px 32px' : '9px 16px', fontSize: isSubItem ? 12 : 13, color:page===id||(id.startsWith('imp_')&&page==='importacoes'&&abaMap[id]===abaImportacao)?'#1e3a5f':'#475569', cursor:'pointer', borderLeft:`3px solid ${page===id||(id.startsWith('imp_')&&page==='importacoes'&&abaMap[id]===abaImportacao)?'#1e3a5f':'transparent'}`, background:page===id||(id.startsWith('imp_')&&page==='importacoes'&&abaMap[id]===abaImportacao)?'#eff6ff':'transparent', fontWeight:page===id||(id.startsWith('imp_')&&page==='importacoes'&&abaMap[id]===abaImportacao)?600:400 }}>
+        <span style={{ fontSize: isSubItem ? 13 : 16, width:20, textAlign:'center' }}>{icon}</span>{label}
+      </div>
+    )
+  }
 
   const badge = regime => { const colors = {'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'}; const [bg,color] = (colors[regime]||'#f1f5f9|#475569').split('|'); return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {regime}</span> }
   const riskBadge = r => { const c = r==='baixo'?'#dcfce7|#166534':r==='medio'?'#fef9c3|#854d0e':'#fee2e2|#991b1b'; const [bg,color]=c.split('|'); return <span style={{background:bg,color,padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{r}</span> }
@@ -195,6 +204,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('teses','🏛️','Teses Tributárias')}
             {navItem('monitor','📅','Monitor de Obrigações')}
             {navItem('importacoes','📥','Central de Importações')}
+            {navItem('imp_nfe','🧾','↳ NF-e XML')}
+            {navItem('imp_pgdas','📋','↳ PGDAS-D')}
+            {navItem('imp_dctfweb','📑','↳ DCTFWeb')}
+            {navItem('imp_sped_f','📂','↳ SPED Fiscal')}
+            {navItem('imp_sped_c','📂','↳ SPED Contribuições')}
+            {navItem('imp_ecf','📊','↳ ECD / ECF')}
+            {navItem('imp_debitos','⚠️','↳ Extrato Débitos')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -439,7 +455,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='score' && <ScoreFiscal />}
           {page==='teses' && <TesesTributarias />}
           {page==='monitor' && <MonitorObrigacoes />}
-          {page==='importacoes' && <CentralImportacoes />}
+          {page==='importacoes' && <CentralImportacoes abaInicial={abaImportacao} />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
