@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
 import Planos from './Planos'
+import ScoreFiscal from './ScoreFiscal'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -187,6 +188,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('checklist','✅','Checklist')}
             {navItem('entrada','📥','Entrada de dados')}
             {navItem('diagnostico','🔍','Diagnóstico')}
+            {navItem('score','🎯','Score Fiscal')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -392,6 +394,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 <div style={{fontSize:13,color:'#64748b'}}>{active?.razao_social} · {active?.cnpj} · {active?.regime}</div>
               </div>
               <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setPage('score')} style={{padding:'6px 14px',border:'1.5px solid #7c3aed',borderRadius:6,background:'#fff',color:'#7c3aed',fontSize:13,cursor:'pointer'}}>🎯 Score Fiscal</button>
                 <button onClick={()=>setPage('relatorio')} style={{padding:'6px 14px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:13,cursor:'pointer'}}>📄 Ver relatório</button>
                 <button onClick={()=>setPage('entrada')} style={{padding:'6px 14px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:13,cursor:'pointer'}}>+ Adicionar dados</button>
               </div>
@@ -427,6 +430,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               </div>
             </>}
           </div>}
+
+          {page==='score' && <ScoreFiscal />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
