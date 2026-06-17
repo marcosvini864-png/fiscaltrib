@@ -31,7 +31,7 @@ export default function Login({ onLogin, onCadastro }) {
           <img
             src="/Logo3.png"
             alt="e-FiscalTrib"
-            style={{ height: 80, objectFit: 'contain' }}
+            style={{ height: 110, objectFit: 'contain' }}
           />
         </div>
 
