@@ -290,7 +290,7 @@ export default function TesesTributarias() {
 
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: 12, color: '#9db8d8', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 8, lineHeight: 1.2, color: '#fff' }}>
             🏛️ Painel de Teses Tributárias
           </h1>
           <p style={{ fontSize: 16, color: '#9db8d8', marginBottom: 32, lineHeight: 1.6, maxWidth: 560 }}>
