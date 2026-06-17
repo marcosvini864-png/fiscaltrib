@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import Relatorio from './Relatorio'
 import Planos from './Planos'
 import ScoreFiscal from './ScoreFiscal'
+import TesesTributarias from './TesesTributarias'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -189,6 +190,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('entrada','📥','Entrada de dados')}
             {navItem('diagnostico','🔍','Diagnóstico')}
             {navItem('score','🎯','Score Fiscal')}
+            {navItem('teses','🏛️','Teses Tributárias')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -432,6 +434,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </div>}
 
           {page==='score' && <ScoreFiscal />}
+          {page==='teses' && <TesesTributarias />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
