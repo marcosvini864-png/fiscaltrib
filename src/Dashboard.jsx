@@ -6,6 +6,7 @@ import ScoreFiscal from './ScoreFiscal'
 import TesesTributarias from './TesesTributarias'
 import MonitorObrigacoes from './MonitorObrigacoes'
 import CentralImportacoes from './CentralImportacoes'
+import GestaoRecuperacoes from './GestaoRecuperacoes'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -180,15 +181,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
       <div style={{background:'#1e3a5f',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
-        <img src="/Logo FiscalTrib.png/image.png" alt="e-FiscalTrib" style={{height:38,borderRadius:6}} />
+        <span style={{fontSize:18,fontWeight:700}}>🏛 FiscalTrib</span>
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
-        <div style={{display:'flex',alignItems:'center',gap:16,marginLeft:'auto'}}>
-          <a href="https://wa.me/5511999579822?text=Olá, gostaria de saber mais sobre o FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#4ade80',fontSize:12,fontWeight:700,textDecoration:'none'}}>📲 Vendas</a>
-          <a href="mailto:contato@fiscaltrib.com.br" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>📧 Contato</a>
-          <a href="https://wa.me/5511999579822?text=Preciso de suporte no FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>🎧 Suporte</a>
-		  <a href="mailto:contato@fiscaltrib.com.br" style={{color:'#9db8d8',fontSize:11,fontWeight:600,textDecoration:'none'}}>✉️ contato@fiscaltrib.com.br</a>
-          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{background:'#16a34a',color:'#fff',fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:6,textDecoration:'none'}}>💬 (11) 99957-9822</a>
-        </div>
         <span style={{fontSize:13,color:'#f0c040'}}>👤 {nomeUsuario || 'Usuário'}</span>
         {onAdmin && <button onClick={onAdmin} style={{background:'#f0b429',border:'none',color:'#0f172a',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:'bold'}}>⚙️ Admin</button>}
         <button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
@@ -218,6 +212,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('imp_sped_c','📂','↳ SPED Contribuições')}
             {navItem('imp_ecf','📊','↳ ECD / ECF')}
             {navItem('imp_debitos','⚠️','↳ Extrato Débitos')}
+            {navItem('recuperacoes','💼','Gestão de Recuperações')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -462,7 +457,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='score' && <ScoreFiscal />}
           {page==='teses' && <TesesTributarias />}
           {page==='monitor' && <MonitorObrigacoes />}
-          {page==='importacoes' && <CentralImportacoes abaInicial={abaImportacao} />}
+          {page==='importacoes' && <CentralImportacoes
+            abaInicial={abaImportacao}
+            onDiagnostico={() => setPage('diagnostico')}
+            onRelatorio={() => setPage('relatorio')}
+            onRecuperacao={() => setPage('recuperacoes')}
+          />}
+          {page==='recuperacoes' && <GestaoRecuperacoes />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
