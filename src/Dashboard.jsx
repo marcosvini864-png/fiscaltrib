@@ -8,6 +8,7 @@ import MonitorObrigacoes from './MonitorObrigacoes'
 import CentralImportacoes from './CentralImportacoes'
 import GestaoRecuperacoes from './GestaoRecuperacoes'
 import AnaliseFiscal from './AnaliseFiscal'
+import PerdComp from './PerdComp'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -215,6 +216,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('imp_ecf','📊','↳ ECD / ECF')}
             {navItem('imp_debitos','⚠️','↳ Extrato Débitos')}
             {navItem('recuperacoes','💼','Gestão de Recuperações')}
+            {navItem('perdcomp','📤','PER/DCOMP')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
             {navItem('planos','💳','Planos')}
@@ -467,6 +469,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             onRecuperacao={() => setPage('recuperacoes')}
           />}
           {page==='recuperacoes' && <GestaoRecuperacoes />}
+          {page==='perdcomp' && <PerdComp />}
 
           {page==='prazos' && <div>
             <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle de prazos prescricionais</div>
