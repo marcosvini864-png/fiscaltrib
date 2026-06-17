@@ -182,7 +182,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       <div style={{background:'#1e3a5f',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
         <img src="/Logo FiscalTrib.png/image.png" alt="e-FiscalTrib" style={{height:38,borderRadius:6}} />
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
-        <span style={{fontSize:11,color:'#9db8d8'}}>| contato@fiscaltrib.com.br</span>
+        <div style={{display:'flex',alignItems:'center',gap:16,marginLeft:'auto'}}>
+          <a href="https://wa.me/5511999579822?text=Olá, gostaria de saber mais sobre o FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#4ade80',fontSize:12,fontWeight:700,textDecoration:'none'}}>📲 Vendas</a>
+          <a href="mailto:contato@fiscaltrib.com.br" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>📧 Contato</a>
+          <a href="https://wa.me/5511999579822?text=Preciso de suporte no FiscalTrib!" target="_blank" rel="noreferrer" style={{color:'#9db8d8',fontSize:12,fontWeight:700,textDecoration:'none'}}>🎧 Suporte</a>
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{background:'#16a34a',color:'#fff',fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:6,textDecoration:'none'}}>💬 (11) 99957-9822</a>
+        </div>
         <span style={{fontSize:13,color:'#f0c040'}}>👤 {nomeUsuario || 'Usuário'}</span>
         {onAdmin && <button onClick={onAdmin} style={{background:'#f0b429',border:'none',color:'#0f172a',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:'bold'}}>⚙️ Admin</button>}
         <button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
