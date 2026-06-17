@@ -180,8 +180,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
       <div style={{background:'#1e3a5f',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
-        <span style={{fontSize:18,fontWeight:700}}>🏛 FiscalTrib</span>
+        <img src="/Logo FiscalTrib.png/image.png" alt="e-FiscalTrib" style={{height:38,borderRadius:6}} />
         <span style={{fontSize:13,color:'#9db8d8',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
+        <span style={{fontSize:11,color:'#9db8d8'}}>| contato@fiscaltrib.com.br</span>
         <span style={{fontSize:13,color:'#f0c040'}}>👤 {nomeUsuario || 'Usuário'}</span>
         {onAdmin && <button onClick={onAdmin} style={{background:'#f0b429',border:'none',color:'#0f172a',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:'bold'}}>⚙️ Admin</button>}
         <button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #9db8d8',color:'#9db8d8',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
