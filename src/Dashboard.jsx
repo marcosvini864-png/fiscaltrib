@@ -7,6 +7,7 @@ import TesesTributarias from './TesesTributarias'
 import MonitorObrigacoes from './MonitorObrigacoes'
 import CentralImportacoes from './CentralImportacoes'
 import GestaoRecuperacoes from './GestaoRecuperacoes'
+import AnaliseFiscal from './AnaliseFiscal'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -38,7 +39,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [abaImportacao, setAbaImportacao] = useState('nfe')
-  const [menuImportAberto, setMenuImportAberto] = useState(false)
+
   useEffect(() => { carregarClientes() }, [])
 
   async function carregarClientes() {
@@ -202,23 +203,17 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             {navItem('entrada','📥','Entrada de dados')}
             {navItem('diagnostico','🔍','Diagnóstico')}
             {navItem('score','🎯','Score Fiscal')}
+            {navItem('analise','🔬','Análise Inteligente')}
             {navItem('teses','🏛️','Teses Tributárias')}
             {navItem('monitor','📅','Monitor de Obrigações')}
-            <div onClick={() => setMenuImportAberto(p => !p)}
-              style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',fontSize:13,color:'#475569',cursor:'pointer',borderLeft:'3px solid transparent',background:'transparent',fontWeight:400}}>
-              <span style={{fontSize:16,width:20,textAlign:'center'}}>📥</span>
-              Central de Importações
-              <span style={{marginLeft:'auto',fontSize:11}}>{menuImportAberto ? '▲' : '▼'}</span>
-            </div>
-            {menuImportAberto && <>
-  {navItem('imp_nfe','🧾','↳ NF-e XML')}
-  {navItem('imp_pgdas','📋','↳ PGDAS-D')}
-  {navItem('imp_dctfweb','📑','↳ DCTFWeb')}
-  {navItem('imp_sped_f','📂','↳ SPED Fiscal')}
-  {navItem('imp_sped_c','📂','↳ SPED Contribuições')}
-  {navItem('imp_ecf','📊','↳ ECD / ECF')}
-  {navItem('imp_debitos','⚠️','↳ Extrato Débitos')}
-</>}
+            {navItem('importacoes','📥','Central de Importações')}
+            {navItem('imp_nfe','🧾','↳ NF-e XML')}
+            {navItem('imp_pgdas','📋','↳ PGDAS-D')}
+            {navItem('imp_dctfweb','📑','↳ DCTFWeb')}
+            {navItem('imp_sped_f','📂','↳ SPED Fiscal')}
+            {navItem('imp_sped_c','📂','↳ SPED Contribuições')}
+            {navItem('imp_ecf','📊','↳ ECD / ECF')}
+            {navItem('imp_debitos','⚠️','↳ Extrato Débitos')}
             {navItem('recuperacoes','💼','Gestão de Recuperações')}
             {navItem('prazos','⏳','Prazos')}
             {navItem('relatorio','📄','Relatório')}
@@ -462,6 +457,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </div>}
 
           {page==='score' && <ScoreFiscal />}
+          {page==='analise' && <AnaliseFiscal />}
           {page==='teses' && <TesesTributarias />}
           {page==='monitor' && <MonitorObrigacoes />}
           {page==='importacoes' && <CentralImportacoes
