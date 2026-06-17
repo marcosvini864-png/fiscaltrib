@@ -29,7 +29,7 @@ export default function Login({ onLogin, onCadastro }) {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 8 }}>
           <img
-            src="/logo2.png"
+            src="/Logo3.png"
             alt="e-FiscalTrib"
             style={{ height: 80, objectFit: 'contain' }}
           />
