@@ -126,7 +126,7 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
       style={{
         width: expanded ? 260 : 64,
         minHeight: '100%',
-        background: '#0f172a',
+        background: '#f8fafc',
         display: 'flex',
         flexDirection: 'column',
         transition: 'width 0.22s ease',
@@ -142,13 +142,13 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
         alignItems: 'center',
         justifyContent: expanded ? 'space-between' : 'center',
         padding: expanded ? '16px 14px 12px' : '16px 0 12px',
-        borderBottom: '1px solid #1e293b',
+        borderBottom: '1px solid #e2e8f0',
         minHeight: 56,
         flexShrink: 0,
       }}>
         {expanded && (
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
-            e-FiscalTrib<span style={{ color: '#3b82f6' }}>®</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: '#1e3a5f', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
+            e-FiscalTrib<span style={{ color: '#2563eb' }}>®</span>
           </span>
         )}
         <button
@@ -156,12 +156,12 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
           title={pinned ? 'Recolher menu' : 'Fixar menu'}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: '#475569', fontSize: 16, display: 'flex',
+            color: '#94a3b8', fontSize: 16, display: 'flex',
             alignItems: 'center', justifyContent: 'center',
             padding: 4, borderRadius: 6, transition: 'color 0.15s', flexShrink: 0,
           }}
-          onMouseEnter={e => e.currentTarget.style.color = '#94a3b8'}
-          onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+          onMouseEnter={e => e.currentTarget.style.color = '#1e3a5f'}
+          onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
         >
           {pinned ? '◀' : '▶'}
         </button>
@@ -189,20 +189,23 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
                   background: hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#ffffff',
-                  transition: 'background 0.15s, color 0.15s',
-                  borderLeft: hasActive && !expanded ? '3px solid #3b82f6' : '3px solid transparent',
+                  background: hasActive && !expanded ? '#dbeafe' : 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#1e293b',
+                  transition: 'background 0.15s',
+                  borderLeft: hasActive && !expanded ? '3px solid #2563eb' : '3px solid transparent',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = hasActive && !expanded ? '#dbeafe' : 'none' }}
               >
                 <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1 }}>{group.icon}</span>
                 {expanded && (
                   <>
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.9, whiteSpace: 'nowrap', flex: 1, textAlign: 'left', color: hasActive ? '#ffffff' : '#cbd5e1' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.9, whiteSpace: 'nowrap', flex: 1, textAlign: 'left', color: hasActive ? '#2563eb' : '#64748b' }}>
                       {group.label}
                     </span>
-                    <span style={{ fontSize: 10, color: '#334155', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+                    <span style={{ fontSize: 10, color: '#cbd5e1', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
                   </>
                 )}
               </button>
@@ -231,8 +234,8 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
                           whiteSpace: 'nowrap',
                           transition: 'all 0.12s',
                         }}
-                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#ffffff' } }}
-                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94a3b8' } }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1e3a5f' } }}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#374151' } }}
                       >
                         {item.label}
                       </button>
@@ -247,7 +250,7 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
 
       {/* Footer */}
       {expanded && (
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #1e293b', fontSize: 10, color: '#1e293b', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
           fiscaltrib.com.br
         </div>
       )}
