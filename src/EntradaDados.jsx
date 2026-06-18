@@ -242,7 +242,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
 
       <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:16, padding:'24px 32px', marginBottom:24, color:'#fff' }}>
         <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:6 }}>FISCALTRIB — COLETA INTELIGENTE</div>
-        <h2 style={{ fontSize:22, fontWeight:900, margin:'0 0 6px' }}>📥 Centro de Coleta de Dados</h2>
+        <h2 style={{ fontSize:22, fontWeight:900, margin:'0 0 6px', color:'#fff' }}>📥 Centro de Coleta de Dados</h2>
         <p style={{ fontSize:13, color:'#93c5fd', margin:0 }}>Importe os arquivos fiscais — o sistema preenche tudo automaticamente.</p>
       </div>
 
