@@ -62,114 +62,114 @@ function parseXMLNFe(xmlStr) {
 }
 
 // ─── MOTOR DE TESES AUTOMÁTICO ──────────────────────────────────────────────
+const PERIODOS = [
+  { label: '12 meses', meses: 12 },
+  { label: '24 meses', meses: 24 },
+  { label: '36 meses', meses: 36 },
+  { label: '60 meses', meses: 60 },
+]
+
 function detectarOportunidades(nfes, regime) {
   const oportunidades = []
   let totalVNF = 0, totalVST = 0, totalVPIS = 0, totalVCOFINS = 0
 
-  // Agrupa todos os itens
   const todosItens = nfes.flatMap(n => n.itens || [])
   nfes.forEach(n => { totalVNF += n.vNF; totalVST += n.vST; totalVPIS += n.vPIS; totalVCOFINS += n.vCOFINS })
 
   const meses = [...new Set(nfes.map(n => n.competencia))].length || 1
+  // Média mensal base para projeções
+  const mediaMensal = meses > 0 ? totalVNF / meses : totalVNF
 
   // ── TESE 1: Receitas Monofásicas ──────────────────────────────────────────
   const itensMonofasicos = todosItens.filter(i => NCM_MONOFASICOS.some(ncm => i.ncm.startsWith(ncm)))
   if (itensMonofasicos.length > 0) {
-    const valorMonofasico = itensMonofasicos.reduce((s, i) => s + i.vProd, 0)
-    const pisCofinsIndevido = itensMonofasicos.reduce((s, i) => s + i.vItemPIS + i.vItemCOFINS, 0)
-    const potencial = pisCofinsIndevido > 0 ? pisCofinsIndevido * meses : valorMonofasico * 0.0365 * meses
+    const valorMensal = itensMonofasicos.reduce((s, i) => s + i.vProd, 0) / meses
+    const pisCofinsIndevido = itensMonofasicos.reduce((s, i) => s + i.vItemPIS + i.vItemCOFINS, 0) / meses || valorMensal * 0.0365
+    const projecoes = PERIODOS.map(p => ({ ...p, valor: pisCofinsIndevido * p.meses }))
     const ncmsEncontrados = [...new Set(itensMonofasicos.map(i => i.ncm))].slice(0, 5)
     oportunidades.push({
       tese: 'Receitas Monofásicas',
-      descricao: `${itensMonofasicos.length} produtos com NCM sujeito à alíquota zero de PIS/COFINS foram tributados indevidamente.`,
+      descricao: `${itensMonofasicos.length} produto(s) com NCM sujeito à alíquota zero de PIS/COFINS tributados indevidamente.`,
       ncms: ncmsEncontrados,
       produtos: itensMonofasicos.map(i => i.xProd).slice(0, 3),
-      valorBase: valorMonofasico,
-      potencial,
+      mediaMensal: pisCofinsIndevido,
+      potencial: pisCofinsIndevido * 60,
+      projecoes,
       meses,
-      risco: 'baixo',
-      cor: '#16a34a',
-      icon: '💊',
+      risco: 'baixo', cor: '#16a34a', icon: '💊',
     })
   }
 
   // ── TESE 2: ICMS-ST Indevido ──────────────────────────────────────────────
   const itensST = todosItens.filter(i => CST_ST.includes(i.cst) && i.vItemST > 0)
   if (itensST.length > 0 || totalVST > 0) {
-    const valorST = itensST.reduce((s, i) => s + i.vItemST, 0) || totalVST
-    const potencial = valorST * meses
+    const valorSTMensal = (itensST.reduce((s, i) => s + i.vItemST, 0) || totalVST) / meses
+    const projecoes = PERIODOS.map(p => ({ ...p, valor: valorSTMensal * p.meses }))
     oportunidades.push({
       tese: regime === 'Simples Nacional' ? 'Exclusão ICMS-ST da Base do Simples' : 'Exclusão ICMS-ST da Base PIS/COFINS',
-      descricao: `ICMS retido por Substituição Tributária identificado. No ${regime}, o ICMS-ST não compõe a base de cálculo e pode ser excluído.`,
+      descricao: `ICMS-ST identificado. No ${regime}, o valor retido por substituição tributária pode ser excluído da base de cálculo.`,
       ncms: [...new Set(itensST.map(i => i.ncm))].slice(0, 5),
       produtos: itensST.map(i => i.xProd).slice(0, 3),
-      valorBase: valorST,
-      potencial,
+      mediaMensal: valorSTMensal,
+      potencial: valorSTMensal * 60,
+      projecoes,
       meses,
-      risco: 'baixo',
-      cor: '#2563eb',
-      icon: '🏷️',
+      risco: 'baixo', cor: '#2563eb', icon: '🏷️',
     })
   }
 
   // ── TESE 3: Segregação de Receitas ────────────────────────────────────────
-  const itensServico = todosItens.filter(i => CFOP_SERVICO.some(c => i.cfop === c))
+  const itensServico    = todosItens.filter(i => CFOP_SERVICO.some(c => i.cfop === c))
   const itensMercadoria = todosItens.filter(i => CFOP_SAIDA_TRIB.some(c => i.cfop === c))
   if (itensServico.length > 0 && itensMercadoria.length > 0 && regime === 'Simples Nacional') {
-    const vlServicos = itensServico.reduce((s, i) => s + i.vProd, 0)
-    const potencial = vlServicos * 0.02 * meses // estimativa de diferença de anexo
+    const vlMensal = itensServico.reduce((s, i) => s + i.vProd, 0) / meses * 0.02
+    const projecoes = PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses }))
     oportunidades.push({
       tese: 'Segregação de Receitas por Anexo',
-      descricao: `Empresa com mix de mercadorias e serviços. A segregação correta pode reduzir a alíquota efetiva do Simples Nacional.`,
-      ncms: [],
-      produtos: [],
-      valorBase: vlServicos,
-      potencial,
+      descricao: 'Mix de mercadorias e serviços detectado. A segregação correta pode reduzir a alíquota efetiva do Simples Nacional.',
+      ncms: [], produtos: [],
+      mediaMensal: vlMensal,
+      potencial: vlMensal * 60,
+      projecoes,
       meses,
-      risco: 'medio',
-      cor: '#7c3aed',
-      icon: '📊',
+      risco: 'medio', cor: '#7c3aed', icon: '📊',
     })
   }
 
   // ── TESE 4: Fator R ───────────────────────────────────────────────────────
   if (regime === 'Simples Nacional' && itensServico.length > 0) {
-    const vlServicos = itensServico.reduce((s, i) => s + i.vProd, 0) || totalVNF
-    const potencial = vlServicos * 0.05 * meses
+    const vlMensal = (itensServico.reduce((s, i) => s + i.vProd, 0) || totalVNF) / meses * 0.05
+    const projecoes = PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses }))
     oportunidades.push({
       tese: 'Fator R — Migração Anexo V para III',
-      descricao: `Empresa prestadora de serviços pode migrar do Anexo V para o Anexo III através do Fator R, reduzindo significativamente a carga tributária.`,
-      ncms: [],
-      produtos: [],
-      valorBase: vlServicos,
-      potencial,
+      descricao: 'Empresa prestadora de serviços pode migrar do Anexo V para o III via Fator R, reduzindo a carga tributária.',
+      ncms: [], produtos: [],
+      mediaMensal: vlMensal,
+      potencial: vlMensal * 60,
+      projecoes,
       meses,
-      risco: 'medio',
-      cor: '#d97706',
-      icon: '🔄',
+      risco: 'medio', cor: '#d97706', icon: '🔄',
     })
   }
 
-  // ── TESE 5: PIS/COFINS tributados com alíquota incorreta ──────────────────
+  // ── TESE 5: PIS/COFINS alíquota incorreta ─────────────────────────────────
   const itensPisAlto = todosItens.filter(i => i.pPIS > 1.65 || i.pCOFINS > 7.6)
   if (itensPisAlto.length > 0) {
-    const excesso = itensPisAlto.reduce((s, i) => {
-      const pisExcesso    = Math.max(0, i.vItemPIS    - i.vProd * 0.0165)
-      const cofinsExcesso = Math.max(0, i.vItemCOFINS - i.vProd * 0.076)
-      return s + pisExcesso + cofinsExcesso
-    }, 0)
-    if (excesso > 0) {
+    const excessoMensal = itensPisAlto.reduce((s, i) => {
+      return s + Math.max(0, i.vItemPIS - i.vProd * 0.0165) + Math.max(0, i.vItemCOFINS - i.vProd * 0.076)
+    }, 0) / meses
+    if (excessoMensal > 0) {
+      const projecoes = PERIODOS.map(p => ({ ...p, valor: excessoMensal * p.meses }))
       oportunidades.push({
         tese: 'PIS/COFINS — Alíquota Incorreta',
-        descricao: `${itensPisAlto.length} produtos tributados com alíquota de PIS/COFINS acima do permitido pela legislação.`,
+        descricao: `${itensPisAlto.length} produto(s) tributados com alíquota de PIS/COFINS acima do permitido pela legislação.`,
         ncms: [...new Set(itensPisAlto.map(i => i.ncm))].slice(0, 5),
         produtos: itensPisAlto.map(i => i.xProd).slice(0, 3),
-        valorBase: excesso,
-        potencial: excesso * meses,
+        mediaMensal: excessoMensal,
+        potencial: excessoMensal * 60,
+        projecoes,
         meses,
-        risco: 'medio',
-        cor: '#0d9488',
-        icon: '📋',
+        risco: 'medio', cor: '#0d9488', icon: '📋',
       })
     }
   }
@@ -349,9 +349,11 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>
             🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Tributária{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
           </div>
-          {oportunidades.map((op, i) => (
+                      {oportunidades.map((op, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+
+              {/* Cabeçalho */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 4 }}>
                     {op.icon} {op.tese}
@@ -359,15 +361,33 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                       risco {op.risco}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, maxWidth: 600 }}>{op.descricao}</div>
+                  <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, maxWidth: 560 }}>{op.descricao}</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 20 }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Potencial estimado</div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: op.cor }}>{fmtR(op.potencial)}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{op.meses} mês(es) analisado(s)</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Média mensal identificada</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: op.cor }}>{fmtR(op.mediaMensal)}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>base: {op.meses} mês(es) analisado(s)</div>
                 </div>
               </div>
-              {/* NCMs encontrados */}
+
+              {/* Tabela de projeções */}
+              <div style={{ background: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
+                  {op.projecoes.map((p, j) => (
+                    <div key={j} style={{ padding: '12px 16px', borderRight: j < 3 ? '1px solid #e2e8f0' : 'none', textAlign: 'center', background: j === 3 ? op.cor + '12' : 'transparent' }}>
+                      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>
+                        {p.label}
+                      </div>
+                      <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>
+                        {fmtR(p.valor)}
+                      </div>
+                      {j === 3 && <div style={{ fontSize: 10, color: op.cor, fontWeight: 700, marginTop: 2 }}>★ POTENCIAL MÁXIMO</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* NCMs e produtos */}
               {op.ncms.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                   <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>NCMs:</span>
@@ -376,11 +396,8 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                   ))}
                 </div>
               )}
-              {/* Produtos */}
               {op.produtos.length > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
-                  Ex: {op.produtos.join(' · ')}
-                </div>
+                <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>
               )}
             </div>
           ))}
