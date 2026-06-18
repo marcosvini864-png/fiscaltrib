@@ -189,12 +189,12 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
                   background: hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: hasActive ? '#93c5fd' : '#64748b',
+                  color: '#ffffff',
                   transition: 'background 0.15s, color 0.15s',
                   borderLeft: hasActive && !expanded ? '3px solid #3b82f6' : '3px solid transparent',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#e2e8f0' }}
-                onMouseLeave={e => { e.currentTarget.style.background = hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none'; e.currentTarget.style.color = hasActive ? '#93c5fd' : '#64748b' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none' }}
               >
                 <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1 }}>{group.icon}</span>
                 {expanded && (
