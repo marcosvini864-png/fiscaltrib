@@ -199,7 +199,7 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
                 <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1 }}>{group.icon}</span>
                 {expanded && (
                   <>
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.9, whiteSpace: 'nowrap', flex: 1, textAlign: 'left', color: hasActive ? '#93c5fd' : '#64748b' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.9, whiteSpace: 'nowrap', flex: 1, textAlign: 'left', color: hasActive ? '#ffffff' : '#cbd5e1' }}>
                       {group.label}
                     </span>
                     <span style={{ fontSize: 10, color: '#334155', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
@@ -231,8 +231,8 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
                           whiteSpace: 'nowrap',
                           transition: 'all 0.12s',
                         }}
-                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#cbd5e1' } }}
-                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#475569' } }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#ffffff' } }}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94a3b8' } }}
                       >
                         {item.label}
                       </button>
