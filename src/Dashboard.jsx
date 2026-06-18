@@ -21,236 +21,113 @@ const CLIENTE_VAZIO = {razao_social:'',cnpj:'',cnae_principal:'',cnaes_secundari
 const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
 const maskIE = v => v.replace(/[^0-9A-Za-z.\-\/]/g,'').slice(0,20)
 const maskIM = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
-const maskCNAE = v => { const n = v.replace(/\D/g,'').slice(0,7); if(n.length<=2) return n; if(n.length<=4) return n.slice(0,2)+'.'+n.slice(2); if(n.length<=6) return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4); return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4,5)+'-'+n.slice(5); }
-const maskCNAES = v => { const parts = v.split(','); return parts.map((c,i) => i < parts.length-1 ? maskCNAE(c.trim()) : c.replace(/\D/g,'').slice(0,7)).join(', ') }
+const maskCNAE = v => { const n=v.replace(/\D/g,'').slice(0,7); if(n.length<=2) return n; if(n.length<=4) return n.slice(0,2)+'.'+n.slice(2); if(n.length<=6) return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4); return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4,5)+'-'+n.slice(5) }
+const maskCNAES = v => { const parts=v.split(','); return parts.map((c,i)=>i<parts.length-1?maskCNAE(c.trim()):c.replace(/\D/g,'').slice(0,7)).join(', ') }
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-const maskMoeda = v => { const n = v.replace(/\D/g,''); if(!n) return ''; const num = parseFloat(n)/100; return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
+const maskMoeda = v => { const n=v.replace(/\D/g,''); if(!n) return ''; const num=parseFloat(n)/100; return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 
-// ─── MENU ESTRUTURA ───────────────────────────────────────────────────────────
+// ── CORES ─────────────────────────────────────────────────────────────────────
+const C = {
+  navy:    '#0B1F4D',
+  navyHov: '#163B8C',
+  navyAct: '#1A4499',
+  catText: '#7CC4FF',
+  green:   '#22C55E',
+  white:   '#FFFFFF',
+  bg:      '#F5F7FA',
+  border:  '#E2E8F0',
+  text:    '#1E293B',
+  muted:   '#64748B',
+}
+
+// ── MENU ──────────────────────────────────────────────────────────────────────
 const MENU = [
-  {
-    id: 'visao', label: 'Visão Geral', icon: '📊',
-    items: [
-      { label: 'Painel', key: 'painel' },
-      { label: 'Clientes', key: 'clientes' },
-    ],
-  },
-  {
-    id: 'diagnostico', label: 'Diagnóstico', icon: '🔍',
-    items: [
-      { label: 'Checklist', key: 'checklist' },
-      { label: 'Entrada de Dados', key: 'entrada' },
-      { label: 'Diagnóstico', key: 'diagnostico' },
-      { label: 'Score Fiscal', key: 'score' },
-      { label: 'IA Tributária', key: 'analise' },
-    ],
-  },
-  {
-    id: 'teses', label: 'Teses e Oportunidades', icon: '⚖️',
-    items: [
-      { label: 'Teses Tributárias', key: 'teses' },
-      { label: 'Potenciais Créditos', key: 'creditos' },
-      { label: 'Controle Prescricional', key: 'prazos' },
-    ],
-  },
-  {
-    id: 'importacoes', label: 'Importações', icon: '📥',
-    items: [
-      { label: 'XML NF-e', key: 'imp_nfe' },
-      { label: 'PGDAS-D', key: 'imp_pgdas' },
-      { label: 'DCTFWeb', key: 'imp_dctfweb' },
-      { label: 'SPED Fiscal', key: 'imp_sped_f' },
-      { label: 'SPED Contribuições', key: 'imp_sped_c' },
-      { label: 'ECD/ECF', key: 'imp_ecf' },
-      { label: 'Extrato de Débitos', key: 'imp_debitos' },
-    ],
-  },
-  {
-    id: 'recuperacao', label: 'Recuperação', icon: '💰',
-    items: [
-      { label: 'Recuperações', key: 'recuperacoes' },
-      { label: 'PER/DCOMP', key: 'perdcomp' },
-      { label: 'Exigências', key: 'exigencias' },
-      { label: 'Acompanhamento', key: 'acompanhamento' },
-    ],
-  },
-  {
-    id: 'gestao', label: 'Gestão Fiscal', icon: '📅',
-    items: [
-      { label: 'Monitor de Obrigações', key: 'monitor' },
-      { label: 'Prazos', key: 'prazosfiscais' },
-      { label: 'Relatórios', key: 'relatorio' },
-    ],
-  },
-  {
-    id: 'ferramentas', label: 'Ferramentas', icon: '🧮',
-    items: [
-      { label: 'Calculadoras', key: 'calculadoras' },
-      { label: 'Simuladores', key: 'simuladores' },
-    ],
-  },
+  { id:'visao',    label:'VISÃO GERAL',          icon:'📊', items:[{label:'Painel',key:'painel'},{label:'Clientes',key:'clientes'}] },
+  { id:'diag',     label:'DIAGNÓSTICO',           icon:'🔍', items:[{label:'Checklist',key:'checklist'},{label:'Entrada de Dados',key:'entrada'},{label:'Diagnóstico',key:'diagnostico'},{label:'Score Fiscal',key:'score'},{label:'IA Tributária',key:'analise'}] },
+  { id:'teses',    label:'TESES E OPORTUNIDADES', icon:'⚖️', items:[{label:'Teses Tributárias',key:'teses'},{label:'Controle Prescricional',key:'prazos'}] },
+  { id:'imp',      label:'IMPORTAÇÕES',           icon:'📥', items:[{label:'Central de Importações',key:'importacoes'}] },
+  { id:'rec',      label:'RECUPERAÇÃO',           icon:'💰', items:[{label:'Recuperações',key:'recuperacoes'},{label:'PER/DCOMP',key:'perdcomp'},{label:'Acompanhamento',key:'acompanhamento'}] },
+  { id:'gestao',   label:'GESTÃO FISCAL',         icon:'📅', items:[{label:'Monitor de Obrigações',key:'monitor'},{label:'Prazos',key:'prazosfiscais'},{label:'Relatórios',key:'relatorio'}] },
+  { id:'tools',    label:'FERRAMENTAS',           icon:'🧮', items:[{label:'Calculadoras',key:'calculadoras'},{label:'Simuladores',key:'simuladores'}] },
 ]
 
-const IMP_MAP = { imp_nfe:'nfe', imp_pgdas:'pgdas', imp_dctfweb:'dctfweb', imp_sped_f:'sped_f', imp_sped_c:'sped_c', imp_ecf:'ecf', imp_debitos:'debitos' }
-const IMP_KEYS = Object.keys(IMP_MAP)
-
-// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
-function Sidebar({ page, abaImportacao, onNavigate }) {
+function Sidebar({ page, onNavigate }) {
   const [pinned, setPinned] = useState(true)
   const [hovered, setHovered] = useState(false)
-  const [openGroups, setOpenGroups] = useState({ visao: true, importacoes: true })
-
+  const [openGroups, setOpenGroups] = useState({ visao:true, diag:true })
   const expanded = pinned || hovered
 
-  const activeKey = IMP_KEYS.includes(page) ? page : page
+  function toggleGroup(id) { setOpenGroups(p=>({...p,[id]:!p[id]})) }
+  function isActive(key) { return page===key }
+  function groupActive(g) { return g.items.some(i=>isActive(i.key)) }
 
-  function toggleGroup(id) {
-    setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
+  const grpBtn = (g) => {
+    const act = groupActive(g)
+    return (
+      <button key={g.id}
+        onClick={()=>expanded&&toggleGroup(g.id)}
+        title={!expanded?g.label:undefined}
+        style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:expanded?'9px 16px':'10px 0',justifyContent:expanded?'flex-start':'center',background:'none',border:'none',cursor:'pointer',transition:'background 0.2s'}}
+        onMouseEnter={e=>e.currentTarget.style.background=C.navyHov}
+        onMouseLeave={e=>e.currentTarget.style.background='none'}
+      >
+        <span style={{fontSize:15,flexShrink:0}}>{g.icon}</span>
+        {expanded && <>
+          <span style={{fontSize:10,fontWeight:600,letterSpacing:1,color:C.catText,flex:1,textAlign:'left',whiteSpace:'nowrap'}}>{g.label}</span>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.4)',transition:'transform 0.2s',transform:openGroups[g.id]?'rotate(180deg)':'rotate(0deg)',display:'inline-block'}}>▾</span>
+        </>}
+      </button>
+    )
   }
 
-  function isItemActive(key) {
-    if (IMP_KEYS.includes(key)) {
-      return IMP_KEYS.includes(page) && IMP_MAP[key] === abaImportacao
-    }
-    return page === key
-  }
-
-  function groupHasActive(group) {
-    return group.items.some(i => isItemActive(i.key))
+  const subBtn = (item) => {
+    const act = isActive(item.key)
+    return (
+      <button key={item.key}
+        onClick={()=>onNavigate(item.key)}
+        style={{width:'100%',display:'flex',alignItems:'center',padding:'7px 16px 7px 40px',background:act?C.navyAct:'none',border:'none',borderLeft:act?`3px solid ${C.green}`:'3px solid transparent',cursor:'pointer',color:act?C.white:'rgba(255,255,255,0.85)',fontSize:13,textAlign:'left',whiteSpace:'nowrap',transition:'background 0.2s, color 0.2s'}}
+        onMouseEnter={e=>{ if(!act){e.currentTarget.style.background=C.navyHov; e.currentTarget.style.color='rgba(255,255,255,0.65)'}}}
+        onMouseLeave={e=>{ if(!act){e.currentTarget.style.background='none'; e.currentTarget.style.color='rgba(255,255,255,0.85)'}}}
+      >
+        {item.label}
+      </button>
+    )
   }
 
   return (
     <aside
-      onMouseEnter={() => { if (!pinned) setHovered(true) }}
-      onMouseLeave={() => { if (!pinned) setHovered(false) }}
-      style={{
-        width: expanded ? 260 : 64,
-        minHeight: '100%',
-        background: '#f8fafc',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'width 0.22s ease',
-        overflow: 'hidden',
-        flexShrink: 0,
-        position: 'relative',
-        zIndex: 10,
-      }}
+      onMouseEnter={()=>{ if(!pinned) setHovered(true) }}
+      onMouseLeave={()=>{ if(!pinned) setHovered(false) }}
+      style={{width:expanded?260:64,minHeight:'100%',background:C.navy,display:'flex',flexDirection:'column',transition:'width 0.22s ease',overflow:'hidden',flexShrink:0,zIndex:10}}
     >
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: expanded ? 'space-between' : 'center',
-        padding: expanded ? '16px 14px 12px' : '16px 0 12px',
-        borderBottom: '1px solid #e2e8f0',
-        minHeight: 56,
-        flexShrink: 0,
-      }}>
+      {/* Logo */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:expanded?'20px 16px 16px':'20px 0 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
         {expanded && (
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#1e3a5f', letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
-            e-FiscalTrib<span style={{ color: '#2563eb' }}>®</span>
-          </span>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:C.white,letterSpacing:0.3}}>FiscalTrib</div>
+            <div style={{fontSize:10,color:C.catText,letterSpacing:0.5,marginTop:2}}>Inteligência Tributária</div>
+          </div>
         )}
-        <button
-          onClick={() => setPinned(p => !p)}
-          title={pinned ? 'Recolher menu' : 'Fixar menu'}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#94a3b8', fontSize: 16, display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            padding: 4, borderRadius: 6, transition: 'color 0.15s', flexShrink: 0,
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#1e3a5f'}
-          onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-        >
-          {pinned ? '◀' : '▶'}
-        </button>
+        <button onClick={()=>setPinned(p=>!p)} title={pinned?'Recolher':'Fixar'}
+          style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:14,padding:4,borderRadius:4,flexShrink:0,transition:'color 0.2s'}}
+          onMouseEnter={e=>e.currentTarget.style.color=C.white}
+          onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.4)'}
+        >{pinned?'◀':'▶'}</button>
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
-        {MENU.map(group => {
-          const isOpen = !!openGroups[group.id]
-          const hasActive = groupHasActive(group)
-
-          return (
-            <div key={group.id}>
-              {/* Group header */}
-              <button
-                onClick={() => expanded ? toggleGroup(group.id) : null}
-                title={!expanded ? group.label : undefined}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: expanded ? '7px 14px' : '10px 0',
-                  justifyContent: expanded ? 'flex-start' : 'center',
-                  background: hasActive && !expanded ? 'rgba(59,130,246,0.15)' : 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: hasActive && !expanded ? '#dbeafe' : 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#1e293b',
-                  transition: 'background 0.15s',
-                  borderLeft: hasActive && !expanded ? '3px solid #2563eb' : '3px solid transparent',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff' }}
-                onMouseLeave={e => { e.currentTarget.style.background = hasActive && !expanded ? '#dbeafe' : 'none' }}
-              >
-                <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1 }}>{group.icon}</span>
-                {expanded && (
-                  <>
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.9, whiteSpace: 'nowrap', flex: 1, textAlign: 'left', color: hasActive ? '#2563eb' : '#64748b' }}>
-                      {group.label}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#cbd5e1', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
-                  </>
-                )}
-              </button>
-
-              {/* Sub-items */}
-              {expanded && isOpen && (
-                <div>
-                  {group.items.map(item => {
-                    const active = isItemActive(item.key)
-                    return (
-                      <button
-                        key={item.key}
-                        onClick={() => onNavigate(item.key)}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '6px 14px 6px 38px',
-                          background: active ? 'rgba(59,130,246,0.15)' : 'none',
-                          border: 'none',
-                          borderLeft: active ? '3px solid #3b82f6' : '3px solid transparent',
-                          cursor: 'pointer',
-                          color: active ? '#93c5fd' : '#475569',
-                          fontSize: 12,
-                          textAlign: 'left',
-                          whiteSpace: 'nowrap',
-                          transition: 'all 0.12s',
-                        }}
-                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1e3a5f' } }}
-                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#374151' } }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'8px 0'}}>
+        {MENU.map(g=>(
+          <div key={g.id}>
+            {grpBtn(g)}
+            {expanded && openGroups[g.id] && g.items.map(item=>subBtn(item))}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
       {expanded && (
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <div style={{padding:'10px 16px',borderTop:'1px solid rgba(255,255,255,0.08)',fontSize:10,color:'rgba(255,255,255,0.25)',flexShrink:0}}>
           fiscaltrib.com.br
         </div>
       )}
@@ -258,18 +135,31 @@ function Sidebar({ page, abaImportacao, onNavigate }) {
   )
 }
 
-// ─── PLACEHOLDER ─────────────────────────────────────────────────────────────
+// ── PLACEHOLDER ───────────────────────────────────────────────────────────────
 function EmBreve({ titulo }) {
   return (
-    <div style={{ textAlign: 'center', padding: '80px 40px', color: '#64748b' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>{titulo}</div>
-      <div style={{ fontSize: 14 }}>Este módulo está em desenvolvimento e será disponibilizado em breve.</div>
+    <div style={{textAlign:'center',padding:'80px 40px',color:C.muted}}>
+      <div style={{fontSize:48,marginBottom:16}}>🚧</div>
+      <div style={{fontSize:20,fontWeight:700,color:C.text,marginBottom:8}}>{titulo}</div>
+      <div style={{fontSize:14}}>Este módulo está em desenvolvimento e será disponibilizado em breve.</div>
     </div>
   )
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+// ── CARD KPI ──────────────────────────────────────────────────────────────────
+function KpiCard({ icon, value, label, color }) {
+  return (
+    <div style={{background:C.white,borderRadius:12,padding:'20px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',display:'flex',alignItems:'center',gap:16}}>
+      <div style={{width:48,height:48,borderRadius:12,background:color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{icon}</div>
+      <div>
+        <div style={{fontSize:24,fontWeight:700,color:C.text,lineHeight:1}}>{value}</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:4}}>{label}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [user, setUser] = useState(null)
   const [page, setPage] = useState('painel')
@@ -288,122 +178,63 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
-  const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8')
-  const [cDtpag,setCDtpag]=useState('')
+  const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8'); const [cDtpag,setCDtpag]=useState('')
 
-  useEffect(() => { carregarClientes() }, [])
+  useEffect(()=>{ carregarClientes() },[])
 
   async function carregarClientes() {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data:{ user } } = await supabase.auth.getUser()
     setUser(user)
-    const { data, error } = await supabase.from('clientes').select('*').eq('usuario_id', user.id).order('id', { ascending: false })
-    if (!error && data) {
-      setClientes(data)
-      if (data.length > 0) setActiveId(data[0].id)
-      const ids = data.map(c => c.id)
-      if (ids.length > 0) {
-        const { data: ents } = await supabase.from('entradas').select('*').in('cliente_id', ids)
-        if (ents) {
-          const map = {}
-          ents.forEach(e => { if (!map[e.cliente_id]) map[e.cliente_id] = []; map[e.cliente_id].push(e) })
-          setEntradas(map)
-        }
+    const { data,error } = await supabase.from('clientes').select('*').eq('usuario_id',user.id).order('id',{ascending:false})
+    if(!error&&data){ setClientes(data); if(data.length>0) setActiveId(data[0].id)
+      const ids=data.map(c=>c.id)
+      if(ids.length>0){ const { data:ents }=await supabase.from('entradas').select('*').in('cliente_id',ids)
+        if(ents){ const map={}; ents.forEach(e=>{if(!map[e.cliente_id])map[e.cliente_id]=[];map[e.cliente_id].push(e)}); setEntradas(map) }
       }
     }
     setLoading(false)
   }
 
   async function salvarCliente() {
-    if (!novoCliente) return
-    setSalvando(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const payload = {
-      razao_social: novoCliente.razao_social,
-      nome_fantasia: novoCliente.nome_fantasia || '',
-      cnpj: novoCliente.cnpj,
-      cnae_principal: novoCliente.cnae_principal,
-      cnaes_secundarios: novoCliente.cnaes_secundarios || '',
-      inscricao_estadual: novoCliente.inscricao_estadual || '',
-      inscricao_municipal: novoCliente.inscricao_municipal || '',
-      municipio: novoCliente.municipio,
-      uf: novoCliente.uf,
-      regime: novoCliente.regime,
-      competencia_inicio: novoCliente.competencia_inicio,
-      competencia_fim: novoCliente.competencia_fim,
-      responsavel_contabil: novoCliente.responsavel_contabil,
-      observacoes: novoCliente.observacoes,
-    }
-    if (novoCliente.id) {
-      const { error } = await supabase.from('clientes').update(payload).eq('id', novoCliente.id)
-      if (!error) setClientes(clientes.map(c => c.id === novoCliente.id ? { ...c, ...novoCliente } : c))
-      else alert('Erro ao salvar: ' + error.message)
-    } else {
-      const { data, error } = await supabase.from('clientes').insert([{ ...payload, usuario_id: user.id, status: 'Em análise' }]).select()
-      if (!error && data) { setClientes([data[0], ...clientes]); setActiveId(data[0].id); setEntradas({ ...entradas, [data[0].id]: [] }) }
-      else alert('Erro ao salvar: ' + error.message)
-    }
-    setSalvando(false)
-    setPage('clientes')
+    if(!novoCliente) return; setSalvando(true)
+    const { data:{ user } } = await supabase.auth.getUser()
+    const payload={razao_social:novoCliente.razao_social,nome_fantasia:novoCliente.nome_fantasia||'',cnpj:novoCliente.cnpj,cnae_principal:novoCliente.cnae_principal,cnaes_secundarios:novoCliente.cnaes_secundarios||'',inscricao_estadual:novoCliente.inscricao_estadual||'',inscricao_municipal:novoCliente.inscricao_municipal||'',municipio:novoCliente.municipio,uf:novoCliente.uf,regime:novoCliente.regime,competencia_inicio:novoCliente.competencia_inicio,competencia_fim:novoCliente.competencia_fim,responsavel_contabil:novoCliente.responsavel_contabil,observacoes:novoCliente.observacoes}
+    if(novoCliente.id){ const { error }=await supabase.from('clientes').update(payload).eq('id',novoCliente.id); if(!error) setClientes(clientes.map(c=>c.id===novoCliente.id?{...c,...novoCliente}:c)); else alert('Erro: '+error.message) }
+    else { const { data,error }=await supabase.from('clientes').insert([{...payload,usuario_id:user.id,status:'Em análise'}]).select(); if(!error&&data){ setClientes([data[0],...clientes]); setActiveId(data[0].id); setEntradas({...entradas,[data[0].id]:[]}) } else alert('Erro: '+error.message) }
+    setSalvando(false); setPage('clientes')
   }
 
   async function adicionarEntrada() {
-    const credito = (parseFloat((novaEntrada.tributo_pago||'0').replace(/\./g,'').replace(',','.')) || 0) - (parseFloat((novaEntrada.tributo_devido||'0').replace(/\./g,'').replace(',','.')) || 0)
-    const { data, error } = await supabase.from('entradas').insert([{
-      cliente_id: activeId,
-      competencia: novaEntrada.competencia,
-      tributo: novaEntrada.tributo,
-      receita_bruta: parseFloat((novaEntrada.receita_bruta||'0').replace(/\./g,'').replace(',','.')) || 0,
-      tributo_pago: parseFloat((novaEntrada.tributo_pago||'0').replace(/\./g,'').replace(',','.')) || 0,
-      tributo_devido: parseFloat((novaEntrada.tributo_devido||'0').replace(/\./g,'').replace(',','.')) || 0,
-      credito: credito < 0 ? 0 : credito,
-      tipo_oportunidade: novaEntrada.tipo_oportunidade,
-      risco: novaEntrada.risco,
-    }]).select()
-    if (!error && data) {
-      setEntradas({ ...entradas, [activeId]: [...(entradas[activeId]||[]), data[0]] })
-      setNovaEntrada({ competencia:'', tributo:'', receita_bruta:'', tributo_pago:'', tributo_devido:'', tipo_oportunidade:'', risco:'baixo' })
-    } else alert('Erro ao salvar entrada: ' + error.message)
+    const credito=(parseFloat((novaEntrada.tributo_pago||'0').replace(/\./g,'').replace(',','.'))||0)-(parseFloat((novaEntrada.tributo_devido||'0').replace(/\./g,'').replace(',','.'))||0)
+    const { data,error }=await supabase.from('entradas').insert([{cliente_id:activeId,competencia:novaEntrada.competencia,tributo:novaEntrada.tributo,receita_bruta:parseFloat((novaEntrada.receita_bruta||'0').replace(/\./g,'').replace(',','.'))||0,tributo_pago:parseFloat((novaEntrada.tributo_pago||'0').replace(/\./g,'').replace(',','.'))||0,tributo_devido:parseFloat((novaEntrada.tributo_devido||'0').replace(/\./g,'').replace(',','.'))||0,credito:credito<0?0:credito,tipo_oportunidade:novaEntrada.tipo_oportunidade,risco:novaEntrada.risco}]).select()
+    if(!error&&data){ setEntradas({...entradas,[activeId]:[...(entradas[activeId]||[]),data[0]]}); setNovaEntrada({competencia:'',tributo:'',receita_bruta:'',tributo_pago:'',tributo_devido:'',tipo_oportunidade:'',risco:'baixo'}) } else alert('Erro: '+error.message)
   }
 
-  function toggleCheck(idx) {
-    const key = activeId
-    const arr = checklist[key] || (REGIME_DOCS[active?.regime]||[]).map(()=>false)
-    const novo = [...arr]; novo[idx] = !novo[idx]
-    setChecklist({ ...checklist, [key]: novo })
-  }
+  function toggleCheck(idx) { const key=activeId; const arr=checklist[key]||(REGIME_DOCS[active?.regime]||[]).map(()=>false); const novo=[...arr]; novo[idx]=!novo[idx]; setChecklist({...checklist,[key]:novo}) }
 
   function handleNavigate(key) {
-    if (IMP_KEYS.includes(key)) {
-      setAbaImportacao(IMP_MAP[key])
-      setPage('importacoes')
-    } else if (key === 'novo-cliente') {
-      setNovoCliente({ ...CLIENTE_VAZIO })
-      setPage('novo-cliente')
-    } else {
-      setPage(key)
-    }
+    if(key==='novo-cliente'){ setNovoCliente({...CLIENTE_VAZIO}); setPage('novo-cliente') }
+    else setPage(key)
   }
 
-  const active = clientes.find(c => c.id === activeId) || clientes[0]
-  const ents = entradas[activeId] || []
-  const totalPot = ents.reduce((s,e) => s+(e.credito||0), 0)
-  const totalGeral = clientes.reduce((s,c) => { const ee=entradas[c.id]||[]; return s+ee.reduce((a,e)=>a+(e.credito||0),0) }, 0)
-  const totalOpp = clientes.reduce((s,c) => (entradas[c.id]||[]).length+s, 0)
-  const hoje = new Date()
-  const criticos = clientes.reduce((s,c) => s+(entradas[c.id]||[]).filter(e=>{const[a,m]=e.competencia.split('-');const lim=new Date(parseInt(a)+5,parseInt(m)-1,1);return(lim-hoje)/(1000*60*60*24*365)<=1&&e.credito>0}).length, 0)
+  const active=clientes.find(c=>c.id===activeId)||clientes[0]
+  const ents=entradas[activeId]||[]
+  const totalPot=ents.reduce((s,e)=>s+(e.credito||0),0)
+  const totalGeral=clientes.reduce((s,c)=>{const ee=entradas[c.id]||[];return s+ee.reduce((a,e)=>a+(e.credito||0),0)},0)
+  const totalOpp=clientes.reduce((s,c)=>(entradas[c.id]||[]).length+s,0)
+  const hoje=new Date()
+  const criticos=clientes.reduce((s,c)=>s+(entradas[c.id]||[]).filter(e=>{const[a,m]=e.competencia.split('-');const lim=new Date(parseInt(a)+5,parseInt(m)-1,1);return(lim-hoje)/(1000*60*60*24*365)<=1&&e.credito>0}).length,0)
+  const docs=REGIME_DOCS[active?.regime]||[]
+  const checks=checklist[activeId]||docs.map(()=>false)
+  const done=checks.filter(Boolean).length
+  const pct=docs.length?Math.round(done/docs.length*100):0
 
-  const docs = REGIME_DOCS[active?.regime] || []
-  const checks = checklist[activeId] || docs.map(()=>false)
-  const done = checks.filter(Boolean).length
-  const pct = docs.length ? Math.round(done/docs.length*100) : 0
-
-  const badge = regime => { const colors={'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'}; const[bg,color]=(colors[regime]||'#f1f5f9|#475569').split('|'); return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {regime}</span> }
-  const riskBadge = r => { const c=r==='baixo'?'#dcfce7|#166534':r==='medio'?'#fef9c3|#854d0e':'#fee2e2|#991b1b'; const[bg,color]=c.split('|'); return <span style={{background:bg,color,padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{r}</span> }
-  const applyMask = (k,v) => { if(k==='cnpj') return maskCNPJ(v); if(k==='cnae_principal') return maskCNAE(v); if(k==='cnaes_secundarios') return maskCNAES(v); if(k==='inscricao_estadual') return maskIE(v); if(k==='inscricao_municipal') return maskIM(v); return v }
-
-  const inp = (val,set,ph,tp='text') => <input value={val} onChange={e=>set(e.target.value)} placeholder={ph} type={tp} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
-  const sel = (val,set,opts) => <select value={val} onChange={e=>set(e.target.value)} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%'}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+  const badge=regime=>{const colors={'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'};const[bg,color]=(colors[regime]||'#f1f5f9|#475569').split('|');return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {regime}</span>}
+  const riskBadge=r=>{const c=r==='baixo'?'#dcfce7|#166534':r==='medio'?'#fef9c3|#854d0e':'#fee2e2|#991b1b';const[bg,color]=c.split('|');return <span style={{background:bg,color,padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{r}</span>}
+  const applyMask=(k,v)=>{if(k==='cnpj') return maskCNPJ(v);if(k==='cnae_principal') return maskCNAE(v);if(k==='cnaes_secundarios') return maskCNAES(v);if(k==='inscricao_estadual') return maskIE(v);if(k==='inscricao_municipal') return maskIM(v);return v}
+  const inp=(val,set,ph,tp='text')=><input value={val} onChange={e=>set(e.target.value)} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
+  const sel=(val,set,opts)=><select value={val} onChange={e=>set(e.target.value)} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
 
   function calcFatorR(){const f=parseFloat(cFolha)||0;const r=parseFloat(cRb)||1;const fr=f/r;setCalcResult(`Fator R: ${(fr*100).toFixed(2)}% — Anexo ${fr>=0.28?'III (menor carga)':'V (maior carga)'}\n${fr>=0.28?'✅ Enquadrado no Anexo III.':'⚠️ Anexo V — considere aumentar folha.'}`)}
   function calcDAS(){const rbt=parseFloat(cRbt12)||0;const rm=parseFloat(cRmes)||0;let aliq=4,ded=0;if(rbt>180000){aliq=7.3;ded=5940}if(rbt>360000){aliq=9.5;ded=13860}if(rbt>720000){aliq=10.7;ded=22500}if(rbt>1800000){aliq=14.3;ded=87300}if(rbt>3600000){aliq=19;ded=378000}const ef=Math.max(0,((rbt*(aliq/100))-ded)/rbt*100);setCalcResult(`DAS estimado: ${fmtR(rm*(ef/100))}\nAlíquota efetiva: ${ef.toFixed(2)}%`)}
@@ -411,312 +242,309 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   function calcIRPJ(){const rb=parseFloat(cRbt)||0;const p=parseFloat(cAtv2)||8;const bi=rb*(p/100);const bc=rb*(p===32?32:p===16?16:12)/100;const irpj=bi*0.15+Math.max(0,(bi-60000)*0.10);const csll=bc*0.09;setCalcResult(`IRPJ: ${fmtR(irpj)}\nCSLL: ${fmtR(csll)}\nTotal: ${fmtR(irpj+csll)}`)}
   function calcPrescricao(){if(!cDtpag){setCalcResult('Informe a data.');return}const p=new Date(cDtpag);const l=new Date(p);l.setFullYear(l.getFullYear()+5);const dias=Math.round((l-hoje)/(1000*60*60*24));if(dias<0){setCalcResult(`⚠️ PRAZO PRESCRITO em ${l.toLocaleDateString('pt-BR')}!`)}else{setCalcResult(`Prazo limite: ${l.toLocaleDateString('pt-BR')}\nDias restantes: ${dias}\n${dias<=365?'⚠️ CRÍTICO — menos de 1 ano!':'✅ Prazo confortável.'}`)}}
 
-  if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,system-ui,sans-serif',fontSize:16,color:'#1e3a5f'}}>Carregando...</div>
+  const btnPrimary={padding:'10px 20px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
+  const btnOutline={padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
+
+  if(loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,system-ui,sans-serif',fontSize:16,color:C.navy}}>Carregando...</div>
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       {/* TOPBAR */}
-      <div style={{background:'#0f172a',color:'#fff',display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12,borderBottom:'1px solid #1e293b'}}>
-        <span style={{fontSize:16,fontWeight:700,color:'#f1f5f9'}}>🏛 FiscalTrib</span>
-        <span style={{fontSize:12,color:'#475569',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
-        {clientes.length > 0 && (
-          <select value={activeId||''} onChange={e=>setActiveId(e.target.value)} style={{fontSize:12,padding:'4px 8px',border:'1px solid #1e293b',borderRadius:6,background:'#1e293b',color:'#94a3b8',maxWidth:200}}>
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:56,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <span style={{fontSize:15,fontWeight:700,color:C.navy}}>🏛 FiscalTrib</span>
+        <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
+        {clientes.length>0 && (
+          <select value={activeId||''} onChange={e=>setActiveId(e.target.value)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
             {clientes.map(c=><option key={c.id} value={c.id}>{c.razao_social}</option>)}
           </select>
         )}
-        <span style={{fontSize:12,color:'#f0c040'}}>👤 {nomeUsuario||'Usuário'}</span>
-        {onAdmin && <button onClick={onAdmin} style={{background:'#f0b429',border:'none',color:'#0f172a',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:'bold'}}>⚙️ Admin</button>}
-        <button onClick={()=>onLogout()} style={{background:'transparent',border:'1px solid #334155',color:'#64748b',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
+        <span style={{fontSize:12,color:C.muted}}>👤 {nomeUsuario||'Usuário'}</span>
+        {onAdmin && <button onClick={onAdmin} style={{background:'#F59E0B',border:'none',color:C.white,padding:'5px 14px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>⚙️ Admin</button>}
+        <button onClick={()=>onLogout()} style={{background:'none',border:`1px solid ${C.border}`,color:C.muted,padding:'5px 14px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
       </div>
 
       {/* BODY */}
-      <div style={{display:'flex',flex:1,overflow:'hidden',width:'100%'}}>
-
-        <Sidebar page={page} abaImportacao={abaImportacao} onNavigate={handleNavigate} />
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+        <Sidebar page={page} onNavigate={handleNavigate} />
 
         {/* CONTENT */}
-        <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'28px 32px',background:'#f0f2f5',minWidth:0}}>
+        <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'32px 36px',background:C.bg,minWidth:0}}>
 
-          {page==='painel' && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Painel Geral</div>
-            <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Visão consolidada dos casos em andamento.</div>
-            <div style={{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#92400e'}}>
-              ⚠️ <strong>Aviso profissional obrigatório:</strong> Esta análise é preliminar e não dispensa revisão por contador, advogado tributarista ou consultor fiscal habilitado.
+          {/* ── PAINEL ── */}
+          {page==='painel' && <>
+            <div style={{marginBottom:24}}>
+              <div style={{fontSize:22,fontWeight:700,color:C.text}}>Painel Geral</div>
+              <div style={{fontSize:13,color:C.muted,marginTop:2}}>Visão consolidada dos casos em andamento</div>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24,minWidth:0}}>
-              {[['👥',clientes.length,'Clientes cadastrados','#e2e8f0','#1e293b'],['🎯',totalOpp,'Oportunidades mapeadas','#ddd6fe','#7c3aed'],['💰',fmtR(totalGeral),'Valor potencial recuperável','#bbf7d0','#16a34a'],['⏱️',criticos,'Competências críticas (≤1 ano)','#fecaca','#dc2626']].map(([ic,v,lb,bc,vc],i)=>(
-                <div key={i} style={{background:'#fff',borderRadius:10,padding:20,border:`1.5px solid ${bc}`}}>
-                  <span style={{fontSize:28}}>{ic}</span>
-                  <div style={{fontSize:i===2?22:28,fontWeight:700,color:vc,margin:'8px 0 4px'}}>{v}</div>
-                  <div style={{fontSize:12,color:'#64748b'}}>{lb}</div>
-                </div>
-              ))}
+            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',marginBottom:24,fontSize:13,color:'#92400E'}}>
+              ⚠️ <strong>Aviso profissional:</strong> Esta análise é preliminar e não dispensa revisão por profissional habilitado.
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:28}}>
+              <KpiCard icon="👥" value={clientes.length} label="Clientes cadastrados" color="#2563EB" />
+              <KpiCard icon="🎯" value={totalOpp} label="Oportunidades mapeadas" color="#7C3AED" />
+              <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável" color="#16A34A" />
+              <KpiCard icon="⏱️" value={criticos} label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
             {clientes.length===0 ? (
-              <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:40,textAlign:'center',color:'#64748b'}}>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
-                <div style={{fontSize:16,fontWeight:600,marginBottom:8}}>Nenhum cliente ainda</div>
-                <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>+ Cadastrar primeiro cliente</button>
+                <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum cliente ainda</div>
+                <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={btnPrimary}>+ Cadastrar primeiro cliente</button>
               </div>
             ) : (
-              <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
-                <div style={{padding:'16px 20px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <span style={{fontSize:15,fontWeight:600}}>Clientes — visão rápida</span>
-                  <button onClick={()=>setPage('clientes')} style={{padding:'4px 12px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:12,cursor:'pointer'}}>Ver todos</button>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>Clientes — visão rápida</span>
+                  <button onClick={()=>setPage('clientes')} style={{...btnOutline,padding:'5px 14px',fontSize:12}}>Ver todos</button>
                 </div>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-                  <thead><tr style={{background:'#f8fafc'}}>{['Razão Social','CNPJ','Regime','Oportunidades','Potencial','Status',''].map(h=><th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:12,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0'}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:'#F8FAFC'}}>{['Razão Social','CNPJ','Regime','Oportunidades','Potencial','Status',''].map(h=><th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.5}}>{h}</th>)}</tr></thead>
                   <tbody>{clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
-                    <tr key={c.id}>
-                      <td style={{padding:'10px 16px',fontWeight:600}}>{c.razao_social}</td>
-                      <td style={{padding:'10px 16px',color:'#64748b',fontSize:12}}>{c.cnpj}</td>
-                      <td style={{padding:'10px 16px'}}>{badge(c.regime)}</td>
-                      <td style={{padding:'10px 16px'}}>{ee.filter(e=>e.credito>0).length}</td>
-                      <td style={{padding:'10px 16px',color:'#16a34a',fontWeight:600}}>{fmtR(tot)}</td>
-                      <td style={{padding:'10px 16px'}}><span style={{background:'#dcfce7',color:'#166534',padding:'2px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {c.status}</span></td>
-                      <td style={{padding:'10px 16px'}}><button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{padding:'4px 10px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:12,cursor:'pointer'}}>Ver diagnóstico</button></td>
+                    <tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'12px 16px',fontWeight:600,color:C.text}}>{c.razao_social}</td>
+                      <td style={{padding:'12px 16px',color:C.muted,fontSize:12}}>{c.cnpj}</td>
+                      <td style={{padding:'12px 16px'}}>{badge(c.regime)}</td>
+                      <td style={{padding:'12px 16px',color:C.text}}>{ee.filter(e=>e.credito>0).length}</td>
+                      <td style={{padding:'12px 16px',color:'#16A34A',fontWeight:600}}>{fmtR(tot)}</td>
+                      <td style={{padding:'12px 16px'}}><span style={{background:'#DCFCE7',color:'#166534',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {c.status}</span></td>
+                      <td style={{padding:'12px 16px'}}><button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Ver diagnóstico</button></td>
                     </tr>
                   )})}</tbody>
                 </table>
               </div>
             )}
-          </div>}
+          </>}
 
-          {page==='clientes' && <div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-              <div style={{fontSize:22,fontWeight:700,color:'#1e293b'}}>Clientes cadastrados</div>
-              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{padding:'8px 16px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer',fontWeight:500}}>+ Novo cliente</button>
+          {/* ── CLIENTES ── */}
+          {page==='clientes' && <>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+              <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
+              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={btnPrimary}>+ Novo cliente</button>
             </div>
-            {clientes.length===0 && <div style={{textAlign:'center',padding:40,color:'#64748b'}}>Nenhum cliente cadastrado ainda.</div>}
+            {clientes.length===0 && <div style={{textAlign:'center',padding:40,color:C.muted}}>Nenhum cliente cadastrado ainda.</div>}
             {clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
-              <div key={c.id} style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px 20px',marginBottom:12}}>
+              <div key={c.id} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
                 <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
                   <div>
-                    <div style={{fontSize:15,fontWeight:600,color:'#1e293b',marginBottom:4}}>{c.razao_social}</div>
-                    <div style={{fontSize:12,color:'#64748b',marginBottom:8}}>{c.cnpj} · {c.municipio}/{c.uf} · CNAE {c.cnae_principal}</div>
-                    <div style={{display:'flex',gap:8}}>{badge(c.regime)}<span style={{background:'#dcfce7',color:'#166534',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {c.status}</span></div>
+                    <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:4}}>{c.razao_social}</div>
+                    <div style={{fontSize:12,color:C.muted,marginBottom:8}}>{c.cnpj} · {c.municipio}/{c.uf} · CNAE {c.cnae_principal}</div>
+                    <div style={{display:'flex',gap:8}}>{badge(c.regime)}</div>
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <div style={{fontSize:20,fontWeight:700,color:'#16a34a'}}>{fmtR(tot)}</div>
-                    <div style={{fontSize:11,color:'#64748b',marginBottom:10}}>potencial recuperável</div>
+                    <div style={{fontSize:20,fontWeight:700,color:'#16A34A'}}>{fmtR(tot)}</div>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:10}}>potencial recuperável</div>
                     <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-                      <button onClick={()=>{setNovoCliente({...c});setPage('novo-cliente')}} style={{padding:'4px 10px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:12,cursor:'pointer'}}>Editar</button>
-                      <button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{padding:'4px 10px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:12,cursor:'pointer'}}>Diagnóstico</button>
+                      <button onClick={()=>{setNovoCliente({...c});setPage('novo-cliente')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Editar</button>
+                      <button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{...btnPrimary,padding:'4px 12px',fontSize:12}}>Diagnóstico</button>
                     </div>
                   </div>
                 </div>
               </div>
             )})}
-          </div>}
+          </>}
 
-          {page==='novo-cliente' && novoCliente && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:20}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:20,marginBottom:16}}>
-              <div style={{fontSize:14,fontWeight:600,color:'#1e3a5f',marginBottom:16}}>📋 Identificação</div>
+          {/* ── NOVO CLIENTE ── */}
+          {page==='novo-cliente' && novoCliente && <>
+            <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+              <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📋 Identificação</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-                {[['Razão Social *','razao_social'],['Nome Fantasia','nome_fantasia'],['CNPJ *','cnpj'],['CNAE Principal','cnae_principal'],['CNAEs Secundários (separados por vírgula)','cnaes_secundarios'],['Inscrição Estadual','inscricao_estadual'],['Inscrição Municipal','inscricao_municipal'],['Município','municipio'],['UF','uf']].map(([lb,k])=>(
+                {[['Razão Social *','razao_social'],['Nome Fantasia','nome_fantasia'],['CNPJ *','cnpj'],['CNAE Principal','cnae_principal'],['CNAEs Secundários','cnaes_secundarios'],['Inscrição Estadual','inscricao_estadual'],['Inscrição Municipal','inscricao_municipal'],['Município','municipio'],['UF','uf']].map(([lb,k])=>(
                   <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
-                    <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
-                    <input value={novoCliente[k]||''} onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
+                    <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
+                    <input value={novoCliente[k]||''} onChange={e=>setNovoCliente({...novoCliente,[k]:applyMask(k,e.target.value)})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
                   </div>
                 ))}
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Regime Tributário *</label>
-                  <select value={novoCliente.regime||'Simples Nacional'} onChange={e=>setNovoCliente({...novoCliente,regime:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}}>
+                  <label style={{fontSize:13,fontWeight:500,color:C.text}}>Regime tributário *</label>
+                  <select value={novoCliente.regime||'Simples Nacional'} onChange={e=>setNovoCliente({...novoCliente,regime:e.target.value})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
                     <option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option>
                   </select>
                 </div>
               </div>
             </div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:20,marginBottom:16}}>
-              <div style={{fontSize:14,fontWeight:600,color:'#1e3a5f',marginBottom:16}}>📅 Período de análise</div>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+              <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📅 Período de análise</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Competência inicial</label>
-                  <input type="month" value={novoCliente.competencia_inicio||''} onChange={e=>setNovoCliente({...novoCliente,competencia_inicio:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Competência final</label>
-                  <input type="month" value={novoCliente.competencia_fim||''} onChange={e=>setNovoCliente({...novoCliente,competencia_fim:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Responsável contábil</label>
-                  <input value={novoCliente.responsavel_contabil||''} onChange={e=>setNovoCliente({...novoCliente,responsavel_contabil:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Observações</label>
-                  <input value={novoCliente.observacoes||''} onChange={e=>setNovoCliente({...novoCliente,observacoes:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
-                </div>
+                {[['Competência inicial','competencia_inicio','month'],['Competência final','competencia_fim','month'],['Responsável contábil','responsavel_contabil','text'],['Observações','observacoes','text']].map(([lb,k,tp])=>(
+                  <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
+                    <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
+                    <input type={tp} value={novoCliente[k]||''} onChange={e=>setNovoCliente({...novoCliente,[k]:e.target.value})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} />
+                  </div>
+                ))}
               </div>
             </div>
             <div style={{display:'flex',gap:12}}>
-              <button onClick={salvarCliente} disabled={salvando} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer',fontWeight:500}}>{salvando?'💾 Salvando...':'💾 Salvar cliente'}</button>
-              <button onClick={()=>setPage('clientes')} style={{padding:'10px 20px',background:'#fff',color:'#1e3a5f',border:'1.5px solid #1e3a5f',borderRadius:6,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+              <button onClick={salvarCliente} disabled={salvando} style={btnPrimary}>{salvando?'💾 Salvando...':'💾 Salvar cliente'}</button>
+              <button onClick={()=>setPage('clientes')} style={btnOutline}>Cancelar</button>
             </div>
-          </div>}
+          </>}
 
-          {page==='checklist' && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Checklist documental — {active?.razao_social}</div>
-            <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Regime: {active?.regime} · Marque os documentos já obtidos.</div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px 20px',marginBottom:16}}>
-              <div style={{background:'#e2e8f0',borderRadius:99,height:10,overflow:'hidden',margin:'10px 0 6px'}}><div style={{background:'#16a34a',height:10,borderRadius:99,width:pct+'%',transition:'width .3s'}}></div></div>
-              <div style={{fontSize:12,color:'#64748b'}}>{done} de {docs.length} documentos — {pct}%</div>
+          {/* ── CHECKLIST ── */}
+          {page==='checklist' && <>
+            <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social} · {active?.regime}</div>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+              <div style={{background:C.border,borderRadius:99,height:8,overflow:'hidden',marginBottom:6}}><div style={{background:C.green,height:8,borderRadius:99,width:pct+'%',transition:'width .3s'}}></div></div>
+              <div style={{fontSize:12,color:C.muted}}>{done} de {docs.length} documentos — {pct}%</div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
               {docs.map((d,i)=>(
-                <div key={i} onClick={()=>toggleCheck(i)} style={{display:'flex',alignItems:'center',gap:10,background:checks[i]?'#f0fdf4':'#fff',border:`1px solid ${checks[i]?'#86efac':'#e2e8f0'}`,borderRadius:8,padding:'10px 14px',cursor:'pointer',fontSize:13,color:checks[i]?'#166534':'#374151'}}>
-                  <input type="checkbox" checked={checks[i]} onChange={()=>toggleCheck(i)} style={{accentColor:'#16a34a',width:16,height:16}} />{d}
+                <div key={i} onClick={()=>toggleCheck(i)} style={{display:'flex',alignItems:'center',gap:10,background:checks[i]?'#F0FDF4':C.white,border:`1px solid ${checks[i]?'#86EFAC':C.border}`,borderRadius:8,padding:'10px 14px',cursor:'pointer',fontSize:13,color:checks[i]?'#166534':C.text}}>
+                  <input type="checkbox" checked={checks[i]} onChange={()=>toggleCheck(i)} style={{accentColor:C.green,width:16,height:16}} />{d}
                 </div>
               ))}
             </div>
             <div style={{display:'flex',gap:12}}>
-              <button onClick={()=>setPage('entrada')} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Avançar para entrada de dados</button>
-              <button onClick={()=>setPage('diagnostico')} style={{padding:'10px 20px',background:'#fff',color:'#1e3a5f',border:'1.5px solid #1e3a5f',borderRadius:6,fontSize:13,cursor:'pointer'}}>Ir para diagnóstico</button>
+              <button onClick={()=>setPage('entrada')} style={btnPrimary}>Avançar para entrada de dados</button>
+              <button onClick={()=>setPage('diagnostico')} style={btnOutline}>Ir para diagnóstico</button>
             </div>
-          </div>}
+          </>}
 
-          {page==='entrada' && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Entrada de dados — {active?.razao_social}</div>
-            <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>Insira os dados por competência.</div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:20,marginBottom:16}}>
-              <div style={{fontSize:14,fontWeight:600,color:'#1e3a5f',marginBottom:16}}>Nova competência</div>
+          {/* ── ENTRADA ── */}
+          {page==='entrada' && <>
+            <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Entrada de dados</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social}</div>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+              <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>Nova competência</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
                 {[['Competência *','competencia','2022-03'],['Receita bruta (R$)','receita_bruta','0'],['Tributo pago (R$)','tributo_pago','0'],['Tributo devido (R$)','tributo_devido','0']].map(([lb,k,ph])=>(
                   <div key={k} style={{display:'flex',flexDirection:'column',gap:6}}>
-                    <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</label>
-                    <input value={novaEntrada[k]} onChange={e=>setNovaEntrada({...novaEntrada,[k]:k==='receita_bruta'||k==='tributo_pago'||k==='tributo_devido'?maskMoeda(e.target.value):e.target.value})} placeholder={ph} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} />
+                    <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
+                    <input value={novaEntrada[k]} onChange={e=>setNovaEntrada({...novaEntrada,[k]:k==='receita_bruta'||k==='tributo_pago'||k==='tributo_devido'?maskMoeda(e.target.value):e.target.value})} placeholder={ph} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} />
                   </div>
                 ))}
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Tributo *</label>
-                  <select value={novaEntrada.tributo} onChange={e=>setNovaEntrada({...novaEntrada,tributo:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}}>
+                  <label style={{fontSize:13,fontWeight:500,color:C.text}}>Tributo *</label>
+                  <select value={novaEntrada.tributo} onChange={e=>setNovaEntrada({...novaEntrada,tributo:e.target.value})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
                     <option value=''>— Selecione —</option>
                     {['DAS','IRPJ','CSLL','PIS','COFINS','IRPJ/CSLL LP','PIS/COFINS LP','INSS','ISS','ICMS ST'].map(t=><option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Tipo de oportunidade</label>
-                  <select value={novaEntrada.tipo_oportunidade} onChange={e=>setNovaEntrada({...novaEntrada,tipo_oportunidade:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}}>
+                  <label style={{fontSize:13,fontWeight:500,color:C.text}}>Tipo de oportunidade</label>
+                  <select value={novaEntrada.tipo_oportunidade} onChange={e=>setNovaEntrada({...novaEntrada,tipo_oportunidade:e.target.value})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
                     <option value=''>— Selecione —</option>
                     {['Receita monofásica tributada indevidamente','Substituição tributária indevida','Base de cálculo reduzida não aplicada','Isenção não aproveitada','Alíquota incorreta','Crédito não aproveitado'].map(t=><option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  <label style={{fontSize:13,fontWeight:500,color:'#374151'}}>Risco</label>
-                  <select value={novaEntrada.risco} onChange={e=>setNovaEntrada({...novaEntrada,risco:e.target.value})} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}}>
-                    <option value='baixo'>baixo</option><option value='medio'>médio</option><option value='alto'>alto</option>
+                  <label style={{fontSize:13,fontWeight:500,color:C.text}}>Risco</label>
+                  <select value={novaEntrada.risco} onChange={e=>setNovaEntrada({...novaEntrada,risco:e.target.value})} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
+                    <option value='baixo'>Baixo</option><option value='medio'>Médio</option><option value='alto'>Alto</option>
                   </select>
                 </div>
               </div>
-              <button onClick={adicionarEntrada} style={{marginTop:16,padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>+ Adicionar competência</button>
+              <button onClick={adicionarEntrada} style={{...btnPrimary,marginTop:16}}>+ Adicionar competência</button>
             </div>
             {ents.map((e,i)=>(
-              <div key={i} style={{background:'#fff',borderRadius:8,border:'1px solid #e2e8f0',padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:13}}>
+              <div key={i} style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:13}}>
                 <div>
-                  <div style={{fontWeight:600,color:'#1e293b'}}>{e.competencia} — {e.tributo}</div>
-                  <div style={{fontSize:12,color:'#64748b'}}>{e.tipo_oportunidade||'Sem oportunidade'} · risco: {e.risco}</div>
+                  <div style={{fontWeight:600,color:C.text}}>{e.competencia} — {e.tributo}</div>
+                  <div style={{fontSize:12,color:C.muted}}>{e.tipo_oportunidade||'Sem oportunidade'} · risco: {e.risco}</div>
                 </div>
-                <div style={{color:'#16a34a',fontWeight:600}}>crédito: {fmtR(e.credito)}</div>
+                <div style={{color:'#16A34A',fontWeight:600}}>crédito: {fmtR(e.credito)}</div>
               </div>
             ))}
-          </div>}
+          </>}
 
-          {page==='diagnostico' && <div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          {/* ── DIAGNÓSTICO ── */}
+          {page==='diagnostico' && <>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div>
-                <div style={{fontSize:22,fontWeight:700,color:'#1e293b'}}>Diagnóstico tributário</div>
-                <div style={{fontSize:13,color:'#64748b'}}>{active?.razao_social} · {active?.cnpj} · {active?.regime}</div>
+                <div style={{fontSize:22,fontWeight:700,color:C.text}}>Diagnóstico tributário</div>
+                <div style={{fontSize:13,color:C.muted,marginTop:2}}>{active?.razao_social} · {active?.cnpj} · {active?.regime}</div>
               </div>
               <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>setPage('score')} style={{padding:'6px 14px',border:'1.5px solid #7c3aed',borderRadius:6,background:'#fff',color:'#7c3aed',fontSize:13,cursor:'pointer'}}>🎯 Score Fiscal</button>
-                <button onClick={()=>setPage('relatorio')} style={{padding:'6px 14px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:13,cursor:'pointer'}}>📄 Relatório</button>
-                <button onClick={()=>setPage('entrada')} style={{padding:'6px 14px',border:'1.5px solid #1e3a5f',borderRadius:6,background:'#fff',color:'#1e3a5f',fontSize:13,cursor:'pointer'}}>+ Adicionar dados</button>
+                <button onClick={()=>setPage('score')} style={{...btnOutline,borderColor:'#7C3AED',color:'#7C3AED',padding:'6px 14px',fontSize:13}}>🎯 Score Fiscal</button>
+                <button onClick={()=>setPage('relatorio')} style={{...btnOutline,padding:'6px 14px',fontSize:13}}>📄 Relatório</button>
+                <button onClick={()=>setPage('entrada')} style={{...btnOutline,padding:'6px 14px',fontSize:13}}>+ Dados</button>
               </div>
             </div>
-            <div style={{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'12px 16px',marginBottom:12,fontSize:13,color:'#92400e'}}>
+            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#92400E'}}>
               ⚠️ <strong>Aviso:</strong> Análise preliminar — não dispensa revisão profissional.
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
-              {[[fmtR(totalPot),'Total potencial recuperável','#16a34a'],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Créditos confirmados (baixo risco)','#0d9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possíveis créditos (médio risco)','#d97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'Hipóteses a validar (alto risco)','#dc2626']].map(([v,lb,vc],i)=>(
-                <div key={i} style={{background:'#fff',borderRadius:10,padding:20,borderTop:`4px solid ${vc}`}}>
-                  <div style={{fontSize:i===0?20:26,fontWeight:700,color:vc,marginBottom:4}}>{v}</div>
-                  <div style={{fontSize:12,color:'#64748b'}}>{lb}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+              {[[fmtR(totalPot),'Total potencial recuperável','#16A34A'],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Créditos confirmados','#0D9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possíveis créditos','#D97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'Hipóteses a validar','#DC2626']].map(([v,lb,vc],i)=>(
+                <div key={i} style={{background:C.white,borderRadius:12,padding:20,borderTop:`4px solid ${vc}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                  <div style={{fontSize:i===0?18:24,fontWeight:700,color:vc,marginBottom:4}}>{v}</div>
+                  <div style={{fontSize:12,color:C.muted}}>{lb}</div>
                 </div>
               ))}
             </div>
             {ents.filter(e=>e.credito>0).length>0 && <>
-              <div style={{fontSize:15,fontWeight:600,color:'#1e293b',marginBottom:12}}>Oportunidades mapeadas</div>
-              <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
+              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:12}}>Oportunidades mapeadas</div>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-                  <thead><tr style={{background:'#f8fafc'}}>{['Competência','Tributo','Tipo de oportunidade','Pago','Devido','Crédito','Risco'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0'}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:'#F8FAFC'}}>{['Competência','Tributo','Tipo de oportunidade','Pago','Devido','Crédito','Risco'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.4}}>{h}</th>)}</tr></thead>
                   <tbody>{ents.filter(e=>e.credito>0).map((e,i)=>(
-                    <tr key={i} style={{borderBottom:'1px solid #f1f5f9'}}>
-                      <td style={{padding:'10px 12px'}}>{e.competencia}</td>
-                      <td style={{padding:'10px 12px'}}>{e.tributo}</td>
-                      <td style={{padding:'10px 12px',fontSize:12}}>{e.tipo_oportunidade}</td>
+                    <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'10px 12px',color:C.text}}>{e.competencia}</td>
+                      <td style={{padding:'10px 12px',color:C.text}}>{e.tributo}</td>
+                      <td style={{padding:'10px 12px',fontSize:12,color:C.muted}}>{e.tipo_oportunidade}</td>
                       <td style={{padding:'10px 12px'}}>{fmtR(e.tributo_pago)}</td>
                       <td style={{padding:'10px 12px'}}>{fmtR(e.tributo_devido)}</td>
-                      <td style={{padding:'10px 12px',fontWeight:600,color:'#16a34a'}}>{fmtR(e.credito)}</td>
+                      <td style={{padding:'10px 12px',fontWeight:600,color:'#16A34A'}}>{fmtR(e.credito)}</td>
                       <td style={{padding:'10px 12px'}}>{riskBadge(e.risco)}</td>
                     </tr>
                   ))}</tbody>
                 </table>
               </div>
             </>}
-          </div>}
+          </>}
 
-          {page==='score' && <ScoreFiscal />}
-          {page==='analise' && <AnaliseFiscal />}
-          {page==='teses' && <TesesTributarias />}
-          {page==='creditos' && <EmBreve titulo="Potenciais Créditos" />}
-          {page==='monitor' && <MonitorObrigacoes />}
-          {page==='importacoes' && <CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} />}
-          {page==='recuperacoes' && <GestaoRecuperacoes />}
-          {page==='perdcomp' && <PerdComp />}
-          {page==='exigencias' && <EmBreve titulo="Exigências Fiscais" />}
-          {page==='acompanhamento' && <EmBreve titulo="Acompanhamento de Processos" />}
-          {page==='prazosfiscais' && <EmBreve titulo="Prazos Fiscais" />}
-          {page==='simuladores' && <EmBreve titulo="Simuladores" />}
+          {page==='score'         && <ScoreFiscal />}
+          {page==='analise'       && <AnaliseFiscal />}
+          {page==='teses'         && <TesesTributarias />}
+          {page==='monitor'       && <MonitorObrigacoes />}
+          {page==='importacoes'   && <CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} />}
+          {page==='recuperacoes'  && <GestaoRecuperacoes />}
+          {page==='perdcomp'      && <PerdComp />}
+          {page==='acompanhamento'&& <EmBreve titulo="Acompanhamento de processos" />}
+          {page==='prazosfiscais' && <EmBreve titulo="Prazos fiscais" />}
+          {page==='simuladores'   && <EmBreve titulo="Simuladores" />}
 
-          {page==='prazos' && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>Controle Prescricional</div>
-            <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>{active?.razao_social} — prazo de 5 anos contados do pagamento indevido.</div>
+          {/* ── PRAZOS / PRESCRICIONAL ── */}
+          {page==='prazos' && <>
+            <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Controle prescricional</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social} — prazo de 5 anos do pagamento indevido</div>
             {ents.filter(e=>e.credito>0).map((e,i)=>{
               const[a,m]=e.competencia.split('-');const l=new Date(parseInt(a)+5,parseInt(m)-1,1);const dias=Math.round((l-hoje)/(1000*60*60*24));const urg=dias<=365;
-              return <div key={i} style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px 20px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',borderLeft:`4px solid ${urg?'#dc2626':'#16a34a'}`}}>
+              return <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',borderLeft:`4px solid ${urg?'#DC2626':C.green}`}}>
                 <div>
-                  <div style={{fontSize:14,fontWeight:600,color:'#1e293b',marginBottom:4}}>{e.competencia} — {e.tributo}</div>
-                  <div style={{fontSize:12,color:'#64748b'}}>{e.tipo_oportunidade}</div>
+                  <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:4}}>{e.competencia} — {e.tributo}</div>
+                  <div style={{fontSize:12,color:C.muted}}>{e.tipo_oportunidade}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
-                  <div style={{fontSize:16,fontWeight:700,color:'#16a34a',marginBottom:4}}>{fmtR(e.credito)}</div>
-                  <div style={{fontSize:12,color:urg?'#dc2626':'#64748b',fontWeight:urg?600:400}}>{urg?'⚠️ CRÍTICO — ':''}{dias} dias · {l.toLocaleDateString('pt-BR')}</div>
+                  <div style={{fontSize:16,fontWeight:700,color:'#16A34A',marginBottom:4}}>{fmtR(e.credito)}</div>
+                  <div style={{fontSize:12,color:urg?'#DC2626':C.muted,fontWeight:urg?600:400}}>{urg?'⚠️ CRÍTICO — ':''}{dias} dias · {l.toLocaleDateString('pt-BR')}</div>
                 </div>
               </div>
             })}
-          </div>}
+          </>}
 
           {page==='relatorio' && <Relatorio active={active} ents={ents} />}
-          {page==='planos' && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
+          {page==='planos'    && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
 
-          {page==='calculadoras' && <div>
-            <div style={{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}}>📊 Calculadoras Tributárias</div>
-            <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Resultados estimados para diagnóstico. Valide sempre com profissional habilitado.</div>
-            <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'2px solid #e2e8f0'}}>
-              {[['fator-r','🔺 Fator R'],['das','📋 DAS Simples'],['regime','⚖️ Simulador Regime'],['irpj','💰 IRPJ/CSLL LP'],['prescricao','⏰ Prescrição']].map(([id,lb])=>(
-                <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 18px',fontSize:13,fontWeight:calcTab===id?600:500,color:calcTab===id?'#1e3a5f':'#64748b',cursor:'pointer',borderBottom:`2px solid ${calcTab===id?'#1e3a5f':'transparent'}`,marginBottom:-2}}>{lb}</div>
+          {/* ── CALCULADORAS ── */}
+          {page==='calculadoras' && <>
+            <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributárias</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Estimativas para diagnóstico — valide sempre com profissional habilitado</div>
+            <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`}}>
+              {[['fator-r','🔺 Fator R'],['das','📋 DAS Simples'],['regime','⚖️ Regime'],['irpj','💰 IRPJ/CSLL'],['prescricao','⏰ Prescrição']].map(([id,lb])=>(
+                <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 18px',fontSize:13,fontWeight:calcTab===id?600:500,color:calcTab===id?C.navy:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.navy:'transparent'}`,marginBottom:-2}}>{lb}</div>
               ))}
             </div>
-            <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',padding:24,maxWidth:580,marginBottom:16}}>
-              {calcTab==='fator-r' && <><div style={{fontSize:15,fontWeight:600,color:'#1e3a5f',marginBottom:6}}>🔺 Fator R</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Calcular →</button></>}
-              {calcTab==='das' && <><div style={{fontSize:15,fontWeight:600,color:'#1e3a5f',marginBottom:6}}>📋 DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Receita do mês (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Calcular →</button></>}
-              {calcTab==='regime' && <><div style={{fontSize:15,fontWeight:600,color:'#1e3a5f',marginBottom:6}}>⚖️ Simulador de Regime</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Margem líquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comércio'],['industria','Indústria'],['servicos','Serviços']])}</div></div><button onClick={calcRegime} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Simular →</button></>}
-              {calcTab==='irpj' && <><div style={{fontSize:15,fontWeight:600,color:'#1e3a5f',marginBottom:6}}>💰 IRPJ/CSLL — Lucro Presumido</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Receita bruta trimestral (R$)</label>{inp(cRbt,setCRbt,'Ex: 300000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Atividade</label>{sel(cAtv2,setCAtv2,[['8','Comércio/Indústria (8%)'],['16','Transporte (16%)'],['32','Serviços (32%)']])}</div></div><button onClick={calcIRPJ} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Calcular →</button></>}
-              {calcTab==='prescricao' && <><div style={{fontSize:15,fontWeight:600,color:'#1e3a5f',marginBottom:6}}>⏰ Prescrição</div><div style={{marginBottom:16}}><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6}}>Data de pagamento indevido</label><input type="date" value={cDtpag} onChange={e=>setCDtpag(e.target.value)} style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:6,fontSize:13}} /></div><button onClick={calcPrescricao} style={{padding:'10px 20px',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:6,fontSize:13,cursor:'pointer'}}>Calcular →</button></>}
-              {calcResult && <div style={{marginTop:16,background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:'14px 18px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:28,maxWidth:580,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+              {calcTab==='fator-r' && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>🔺 Fator R</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={btnPrimary}>Calcular →</button></>}
+              {calcTab==='das' && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>📋 DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Receita do mês (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={btnPrimary}>Calcular →</button></>}
+              {calcTab==='regime' && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>⚖️ Simulador de regime</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Margem líquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comércio'],['industria','Indústria'],['servicos','Serviços']])}</div></div><button onClick={calcRegime} style={btnPrimary}>Simular →</button></>}
+              {calcTab==='irpj' && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>💰 IRPJ/CSLL — Lucro Presumido</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Receita bruta trimestral (R$)</label>{inp(cRbt,setCRbt,'Ex: 300000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Atividade</label>{sel(cAtv2,setCAtv2,[['8','Comércio/Indústria (8%)'],['16','Transporte (16%)'],['32','Serviços (32%)']])}</div></div><button onClick={calcIRPJ} style={btnPrimary}>Calcular →</button></>}
+              {calcTab==='prescricao' && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>⏰ Prescrição</div><div style={{marginBottom:16}}><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Data de pagamento indevido</label><input type="date" value={cDtpag} onChange={e=>setCDtpag(e.target.value)} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} /></div><button onClick={calcPrescricao} style={btnPrimary}>Calcular →</button></>}
+              {calcResult && <div style={{marginTop:20,background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,padding:'14px 18px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
             </div>
-          </div>}
+          </>}
 
         </div>
       </div>
