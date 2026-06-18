@@ -1,3 +1,4 @@
+import PrazosPrescricionais from './PrazosPrescricionais'
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
@@ -506,7 +507,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='simuladores'   && <EmBreve titulo="Simuladores" />}
 
           {/* ── PRAZOS / PRESCRICIONAL ── */}
-          {page==='prazos' && <>
+          {page==='prazos' && <PrazosPrescricionais active={active} />}
+          {page==='prazos_old' && <>
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Controle prescricional</div>
             <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social} — prazo de 5 anos do pagamento indevido</div>
             {ents.filter(e=>e.credito>0).map((e,i)=>{
