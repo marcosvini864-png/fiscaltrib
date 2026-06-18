@@ -220,7 +220,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:56,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-        <span style={{fontSize:15,fontWeight:700,color:C.navy}}>🏛 FiscalTrib</span>
+        <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:36,objectFit:'contain'}} />
         <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
         {clientes.length>0 && (
           <select value={activeId||''} onChange={e=>setActiveId(e.target.value)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
