@@ -286,9 +286,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
               <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{...btnPrimary,padding:'7px 16px',fontSize:13}}>+ Novo cliente</button>
             </div>
-              <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
-              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={btnPrimary}>+ Novo cliente</button>
-            </div>
             {clientes.length===0 && <div style={{textAlign:'center',padding:40,color:C.muted}}>Nenhum cliente cadastrado ainda.</div>}
             {clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
               <div key={c.id} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
