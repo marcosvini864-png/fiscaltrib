@@ -99,12 +99,13 @@ function Sidebar({ page, onNavigate }) {
   )
 }
 
-function EmBreve({ titulo }) {
+function EmBreve({ titulo, onVoltar }) {
   return (
     <div style={{textAlign:'center',padding:'80px 40px',color:C.muted}}>
       <div style={{fontSize:48,marginBottom:16}}>🚧</div>
       <div style={{fontSize:20,fontWeight:700,color:C.text,marginBottom:8}}>{titulo}</div>
-      <div style={{fontSize:14}}>Este módulo está em desenvolvimento e será disponibilizado em breve.</div>
+      <div style={{fontSize:14,marginBottom:24}}>Este módulo está em desenvolvimento e será disponibilizado em breve.</div>
+      <button onClick={onVoltar} style={{padding:'8px 20px',background:'none',border:`1.5px solid ${C.navy}`,borderRadius:8,color:C.navy,fontSize:13,cursor:'pointer'}}>← Voltar</button>
     </div>
   )
 }
@@ -118,6 +119,17 @@ function KpiCard({ icon, value, label, color }) {
         <div style={{fontSize:12,color:C.muted,marginTop:4}}>{label}</div>
       </div>
     </div>
+  )
+}
+
+// Botão Voltar padronizado
+function BtnVoltar({ onClick }) {
+  return (
+    <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:`1.5px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:13,cursor:'pointer',marginBottom:20}}
+      onMouseEnter={e=>{e.currentTarget.style.borderColor=C.navy;e.currentTarget.style.color=C.navy}}
+      onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted}}>
+      ← Voltar
+    </button>
   )
 }
 
@@ -282,7 +294,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </>}
 
           {page==='clientes' && <>
-             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+            <BtnVoltar onClick={()=>setPage('painel')} />
+            <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
               <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{...btnPrimary,padding:'7px 16px',fontSize:13}}>+ Novo cliente</button>
             </div>
@@ -309,6 +322,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </>}
 
           {page==='novo-cliente' && novoCliente && <>
+            <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📋 Identificação</div>
@@ -345,6 +359,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </>}
 
           {page==='checklist' && <>
+            <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
             <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social} · {active?.regime}</div>
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
@@ -364,7 +379,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
           </>}
 
-          {/* ── ENTRADA DE DADOS — NOVO COMPONENTE INTELIGENTE ── */}
           {page==='entrada' && (
             <EntradaDados
               clienteId={activeId}
@@ -375,6 +389,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           )}
 
           {page==='diagnostico' && <>
+            <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div>
                 <div style={{fontSize:22,fontWeight:700,color:C.text}}>Diagnóstico tributário</div>
@@ -418,21 +433,22 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </>}
           </>}
 
-          {page==='score'          && <ScoreFiscal />}
-          {page==='analise'        && <AnaliseFiscal />}
-          {page==='teses'          && <TesesTributarias />}
-          {page==='monitor'        && <MonitorObrigacoes />}
-          {page==='importacoes'    && <CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} />}
-          {page==='recuperacoes'   && <GestaoRecuperacoes />}
-          {page==='perdcomp'       && <PerdComp />}
-          {page==='prazos'         && <PrazosPrescricionais active={active} />}
-          {page==='acompanhamento' && <EmBreve titulo="Acompanhamento de processos" />}
-          {page==='prazosfiscais'  && <EmBreve titulo="Prazos fiscais" />}
-          {page==='simuladores'    && <EmBreve titulo="Simuladores" />}
-          {page==='relatorio'      && <Relatorio active={active} ents={ents} />}
+          {page==='score'          && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><ScoreFiscal /></>}
+          {page==='analise'        && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><AnaliseFiscal /></>}
+          {page==='teses'          && <><BtnVoltar onClick={()=>setPage('painel')} /><TesesTributarias /></>}
+          {page==='monitor'        && <><BtnVoltar onClick={()=>setPage('painel')} /><MonitorObrigacoes /></>}
+          {page==='importacoes'    && <><BtnVoltar onClick={()=>setPage('painel')} /><CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} /></>}
+          {page==='recuperacoes'   && <><BtnVoltar onClick={()=>setPage('painel')} /><GestaoRecuperacoes /></>}
+          {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
+          {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
+          {page==='acompanhamento' && <EmBreve titulo="Acompanhamento de processos" onVoltar={()=>setPage('painel')} />}
+          {page==='prazosfiscais'  && <EmBreve titulo="Prazos fiscais" onVoltar={()=>setPage('painel')} />}
+          {page==='simuladores'    && <EmBreve titulo="Simuladores" onVoltar={()=>setPage('painel')} />}
+          {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
 
           {page==='calculadoras' && <>
+            <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributárias</div>
             <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Estimativas para diagnóstico — valide sempre com profissional habilitado</div>
             <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`}}>
