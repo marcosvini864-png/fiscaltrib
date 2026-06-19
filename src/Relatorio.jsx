@@ -347,7 +347,7 @@ export default function Relatorio({ active, ents }) {
 
       <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:16,padding:'28px 32px',marginBottom:24,color:'#fff'}}>
         <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — RELATÓRIO EXECUTIVO</div>
-        <h2 style={{fontSize:24,fontWeight:900,marginBottom:8,margin:'0 0 8px'}}>📄 Relatório Matador</h2>
+        <h2 style={{fontSize:24,fontWeight:900,margin:'0 0 8px',color:'#fff'}}>📄 Relatório Matador</h2>
         <p style={{fontSize:14,color:'#93c5fd',margin:0}}>PDF comercial de 4 páginas · Leve para o cliente e feche o contrato</p>
       </div>
 

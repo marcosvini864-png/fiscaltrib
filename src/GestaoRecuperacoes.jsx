@@ -121,7 +121,7 @@ export default function GestaoRecuperacoes() {
       {/* BANNER */}
       <div style={{ background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius:16, padding:'28px 32px', marginBottom:24, color:'#fff' }}>
         <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:8 }}>FISCALTRIB — PIPELINE DE RECUPERAÇÃO</div>
-        <h1 style={{ fontSize:26, fontWeight:900, marginBottom:8 }}>💼 Gestão de Recuperações</h1>
+        <h1 style={{ fontSize:26, fontWeight:900, marginBottom:8, color:'#fff' }}>💼 Gestão de Recuperações</h1>
         <p style={{ fontSize:14, color:'#93c5fd', marginBottom:24, maxWidth:560 }}>
           Acompanhe cada processo do diagnóstico até o crédito recuperado.
         </p>

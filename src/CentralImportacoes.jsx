@@ -536,7 +536,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       {/* Banner */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — AUTOMAÇÃO FISCAL</div>
-        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>📥 Central de Importações</h1>
+        <h1 style={{ fontSize:26, fontWeight:900, marginBottom:8, color:'#fff' }}>💼 Gestão de Recuperações</h1>
         <p style={{ fontSize: 15, color: '#93c5fd', marginBottom: 24, maxWidth: 560 }}>
           Importe arquivos fiscais e receba o <strong style={{ color: '#4ade80' }}>Raio-X Tributário Automático</strong> com as oportunidades do seu cliente.
         </p>

@@ -75,7 +75,7 @@ export default function PrazosPrescricionais({ active }) {
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:16,padding:'28px 32px',marginBottom:24,color:'#fff'}}>
         <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — CONTROLE PRESCRICIONAL</div>
-        <h2 style={{fontSize:24,fontWeight:900,marginBottom:8,margin:'0 0 8px'}}>⏳ Controle Prescricional</h2>
+        <h2 style={{fontSize:24,fontWeight:900,margin:'0 0 8px',color:'#fff'}}>⏳ Controle Prescricional</h2>
         <div style={{fontSize:14,color:'#93c5fd'}}>{active?.razao_social} · Prazo de 5 anos contados do pagamento indevido (art. 168 CTN)</div>
       </div>
 

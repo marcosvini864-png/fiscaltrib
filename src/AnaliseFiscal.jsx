@@ -196,7 +196,7 @@ export default function AnaliseFiscal() {
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — FASE 5</div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>🤖 IA Tributária</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🤖 IA Tributária</h2>
         <p style={{ fontSize: 14, color: '#93c5fd', marginBottom: 0 }}>
           Converse com a IA usando os dados reais do seu cliente. Respostas com valores, teses e prazos específicos.
         </p>
