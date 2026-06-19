@@ -1,3 +1,4 @@
+import PrazosFiscais from './PrazosFiscais'
 import Acompanhamento from './Acompanhamento'
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
@@ -443,7 +444,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
           {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
           {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
-          {page==='prazosfiscais'  && <EmBreve titulo="Prazos fiscais" onVoltar={()=>setPage('painel')} />}
+          {page==='prazosfiscais' && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
           {page==='simuladores'    && <EmBreve titulo="Simuladores" onVoltar={()=>setPage('painel')} />}
           {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
