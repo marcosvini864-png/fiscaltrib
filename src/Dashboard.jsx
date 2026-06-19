@@ -282,7 +282,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </>}
 
           {page==='clientes' && <>
-            display:'flex',alignItems:'center',gap:16,marginBottom:24
+             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+              <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
+              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{...btnPrimary,padding:'7px 16px',fontSize:13}}>+ Novo cliente</button>
+            </div>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
               <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={btnPrimary}>+ Novo cliente</button>
             </div>
