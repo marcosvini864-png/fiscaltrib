@@ -1,3 +1,4 @@
+import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
 import Acompanhamento from './Acompanhamento'
 import { useState, useEffect } from 'react'
@@ -445,7 +446,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
           {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
           {page==='prazosfiscais' && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
-          {page==='simuladores'    && <EmBreve titulo="Simuladores" onVoltar={()=>setPage('painel')} />}
+          {page==='simuladores' && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
           {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
 
