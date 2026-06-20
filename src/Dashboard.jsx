@@ -125,7 +125,6 @@ function KpiCard({ icon, value, label, color }) {
   )
 }
 
-// Botão Voltar padronizado
 function BtnVoltar({ onClick }) {
   return (
     <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:`1.5px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:13,cursor:'pointer',marginBottom:20}}
@@ -172,6 +171,19 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       }
     }
     setLoading(false)
+  }
+
+  async function excluirCliente(c) {
+    if (!window.confirm(`Excluir "${c.razao_social}" e todos os seus dados? Esta ação não pode ser desfeita.`)) return
+    await supabase.from('entradas').delete().eq('cliente_id', c.id)
+    await supabase.from('recuperacoes').delete().eq('cliente_id', c.id)
+    await supabase.from('acompanhamentos').delete().eq('cliente_id', c.id)
+    await supabase.from('prazos_fiscais').delete().eq('cliente_id', c.id)
+    await supabase.from('clientes').delete().eq('id', c.id)
+    setClientes(prev => prev.filter(x => x.id !== c.id))
+    const novaEntradas = { ...entradas }
+    delete novaEntradas[c.id]
+    setEntradas(novaEntradas)
   }
 
   async function salvarCliente() {
@@ -228,6 +240,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
   const btnPrimary={padding:'10px 20px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
   const btnOutline={padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
+  const btnDanger ={padding:'4px 12px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}
 
   if(loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,system-ui,sans-serif',fontSize:16,color:C.navy}}>Carregando...</div>
 
@@ -317,6 +330,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                     <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
                       <button onClick={()=>{setNovoCliente({...c});setPage('novo-cliente')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Editar</button>
                       <button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{...btnPrimary,padding:'4px 12px',fontSize:12}}>Diagnóstico</button>
+                      <button onClick={()=>excluirCliente(c)} style={btnDanger}>🗑️ Excluir</button>
                     </div>
                   </div>
                 </div>
@@ -445,8 +459,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
           {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
           {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
-          {page==='prazosfiscais' && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
-          {page==='simuladores' && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
+          {page==='prazosfiscais'  && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
+          {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
           {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
 
