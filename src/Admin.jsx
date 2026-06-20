@@ -2,28 +2,38 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
+const RESEND_KEY  = 're_6KHHw617_KUbyRecQEHuoEmZBbVCwCvoD'
 
 const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f0b429' }
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
+function toCSV(rows) {
+  if (!rows || rows.length === 0) return 'Sem dados'
+  const headers = Object.keys(rows[0])
+  const lines   = rows.map(r => headers.map(h => {
+    const val = r[h] === null || r[h] === undefined ? '' : String(r[h])
+    return `"${val.replace(/"/g, '""')}"`
+  }).join(','))
+  return [headers.join(','), ...lines].join('\n')
+}
+
 export default function Admin({ onVoltar }) {
-  const [usuarios, setUsuarios] = useState([])
-  const [load,     setLoad]     = useState(true)
-  const [busca,    setBusca]    = useState('')
-  const [filtro,   setFiltro]   = useState('todos') // todos | essencial | avancado | premium | bloqueado
+  const [usuarios,      setUsuarios]      = useState([])
+  const [load,          setLoad]          = useState(true)
+  const [busca,         setBusca]         = useState('')
+  const [filtro,        setFiltro]        = useState('todos')
+  const [enviandoBkp,   setEnviandoBkp]   = useState(false)
+  const [msgBkp,        setMsgBkp]        = useState('')
 
   useEffect(() => { carregarUsuarios() }, [])
 
   async function carregarUsuarios() {
     setLoad(true)
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .order('id', { ascending: false })
-    console.log('USUARIOS:', data, 'ERRO:', error)
+    const { data, error } = await supabase.from('usuarios').select('*').order('id', { ascending: false })
     setUsuarios(data || [])
     setLoad(false)
   }
+
   async function toggleStatus(u) {
     const novoStatus = !u.ativo
     await supabase.from('usuarios').update({ ativo: novoStatus }).eq('id', u.id)
@@ -34,6 +44,66 @@ export default function Admin({ onVoltar }) {
     if (!window.confirm(`Excluir ${u.nome_completo || u.email}? Esta ação não pode ser desfeita.`)) return
     await supabase.from('usuarios').delete().eq('id', u.id)
     setUsuarios(prev => prev.filter(x => x.id !== u.id))
+  }
+
+  async function enviarBackup() {
+    if (!window.confirm('Enviar backup completo do banco para marcosvini864@gmail.com?')) return
+    setEnviandoBkp(true)
+    setMsgBkp('')
+    try {
+      const tabelas  = ['clientes','entradas','recuperacoes','assinaturas','usuarios','acompanhamentos','prazos_fiscais']
+      const resumo   = []
+      const csvParts = []
+      const hoje     = new Date().toLocaleDateString('pt-BR')
+
+      for (const tabela of tabelas) {
+        const { data, error } = await supabase.from(tabela).select('*')
+        const total = data?.length || 0
+        resumo.push(`• ${tabela}: ${total} registro(s)${error ? ' ⚠️ ERRO' : ''}`)
+        csvParts.push(`===== ${tabela.toUpperCase()} =====\n${toCSV(data || [])}`)
+      }
+
+      const csvCompleto = csvParts.join('\n\n')
+
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+          <div style="background:#0B1F4D;padding:24px;border-radius:12px 12px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:20px">📦 FiscalTrib — Backup Manual</h1>
+            <p style="color:#7CC4FF;margin:8px 0 0;font-size:13px">Gerado em ${hoje} pelo Painel Admin</p>
+          </div>
+          <div style="background:#f8fafc;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0">
+            <h2 style="color:#0B1F4D;font-size:16px;margin:0 0 12px">📊 Resumo</h2>
+            <div style="background:#fff;border-radius:8px;padding:16px;border:1px solid #e2e8f0;font-family:monospace;font-size:13px;line-height:1.8">
+              ${resumo.join('<br>')}
+            </div>
+            <h2 style="color:#0B1F4D;font-size:16px;margin:20px 0 12px">📄 Dados completos (CSV)</h2>
+            <pre style="font-size:10px;color:#374151;background:#f1f5f9;padding:16px;border-radius:8px;overflow:auto;white-space:pre-wrap">${csvCompleto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+          </div>
+        </div>
+      `
+
+      const res = await fetch('https://api.resend.com/emails', {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from:    'FiscalTrib Backup <onboarding@resend.dev>',
+          to:      [ADMIN_EMAIL],
+          subject: `📦 FiscalTrib — Backup Manual — ${hoje}`,
+          html,
+        }),
+      })
+
+      const result = await res.json()
+      if (res.ok) {
+        setMsgBkp('✅ Backup enviado com sucesso para ' + ADMIN_EMAIL)
+      } else {
+        setMsgBkp('⚠️ Erro ao enviar: ' + JSON.stringify(result))
+      }
+    } catch (e) {
+      setMsgBkp('❌ Erro: ' + e.message)
+    } finally {
+      setEnviandoBkp(false)
+    }
   }
 
   const lista = usuarios.filter(u => {
@@ -49,33 +119,46 @@ export default function Admin({ onVoltar }) {
     return matchBusca && matchFiltro
   })
 
-  const total     = usuarios.length
-  const ativos    = usuarios.filter(u => u.ativo).length
+  const total      = usuarios.length
+  const ativos     = usuarios.filter(u => u.ativo).length
   const bloqueados = usuarios.filter(u => !u.ativo).length
-  const essencial = usuarios.filter(u => u.plano === 'essencial').length
-  const avancado  = usuarios.filter(u => u.plano === 'avancado').length
-  const premium   = usuarios.filter(u => u.plano === 'premium').length
+  const essencial  = usuarios.filter(u => u.plano === 'essencial').length
+  const avancado   = usuarios.filter(u => u.plano === 'avancado').length
+  const premium    = usuarios.filter(u => u.plano === 'premium').length
 
   return (
     <div style={s.container}>
+
       {/* HEADER */}
       <div style={s.header}>
         <div>
           <h1 style={s.titulo}>⚙️ Painel Admin — FiscalTrib</h1>
           <p style={s.sub}>Área exclusiva do administrador</p>
         </div>
-        <button style={s.btnVoltar} onClick={onVoltar}>← Voltar ao Sistema</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button style={s.btnBackup} onClick={enviarBackup} disabled={enviandoBkp}>
+            {enviandoBkp ? '⏳ Enviando...' : '📦 Backup por e-mail'}
+          </button>
+          <button style={s.btnVoltar} onClick={onVoltar}>← Voltar ao Sistema</button>
+        </div>
       </div>
+
+      {/* MENSAGEM BACKUP */}
+      {msgBkp && (
+        <div style={{ background: msgBkp.startsWith('✅') ? '#f0fdf4' : '#fff1f2', border: `1px solid ${msgBkp.startsWith('✅') ? '#86efac' : '#fecdd3'}`, borderRadius: 10, padding: '12px 18px', marginBottom: 20, fontSize: 14, color: msgBkp.startsWith('✅') ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+          {msgBkp}
+        </div>
+      )}
 
       {/* CARDS RESUMO */}
       <div style={s.cards}>
         {[
-          { label: 'Total de Usuários', valor: total,     cor: '#64748b' },
-          { label: 'Ativos',            valor: ativos,    cor: '#22c55e' },
-          { label: 'Bloqueados',        valor: bloqueados,cor: '#ef4444' },
-          { label: 'Essencial',         valor: essencial, cor: '#3b82f6' },
-          { label: 'Avançado',          valor: avancado,  cor: '#8b5cf6' },
-          { label: 'Premium',           valor: premium,   cor: '#f0b429' },
+          { label: 'Total de Usuários', valor: total,      cor: '#64748b' },
+          { label: 'Ativos',            valor: ativos,     cor: '#22c55e' },
+          { label: 'Bloqueados',        valor: bloqueados, cor: '#ef4444' },
+          { label: 'Essencial',         valor: essencial,  cor: '#3b82f6' },
+          { label: 'Avançado',          valor: avancado,   cor: '#8b5cf6' },
+          { label: 'Premium',           valor: premium,    cor: '#f0b429' },
         ].map((c, i) => (
           <div key={i} style={{ ...s.card, borderTop: `3px solid ${c.cor}` }}>
             <span style={{ ...s.cardVal, color: c.cor }}>{c.valor}</span>
@@ -166,6 +249,7 @@ const s = {
   titulo:     { color: '#f0b429', fontSize: '22px', fontWeight: 700, margin: 0 },
   sub:        { color: '#64748b', fontSize: '13px', margin: '4px 0 0' },
   btnVoltar:  { background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
+  btnBackup:  { background: '#f0b429', border: 'none', color: '#0f172a', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 },
   cards:      { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' },
   card:       { background: '#1e293b', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' },
   cardVal:    { fontSize: '28px', fontWeight: 700 },
