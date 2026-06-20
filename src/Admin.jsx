@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
-const RESEND_KEY  = 're_6KHHw617_KUbyRecQEHuoEmZBbVCwCvoD'
+const SUPABASE_URL  = 'https://ikodyhxukvclgzydvztu.supabase.co'
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrb2R5aHh1a3ZjbGd6eWR2enR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTU1OTEsImV4cCI6MjA5Njg3MTU5MX0.X_02n8Hy0LaFoZQmLdGwjIA_LixYkMlxeVaMay4rRfg'
 
 const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f0b429' }
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
@@ -51,53 +52,20 @@ export default function Admin({ onVoltar }) {
     setEnviandoBkp(true)
     setMsgBkp('')
     try {
-      const tabelas  = ['clientes','entradas','recuperacoes','assinaturas','usuarios','acompanhamentos','prazos_fiscais']
-      const resumo   = []
-      const csvParts = []
-      const hoje     = new Date().toLocaleDateString('pt-BR')
-
-      for (const tabela of tabelas) {
-        const { data, error } = await supabase.from(tabela).select('*')
-        const total = data?.length || 0
-        resumo.push(`• ${tabela}: ${total} registro(s)${error ? ' ⚠️ ERRO' : ''}`)
-        csvParts.push(`===== ${tabela.toUpperCase()} =====\n${toCSV(data || [])}`)
-      }
-
-      const csvCompleto = csvParts.join('\n\n')
-
-      const html = `
-        <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
-          <div style="background:#0B1F4D;padding:24px;border-radius:12px 12px 0 0">
-            <h1 style="color:#fff;margin:0;font-size:20px">📦 FiscalTrib — Backup Manual</h1>
-            <p style="color:#7CC4FF;margin:8px 0 0;font-size:13px">Gerado em ${hoje} pelo Painel Admin</p>
-          </div>
-          <div style="background:#f8fafc;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0">
-            <h2 style="color:#0B1F4D;font-size:16px;margin:0 0 12px">📊 Resumo</h2>
-            <div style="background:#fff;border-radius:8px;padding:16px;border:1px solid #e2e8f0;font-family:monospace;font-size:13px;line-height:1.8">
-              ${resumo.join('<br>')}
-            </div>
-            <h2 style="color:#0B1F4D;font-size:16px;margin:20px 0 12px">📄 Dados completos (CSV)</h2>
-            <pre style="font-size:10px;color:#374151;background:#f1f5f9;padding:16px;border-radius:8px;overflow:auto;white-space:pre-wrap">${csvCompleto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
-          </div>
-        </div>
-      `
-
-      const res = await fetch('https://api.resend.com/emails', {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/backup-semanal`, {
         method:  'POST',
-        headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from:    'FiscalTrib Backup <onboarding@resend.dev>',
-          to:      [ADMIN_EMAIL],
-          subject: `📦 FiscalTrib — Backup Manual — ${hoje}`,
-          html,
-        }),
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'apikey':        SUPABASE_ANON,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({}),
       })
-
       const result = await res.json()
-      if (res.ok) {
+      if (res.ok && result.ok) {
         setMsgBkp('✅ Backup enviado com sucesso para ' + ADMIN_EMAIL)
       } else {
-        setMsgBkp('⚠️ Erro ao enviar: ' + JSON.stringify(result))
+        setMsgBkp('⚠️ Erro: ' + JSON.stringify(result))
       }
     } catch (e) {
       setMsgBkp('❌ Erro: ' + e.message)
