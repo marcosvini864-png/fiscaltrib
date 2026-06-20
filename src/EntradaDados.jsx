@@ -240,6 +240,13 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
   return (
     <div style={{ maxWidth:900, margin:'0 auto' }}>
 
+      <button onClick={() => setPage && setPage('diagnostico')}
+        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', background:'none', border:'1.5px solid #E2E8F0', borderRadius:8, color:'#64748B', fontSize:13, cursor:'pointer', marginBottom:20 }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor='#0B1F4D'; e.currentTarget.style.color='#0B1F4D' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor='#E2E8F0'; e.currentTarget.style.color='#64748B' }}>
+        ← Voltar
+      </button>
+
       <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:16, padding:'24px 32px', marginBottom:24, color:'#fff' }}>
         <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:6 }}>FISCALTRIB — COLETA INTELIGENTE</div>
         <h2 style={{ fontSize:22, fontWeight:900, margin:'0 0 6px', color:'#fff' }}>📥 Centro de Coleta de Dados</h2>
