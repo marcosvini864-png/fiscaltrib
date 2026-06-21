@@ -10,50 +10,49 @@ export default function ResetPassword() {
   const [sessaoOk, setSessaoOk] = useState(false)
 
   useEffect(() => {
-    const fullHash = window.location.hash
-    const queryString = fullHash.includes('?') ? fullHash.split('?')[1] : ''
-    const params = new URLSearchParams(queryString)
-    const tokenHash = params.get('token_hash')
+    // URL formato: /#/reset-password#access_token=xxx&type=recovery
+    // Pega tudo após o último #
+    const fullUrl = window.location.href
+    const lastHash = fullUrl.lastIndexOf('#')
+    const fragment = lastHash >= 0 ? fullUrl.substring(lastHash + 1) : ''
+    const params = new URLSearchParams(fragment)
 
-    if (tokenHash) {
-      // Tenta recovery primeiro, depois email se falhar
-      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type')
+
+    console.log("access_token:", accessToken, "| type:", type)
+
+    if (accessToken && type === 'recovery') {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || '' })
         .then(({ error }) => {
-          if (!error) {
-            setSessaoOk(true)
-          } else {
-            return supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
-          }
-        })
-        .then((result) => {
-          if (result && result.error) {
+          if (error) {
+            console.error("setSession error:", error.message)
             setMsg('erro|Link inválido ou expirado. Solicite um novo link.')
-          } else if (result && !result.error) {
+          } else {
             setSessaoOk(true)
           }
-        })
-        .catch(() => {
-          setMsg('erro|Link inválido ou expirado. Solicite um novo link.')
         })
     } else {
-      // Sem token na URL — verifica se já tem sessão ativa
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) {
-          setSessaoOk(true)
-        } else {
-          setMsg('erro|Link inválido. Solicite um novo link de recuperação.')
-        }
-      })
-    }
+      // Tenta token_hash (formato novo)
+      const hash = window.location.hash
+      const queryString = hash.includes('?') ? hash.split('?')[1] : ''
+      const qParams = new URLSearchParams(queryString)
+      const tokenHash = qParams.get('token_hash')
 
-    // Também escuta evento PASSWORD_RECOVERY do Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessaoOk(true)
-        setMsg('')
+      if (tokenHash) {
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+          .then(({ error }) => {
+            if (error) {
+              setMsg('erro|Link inválido ou expirado. Solicite um novo link.')
+            } else {
+              setSessaoOk(true)
+            }
+          })
+      } else {
+        setMsg('erro|Link inválido. Solicite um novo link de recuperação.')
       }
-    })
-    return () => subscription.unsubscribe()
+    }
   }, [])
 
   const handleReset = async () => {
