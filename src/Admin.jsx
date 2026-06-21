@@ -1,36 +1,26 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
-const ADMIN_EMAIL = 'marcosvini864@gmail.com'
-const SUPABASE_URL  = 'https://ikodyhxukvclgzydvztu.supabase.co'
+const ADMIN_EMAIL  = 'marcosvini864@gmail.com'
+const SUPABASE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrb2R5aHh1a3ZjbGd6eWR2enR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTU1OTEsImV4cCI6MjA5Njg3MTU5MX0.X_02n8Hy0LaFoZQmLdGwjIA_LixYkMlxeVaMay4rRfg'
 
 const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f0b429' }
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
-function toCSV(rows) {
-  if (!rows || rows.length === 0) return 'Sem dados'
-  const headers = Object.keys(rows[0])
-  const lines   = rows.map(r => headers.map(h => {
-    const val = r[h] === null || r[h] === undefined ? '' : String(r[h])
-    return `"${val.replace(/"/g, '""')}"`
-  }).join(','))
-  return [headers.join(','), ...lines].join('\n')
-}
-
 export default function Admin({ onVoltar }) {
-  const [usuarios,      setUsuarios]      = useState([])
-  const [load,          setLoad]          = useState(true)
-  const [busca,         setBusca]         = useState('')
-  const [filtro,        setFiltro]        = useState('todos')
-  const [enviandoBkp,   setEnviandoBkp]   = useState(false)
-  const [msgBkp,        setMsgBkp]        = useState('')
+  const [usuarios,    setUsuarios]    = useState([])
+  const [load,        setLoad]        = useState(true)
+  const [busca,       setBusca]       = useState('')
+  const [filtro,      setFiltro]      = useState('todos')
+  const [enviandoBkp, setEnviandoBkp] = useState(false)
+  const [msgBkp,      setMsgBkp]      = useState('')
 
   useEffect(() => { carregarUsuarios() }, [])
 
   async function carregarUsuarios() {
     setLoad(true)
-    const { data, error } = await supabase.from('usuarios').select('*').order('id', { ascending: false })
+    const { data } = await supabase.from('usuarios').select('*').order('id', { ascending: false })
     setUsuarios(data || [])
     setLoad(false)
   }
@@ -48,7 +38,7 @@ export default function Admin({ onVoltar }) {
   }
 
   async function enviarBackup() {
-    if (!window.confirm('Enviar backup completo do banco para marcosvini864@gmail.com?')) return
+    if (!window.confirm('Enviar backup completo do banco para ' + ADMIN_EMAIL + '?')) return
     setEnviandoBkp(true)
     setMsgBkp('')
     try {
