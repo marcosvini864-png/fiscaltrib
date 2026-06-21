@@ -17,6 +17,8 @@ const ABAS = [
   { key:'reforma', icon:'🏛️', label:'Reforma Tributária' },
 ]
 
+const EDGE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia'
+
 const card = { background:C.white, borderRadius:12, border:`1px solid ${C.border}`, padding:24, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }
 
 export default function CentralTributaria({ onVoltar }) {
@@ -211,18 +213,13 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
     }
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(EDGE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: 'Você é um especialista tributário brasileiro do FiscalTrib. Responda sempre em português, de forma direta e prática.',
-          messages: [{ role: 'user', content: prompt }],
-        })
+        body: JSON.stringify({ prompt })
       })
       const data = await response.json()
-      const txt = data.content?.[0]?.text || 'Sem resposta.'
+      const txt = data.resultado || data.error || 'Sem resposta.'
       setAnaliseIA(txt)
     } catch (e) {
       setAnaliseIA('Erro ao consultar IA: ' + e.message)
