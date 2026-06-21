@@ -30,7 +30,6 @@ const maskIM    = v => v.replace(/[^0-9.\-\/]/g,'').slice(0,15)
 const maskCNAE  = v => { const n=v.replace(/\D/g,'').slice(0,7); if(n.length<=2) return n; if(n.length<=4) return n.slice(0,2)+'.'+n.slice(2); if(n.length<=6) return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4); return n.slice(0,2)+'.'+n.slice(2,4)+'-'+n.slice(4,5)+'-'+n.slice(5) }
 const maskCNAES = v => { const parts=v.split(','); return parts.map((c,i)=>i<parts.length-1?maskCNAE(c.trim()):c.replace(/\D/g,'').slice(0,7)).join(', ') }
 const fmtR      = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-const maskMoeda = v => { const n=v.replace(/\D/g,''); if(!n) return ''; return (parseFloat(n)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 
 const C = {
   navy:'#0B1F4D', navyHov:'#163B8C', navyAct:'#1A4499',
@@ -100,17 +99,6 @@ function Sidebar({ page, onNavigate }) {
       </nav>
       {expanded && <div style={{padding:'10px 16px',borderTop:'1px solid rgba(255,255,255,0.08)',fontSize:10,color:'rgba(255,255,255,0.25)',flexShrink:0}}>fiscaltrib.com.br</div>}
     </aside>
-  )
-}
-
-function EmBreve({ titulo, onVoltar }) {
-  return (
-    <div style={{textAlign:'center',padding:'80px 40px',color:C.muted}}>
-      <div style={{fontSize:48,marginBottom:16}}>🚧</div>
-      <div style={{fontSize:20,fontWeight:700,color:C.text,marginBottom:8}}>{titulo}</div>
-      <div style={{fontSize:14,marginBottom:24}}>Este módulo está em desenvolvimento e será disponibilizado em breve.</div>
-      <button onClick={onVoltar} style={{padding:'8px 20px',background:'none',border:`1.5px solid ${C.navy}`,borderRadius:8,color:C.navy,fontSize:13,cursor:'pointer'}}>← Voltar</button>
-    </div>
   )
 }
 
@@ -198,7 +186,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       else alert('Erro: '+error.message)
     } else {
       const { data,error }=await supabase.from('clientes').insert([{...payload,usuario_id:user.id,status:'Em análise'}]).select()
-      if(!error&&data){ setClientes([data[0],...clientes]); setActiveId(data[0].id); setEntradas({...entradas,[data[0].id]:[]}) }
+      if(!error&&data){ setClientes([data[0],...clientes]); setActiveId(data[0].id.toString()); setEntradas({...entradas,[data[0].id]:[]}) }
       else alert('Erro: '+error.message)
     }
     setSalvando(false); setPage('clientes')
@@ -215,7 +203,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     else setPage(key)
   }
 
-  const active     = clientes.find(c=>c.id===activeId)||clientes[0]
+  const active     = clientes.find(c=>c.id.toString()===activeId)||null
   const ents       = entradas[activeId]||[]
   const totalPot   = ents.reduce((s,e)=>s+(e.credito||0),0)
   const totalGeral = clientes.reduce((s,c)=>{const ee=entradas[c.id]||[];return s+ee.reduce((a,e)=>a+(e.credito||0),0)},0)
@@ -252,8 +240,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
         <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:36,objectFit:'contain'}} />
         <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
         {clientes.length>0 && (
-          <select value={activeId||''} onChange={e=>setActiveId(e.target.value)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
-            {clientes.map(c=><option key={c.id} value={c.id}>{c.razao_social}</option>)}
+          <select value={activeId?.toString()||''} onChange={e=>setActiveId(e.target.value||null)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
+            <option value=''>— Nenhum cliente —</option>
+            {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
           </select>
         )}
         <span style={{fontSize:12,color:C.muted}}>👤 {nomeUsuario||'Usuário'}</span>
@@ -351,7 +340,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                       <td style={{padding:'12px 16px',color:C.text}}>{ee.filter(e=>e.credito>0).length}</td>
                       <td style={{padding:'12px 16px',color:'#16A34A',fontWeight:600}}>{fmtR(tot)}</td>
                       <td style={{padding:'12px 16px'}}><span style={{background:'#DCFCE7',color:'#166534',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {c.status}</span></td>
-                      <td style={{padding:'12px 16px'}}><button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Ver diagnóstico</button></td>
+                      <td style={{padding:'12px 16px'}}><button onClick={()=>{setActiveId(c.id.toString());setPage('diagnostico')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Ver diagnóstico</button></td>
                     </tr>
                   )})}</tbody>
                 </table>
@@ -379,7 +368,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                     <div style={{fontSize:11,color:C.muted,marginBottom:10}}>potencial recuperável</div>
                     <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
                       <button onClick={()=>{setNovoCliente({...c});setPage('novo-cliente')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Editar</button>
-                      <button onClick={()=>{setActiveId(c.id);setPage('diagnostico')}} style={{...btnPrimary,padding:'4px 12px',fontSize:12}}>Diagnóstico</button>
+                      <button onClick={()=>{setActiveId(c.id.toString());setPage('diagnostico')}} style={{...btnPrimary,padding:'4px 12px',fontSize:12}}>Diagnóstico</button>
                       <button onClick={()=>excluirCliente(c)} style={btnDanger}>🗑️ Excluir</button>
                     </div>
                   </div>
