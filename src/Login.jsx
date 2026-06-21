@@ -29,7 +29,7 @@ export default function Login({ onLogin, onCadastro }) {
     setLoadRec(true)
     setMsgRec('')
     const { error } = await supabase.auth.resetPasswordForEmail(emailRec.trim(), {
-      redirectTo: 'https://fiscaltrib.com.br',
+      redirectTo: 'https://fiscaltrib.com.br/#/reset-password',
     })
     if (error) {
       setMsgRec('erro|Erro ao enviar o e-mail. Verifique o endereço e tente novamente.')

@@ -8,7 +8,7 @@ import TipoPerfil from './TipoPerfil'
 import Perfil from './Perfil'
 import Dashboard from './Dashboard'
 import Admin from './Admin'
-
+import ResetPassword from './ResetPassword'
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
 
 export default function App() {
@@ -84,6 +84,8 @@ export default function App() {
     setTipoPerfil('')
   }
 
+  if (window.location.hash.includes('reset-password') || window.location.hash.includes('type=recovery')) 
+  return <ResetPassword />
   if (tela === 'login')
     return <Login
       onLogin={(user) => verificarUsuario(user)}
