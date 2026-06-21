@@ -10,31 +10,30 @@ export default function ResetPassword() {
   const [sessaoOk, setSessaoOk] = useState(false)
 
   useEffect(() => {
-    // Pega token_hash da URL e verifica sessão
-    const hash = window.location.hash
-    const params = new URLSearchParams(hash.includes('?') ? hash.split('?')[1] : '')
-    const tokenHash = params.get('token_hash')
-    const type = params.get('type')
+    const fullHash = window.location.hash // ex: #/reset-password?token_hash=xxx&type=recovery
+    console.log("Hash completo:", fullHash)
 
-    if (tokenHash && type === 'recovery') {
+    // Extrai a query string após o "?"
+    const queryString = fullHash.includes('?') ? fullHash.split('?')[1] : ''
+    const params = new URLSearchParams(queryString)
+    const tokenHash = params.get('token_hash')
+    const type = params.get('type') || 'recovery'
+
+    console.log("token_hash:", tokenHash, "| type:", type)
+
+    if (tokenHash) {
       supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
-        .then(({ error }) => {
+        .then(({ data, error }) => {
+          console.log("verifyOtp result:", JSON.stringify({ data, error }))
           if (error) {
             setMsg('erro|Link inválido ou expirado. Solicite um novo link de recuperação.')
           } else {
             setSessaoOk(true)
-            setMsg('ok|Sessão verificada. Digite sua nova senha.')
+            setMsg('')
           }
         })
     } else {
-      // Tenta pegar sessão existente
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) {
-          setSessaoOk(true)
-        } else {
-          setMsg('erro|Link inválido ou expirado. Solicite um novo link de recuperação.')
-        }
-      })
+      setMsg('erro|Link inválido. Solicite um novo link de recuperação.')
     }
   }, [])
 
@@ -84,6 +83,10 @@ export default function ResetPassword() {
           </div>
         )}
 
+        {!sessaoOk && !msg && (
+          <p style={{ textAlign: 'center', color: '#666' }}>⏳ Verificando link...</p>
+        )}
+
         {!pronto && sessaoOk && (
           <>
             <div style={{ marginBottom: 16 }}>
@@ -120,10 +123,6 @@ export default function ResetPassword() {
               {loading ? 'Salvando...' : '🔒 Salvar nova senha'}
             </button>
           </>
-        )}
-
-        {!sessaoOk && !msg && (
-          <p style={{ textAlign: 'center', color: '#666' }}>Verificando link...</p>
         )}
 
         <div style={{ textAlign: 'center', marginTop: 20 }}>
