@@ -14,6 +14,7 @@ import AnaliseFiscal from './AnaliseFiscal'
 import PerdComp from './PerdComp'
 import PrazosPrescricionais from './PrazosPrescricionais'
 import EntradaDados from './EntradaDados'
+import CentralTributaria from './CentralTributaria'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -44,7 +45,7 @@ const MENU = [
   { id:'imp',    label:'IMPORTAÇÕES',           icon:'📥', items:[{label:'Central de Importações',key:'importacoes'}] },
   { id:'rec',    label:'RECUPERAÇÃO',           icon:'💰', items:[{label:'Recuperações',key:'recuperacoes'},{label:'PER/DCOMP',key:'perdcomp'},{label:'Acompanhamento',key:'acompanhamento'}] },
   { id:'gestao', label:'GESTÃO FISCAL',         icon:'📅', items:[{label:'Monitor de Obrigações',key:'monitor'},{label:'Prazos',key:'prazosfiscais'},{label:'Relatórios',key:'relatorio'}] },
-  { id:'tools',  label:'FERRAMENTAS',           icon:'🧮', items:[{label:'Calculadoras',key:'calculadoras'},{label:'Simuladores',key:'simuladores'}] },
+  { id:'tools',  label:'FERRAMENTAS',           icon:'🧮', items:[{label:'Calculadoras',key:'calculadoras'},{label:'Simuladores',key:'simuladores'},{label:'Central Tributária',key:'central'}] },
 ]
 
 function Sidebar({ page, onNavigate }) {
@@ -279,6 +280,55 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável"    color="#16A34A" />
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
+
+            {/* Card Central de Inteligência Tributária */}
+            <div style={{background:C.navy,borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(11,31,77,0.2)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:700,color:C.white,marginBottom:4}}>🏛️ Central de Inteligência Tributária</div>
+                  <div style={{fontSize:12,color:'#A0C4FF'}}>Consulte CNAE, CFOP, CST, CSOSN, Teses Tributárias e Impactos da Reforma</div>
+                </div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses'],['🏛️','Reforma']].map(([ic,lb])=>(
+                    <button key={lb} onClick={()=>setPage('central')}
+                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500,transition:'background 0.2s'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.22)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.12)'}>
+                      {ic} {lb}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Card Reforma Tributária */}
+            <div style={{background:'linear-gradient(135deg,#7C3AED,#4F46E5)',borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(124,58,237,0.3)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:700,color:C.white,marginBottom:4}}>🚨 Reforma Tributária — Impacto nas Recuperações</div>
+                  <div style={{fontSize:12,color:'#DDD6FE',marginBottom:8}}>Algumas oportunidades de recuperação podem ser extintas com CBS e IBS. Aja agora.</div>
+                  <div style={{display:'flex',gap:16}}>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:20,fontWeight:700,color:C.white}}>2033</div>
+                      <div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div>
+                    </div>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:20,fontWeight:700,color:'#86EFAC'}}>16</div>
+                      <div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div>
+                    </div>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:20,fontWeight:700,color:'#FCA5A5'}}>Alto</div>
+                      <div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={()=>setPage('central')}
+                  style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'10px 20px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
+                  Ver impactos →
+                </button>
+              </div>
+            </div>
+
             {clientes.length===0 ? (
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
@@ -397,12 +447,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           </>}
 
           {page==='entrada' && (
-            <EntradaDados
-              clienteId={activeId}
-              cliente={active}
-              onSalvo={()=>carregarClientes()}
-              setPage={setPage}
-            />
+            <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />
           )}
 
           {page==='diagnostico' && <>
@@ -463,6 +508,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
           {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
+          {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
 
           {page==='calculadoras' && <>
             <BtnVoltar onClick={()=>setPage('painel')} />
