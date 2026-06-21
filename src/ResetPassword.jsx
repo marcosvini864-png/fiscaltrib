@@ -7,15 +7,35 @@ export default function ResetPassword() {
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [pronto, setPronto] = useState(false)
+  const [sessaoOk, setSessaoOk] = useState(false)
 
   useEffect(() => {
-    // Supabase processa o token automaticamente via hash na URL
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMsg('ok|Digite sua nova senha abaixo.')
-      }
-    })
-    return () => subscription.unsubscribe()
+    // Pega token_hash da URL e verifica sessão
+    const hash = window.location.hash
+    const params = new URLSearchParams(hash.includes('?') ? hash.split('?')[1] : '')
+    const tokenHash = params.get('token_hash')
+    const type = params.get('type')
+
+    if (tokenHash && type === 'recovery') {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+        .then(({ error }) => {
+          if (error) {
+            setMsg('erro|Link inválido ou expirado. Solicite um novo link de recuperação.')
+          } else {
+            setSessaoOk(true)
+            setMsg('ok|Sessão verificada. Digite sua nova senha.')
+          }
+        })
+    } else {
+      // Tenta pegar sessão existente
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) {
+          setSessaoOk(true)
+        } else {
+          setMsg('erro|Link inválido ou expirado. Solicite um novo link de recuperação.')
+        }
+      })
+    }
   }, [])
 
   const handleReset = async () => {
@@ -24,7 +44,6 @@ export default function ResetPassword() {
     if (senha !== confirmar) { setMsg('erro|As senhas não coincidem.'); return }
 
     setLoading(true)
-    setMsg('')
     const { error } = await supabase.auth.updateUser({ password: senha })
     setLoading(false)
 
@@ -65,37 +84,27 @@ export default function ResetPassword() {
           </div>
         )}
 
-        {!pronto && (
+        {!pronto && sessaoOk && (
           <>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>
-                Nova senha
-              </label>
+              <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>Nova senha</label>
               <input
                 type="password"
                 value={senha}
                 onChange={e => setSenha(e.target.value)}
                 placeholder="Mínimo 6 caracteres"
-                style={{
-                  width: '100%', padding: '10px 14px', borderRadius: 8,
-                  border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box'
-                }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }}
               />
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>
-                Confirmar nova senha
-              </label>
+              <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>Confirmar nova senha</label>
               <input
                 type="password"
                 value={confirmar}
                 onChange={e => setConfirmar(e.target.value)}
                 placeholder="Repita a nova senha"
-                style={{
-                  width: '100%', padding: '10px 14px', borderRadius: 8,
-                  border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box'
-                }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }}
               />
             </div>
 
@@ -113,10 +122,12 @@ export default function ResetPassword() {
           </>
         )}
 
+        {!sessaoOk && !msg && (
+          <p style={{ textAlign: 'center', color: '#666' }}>Verificando link...</p>
+        )}
+
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <a href="/" style={{ color: '#0B1F4D', fontSize: 13, textDecoration: 'none' }}>
-            ← Voltar ao login
-          </a>
+          <a href="/" style={{ color: '#0B1F4D', fontSize: 13, textDecoration: 'none' }}>← Voltar ao login</a>
         </div>
 
         <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20, textAlign: 'center' }}>
