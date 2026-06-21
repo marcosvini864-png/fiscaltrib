@@ -10,31 +10,50 @@ export default function ResetPassword() {
   const [sessaoOk, setSessaoOk] = useState(false)
 
   useEffect(() => {
-    const fullHash = window.location.hash // ex: #/reset-password?token_hash=xxx&type=recovery
-    console.log("Hash completo:", fullHash)
-
-    // Extrai a query string após o "?"
+    const fullHash = window.location.hash
     const queryString = fullHash.includes('?') ? fullHash.split('?')[1] : ''
     const params = new URLSearchParams(queryString)
     const tokenHash = params.get('token_hash')
-    const type = params.get('type') || 'recovery'
-
-    console.log("token_hash:", tokenHash, "| type:", type)
 
     if (tokenHash) {
+      // Tenta recovery primeiro, depois email se falhar
       supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
-        .then(({ data, error }) => {
-          console.log("verifyOtp result:", JSON.stringify({ data, error }))
-          if (error) {
-            setMsg('erro|Link inválido ou expirado. Solicite um novo link de recuperação.')
-          } else {
+        .then(({ error }) => {
+          if (!error) {
             setSessaoOk(true)
-            setMsg('')
+          } else {
+            return supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
           }
         })
+        .then((result) => {
+          if (result && result.error) {
+            setMsg('erro|Link inválido ou expirado. Solicite um novo link.')
+          } else if (result && !result.error) {
+            setSessaoOk(true)
+          }
+        })
+        .catch(() => {
+          setMsg('erro|Link inválido ou expirado. Solicite um novo link.')
+        })
     } else {
-      setMsg('erro|Link inválido. Solicite um novo link de recuperação.')
+      // Sem token na URL — verifica se já tem sessão ativa
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) {
+          setSessaoOk(true)
+        } else {
+          setMsg('erro|Link inválido. Solicite um novo link de recuperação.')
+        }
+      })
     }
+
+    // Também escuta evento PASSWORD_RECOVERY do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSessaoOk(true)
+        setMsg('')
+      }
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleReset = async () => {
@@ -47,10 +66,10 @@ export default function ResetPassword() {
     setLoading(false)
 
     if (error) {
-      setMsg('erro|Erro ao redefinir senha: ' + error.message)
+      setMsg('erro|Erro: ' + error.message)
     } else {
       setPronto(true)
-      setMsg('ok|Senha redefinida com sucesso! Redirecionando para o login...')
+      setMsg('ok|Senha redefinida com sucesso! Redirecionando...')
       setTimeout(() => { window.location.href = '/' }, 3000)
     }
   }
@@ -58,14 +77,8 @@ export default function ResetPassword() {
   const [tipo, texto] = msg ? msg.split('|') : ['', '']
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#0B1F4D',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-    }}>
-      <div style={{
-        background: 'white', borderRadius: 12, padding: 40,
-        width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
-      }}>
+    <div style={{ minHeight: '100vh', background: '#0B1F4D', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 40, width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <img src="/Logo3.png" alt="FiscalTrib" style={{ height: 60, marginBottom: 12 }} />
           <h2 style={{ color: '#0B1F4D', margin: 0, fontSize: 22 }}>🔑 Nova senha</h2>
@@ -91,35 +104,16 @@ export default function ResetPassword() {
           <>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>Nova senha</label>
-              <input
-                type="password"
-                value={senha}
-                onChange={e => setSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }}
-              />
+              <input type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }} />
             </div>
-
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 6 }}>Confirmar nova senha</label>
-              <input
-                type="password"
-                value={confirmar}
-                onChange={e => setConfirmar(e.target.value)}
-                placeholder="Repita a nova senha"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }}
-              />
+              <input type="password" value={confirmar} onChange={e => setConfirmar(e.target.value)} placeholder="Repita a nova senha"
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }} />
             </div>
-
-            <button
-              onClick={handleReset}
-              disabled={loading}
-              style={{
-                width: '100%', padding: '12px', background: '#0B1F4D',
-                color: 'white', border: 'none', borderRadius: 8,
-                fontSize: 15, fontWeight: 'bold', cursor: 'pointer'
-              }}
-            >
+            <button onClick={handleReset} disabled={loading}
+              style={{ width: '100%', padding: '12px', background: '#0B1F4D', color: 'white', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 'bold', cursor: 'pointer' }}>
               {loading ? 'Salvando...' : '🔒 Salvar nova senha'}
             </button>
           </>
@@ -128,10 +122,7 @@ export default function ResetPassword() {
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <a href="/" style={{ color: '#0B1F4D', fontSize: 13, textDecoration: 'none' }}>← Voltar ao login</a>
         </div>
-
-        <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20, textAlign: 'center' }}>
-          © 2026 e-FiscalTrib® — Todos os direitos reservados
-        </p>
+        <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20, textAlign: 'center' }}>© 2026 e-FiscalTrib® — Todos os direitos reservados</p>
       </div>
     </div>
   )
