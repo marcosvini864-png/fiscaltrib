@@ -1,71 +1,115 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+const BACKUP_EMAIL = "marcosvini864@gmail.com";
+
+// Converte array de objetos para CSV
+function toCSV(rows: any[]): string {
+  if (!rows || rows.length === 0) return "sem dados";
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(","),
+    ...rows.map(row =>
+      headers.map(h => {
+        const val = row[h] ?? "";
+        const str = String(val).replace(/"/g, '""');
+        return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+      }).join(",")
+    )
+  ];
+  return lines.join("\n");
+}
 
 serve(async (req) => {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
-    const body = await req.json();
-    console.log("BODY:", JSON.stringify(body));
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    const user = body.user || body.record || {};
-    const email_data = body.email_data || body;
-    const userEmail = user?.email || body?.email;
-    const emailType = email_data?.email_action_type || body?.type;
-    const confirmationUrl = email_data?.confirmation_url || email_data?.token_hash || body?.confirmation_url;
+    // Tabelas para fazer backup
+    const tabelas = [
+      "clientes",
+      "entradas",
+      "assinaturas",
+      "pagamentos",
+      "recuperacoes",
+      "acompanhamentos",
+      "prazos_fiscais",
+      "scores_fiscais",
+    ];
 
-    console.log("userEmail:", userEmail);
-    console.log("emailType:", emailType);
-    console.log("confirmationUrl:", confirmationUrl);
+    const resultados: { tabela: string; total: number; csv: string }[] = [];
 
-    if (!userEmail) {
-      console.error("E-mail não encontrado no payload");
-      return new Response(JSON.stringify({ error: "E-mail do usuário não encontrado" }), { status: 200 });
+    for (const tabela of tabelas) {
+      try {
+        const { data, error } = await supabase.from(tabela).select("*");
+        if (error) {
+          console.error(`Erro ao buscar ${tabela}:`, error.message);
+          resultados.push({ tabela, total: 0, csv: `Erro: ${error.message}` });
+        } else {
+          resultados.push({ tabela, total: data?.length ?? 0, csv: toCSV(data ?? []) });
+        }
+      } catch (e) {
+        resultados.push({ tabela, total: 0, csv: `Erro inesperado: ${e.message}` });
+      }
     }
 
-    let subject = "FiscalTrib — Notificação";
-    let htmlBody = `<p>Tipo: ${emailType}</p><p>Link: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`;
+    const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const totalRegistros = resultados.reduce((acc, r) => acc + r.total, 0);
 
-    if (emailType === "recovery") {
-      subject = "FiscalTrib — Redefinição de senha";
-      htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f7fb; padding: 20px;">
-          <div style="background: #0f2d5e; padding: 24px; border-radius: 8px 8px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">🔐 e-FiscalTrib®</h1>
-            <p style="color: #a0c4ff; margin: 4px 0 0;">Inteligência Tributária</p>
-          </div>
-          <div style="background: white; padding: 32px; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #0f2d5e;">Redefinição de senha</h2>
-            <p style="color: #444;">Clique no botão abaixo para criar uma nova senha:</p>
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${confirmationUrl}" style="background: #0f2d5e; color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
-                🔑 Redefinir minha senha
-              </a>
-            </div>
-            <p style="color: #888; font-size: 13px;">Este link expira em 1 hora.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-            <p style="color: #aaa; font-size: 12px; text-align: center;">© 2026 e-FiscalTrib® | contato@fiscaltrib.com.br</p>
-          </div>
+    // Monta o e-mail com resumo + CSV inline
+    const tabelasHTML = resultados.map(r => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;">${r.tabela}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">${r.total}</td>
+      </tr>
+    `).join("");
+
+    const csvsHTML = resultados.map(r => `
+      <h3 style="color:#0f2d5e;margin-top:32px;">${r.tabela} (${r.total} registros)</h3>
+      <pre style="background:#f4f7fb;padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;">${r.csv}</pre>
+    `).join("");
+
+    const htmlBody = `
+      <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;background:#f4f7fb;padding:20px;">
+        <div style="background:#0f2d5e;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+          <h1 style="color:white;margin:0;font-size:24px;">💾 e-FiscalTrib® — Backup Semanal</h1>
+          <p style="color:#a0c4ff;margin:4px 0 0;">Exportação automática do banco de dados</p>
         </div>
-      `;
-    } else if (emailType === "signup") {
-      subject = "FiscalTrib — Confirme seu cadastro";
-      htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f7fb; padding: 20px;">
-          <div style="background: #0f2d5e; padding: 24px; border-radius: 8px 8px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">🔐 e-FiscalTrib®</h1>
-          </div>
-          <div style="background: white; padding: 32px; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #0f2d5e;">Bem-vindo ao FiscalTrib!</h2>
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${confirmationUrl}" style="background: #0f2d5e; color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
-                ✅ Confirmar meu e-mail
-              </a>
-            </div>
-            <p style="color: #aaa; font-size: 12px; text-align: center;">© 2026 e-FiscalTrib® | contato@fiscaltrib.com.br</p>
-          </div>
+        <div style="background:white;padding:32px;border-radius:0 0 8px 8px;">
+          <p style="color:#444;">Backup gerado em: <strong>${agora}</strong></p>
+          <p style="color:#444;">Total de registros exportados: <strong>${totalRegistros}</strong></p>
+
+          <h2 style="color:#0f2d5e;">Resumo por tabela</h2>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#0f2d5e;color:white;">
+                <th style="padding:8px 12px;text-align:left;">Tabela</th>
+                <th style="padding:8px 12px;text-align:center;">Registros</th>
+              </tr>
+            </thead>
+            <tbody>${tabelasHTML}</tbody>
+          </table>
+
+          <h2 style="color:#0f2d5e;margin-top:32px;">Dados exportados (CSV)</h2>
+          ${csvsHTML}
+
+          <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+          <p style="color:#aaa;font-size:12px;text-align:center;">© 2026 e-FiscalTrib® | contato@fiscaltrib.com.br</p>
         </div>
-      `;
-    }
+      </div>
+    `;
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -75,8 +119,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: "FiscalTrib <noreply@fiscaltrib.com.br>",
-        to: [userEmail],
-        subject,
+        to: [BACKUP_EMAIL],
+        subject: `FiscalTrib — Backup Semanal ${agora}`,
         html: htmlBody,
       }),
     });
@@ -84,10 +128,23 @@ serve(async (req) => {
     const resendData = await resendResponse.json();
     console.log("Resposta Resend:", JSON.stringify(resendData));
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
+    if (resendData.id) {
+      return new Response(
+        JSON.stringify({ success: true, tabelas: resultados.map(r => ({ tabela: r.tabela, total: r.total })) }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Falha ao enviar e-mail", detalhes: resendData }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
   } catch (err) {
-    console.error("Erro:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 200 });
+    console.error("Erro geral:", err.message);
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

@@ -52,7 +52,7 @@ export default function Admin({ onVoltar }) {
         body: JSON.stringify({}),
       })
       const result = await res.json()
-      if (res.ok && result.ok) {
+      if (res.ok && result.success) {
         setMsgBkp('✅ Backup enviado com sucesso para ' + ADMIN_EMAIL)
       } else {
         setMsgBkp('⚠️ Erro: ' + JSON.stringify(result))
