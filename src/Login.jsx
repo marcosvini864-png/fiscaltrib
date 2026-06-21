@@ -28,15 +28,11 @@ export default function Login({ onLogin, onCadastro }) {
     if (!emailRec.trim()) { setMsgRec('erro|Informe seu e-mail.'); return }
     setLoadRec(true)
     setMsgRec('')
-    const { error } = await supabase.auth.resetPasswordForEmail(emailRec.trim(), {
+    await supabase.auth.resetPasswordForEmail(emailRec.trim(), {
       redirectTo: 'https://fiscaltrib.com.br/#/reset-password',
     })
-    if (error) {
-      setMsgRec('erro|Erro ao enviar o e-mail. Verifique o endereço e tente novamente.')
-    } else {
-      setMsgRec('ok|E-mail enviado! Verifique sua caixa de entrada e siga as instruções para criar uma nova senha.')
-    }
     setLoadRec(false)
+    setMsgRec('ok|E-mail enviado! Verifique sua caixa de entrada e siga as instruções para criar uma nova senha.')
   }
 
   // ── TELA ESQUECI A SENHA ─────────────────────────────────────────────────
@@ -140,7 +136,6 @@ export default function Login({ onLogin, onCadastro }) {
           onKeyDown={handleKeyDown}
         />
 
-        {/* Link esqueci minha senha */}
         <div style={{ textAlign: 'right', marginBottom: 16 }}>
           <button
             onClick={() => { setTela('esqueci'); setEmailRec(email) }}
@@ -165,7 +160,6 @@ export default function Login({ onLogin, onCadastro }) {
           Criar nova conta
         </button>
 
-        {/* Retomar pagamento */}
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20, textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: '#64748b', marginBottom: 10 }}>
             Já se cadastrou mas não conseguiu efetuar o pagamento?
@@ -181,7 +175,6 @@ export default function Login({ onLogin, onCadastro }) {
           </p>
         </div>
 
-        {/* Contato */}
         <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 20, paddingTop: 16, textAlign: 'center' }}>
           <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>Dúvidas? Fale conosco:</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
