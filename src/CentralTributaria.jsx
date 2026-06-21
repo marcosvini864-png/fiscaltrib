@@ -20,10 +20,10 @@ const ABAS = [
 const card = { background:C.white, borderRadius:12, border:`1px solid ${C.border}`, padding:24, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }
 
 export default function CentralTributaria({ onVoltar }) {
-  const [aba, setAba]           = useState('cnae')
-  const [busca, setBusca]       = useState('')
+  const [aba, setAba]               = useState('cnae')
+  const [busca, setBusca]           = useState('')
   const [resultados, setResultados] = useState([])
-  const [loading, setLoading]   = useState(false)
+  const [loading, setLoading]       = useState(false)
   const [selecionado, setSelecionado] = useState(null)
   const [analiseIA, setAnaliseIA]   = useState('')
   const [loadingIA, setLoadingIA]   = useState(false)
@@ -97,9 +97,10 @@ Como a EC 132/2023 e a implementação de CBS/IBS afeta este segmento? Quais opo
 4. ALERTAS FISCAIS
 Principais riscos e pontos de atenção para este CNAE.
 
-Observações da base FiscalTrib: ${item.observacoes || 'Nenhuma'}
+Observações: ${item.observacoes || 'Nenhuma'}
 
 Seja direto e prático. O usuário é um contador ou tributarista experiente.`
+
     } else if (aba === 'cfop') {
       prompt = `Você é um especialista tributário brasileiro. Explique o CFOP ${item.codigo} — ${item.descricao}.
 
@@ -116,9 +117,10 @@ Quais são os erros mais frequentes no uso deste CFOP?
 Qual o impacto tributário do uso incorreto deste CFOP?
 
 Tipo da operação: ${item.tipo}
-Aplicação registrada: ${item.aplicacao || 'Geral'}
+Aplicação: ${item.aplicacao || 'Geral'}
 
 Seja objetivo e prático para uso diário do contador.`
+
     } else if (aba === 'cst') {
       prompt = `Você é um especialista tributário brasileiro. Explique o CST ${item.codigo} de ${item.tipo} — ${item.descricao}.
 
@@ -137,6 +139,7 @@ Quais CFOPs são tipicamente usados com este CST?
 Aplicação: ${item.aplicacao || 'Geral'}
 
 Resposta direta e prática para contador.`
+
     } else if (aba === 'csosn') {
       prompt = `Você é um especialista tributário brasileiro. Explique o CSOSN ${item.codigo} — ${item.descricao}.
 
@@ -155,6 +158,7 @@ Como diferenciar este CSOSN de outros parecidos?
 Aplicação: ${item.aplicacao || 'Geral'}
 
 Resposta prática e direta.`
+
     } else if (aba === 'teses') {
       prompt = `Você é um especialista em recuperação tributária brasileiro. Analise a tese: ${item.nome}.
 
@@ -177,10 +181,10 @@ Quando NÃO vale a pena buscar esta tese?
 ${item.prazo_prescricional} anos — competências em risco de prescrição.
 
 Regime: ${item.regime} | Tributo: ${item.tributo} | Complexidade: ${item.complexidade} | Potencial: ${item.potencial}
-
 Fundamentação: ${item.fundamentacao}
 
 Resposta completa e prática para o tributarista.`
+
     } else if (aba === 'reforma') {
       prompt = `Você é um especialista na Reforma Tributária Brasileira (EC 132/2023). Analise o tema: ${item.tema}.
 
@@ -200,24 +204,25 @@ Quais novas oportunidades surgem com esta mudança?
 Quando esta mudança entra em vigor e como será a transição?
 
 Tipo: ${item.tipo} | Impacto: ${item.impacto}
-${item.oportunidade ? 'Oportunidade identificada: ' + item.oportunidade : ''}
-${item.risco ? 'Risco identificado: ' + item.risco : ''}
+${item.oportunidade ? 'Oportunidade: ' + item.oportunidade : ''}
+${item.risco ? 'Risco: ' + item.risco : ''}
 
 Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
     }
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
+          system: 'Você é um especialista tributário brasileiro do FiscalTrib. Responda sempre em português, de forma direta e prática.',
+          messages: [{ role: 'user', content: prompt }],
         })
       })
-      const data = await res.json()
-      const txt = data.content?.map(b => b.text || '').join('\n') || 'Sem resposta.'
+      const data = await response.json()
+      const txt = data.content?.[0]?.text || 'Sem resposta.'
       setAnaliseIA(txt)
     } catch (e) {
       setAnaliseIA('Erro ao consultar IA: ' + e.message)
@@ -246,7 +251,7 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
       <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`,overflowX:'auto'}}>
         {ABAS.map(a => (
           <button key={a.key} onClick={()=>{setAba(a.key);setBusca('');setResultados([]);setSelecionado(null);setAnaliseIA('')}}
-            style={{padding:'8px 18px',fontSize:13,fontWeight:aba===a.key?600:500,color:aba===a.key?C.navy:C.muted,cursor:'pointer',borderBottom:`2px solid ${aba===a.key?C.navy:'transparent'}`,marginBottom:-2,background:'none',border:'none',borderBottom:`2px solid ${aba===a.key?C.navy:'transparent'}`,whiteSpace:'nowrap'}}>
+            style={{padding:'8px 18px',fontSize:13,fontWeight:aba===a.key?600:500,color:aba===a.key?C.navy:C.muted,cursor:'pointer',background:'none',border:'none',borderBottom:`2px solid ${aba===a.key?C.navy:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>
             {a.icon} {a.label}
           </button>
         ))}
@@ -351,7 +356,7 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
                   {aba === 'teses' && <>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
                       <div style={{fontSize:13,fontWeight:700,color:C.navy,flex:1}}>{r.nome}</div>
-                      <span style={{background:impactoBg(r.potencial==='alto'?'alto':r.potencial==='medio'?'medio':'baixo'),color:potencialColor(r.potencial),fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,whiteSpace:'nowrap'}}>{r.potencial}</span>
+                      <span style={{background:impactoBg(r.potencial),color:potencialColor(r.potencial),fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,whiteSpace:'nowrap'}}>{r.potencial}</span>
                     </div>
                     <div style={{fontSize:11,color:C.muted,marginTop:6}}>{r.tributo} · {r.regime} · {r.complexidade} complexidade</div>
                   </>}
@@ -391,7 +396,7 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
 
               {aba==='teses' && <>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-                  <span style={{background:impactoBg(selecionado.potencial==='alto'?'alto':'medio'),color:potencialColor(selecionado.potencial),fontSize:11,padding:'3px 10px',borderRadius:20}}>Potencial {selecionado.potencial}</span>
+                  <span style={{background:impactoBg(selecionado.potencial),color:potencialColor(selecionado.potencial),fontSize:11,padding:'3px 10px',borderRadius:20}}>Potencial {selecionado.potencial}</span>
                   <span style={{background:'#F1F5F9',color:C.muted,fontSize:11,padding:'3px 10px',borderRadius:20}}>{selecionado.complexidade} complexidade</span>
                   <span style={{background:'#F1F5F9',color:C.muted,fontSize:11,padding:'3px 10px',borderRadius:20}}>{selecionado.prazo_prescricional} anos</span>
                 </div>
