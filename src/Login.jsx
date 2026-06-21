@@ -2,10 +2,14 @@
 import { supabase } from './supabase'
 
 export default function Login({ onLogin, onCadastro }) {
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [erro,  setErro]  = useState('')
-  const [load,  setLoad]  = useState(false)
+  const [email,        setEmail]        = useState('')
+  const [senha,        setSenha]        = useState('')
+  const [erro,         setErro]         = useState('')
+  const [load,         setLoad]         = useState(false)
+  const [tela,         setTela]         = useState('login') // 'login' | 'esqueci'
+  const [emailRec,     setEmailRec]     = useState('')
+  const [msgRec,       setMsgRec]       = useState('')
+  const [loadRec,      setLoadRec]      = useState(false)
 
   const handleLogin = async () => {
     setErro('')
@@ -20,19 +24,97 @@ export default function Login({ onLogin, onCadastro }) {
     if (e.key === 'Enter') handleLogin()
   }
 
+  const handleRecuperar = async () => {
+    if (!emailRec.trim()) { setMsgRec('erro|Informe seu e-mail.'); return }
+    setLoadRec(true)
+    setMsgRec('')
+    const { error } = await supabase.auth.resetPasswordForEmail(emailRec.trim(), {
+      redirectTo: 'https://fiscaltrib.com.br',
+    })
+    if (error) {
+      setMsgRec('erro|Erro ao enviar o e-mail. Verifique o endereço e tente novamente.')
+    } else {
+      setMsgRec('ok|E-mail enviado! Verifique sua caixa de entrada e siga as instruções para criar uma nova senha.')
+    }
+    setLoadRec(false)
+  }
+
+  // ── TELA ESQUECI A SENHA ─────────────────────────────────────────────────
+  if (tela === 'esqueci') {
+    const [tipo, msg] = msgRec ? msgRec.split('|') : ['', '']
+    return (
+      <div style={{ minHeight: '100vh', background: '#1e3a5f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+
+          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            <img src="/Logo3.png" alt="e-FiscalTrib" style={{ height: 80, objectFit: 'contain' }} />
+          </div>
+
+          <h2 style={{ textAlign: 'center', color: '#1e3a5f', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+            🔑 Recuperar senha
+          </h2>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 24 }}>
+            Digite seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
+          </p>
+
+          {msg && (
+            <div style={{
+              background: tipo === 'ok' ? '#f0fdf4' : '#fff1f2',
+              border: `1px solid ${tipo === 'ok' ? '#86efac' : '#fecdd3'}`,
+              borderRadius: 8,
+              padding: '12px 14px',
+              marginBottom: 16,
+              fontSize: 13,
+              color: tipo === 'ok' ? '#16a34a' : '#dc2626',
+              fontWeight: 500,
+            }}>
+              {tipo === 'ok' ? '✅ ' : '⚠️ '}{msg}
+            </div>
+          )}
+
+          <input
+            style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ccc', borderRadius: 8, boxSizing: 'border-box', fontSize: 14 }}
+            type="email"
+            placeholder="Seu e-mail cadastrado"
+            value={emailRec}
+            onChange={e => setEmailRec(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleRecuperar()}
+            disabled={tipo === 'ok'}
+          />
+
+          {tipo !== 'ok' && (
+            <button
+              style={{ width: '100%', padding: 12, background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer', marginBottom: 12, opacity: loadRec ? 0.7 : 1 }}
+              onClick={handleRecuperar}
+              disabled={loadRec}
+            >
+              {loadRec ? 'Enviando...' : '📧 Enviar link de recuperação'}
+            </button>
+          )}
+
+          <button
+            style={{ width: '100%', padding: 12, background: 'transparent', color: '#1e3a5f', border: '2px solid #1e3a5f', borderRadius: 8, fontSize: 14, cursor: 'pointer' }}
+            onClick={() => { setTela('login'); setMsgRec(''); setEmailRec('') }}
+          >
+            ← Voltar ao login
+          </button>
+        </div>
+
+        <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20 }}>
+          © 2026 e-FiscalTrib® — Todos os direitos reservados
+        </p>
+      </div>
+    )
+  }
+
+  // ── TELA DE LOGIN ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#1e3a5f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
 
-      {/* Card de login */}
       <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
 
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 8 }}>
-          <img
-            src="/Logo3.png"
-            alt="e-FiscalTrib"
-            style={{ height: 110, objectFit: 'contain' }}
-          />
+          <img src="/Logo3.png" alt="e-FiscalTrib" style={{ height: 110, objectFit: 'contain' }} />
         </div>
 
         <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 24 }}>
@@ -50,13 +132,23 @@ export default function Login({ onLogin, onCadastro }) {
           onKeyDown={handleKeyDown}
         />
         <input
-          style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ccc', borderRadius: 8, boxSizing: 'border-box', fontSize: 14 }}
+          style={{ width: '100%', padding: 10, marginBottom: 8, border: '1px solid #ccc', borderRadius: 8, boxSizing: 'border-box', fontSize: 14 }}
           type="password"
           placeholder="Senha"
           value={senha}
           onChange={e => setSenha(e.target.value)}
           onKeyDown={handleKeyDown}
         />
+
+        {/* Link esqueci minha senha */}
+        <div style={{ textAlign: 'right', marginBottom: 16 }}>
+          <button
+            onClick={() => { setTela('esqueci'); setEmailRec(email) }}
+            style={{ background: 'none', border: 'none', color: '#1e3a5f', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+          >
+            Esqueci minha senha
+          </button>
+        </div>
 
         <button
           style={{ width: '100%', padding: 12, background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer', marginBottom: 12, opacity: load ? 0.7 : 1 }}
@@ -111,7 +203,6 @@ export default function Login({ onLogin, onCadastro }) {
         </div>
       </div>
 
-      {/* Rodapé */}
       <p style={{ color: '#9db8d8', fontSize: 11, marginTop: 20 }}>
         © 2026 e-FiscalTrib® — Todos os direitos reservados
       </p>
