@@ -143,6 +143,13 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
             </button>
             <button onClick={() => setEtapa('planos')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+               ← Voltar e escolher outro plano
+            </button>
+            {onSair && (
+            <button onClick={onSair} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+            Sair da conta
+            </button>
+)}
               ← Voltar e escolher outro plano
             </button>
           </div>
