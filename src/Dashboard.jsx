@@ -37,6 +37,17 @@ const C = {
   bg:'#F5F7FA', border:'#E2E8F0', text:'#1E293B', muted:'#64748B',
 }
 
+const PAGE_LABELS = {
+  painel:'Painel', clientes:'Clientes', diagnostico:'Diagnóstico',
+  entrada:'Entrada de Dados', checklist:'Checklist', score:'Score Fiscal',
+  analise:'IA Tributária', teses:'Teses', recuperacoes:'Recuperações',
+  monitor:'Monitor de Obrigações', importacoes:'Importações',
+  central:'Central Tributária', calculadoras:'Calculadoras',
+  simuladores:'Simuladores', relatorio:'Relatório', perdcomp:'PER/DCOMP',
+  prazos:'Controle Prescricional', acompanhamento:'Acompanhamento',
+  prazosfiscais:'Prazos Fiscais',
+}
+
 const MENU = [
   { id:'visao',  label:'VISÃO GERAL',          icon:'📊', items:[{label:'Painel',key:'painel'},{label:'Clientes',key:'clientes'}] },
   { id:'diag',   label:'DIAGNÓSTICO',           icon:'🔍', items:[{label:'Checklist',key:'checklist'},{label:'Entrada de Dados',key:'entrada'},{label:'Diagnóstico',key:'diagnostico'},{label:'Score Fiscal',key:'score'},{label:'IA Tributária',key:'analise'}] },
@@ -59,11 +70,10 @@ function Sidebar({ page, onNavigate }) {
       onMouseLeave={()=>{ if(!pinned) setHovered(false) }}
       style={{width:expanded?260:64,minHeight:'100%',background:C.navy,display:'flex',flexDirection:'column',transition:'width 0.22s ease',overflow:'hidden',flexShrink:0,zIndex:10}}
     >
-      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:expanded?'20px 16px 16px':'20px 0 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
-        {expanded && <div>
-          <div style={{fontWeight:700,fontSize:16,color:C.white}}>FiscalTrib</div>
-          <div style={{fontSize:10,color:C.catText,marginTop:2}}>Inteligência Tributária</div>
-        </div>}
+      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:expanded?'12px 16px':'12px 0',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
+        {expanded && (
+          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:44,maxWidth:200,objectFit:'contain',flex:1}} />
+        )}
         <button onClick={()=>setPinned(p=>!p)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:14,padding:4,borderRadius:4,flexShrink:0,transition:'color 0.2s'}}
           onMouseEnter={e=>e.currentTarget.style.color=C.white}
           onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.4)'}>
@@ -144,6 +154,27 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8'); const [cDtpag,setCDtpag]=useState('')
 
   useEffect(()=>{ carregarClientes() },[])
+
+  // Registrar presença em tempo real
+  useEffect(()=>{
+    registrarPresenca()
+    const interval = setInterval(registrarPresenca, 60000)
+    return ()=>clearInterval(interval)
+  },[page, nomeUsuario])
+
+  async function registrarPresenca() {
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      if (!user) return
+      await supabase.from('sessoes_ativas').upsert({
+        usuario_id: user.id,
+        email: user.email,
+        nome: nomeUsuario || user.email,
+        ultima_atividade: new Date().toISOString(),
+        pagina_atual: PAGE_LABELS[page] || page,
+      }, { onConflict: 'usuario_id' })
+    } catch(e) { console.log('Presença:', e.message) }
+  }
 
   async function carregarClientes() {
     setLoading(true)
@@ -237,8 +268,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:56,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-        <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:36,objectFit:'contain'}} />
-        <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
+        <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:40,objectFit:'contain',flexShrink:0}} />
+        <span style={{fontSize:15,fontWeight:600,color:C.text,flex:1}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>
         {clientes.length>0 && (
           <select value={activeId?.toString()||''} onChange={e=>setActiveId(e.target.value||null)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
             <option value=''>— Nenhum cliente —</option>
@@ -280,7 +311,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses'],['🏛️','Reforma']].map(([ic,lb])=>(
                     <button key={lb} onClick={()=>setPage('central')}
-                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500,transition:'background 0.2s'}}
+                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}}
                       onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.22)'}
                       onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.12)'}>
                       {ic} {lb}
@@ -297,22 +328,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                   <div style={{fontSize:16,fontWeight:700,color:C.white,marginBottom:4}}>🚨 Reforma Tributária — Impacto nas Recuperações</div>
                   <div style={{fontSize:12,color:'#DDD6FE',marginBottom:8}}>Algumas oportunidades de recuperação podem ser extintas com CBS e IBS. Aja agora.</div>
                   <div style={{display:'flex',gap:16}}>
-                    <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:20,fontWeight:700,color:C.white}}>2033</div>
-                      <div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div>
-                    </div>
-                    <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:20,fontWeight:700,color:'#86EFAC'}}>16</div>
-                      <div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div>
-                    </div>
-                    <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:20,fontWeight:700,color:'#FCA5A5'}}>Alto</div>
-                      <div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div>
-                    </div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:C.white}}>2033</div><div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div></div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#86EFAC'}}>16</div><div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div></div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#FCA5A5'}}>Alto</div><div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div></div>
                   </div>
                 </div>
-                <button onClick={()=>setPage('central')}
-                  style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'10px 20px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
+                <button onClick={()=>setPage('central')} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'10px 20px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
                   Ver impactos →
                 </button>
               </div>
@@ -435,9 +456,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
           </>}
 
-          {page==='entrada' && (
-            <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />
-          )}
+          {page==='entrada' && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />}
 
           {page==='diagnostico' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
