@@ -14,20 +14,44 @@ export default function Login({ onLogin, onCadastro }) {
   const [loadRec,  setLoadRec]  = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
+  const widgetId = useRef(null)
 
-  // Carrega o script do hCaptcha
   useEffect(() => {
-    if (document.getElementById('hcaptcha-script')) return
-    const script = document.createElement('script')
-    script.id = 'hcaptcha-script'
-    script.src = 'https://js.hcaptcha.com/1/api.js'
-    script.async = true
-    script.defer = true
-    document.head.appendChild(script)
-
     window.onHcaptchaSuccess = (token) => setCaptchaToken(token)
     window.onHcaptchaExpire  = () => setCaptchaToken('')
-  }, [])
+
+    const renderWidget = () => {
+      if (captchaRef.current && window.hcaptcha && widgetId.current === null) {
+        widgetId.current = window.hcaptcha.render(captchaRef.current, {
+          sitekey: HCAPTCHA_SITEKEY,
+          callback: 'onHcaptchaSuccess',
+          'expired-callback': 'onHcaptchaExpire',
+        })
+      }
+    }
+
+    if (window.hcaptcha) {
+      renderWidget()
+    } else {
+      const existing = document.getElementById('hcaptcha-script')
+      if (!existing) {
+        const script = document.createElement('script')
+        script.id = 'hcaptcha-script'
+        script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad'
+        script.async = true
+        script.defer = true
+        window.hcaptchaOnLoad = renderWidget
+        document.head.appendChild(script)
+      } else {
+        existing.addEventListener('load', renderWidget)
+      }
+    }
+
+    return () => {
+      window.onHcaptchaSuccess = null
+      window.onHcaptchaExpire = null
+    }
+  }, [tela])
 
   const handleLogin = async () => {
     setErro('')
@@ -145,13 +169,7 @@ export default function Login({ onLogin, onCadastro }) {
 
         {/* hCaptcha Widget */}
         <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-          <div
-            className="h-captcha"
-            data-sitekey={HCAPTCHA_SITEKEY}
-            data-callback="onHcaptchaSuccess"
-            data-expired-callback="onHcaptchaExpire"
-            ref={captchaRef}
-          />
+          <div ref={captchaRef} />
         </div>
 
         <button
