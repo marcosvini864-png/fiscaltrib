@@ -70,18 +70,28 @@ function Sidebar({ page, onNavigate }) {
       onMouseLeave={()=>{ if(!pinned) setHovered(false) }}
       style={{width:expanded?260:64,minHeight:'100%',background:C.navy,display:'flex',flexDirection:'column',transition:'width 0.22s ease',overflow:'hidden',flexShrink:0,zIndex:10}}
     >
-      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
-        {expanded ? (
-          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:48,maxWidth:190,objectFit:'contain'}} />
-        ) : (
-          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:32,width:32,objectFit:'contain'}} />
-        )}
-        <button onClick={()=>setPinned(p=>!p)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:14,padding:4,borderRadius:4,flexShrink:0,marginLeft:8,transition:'color 0.2s'}}
+      {/* LOGO + BOTÃO PIN */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 12px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0,minHeight:64}}>
+        <img
+          src="/Logo3.png"
+          alt="e-FiscalTrib"
+          style={{
+            height: expanded ? 46 : 36,
+            maxWidth: expanded ? 190 : 36,
+            objectFit:'contain',
+            transition:'all 0.22s ease',
+            flexShrink:0,
+          }}
+        />
+        <button
+          onClick={()=>setPinned(p=>!p)}
+          style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:13,padding:'4px 6px',borderRadius:4,flexShrink:0,marginLeft:6,transition:'color 0.2s'}}
           onMouseEnter={e=>e.currentTarget.style.color=C.white}
           onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.4)'}>
           {pinned?'◀':'▶'}
         </button>
       </div>
+
       <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'8px 0'}}>
         {MENU.map(g=>(
           <div key={g.id}>
@@ -157,7 +167,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
   useEffect(()=>{ carregarClientes() },[])
 
-  // Registrar presença em tempo real
   useEffect(()=>{
     registrarPresenca()
     const interval = setInterval(registrarPresenca, 60000)
@@ -269,9 +278,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:56,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+      {/* TOPBAR */}
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:60,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
         <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:40,objectFit:'contain',flexShrink:0}} />
-        <span style={{fontSize:15,fontWeight:600,color:C.text,flex:1}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>
+        <span style={{fontSize:14,fontWeight:600,color:C.navy,flex:1,lineHeight:1.3}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>
         {clientes.length>0 && (
           <select value={activeId?.toString()||''} onChange={e=>setActiveId(e.target.value||null)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
             <option value=''>— Nenhum cliente —</option>
@@ -303,7 +313,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
 
-            {/* Card Central de Inteligência Tributária */}
             <div style={{background:C.navy,borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(11,31,77,0.2)'}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
                 <div>
@@ -323,7 +332,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               </div>
             </div>
 
-            {/* Card Reforma Tributária */}
             <div style={{background:'linear-gradient(135deg,#7C3AED,#4F46E5)',borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(124,58,237,0.3)'}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
                 <div>
