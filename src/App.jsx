@@ -9,6 +9,8 @@ import Perfil from './Perfil'
 import Dashboard from './Dashboard'
 import Admin from './Admin'
 import ResetPassword from './ResetPassword'
+import CookieBanner from './CookieBanner'
+
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
 
 export default function App() {
@@ -31,12 +33,10 @@ export default function App() {
 
   async function verificarUsuario(user) {
     setUsuario(user)
-
     if (user.email === ADMIN_EMAIL) {
       setTela('admin')
       return
     }
-
     const { data: perfil } = await supabase
       .from('usuarios')
       .select('nome_completo, perfil_completo, tipo_perfil')
@@ -51,25 +51,19 @@ export default function App() {
 
     setAssinatura(ass)
 
-    // Sem assinatura ativa → Planos
     if (!ass || !ass.ativo) {
       setTela('planos')
       return
     }
-
-    // Sem tipo de perfil → TipoPerfil
     if (!perfil?.tipo_perfil) {
       setTela('tipoperfil')
       return
     }
-
-    // Sem perfil completo → Perfil
     if (!perfil?.perfil_completo || !perfil?.nome_completo) {
       setTipoPerfil(perfil.tipo_perfil)
       setTela('perfil')
       return
     }
-
     setNomeUser(perfil.nome_completo)
     setTipoPerfil(perfil.tipo_perfil)
     setTela('dashboard')
@@ -84,33 +78,41 @@ export default function App() {
     setTipoPerfil('')
   }
 
-  if (window.location.hash.includes('reset-password') || window.location.hash.includes('type=recovery')) 
-  return <ResetPassword />
+  if (window.location.hash.includes('reset-password') || window.location.hash.includes('type=recovery'))
+    return <ResetPassword />
+
   if (tela === 'login')
-    return <Login
-      onLogin={(user) => verificarUsuario(user)}
-      onCadastro={() => setTela('cadastro')}
-    />
+    return <>
+      <Login
+        onLogin={(user) => verificarUsuario(user)}
+        onCadastro={() => setTela('cadastro')}
+      />
+      <CookieBanner />
+    </>
 
   if (tela === 'cadastro')
-    return <Cadastro
-      onVoltar={() => setTela('login')}
-      onCadastrado={(user) => { setUsuario(user); setTela('planos') }}
-    />
+    return <>
+      <Cadastro
+        onVoltar={() => setTela('login')}
+        onCadastrado={(user) => { setUsuario(user); setTela('planos') }}
+      />
+      <CookieBanner />
+    </>
 
   if (tela === 'planos')
-    return <Planos
-      user={usuario}
-      assinatura={assinatura}
-      onVoltar={null}
-      onPagamentoIniciado={() => setTela('aguardando')}
-      onSair={handleLogout}
-    />
+    return <>
+      <Planos
+        user={usuario}
+        assinatura={assinatura}
+        onVoltar={null}
+        onPagamentoIniciado={() => setTela('aguardando')}
+        onSair={handleLogout}
+      />
+      <CookieBanner />
+    </>
 
   if (tela === 'aguardando')
-    return <Aprovado
-      onContinuar={() => setTela('tipoperfil')}
-    />
+    return <Aprovado onContinuar={() => setTela('tipoperfil')} />
 
   if (tela === 'tipoperfil')
     return <TipoPerfil
@@ -132,9 +134,12 @@ export default function App() {
       onLogout={handleLogout}
     />
 
-  return <Dashboard
-    nomeUsuario={usuario?.email === ADMIN_EMAIL ? 'Marcos Alexandre' : nomeUser}
-    onLogout={handleLogout}
-    onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null}
-  />
+  return <>
+    <Dashboard
+      nomeUsuario={usuario?.email === ADMIN_EMAIL ? 'Marcos Alexandre' : nomeUser}
+      onLogout={handleLogout}
+      onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null}
+    />
+    <CookieBanner />
+  </>
 }
