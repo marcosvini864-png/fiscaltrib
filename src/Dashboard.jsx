@@ -70,11 +70,13 @@ function Sidebar({ page, onNavigate }) {
       onMouseLeave={()=>{ if(!pinned) setHovered(false) }}
       style={{width:expanded?260:64,minHeight:'100%',background:C.navy,display:'flex',flexDirection:'column',transition:'width 0.22s ease',overflow:'hidden',flexShrink:0,zIndex:10}}
     >
-      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:expanded?'12px 16px':'12px 0',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
-        {expanded && (
-          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:44,maxWidth:200,objectFit:'contain',flex:1}} />
+      <div style={{display:'flex',alignItems:'center',justifyContent:expanded?'space-between':'center',padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
+        {expanded ? (
+          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:48,maxWidth:190,objectFit:'contain'}} />
+        ) : (
+          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:32,width:32,objectFit:'contain'}} />
         )}
-        <button onClick={()=>setPinned(p=>!p)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:14,padding:4,borderRadius:4,flexShrink:0,transition:'color 0.2s'}}
+        <button onClick={()=>setPinned(p=>!p)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:14,padding:4,borderRadius:4,flexShrink:0,marginLeft:8,transition:'color 0.2s'}}
           onMouseEnter={e=>e.currentTarget.style.color=C.white}
           onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.4)'}>
           {pinned?'◀':'▶'}
