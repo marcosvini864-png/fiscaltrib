@@ -4,19 +4,21 @@ import { supabase } from './supabase'
 const HCAPTCHA_SITEKEY = 'f392a2ec-60e6-4d9a-8d7e-4b063bd47e2a'
 
 export default function Login({ onLogin, onCadastro }) {
-  const [email,    setEmail]    = useState('')
-  const [senha,    setSenha]    = useState('')
-  const [erro,     setErro]     = useState('')
-  const [load,     setLoad]     = useState(false)
-  const [tela,     setTela]     = useState('login')
-  const [emailRec, setEmailRec] = useState('')
-  const [msgRec,   setMsgRec]   = useState('')
-  const [loadRec,  setLoadRec]  = useState(false)
+  const [email,        setEmail]        = useState('')
+  const [senha,        setSenha]        = useState('')
+  const [erro,         setErro]         = useState('')
+  const [load,         setLoad]         = useState(false)
+  const [tela,         setTela]         = useState('login')
+  const [emailRec,     setEmailRec]     = useState('')
+  const [msgRec,       setMsgRec]       = useState('')
+  const [loadRec,      setLoadRec]      = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
-  const widgetId = useRef(null)
+  const widgetId   = useRef(null)
 
   useEffect(() => {
+    if (tela !== 'login') return
+
     window.onHcaptchaSuccess = (token) => setCaptchaToken(token)
     window.onHcaptchaExpire  = () => setCaptchaToken('')
 
@@ -35,27 +37,27 @@ export default function Login({ onLogin, onCadastro }) {
     } else {
       const existing = document.getElementById('hcaptcha-script')
       if (!existing) {
+        window.hcaptchaOnLoad = renderWidget
         const script = document.createElement('script')
         script.id = 'hcaptcha-script'
         script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad'
         script.async = true
         script.defer = true
-        window.hcaptchaOnLoad = renderWidget
         document.head.appendChild(script)
       } else {
-        existing.addEventListener('load', renderWidget)
+        window.hcaptchaOnLoad = renderWidget
       }
     }
 
     return () => {
       window.onHcaptchaSuccess = null
-      window.onHcaptchaExpire = null
+      window.onHcaptchaExpire  = null
     }
   }, [tela])
 
   const handleLogin = async () => {
     setErro('')
-    if (!captchaToken) { setErro('Por favor, complete o captcha.'); return }
+    if (!captchaToken) { setErro('Por favor, complete o captcha antes de entrar.'); return }
     setLoad(true)
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -65,7 +67,7 @@ export default function Login({ onLogin, onCadastro }) {
     if (error) {
       setErro('E-mail ou senha incorretos.')
       setCaptchaToken('')
-      // Reset hCaptcha
+      widgetId.current = null
       if (window.hcaptcha) window.hcaptcha.reset()
       setLoad(false)
       return
@@ -93,19 +95,17 @@ export default function Login({ onLogin, onCadastro }) {
   if (tela === 'esqueci') {
     const [tipo, msg] = msgRec ? msgRec.split('|') : ['', '']
     return (
-      <div style={{ minHeight: '100vh', background: '#1e3a5f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-          <div style={{ textAlign: 'center', marginBottom: 8 }}>
-            <img src="/Logo3.png" alt="e-FiscalTrib" style={{ height: 80, objectFit: 'contain' }} />
+      <div style={{ minHeight:'100vh', background:'#1e3a5f', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ background:'#fff', borderRadius:16, padding:40, width:400, boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div style={{ textAlign:'center', marginBottom:8 }}>
+            <img src="/Logo3.png" alt="e-FiscalTrib" style={{ height:80, objectFit:'contain' }} />
           </div>
-          <h2 style={{ textAlign: 'center', color: '#1e3a5f', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-            🔑 Recuperar senha
-          </h2>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 24 }}>
+          <h2 style={{ textAlign:'center', color:'#1e3a5f', fontSize:18, fontWeight:700, marginBottom:8 }}>🔑 Recuperar senha</h2>
+          <p style={{ textAlign:'center', color:'#64748b', fontSize:13, marginBottom:24 }}>
             Digite seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
           </p>
           {msg && (
-            <div style={{ background: tipo==='ok'?'#f0fdf4':'#fff1f2', border:`1px solid ${tipo==='ok'?'#86efac':'#fecdd3'}`, borderRadius:8, padding:'12px 14px', marginBottom:16, fontSize:13, color:tipo==='ok'?'#16a34a':'#dc2626', fontWeight:500 }}>
+            <div style={{ background:tipo==='ok'?'#f0fdf4':'#fff1f2', border:`1px solid ${tipo==='ok'?'#86efac':'#fecdd3'}`, borderRadius:8, padding:'12px 14px', marginBottom:16, fontSize:13, color:tipo==='ok'?'#16a34a':'#dc2626', fontWeight:500 }}>
               {tipo==='ok'?'✅ ':'⚠️ '}{msg}
             </div>
           )}
@@ -173,8 +173,8 @@ export default function Login({ onLogin, onCadastro }) {
         </div>
 
         <button
-          style={{ width:'100%', padding:12, background: captchaToken ? '#1e3a5f' : '#94a3b8', color:'#fff', border:'none', borderRadius:8, fontSize:15, cursor: captchaToken ? 'pointer' : 'not-allowed', marginBottom:12, opacity:load?0.7:1 }}
-          onClick={handleLogin} disabled={load || !captchaToken}>
+          style={{ width:'100%', padding:12, background: captchaToken?'#1e3a5f':'#94a3b8', color:'#fff', border:'none', borderRadius:8, fontSize:15, cursor: captchaToken?'pointer':'not-allowed', marginBottom:12, opacity:load?0.7:1 }}
+          onClick={handleLogin} disabled={load||!captchaToken}>
           {load ? 'Entrando...' : 'Entrar'}
         </button>
 
