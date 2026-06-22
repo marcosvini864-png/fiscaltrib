@@ -1,59 +1,15 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState } from 'react'
 import { supabase } from './supabase'
 
-const HCAPTCHA_SITEKEY = 'f392a2ec-60e6-4d9a-8d7e-4b063bd47e2a'
-
 export default function Login({ onLogin, onCadastro }) {
-  const [email,        setEmail]        = useState('')
-  const [senha,        setSenha]        = useState('')
-  const [erro,         setErro]         = useState('')
-  const [load,         setLoad]         = useState(false)
-  const [tela,         setTela]         = useState('login')
-  const [emailRec,     setEmailRec]     = useState('')
-  const [msgRec,       setMsgRec]       = useState('')
-  const [loadRec,      setLoadRec]      = useState(false)
-  const [captchaToken, setCaptchaToken] = useState('')
-  const captchaRef = useRef(null)
-  const widgetId   = useRef(null)
-
-  useEffect(() => {
-    if (tela !== 'login') return
-
-    window.onHcaptchaSuccess = (token) => setCaptchaToken(token)
-    window.onHcaptchaExpire  = () => setCaptchaToken('')
-
-    const renderWidget = () => {
-      if (captchaRef.current && window.hcaptcha && widgetId.current === null) {
-        widgetId.current = window.hcaptcha.render(captchaRef.current, {
-          sitekey: HCAPTCHA_SITEKEY,
-          callback: 'onHcaptchaSuccess',
-          'expired-callback': 'onHcaptchaExpire',
-        })
-      }
-    }
-
-    if (window.hcaptcha) {
-      renderWidget()
-    } else {
-      const existing = document.getElementById('hcaptcha-script')
-      if (!existing) {
-        window.hcaptchaOnLoad = renderWidget
-        const script = document.createElement('script')
-        script.id = 'hcaptcha-script'
-        script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad'
-        script.async = true
-        script.defer = true
-        document.head.appendChild(script)
-      } else {
-        window.hcaptchaOnLoad = renderWidget
-      }
-    }
-
-    return () => {
-      window.onHcaptchaSuccess = null
-      window.onHcaptchaExpire  = null
-    }
-  }, [tela])
+  const [email,    setEmail]    = useState('')
+  const [senha,    setSenha]    = useState('')
+  const [erro,     setErro]     = useState('')
+  const [load,     setLoad]     = useState(false)
+  const [tela,     setTela]     = useState('login')
+  const [emailRec, setEmailRec] = useState('')
+  const [msgRec,   setMsgRec]   = useState('')
+  const [loadRec,  setLoadRec]  = useState(false)
 
   const handleLogin = async () => {
     setErro('')
@@ -159,16 +115,10 @@ export default function Login({ onLogin, onCadastro }) {
           value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={handleKeyDown}
         />
 
-        <div style={{ textAlign:'right', marginBottom:16 }}>
           <button onClick={()=>{ setTela('esqueci'); setEmailRec(email) }}
             style={{ background:'none', border:'none', color:'#1e3a5f', fontSize:12, cursor:'pointer', textDecoration:'underline', padding:0 }}>
             Esqueci minha senha
           </button>
-        </div>
-
-        {/* hCaptcha Widget */}
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-          <div ref={captchaRef} />
         </div>
 
         <button
