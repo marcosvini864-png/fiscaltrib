@@ -57,12 +57,11 @@ export default function Login({ onLogin, onCadastro }) {
 
   const handleLogin = async () => {
     setErro('')
-    if (!captchaToken) { setErro('Por favor, complete o captcha antes de entrar.'); return }
     setLoad(true)
+    // Testando sem captchaToken para verificar credenciais
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password: senha,
-      options: { captchaToken }
     })
     if (error) {
       setErro('E-mail ou senha incorretos.')
@@ -173,8 +172,8 @@ export default function Login({ onLogin, onCadastro }) {
         </div>
 
         <button
-          style={{ width:'100%', padding:12, background: captchaToken?'#1e3a5f':'#94a3b8', color:'#fff', border:'none', borderRadius:8, fontSize:15, cursor: captchaToken?'pointer':'not-allowed', marginBottom:12, opacity:load?0.7:1 }}
-          onClick={handleLogin} disabled={load||!captchaToken}>
+          style={{ width:'100%', padding:12, background:'#1e3a5f', color:'#fff', border:'none', borderRadius:8, fontSize:15, cursor:'pointer', marginBottom:12, opacity:load?0.7:1 }}
+          onClick={handleLogin} disabled={load}>
           {load ? 'Entrando...' : 'Entrar'}
         </button>
 
