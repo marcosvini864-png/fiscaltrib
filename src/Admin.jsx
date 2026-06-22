@@ -9,12 +9,21 @@ const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f0b42
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
 export default function Admin({ onVoltar }) {
-  const [usuarios,    setUsuarios]    = useState([])
-  const [load,        setLoad]        = useState(true)
-  const [busca,       setBusca]       = useState('')
-  const [filtro,      setFiltro]      = useState('todos')
-  const [enviandoBkp, setEnviandoBkp] = useState(false)
-  const [msgBkp,      setMsgBkp]      = useState('')
+  const [usuarios,     setUsuarios]     = useState([])
+  const [load,         setLoad]         = useState(true)
+  const [busca,        setBusca]        = useState('')
+  const [filtro,       setFiltro]       = useState('todos')
+  const [enviandoBkp,  setEnviandoBkp]  = useState(false)
+  const [msgBkp,       setMsgBkp]       = useState('')
+  const [abaAtiva,     setAbaAtiva]     = useState('usuarios') // 'usuarios' | 'bonificacao'
+
+  // Bonificação
+  const [bonEmail,     setBonEmail]     = useState('')
+  const [bonPlano,     setBonPlano]     = useState('avancado')
+  const [bonTipo,      setBonTipo]      = useState('prazo') // 'prazo' | 'permanente'
+  const [bonDias,      setBonDias]      = useState('90')
+  const [bonLoading,   setBonLoading]   = useState(false)
+  const [bonMsg,       setBonMsg]       = useState('')
 
   useEffect(() => { carregarUsuarios() }, [])
 
@@ -62,6 +71,75 @@ export default function Admin({ onVoltar }) {
     } finally {
       setEnviandoBkp(false)
     }
+  }
+
+  async function liberarAcesso() {
+    if (!bonEmail.trim()) { setBonMsg('❌ Informe o e-mail do cliente.'); return }
+    if (bonTipo === 'prazo' && (!bonDias || parseInt(bonDias) < 1)) { setBonMsg('❌ Informe um prazo válido.'); return }
+    if (!window.confirm(`Liberar acesso ${bonTipo === 'permanente' ? 'permanente' : `por ${bonDias} dias`} no plano ${planoLabel[bonPlano]} para ${bonEmail}?`)) return
+
+    setBonLoading(true)
+    setBonMsg('')
+
+    try {
+      // Buscar o usuário pelo e-mail na tabela auth.users via RPC ou direto
+      const { data: authUsers, error: authError } = await supabase
+        .from('usuarios')
+        .select('id, email')
+        .eq('email', bonEmail.trim().toLowerCase())
+        .single()
+
+      if (authError || !authUsers) {
+        setBonMsg('❌ Usuário não encontrado. O cliente precisa criar a conta primeiro em fiscaltrib.com.br')
+        setBonLoading(false)
+        return
+      }
+
+      // Verificar se já tem assinatura
+      const { data: assExiste } = await supabase
+        .from('assinaturas')
+        .select('id')
+        .eq('usuario_id', authUsers.id)
+        .single()
+
+      const payload = {
+        usuario_id:  authUsers.id,
+        plano:       bonPlano,
+        valor:       0,
+        ativo:       true,
+        data_inicio: new Date().toISOString().split('T')[0],
+        ...(bonTipo === 'prazo' ? {
+          data_fim: new Date(Date.now() + parseInt(bonDias) * 86400000).toISOString().split('T')[0]
+        } : {})
+      }
+
+      let error
+      if (assExiste) {
+        // Atualizar assinatura existente
+        const { error: updErr } = await supabase
+          .from('assinaturas')
+          .update(payload)
+          .eq('id', assExiste.id)
+        error = updErr
+      } else {
+        // Criar nova assinatura
+        const { error: insErr } = await supabase
+          .from('assinaturas')
+          .insert([payload])
+        error = insErr
+      }
+
+      if (error) {
+        setBonMsg('❌ Erro ao liberar acesso: ' + error.message)
+      } else {
+        setBonMsg(`✅ Acesso ${bonTipo === 'permanente' ? 'permanente' : `por ${bonDias} dias`} liberado no plano ${planoLabel[bonPlano]} para ${bonEmail}!`)
+        setBonEmail('')
+        setBonDias('90')
+      }
+    } catch (e) {
+      setBonMsg('❌ Erro: ' + e.message)
+    }
+    setBonLoading(false)
   }
 
   const lista = usuarios.filter(u => {
@@ -125,78 +203,156 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
-      {/* FILTROS */}
-      <div style={s.filtros}>
-        <input style={s.busca} placeholder="🔍 Buscar por nome, e-mail ou CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} />
-        <div style={s.tabs}>
-          {['todos','essencial','avancado','premium','bloqueado'].map(f => (
-            <button key={f} style={{ ...s.tab, ...(filtro === f ? s.tabAtivo : {}) }} onClick={() => setFiltro(f)}>
-              {f === 'todos' ? 'Todos' : f === 'bloqueado' ? '🔒 Bloqueados' : planoLabel[f]}
-            </button>
-          ))}
-        </div>
+      {/* ABAS */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button onClick={() => setAbaAtiva('usuarios')}
+          style={{ ...s.tab, ...(abaAtiva === 'usuarios' ? s.tabAtivo : {}) }}>
+          👥 Usuários
+        </button>
+        <button onClick={() => setAbaAtiva('bonificacao')}
+          style={{ ...s.tab, ...(abaAtiva === 'bonificacao' ? s.tabAtivo : {}) }}>
+          🎁 Liberar Acesso Bonificado
+        </button>
       </div>
 
-      {/* TABELA */}
-      {load ? (
-        <p style={s.loadTxt}>Carregando usuários...</p>
-      ) : lista.length === 0 ? (
-        <p style={s.loadTxt}>Nenhum usuário encontrado.</p>
-      ) : (
-        <div style={s.tableWrap}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                {['Nome','E-mail','Tipo','Plano','CNPJ/CPF','Cidade','Status','Ações'].map(h => (
-                  <th key={h} style={s.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map(u => (
-                <tr key={u.id} style={{ ...s.tr, opacity: u.ativo === false ? 0.6 : 1 }}>
-                  <td style={s.td}>{u.nome_completo || <em style={{color:'#64748b'}}>—</em>}</td>
-                  <td style={s.td}>{u.email}</td>
-                  <td style={s.td}>
-                    <span style={s.badge}>
-                      {u.tipo_perfil === 'contador' ? '👔' : u.tipo_perfil === 'advogado' ? '⚖️' : u.tipo_perfil === 'pf' ? '👤' : '—'}
-                      {' '}{u.tipo_perfil || '—'}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    {u.plano ? (
-                      <span style={{ ...s.badge, background: planoColor[u.plano] + '22', color: planoColor[u.plano], border: `1px solid ${planoColor[u.plano]}` }}>
-                        {planoLabel[u.plano] || u.plano}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td style={s.td}>{u.cnpj || u.cpf || '—'}</td>
-                  <td style={s.td}>{u.cidade ? `${u.cidade}/${u.estado}` : '—'}</td>
-                  <td style={s.td}>
-                    <span style={{ ...s.badge, background: u.ativo !== false ? '#16a34a22' : '#ef444422', color: u.ativo !== false ? '#22c55e' : '#ef4444', border: `1px solid ${u.ativo !== false ? '#22c55e' : '#ef4444'}` }}>
-                      {u.ativo !== false ? '✅ Ativo' : '🔒 Bloqueado'}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    <div style={s.acoes}>
-                      <button
-                        style={{ ...s.btnAcao, background: u.ativo !== false ? '#ef444422' : '#16a34a22', color: u.ativo !== false ? '#ef4444' : '#22c55e' }}
-                        onClick={() => toggleStatus(u)}
-                        title={u.ativo !== false ? 'Bloquear' : 'Desbloquear'}
-                      >
-                        {u.ativo !== false ? '🔒' : '🔓'}
-                      </button>
-                      <button style={{ ...s.btnAcao, background: '#ef444422', color: '#ef4444' }} onClick={() => excluirUsuario(u)} title="Excluir">
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* ABA BONIFICAÇÃO */}
+      {abaAtiva === 'bonificacao' && (
+        <div style={{ background: '#1e293b', borderRadius: 12, padding: 28, marginBottom: 24, border: '1px solid #334155' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#f0b429', marginBottom: 6 }}>🎁 Liberar Acesso Bonificado</div>
+          <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 24 }}>
+            Dê acesso gratuito ao FiscalTrib para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={s.label}>E-mail do cliente *</label>
+              <input value={bonEmail} onChange={e => setBonEmail(e.target.value)}
+                placeholder="cliente@empresa.com.br"
+                style={s.input} />
+            </div>
+            <div>
+              <label style={s.label}>Plano *</label>
+              <select value={bonPlano} onChange={e => setBonPlano(e.target.value)} style={s.input}>
+                <option value="essencial">Essencial</option>
+                <option value="avancado">Avançado</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label style={s.label}>Tipo de acesso *</label>
+              <select value={bonTipo} onChange={e => setBonTipo(e.target.value)} style={s.input}>
+                <option value="prazo">Por prazo (dias)</option>
+                <option value="permanente">Permanente (sem data de fim)</option>
+              </select>
+            </div>
+            {bonTipo === 'prazo' && (
+              <div>
+                <label style={s.label}>Prazo (dias) *</label>
+                <input value={bonDias} onChange={e => setBonDias(e.target.value)}
+                  type="number" min="1" placeholder="Ex: 90"
+                  style={s.input} />
+              </div>
+            )}
+          </div>
+
+          {/* Preview */}
+          {bonEmail && (
+            <div style={{ background: '#0f172a', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#94a3b8', border: '1px solid #334155' }}>
+              📋 <strong style={{ color: '#e2e8f0' }}>Resumo:</strong> Liberar plano <strong style={{ color: planoColor[bonPlano] }}>{planoLabel[bonPlano]}</strong> {bonTipo === 'permanente' ? 'permanentemente' : `por ${bonDias} dias`} para <strong style={{ color: '#e2e8f0' }}>{bonEmail}</strong> — valor cobrado: <strong style={{ color: '#22c55e' }}>R$ 0,00</strong>
+            </div>
+          )}
+
+          <button onClick={liberarAcesso} disabled={bonLoading}
+            style={{ background: '#f0b429', border: 'none', color: '#0f172a', padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
+            {bonLoading ? '⏳ Liberando...' : '🎁 Liberar Acesso'}
+          </button>
+
+          {bonMsg && (
+            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              background: bonMsg.startsWith('✅') ? '#f0fdf4' : '#fff1f2',
+              color: bonMsg.startsWith('✅') ? '#16a34a' : '#dc2626',
+              border: `1px solid ${bonMsg.startsWith('✅') ? '#86efac' : '#fecdd3'}` }}>
+              {bonMsg}
+            </div>
+          )}
         </div>
       )}
+
+      {/* ABA USUÁRIOS */}
+      {abaAtiva === 'usuarios' && <>
+        {/* FILTROS */}
+        <div style={s.filtros}>
+          <input style={s.busca} placeholder="🔍 Buscar por nome, e-mail ou CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} />
+          <div style={s.tabs}>
+            {['todos','essencial','avancado','premium','bloqueado'].map(f => (
+              <button key={f} style={{ ...s.tab, ...(filtro === f ? s.tabAtivo : {}) }} onClick={() => setFiltro(f)}>
+                {f === 'todos' ? 'Todos' : f === 'bloqueado' ? '🔒 Bloqueados' : planoLabel[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* TABELA */}
+        {load ? (
+          <p style={s.loadTxt}>Carregando usuários...</p>
+        ) : lista.length === 0 ? (
+          <p style={s.loadTxt}>Nenhum usuário encontrado.</p>
+        ) : (
+          <div style={s.tableWrap}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {['Nome','E-mail','Tipo','Plano','CNPJ/CPF','Cidade','Status','Ações'].map(h => (
+                    <th key={h} style={s.th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map(u => (
+                  <tr key={u.id} style={{ ...s.tr, opacity: u.ativo === false ? 0.6 : 1 }}>
+                    <td style={s.td}>{u.nome_completo || <em style={{color:'#64748b'}}>—</em>}</td>
+                    <td style={s.td}>{u.email}</td>
+                    <td style={s.td}>
+                      <span style={s.badge}>
+                        {u.tipo_perfil === 'contador' ? '👔' : u.tipo_perfil === 'advogado' ? '⚖️' : u.tipo_perfil === 'pf' ? '👤' : '—'}
+                        {' '}{u.tipo_perfil || '—'}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      {u.plano ? (
+                        <span style={{ ...s.badge, background: planoColor[u.plano] + '22', color: planoColor[u.plano], border: `1px solid ${planoColor[u.plano]}` }}>
+                          {planoLabel[u.plano] || u.plano}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td style={s.td}>{u.cnpj || u.cpf || '—'}</td>
+                    <td style={s.td}>{u.cidade ? `${u.cidade}/${u.estado}` : '—'}</td>
+                    <td style={s.td}>
+                      <span style={{ ...s.badge, background: u.ativo !== false ? '#16a34a22' : '#ef444422', color: u.ativo !== false ? '#22c55e' : '#ef4444', border: `1px solid ${u.ativo !== false ? '#22c55e' : '#ef4444'}` }}>
+                        {u.ativo !== false ? '✅ Ativo' : '🔒 Bloqueado'}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      <div style={s.acoes}>
+                        <button
+                          style={{ ...s.btnAcao, background: u.ativo !== false ? '#ef444422' : '#16a34a22', color: u.ativo !== false ? '#ef4444' : '#22c55e' }}
+                          onClick={() => toggleStatus(u)}
+                          title={u.ativo !== false ? 'Bloquear' : 'Desbloquear'}
+                        >
+                          {u.ativo !== false ? '🔒' : '🔓'}
+                        </button>
+                        <button style={{ ...s.btnAcao, background: '#ef444422', color: '#ef4444' }} onClick={() => excluirUsuario(u)} title="Excluir">
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>}
     </div>
   )
 }
@@ -226,4 +382,6 @@ const s = {
   badge:      { padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#334155', color: '#94a3b8' },
   acoes:      { display: 'flex', gap: '6px' },
   btnAcao:    { border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '15px' },
+  label:      { display: 'block', fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: 6 },
+  input:      { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', fontSize: '13px', boxSizing: 'border-box' },
 }
