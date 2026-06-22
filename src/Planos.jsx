@@ -142,15 +142,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             <button onClick={irParaCartao} style={{ width: '100%', padding: '14px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
               ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
             </button>
-            <button onClick={() => setEtapa('planos')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
-               ← Voltar e escolher outro plano
-            </button>
-            {onSair && (
-            <button onClick={onSair} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
-            Sair da conta
-            </button>
-)}
+            <button onClick={() => setEtapa('planos')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', marginBottom: 8 }}>
               ← Voltar e escolher outro plano
+            </button>
+            <button onClick={onSair} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+              Sair da conta
             </button>
           </div>
         </div>
@@ -179,8 +175,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             <button onClick={() => window.open(planoSelecionado?.link, '_blank')} style={{ width: '100%', padding: '14px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
               Abrir formulário do cartão novamente
             </button>
-            <button onClick={() => setEtapa('pix')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+            <button onClick={() => setEtapa('pix')} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', marginBottom: 8 }}>
               ← Voltar para o PIX
+            </button>
+            <button onClick={onSair} style={{ width: '100%', padding: '10px 0', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+              Sair da conta
             </button>
           </div>
         </div>
@@ -193,17 +192,13 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
     <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ width: '100%', maxWidth: 860 }}>
 
-        {/* Cabeçalho */}
         <div style={{ textAlign: 'center', marginBottom: 8 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1e3a5f', marginBottom: 6 }}>
-            Escolha seu Plano
-          </h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1e3a5f', marginBottom: 6 }}>Escolha seu Plano</h1>
           <p style={{ fontSize: 14, color: '#1e3a5f', marginBottom: 16 }}>
             Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
           </p>
         </div>
 
-        {/* Avisos */}
         <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '10px 16px', textAlign: 'center', marginBottom: 6, fontSize: 14, color: '#1e3a5f', fontWeight: 600 }}>
           Ativação e implantação do sistema — R$ 300,00 à vista via PIX
         </div>
@@ -216,18 +211,9 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </span>
         </div>
 
-        {/* Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, marginBottom: 28 }}>
           {PLANOS.map(plano => (
-            <div key={plano.id} style={{
-              background: '#fff',
-              border: `2px solid ${plano.corTopo}`,
-              borderRadius: 10,
-              overflow: 'hidden',
-              boxShadow: `0 2px 14px ${plano.corTopo}22`,
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
+            <div key={plano.id} style={{ background: '#fff', border: `2px solid ${plano.corTopo}`, borderRadius: 10, overflow: 'hidden', boxShadow: `0 2px 14px ${plano.corTopo}22`, display: 'flex', flexDirection: 'column' }}>
               <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '7px 0', letterSpacing: 1.2 }}>
                 {plano.labelTopo}
               </div>
@@ -240,21 +226,12 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, marginBottom: 18, flex: 1 }}>
                   {plano.recursos.map((r, i) => (
                     <div key={i} style={{ fontSize: 12, color: '#374151', marginBottom: 7, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                      <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
-                      {r}
+                      <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>{r}
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => selecionarPlano(plano)}
-                  disabled={loading === plano.id}
-                  style={{
-                    width: '100%', padding: '11px 0', background: plano.corTopo, color: '#fff',
-                    border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700,
-                    cursor: loading === plano.id ? 'wait' : 'pointer',
-                    opacity: loading === plano.id ? 0.7 : 1,
-                  }}
-                >
+                <button onClick={() => selecionarPlano(plano)} disabled={loading === plano.id}
+                  style={{ width: '100%', padding: '11px 0', background: plano.corTopo, color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: loading === plano.id ? 'wait' : 'pointer', opacity: loading === plano.id ? 0.7 : 1 }}>
                   {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
                 </button>
               </div>
@@ -268,14 +245,12 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </div>
         )}
 
-        {/* Contato comercial */}
         <div style={{ textAlign: 'center', marginBottom: 10 }}>
           <p style={{ fontSize: 15, color: '#1e3a5f', fontWeight: 600 }}>
             Departamento comercial Telefone e WhatsApp: (11) 99957-9822
           </p>
         </div>
 
-        {/* Cancelamento */}
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer"
             style={{ fontSize: 13, color: '#16a34a', textDecoration: 'underline' }}>
