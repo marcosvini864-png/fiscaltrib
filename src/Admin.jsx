@@ -15,15 +15,15 @@ export default function Admin({ onVoltar }) {
   const [filtro,       setFiltro]       = useState('todos')
   const [enviandoBkp,  setEnviandoBkp]  = useState(false)
   const [msgBkp,       setMsgBkp]       = useState('')
-  const [abaAtiva,     setAbaAtiva]     = useState('usuarios') // 'usuarios' | 'bonificacao'
+  const [abaAtiva,     setAbaAtiva]     = useState('usuarios')
 
   // Bonificação
-  const [bonEmail,     setBonEmail]     = useState('')
-  const [bonPlano,     setBonPlano]     = useState('avancado')
-  const [bonTipo,      setBonTipo]      = useState('prazo') // 'prazo' | 'permanente'
-  const [bonDias,      setBonDias]      = useState('90')
-  const [bonLoading,   setBonLoading]   = useState(false)
-  const [bonMsg,       setBonMsg]       = useState('')
+  const [bonEmail,   setBonEmail]   = useState('')
+  const [bonPlano,   setBonPlano]   = useState('avancado')
+  const [bonTipo,    setBonTipo]    = useState('prazo')
+  const [bonDias,    setBonDias]    = useState('90')
+  const [bonLoading, setBonLoading] = useState(false)
+  const [bonMsg,     setBonMsg]     = useState('')
 
   useEffect(() => { carregarUsuarios() }, [])
 
@@ -41,8 +41,22 @@ export default function Admin({ onVoltar }) {
   }
 
   async function excluirUsuario(u) {
-    if (!window.confirm(`Excluir ${u.nome_completo || u.email}? Esta ação não pode ser desfeita.`)) return
+    if (!window.confirm(`Excluir ${u.nome_completo || u.email}? Esta ação remove o usuário completamente e não pode ser desfeita.`)) return
+
+    // Apaga dados relacionados
+    await supabase.from('assinaturas').delete().eq('usuario_id', u.id)
+    await supabase.from('entradas').delete().eq('usuario_id', u.id)
+    await supabase.from('recuperacoes').delete().eq('usuario_id', u.id)
+    await supabase.from('acompanhamentos').delete().eq('usuario_id', u.id)
+    await supabase.from('prazos_fiscais').delete().eq('usuario_id', u.id)
+    await supabase.from('clientes').delete().eq('usuario_id', u.id)
+
+    // Apaga da tabela usuarios
     await supabase.from('usuarios').delete().eq('id', u.id)
+
+    // Apaga do auth.users via função SQL
+    await supabase.rpc('deletar_usuario', { uid: u.id })
+
     setUsuarios(prev => prev.filter(x => x.id !== u.id))
   }
 
@@ -82,50 +96,41 @@ export default function Admin({ onVoltar }) {
     setBonMsg('')
 
     try {
-      // Buscar o usuário pelo e-mail na tabela auth.users via RPC ou direto
-      const { data: authUsers, error: authError } = await supabase
+      const { data: usuarioEncontrado, error: authError } = await supabase
         .from('usuarios')
         .select('id, email')
         .eq('email', bonEmail.trim().toLowerCase())
         .single()
 
-      if (authError || !authUsers) {
+      if (authError || !usuarioEncontrado) {
         setBonMsg('❌ Usuário não encontrado. O cliente precisa criar a conta primeiro em fiscaltrib.com.br')
         setBonLoading(false)
         return
       }
 
-      // Verificar se já tem assinatura
       const { data: assExiste } = await supabase
         .from('assinaturas')
         .select('id')
-        .eq('usuario_id', authUsers.id)
+        .eq('usuario_id', usuarioEncontrado.id)
         .single()
 
       const payload = {
-        usuario_id:  authUsers.id,
+        usuario_id:  usuarioEncontrado.id,
         plano:       bonPlano,
         valor:       0,
         ativo:       true,
         data_inicio: new Date().toISOString().split('T')[0],
         ...(bonTipo === 'prazo' ? {
           data_fim: new Date(Date.now() + parseInt(bonDias) * 86400000).toISOString().split('T')[0]
-        } : {})
+        } : { data_fim: null })
       }
 
       let error
       if (assExiste) {
-        // Atualizar assinatura existente
-        const { error: updErr } = await supabase
-          .from('assinaturas')
-          .update(payload)
-          .eq('id', assExiste.id)
+        const { error: updErr } = await supabase.from('assinaturas').update(payload).eq('id', assExiste.id)
         error = updErr
       } else {
-        // Criar nova assinatura
-        const { error: insErr } = await supabase
-          .from('assinaturas')
-          .insert([payload])
+        const { error: insErr } = await supabase.from('assinaturas').insert([payload])
         error = insErr
       }
 
@@ -255,7 +260,6 @@ export default function Admin({ onVoltar }) {
             )}
           </div>
 
-          {/* Preview */}
           {bonEmail && (
             <div style={{ background: '#0f172a', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#94a3b8', border: '1px solid #334155' }}>
               📋 <strong style={{ color: '#e2e8f0' }}>Resumo:</strong> Liberar plano <strong style={{ color: planoColor[bonPlano] }}>{planoLabel[bonPlano]}</strong> {bonTipo === 'permanente' ? 'permanentemente' : `por ${bonDias} dias`} para <strong style={{ color: '#e2e8f0' }}>{bonEmail}</strong> — valor cobrado: <strong style={{ color: '#22c55e' }}>R$ 0,00</strong>
@@ -280,7 +284,6 @@ export default function Admin({ onVoltar }) {
 
       {/* ABA USUÁRIOS */}
       {abaAtiva === 'usuarios' && <>
-        {/* FILTROS */}
         <div style={s.filtros}>
           <input style={s.busca} placeholder="🔍 Buscar por nome, e-mail ou CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} />
           <div style={s.tabs}>
@@ -292,7 +295,6 @@ export default function Admin({ onVoltar }) {
           </div>
         </div>
 
-        {/* TABELA */}
         {load ? (
           <p style={s.loadTxt}>Carregando usuários...</p>
         ) : lista.length === 0 ? (
@@ -337,8 +339,7 @@ export default function Admin({ onVoltar }) {
                         <button
                           style={{ ...s.btnAcao, background: u.ativo !== false ? '#ef444422' : '#16a34a22', color: u.ativo !== false ? '#ef4444' : '#22c55e' }}
                           onClick={() => toggleStatus(u)}
-                          title={u.ativo !== false ? 'Bloquear' : 'Desbloquear'}
-                        >
+                          title={u.ativo !== false ? 'Bloquear' : 'Desbloquear'}>
                           {u.ativo !== false ? '🔒' : '🔓'}
                         </button>
                         <button style={{ ...s.btnAcao, background: '#ef444422', color: '#ef4444' }} onClick={() => excluirUsuario(u)} title="Excluir">
