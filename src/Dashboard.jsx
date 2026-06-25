@@ -314,42 +314,27 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
 
-            {/* Card Central de Inteligência */}
-            <div style={{background:C.navy,borderRadius:12,padding:20,marginBottom:20,boxShadow:'0 4px 16px rgba(11,31,77,0.15)'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
-                <div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.white,marginBottom:4}}>🏛️ Central de Inteligência Tributária</div>
-                  <div style={{fontSize:12,color:'#A0C4FF'}}>Consulte CNAE, CFOP, CST, CSOSN, Teses e Reforma Tributária com análise por IA</div>
-                </div>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                  {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses'],['🏛️','Reforma']].map(([ic,lb])=>(
+            {/* Acesso rápido — Central e Reforma */}
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                <span style={{fontSize:13,fontWeight:600,color:C.text}}>🏛️ Central Tributária</span>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses']].map(([ic,lb])=>(
                     <button key={lb} onClick={()=>setPage('central')}
-                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'5px 12px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}}
-                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.22)'}
-                      onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.12)'}>
+                      style={{background:'#F1F5F9',border:`1px solid ${C.border}`,color:C.text,padding:'4px 10px',borderRadius:6,fontSize:12,cursor:'pointer'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#E2E8F0'}
+                      onMouseLeave={e=>e.currentTarget.style.background='#F1F5F9'}>
                       {ic} {lb}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
-
-            {/* Card Reforma */}
-            <div style={{background:'linear-gradient(135deg,#7C3AED,#4F46E5)',borderRadius:12,padding:20,marginBottom:24,boxShadow:'0 4px 16px rgba(124,58,237,0.25)'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
-                <div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.white,marginBottom:4}}>🚨 Reforma Tributária — Impacto nas Recuperações</div>
-                  <div style={{fontSize:12,color:'#DDD6FE',marginBottom:8}}>Algumas oportunidades podem ser extintas com CBS e IBS. Aja agora.</div>
-                  <div style={{display:'flex',gap:16}}>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:C.white}}>2033</div><div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div></div>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:'#86EFAC'}}>16</div><div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div></div>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:'#FCA5A5'}}>Alto</div><div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div></div>
-                  </div>
-                </div>
-                <button onClick={()=>setPage('central')} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'8px 18px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
-                  Ver impactos →
-                </button>
-              </div>
+              <button onClick={()=>setPage('central')}
+                style={{background:'#F1F5F9',border:`1px solid ${C.border}`,color:C.muted,padding:'4px 12px',borderRadius:6,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}
+                onMouseEnter={e=>e.currentTarget.style.background='#E2E8F0'}
+                onMouseLeave={e=>e.currentTarget.style.background='#F1F5F9'}>
+                ⚠️ Reforma Tributária →
+              </button>
             </div>
 
             {clientes.length===0 ? (
