@@ -33,8 +33,10 @@ const fmtR      = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFra
 
 const C = {
   navy:'#0B1F4D', navyHov:'#163B8C', navyAct:'#1A4499',
-  catText:'#7CC4FF', green:'#22C55E', white:'#FFFFFF',
-  bg:'#F5F7FA', border:'#E2E8F0', text:'#1E293B', muted:'#64748B',
+  green:'#22C55E', white:'#FFFFFF',
+  bg:'#F0F2F5', border:'#E2E8F0',
+  text:'#1E293B', muted:'#64748B',
+  sidebar:'#FFFFFF', sidebarBorder:'#E8ECF0',
 }
 
 const PAGE_LABELS = {
@@ -49,87 +51,84 @@ const PAGE_LABELS = {
 }
 
 const MENU = [
-  { id:'visao',  label:'VISÃO GERAL',          icon:'📊', items:[{label:'Painel',key:'painel'},{label:'Clientes',key:'clientes'}] },
-  { id:'diag',   label:'DIAGNÓSTICO',           icon:'🔍', items:[{label:'Checklist',key:'checklist'},{label:'Entrada de Dados',key:'entrada'},{label:'Diagnóstico',key:'diagnostico'},{label:'Score Fiscal',key:'score'},{label:'IA Tributária',key:'analise'}] },
-  { id:'teses',  label:'TESES E OPORTUNIDADES', icon:'⚖️', items:[{label:'Teses Tributárias',key:'teses'},{label:'Controle Prescricional',key:'prazos'}] },
-  { id:'imp',    label:'IMPORTAÇÕES',           icon:'📥', items:[{label:'Central de Importações',key:'importacoes'}] },
-  { id:'rec',    label:'RECUPERAÇÃO',           icon:'💰', items:[{label:'Recuperações',key:'recuperacoes'},{label:'PER/DCOMP',key:'perdcomp'},{label:'Acompanhamento',key:'acompanhamento'}] },
-  { id:'gestao', label:'GESTÃO FISCAL',         icon:'📅', items:[{label:'Monitor de Obrigações',key:'monitor'},{label:'Prazos',key:'prazosfiscais'},{label:'Relatórios',key:'relatorio'}] },
-  { id:'tools',  label:'FERRAMENTAS',           icon:'🧮', items:[{label:'Calculadoras',key:'calculadoras'},{label:'Simuladores',key:'simuladores'},{label:'Central Tributária',key:'central'}] },
+  { label:'Painel',                key:'painel',        icon:'📊' },
+  { label:'Clientes',              key:'clientes',      icon:'👥' },
+  { label:'Novo cliente',          key:'novo-cliente',  icon:'➕' },
+  { label:'Checklist',             key:'checklist',     icon:'✅' },
+  { label:'Entrada de Dados',      key:'entrada',       icon:'📝' },
+  { label:'Diagnóstico',           key:'diagnostico',   icon:'🔍' },
+  { label:'Prazos',                key:'prazos',        icon:'⏱️' },
+  { label:'Relatório',             key:'relatorio',     icon:'📄' },
+  { label:'Calculadoras',          key:'calculadoras',  icon:'🧮' },
+  { label:'Simuladores',           key:'simuladores',   icon:'📈' },
+  { label:'IA Tributária',         key:'analise',       icon:'🤖' },
+  { label:'Teses',                 key:'teses',         icon:'⚖️' },
+  { label:'Recuperações',          key:'recuperacoes',  icon:'💰' },
+  { label:'PER/DCOMP',             key:'perdcomp',      icon:'📋' },
+  { label:'Acompanhamento',        key:'acompanhamento',icon:'🔄' },
+  { label:'Monitor de Obrigações', key:'monitor',       icon:'🗓️' },
+  { label:'Prazos Fiscais',        key:'prazosfiscais', icon:'📅' },
+  { label:'Importações',           key:'importacoes',   icon:'📥' },
+  { label:'Score Fiscal',          key:'score',         icon:'🎯' },
+  { label:'Central Tributária',    key:'central',       icon:'🏛️' },
 ]
 
-function Sidebar({ page, onNavigate }) {
-  const [pinned,     setPinned]     = useState(true)
-  const [hovered,    setHovered]    = useState(false)
-  const [openGroups, setOpenGroups] = useState({ visao:true, diag:true })
-  const expanded = pinned || hovered
-
+function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
   return (
-    <aside
-      onMouseEnter={()=>{ if(!pinned) setHovered(true) }}
-      onMouseLeave={()=>{ if(!pinned) setHovered(false) }}
-      style={{width:expanded?260:64,minHeight:'100%',background:C.navy,display:'flex',flexDirection:'column',transition:'width 0.22s ease',overflow:'hidden',flexShrink:0,zIndex:10}}
-    >
-      {/* LOGO + BOTÃO PIN */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 12px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0,minHeight:64}}>
-        <img
-          src="/Logo3.png"
-          alt="e-FiscalTrib"
-          style={{
-            height: expanded ? 46 : 36,
-            maxWidth: expanded ? 190 : 36,
-            objectFit:'contain',
-            transition:'all 0.22s ease',
-            flexShrink:0,
-          }}
-        />
-        <button
-          onClick={()=>setPinned(p=>!p)}
-          style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:13,padding:'4px 6px',borderRadius:4,flexShrink:0,marginLeft:6,transition:'color 0.2s'}}
-          onMouseEnter={e=>e.currentTarget.style.color=C.white}
-          onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.4)'}>
-          {pinned?'◀':'▶'}
-        </button>
+    <aside style={{
+      width:220, minHeight:'100%', background:C.sidebar,
+      borderRight:`1px solid ${C.sidebarBorder}`,
+      display:'flex', flexDirection:'column',
+      flexShrink:0, overflowY:'auto',
+    }}>
+      {/* Cliente Ativo */}
+      <div style={{padding:'14px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,marginBottom:6}}>CLIENTE ATIVO</div>
+        <select
+          value={activeId?.toString()||''}
+          onChange={e=>onChangeCliente(e.target.value||null)}
+          style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,color:C.text,background:C.white,cursor:'pointer'}}>
+          <option value=''>— Nenhum —</option>
+          {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
+        </select>
       </div>
 
-      <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'8px 0'}}>
-        {MENU.map(g=>(
-          <div key={g.id}>
-            <button onClick={()=>expanded&&setOpenGroups(p=>({...p,[g.id]:!p[g.id]}))} title={!expanded?g.label:undefined}
-              style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:expanded?'9px 16px':'10px 0',justifyContent:expanded?'flex-start':'center',background:'none',border:'none',cursor:'pointer',transition:'background 0.2s'}}
-              onMouseEnter={e=>e.currentTarget.style.background=C.navyHov}
-              onMouseLeave={e=>e.currentTarget.style.background='none'}>
-              <span style={{fontSize:15,flexShrink:0}}>{g.icon}</span>
-              {expanded && <>
-                <span style={{fontSize:10,fontWeight:600,letterSpacing:1,color:C.catText,flex:1,textAlign:'left',whiteSpace:'nowrap'}}>{g.label}</span>
-                <span style={{fontSize:10,color:'rgba(255,255,255,0.4)',transform:openGroups[g.id]?'rotate(180deg)':'rotate(0deg)',display:'inline-block',transition:'transform 0.2s'}}>▾</span>
-              </>}
+      {/* Menu */}
+      <nav style={{flex:1,padding:'8px 0'}}>
+        {MENU.map(item => {
+          const act = page===item.key
+          return (
+            <button key={item.key} onClick={()=>onNavigate(item.key)}
+              style={{
+                width:'100%', display:'flex', alignItems:'center', gap:10,
+                padding:'9px 16px', background: act?'#EFF6FF':'none',
+                border:'none', borderLeft: act?`3px solid ${C.navy}`:'3px solid transparent',
+                cursor:'pointer', color: act?C.navy:C.text,
+                fontSize:13, textAlign:'left', fontWeight: act?600:400,
+                transition:'background 0.15s',
+              }}
+              onMouseEnter={e=>{ if(!act) e.currentTarget.style.background='#F8FAFC' }}
+              onMouseLeave={e=>{ if(!act) e.currentTarget.style.background='none' }}>
+              <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
+              <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.label}</span>
             </button>
-            {expanded && openGroups[g.id] && g.items.map(item=>{
-              const act = page===item.key
-              return (
-                <button key={item.key} onClick={()=>onNavigate(item.key)}
-                  style={{width:'100%',display:'flex',alignItems:'center',padding:'7px 16px 7px 40px',background:act?C.navyAct:'none',border:'none',borderLeft:act?`3px solid ${C.green}`:'3px solid transparent',cursor:'pointer',color:act?C.white:'rgba(255,255,255,0.85)',fontSize:13,textAlign:'left',whiteSpace:'nowrap',transition:'background 0.2s'}}
-                  onMouseEnter={e=>{ if(!act){e.currentTarget.style.background=C.navyHov;e.currentTarget.style.color='rgba(255,255,255,0.65)'} }}
-                  onMouseLeave={e=>{ if(!act){e.currentTarget.style.background='none';e.currentTarget.style.color='rgba(255,255,255,0.85)'} }}>
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
-        ))}
+          )
+        })}
       </nav>
-      {expanded && <div style={{padding:'10px 16px',borderTop:'1px solid rgba(255,255,255,0.08)',fontSize:10,color:'rgba(255,255,255,0.25)',flexShrink:0}}>fiscaltrib.com.br</div>}
+
+      <div style={{padding:'10px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>
+        fiscaltrib.com.br
+      </div>
     </aside>
   )
 }
 
 function KpiCard({ icon, value, label, color }) {
   return (
-    <div style={{background:C.white,borderRadius:12,padding:'20px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',display:'flex',alignItems:'center',gap:16}}>
-      <div style={{width:48,height:48,borderRadius:12,background:color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{icon}</div>
+    <div style={{background:C.white,borderRadius:12,padding:'20px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',display:'flex',alignItems:'center',gap:16}}>
+      <div style={{fontSize:36,flexShrink:0}}>{icon}</div>
       <div>
-        <div style={{fontSize:24,fontWeight:700,color:C.text,lineHeight:1}}>{value}</div>
+        <div style={{fontSize:26,fontWeight:700,color,lineHeight:1}}>{value}</div>
         <div style={{fontSize:12,color:C.muted,marginTop:4}}>{label}</div>
       </div>
     </div>
@@ -184,7 +183,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
         ultima_atividade: new Date().toISOString(),
         pagina_atual: PAGE_LABELS[page] || page,
       }, { onConflict: 'usuario_id' })
-    } catch(e) { console.log('Presença:', e.message) }
+    } catch(e) {}
   }
 
   async function carregarClientes() {
@@ -205,7 +204,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   }
 
   async function excluirCliente(c) {
-    if (!window.confirm(`Excluir "${c.razao_social}" e todos os seus dados? Esta ação não pode ser desfeita.`)) return
+    if (!window.confirm(`Excluir "${c.razao_social}" e todos os seus dados?`)) return
     await supabase.from('entradas').delete().eq('cliente_id', c.id)
     await supabase.from('recuperacoes').delete().eq('cliente_id', c.id)
     await supabase.from('acompanhamentos').delete().eq('cliente_id', c.id)
@@ -279,50 +278,53 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       {/* TOPBAR */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',height:60,flexShrink:0,gap:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-        <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:40,objectFit:'contain',flexShrink:0}} />
-        <span style={{fontSize:14,fontWeight:600,color:C.navy,flex:1,lineHeight:1.3}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>
-        {clientes.length>0 && (
-          <select value={activeId?.toString()||''} onChange={e=>setActiveId(e.target.value||null)} style={{fontSize:12,padding:'5px 10px',border:`1px solid ${C.border}`,borderRadius:6,color:C.text,maxWidth:220,background:C.white}}>
-            <option value=''>— Nenhum cliente —</option>
-            {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
-          </select>
+      <div style={{background:C.navy,display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
+        <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:34,objectFit:'contain',flexShrink:0}} />
+        <span style={{fontSize:13,color:'rgba(255,255,255,0.7)',flex:1}}>
+          Sistema de diagnóstico e recuperação tributária — FiscalTrib
+        </span>
+        {active && (
+          <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.1)',padding:'4px 12px',borderRadius:20}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:'#F0B429',flexShrink:0}}></div>
+            <span style={{fontSize:12,color:C.white,fontWeight:500}}>{active.razao_social}</span>
+          </div>
         )}
-        <span style={{fontSize:12,color:C.muted}}>👤 {nomeUsuario||'Usuário'}</span>
-        {onAdmin && <button onClick={onAdmin} style={{background:'#F59E0B',border:'none',color:C.white,padding:'5px 14px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>⚙️ Admin</button>}
-        <button onClick={()=>onLogout()} style={{background:'none',border:`1px solid ${C.border}`,color:C.muted,padding:'5px 14px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
+        <span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>👤 {nomeUsuario||'Usuário'}</span>
+        {onAdmin && <button onClick={onAdmin} style={{background:'#F59E0B',border:'none',color:C.white,padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>⚙️ Admin</button>}
+        <button onClick={()=>onLogout()} style={{background:'none',border:'1px solid rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.7)',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
       </div>
 
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        <Sidebar page={page} onNavigate={handleNavigate} />
+        <Sidebar page={page} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} />
 
-        <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'32px 36px',background:C.bg,minWidth:0}}>
+        <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'24px 28px',background:C.bg,minWidth:0}}>
 
           {page==='painel' && <>
-            <div style={{marginBottom:24}}>
+            <div style={{marginBottom:20}}>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Painel Geral</div>
-              <div style={{fontSize:13,color:C.muted,marginTop:2}}>Visão consolidada dos casos em andamento</div>
+              <div style={{fontSize:13,color:C.muted,marginTop:2}}>Visão consolidada dos casos em andamento.</div>
             </div>
-            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',marginBottom:24,fontSize:13,color:'#92400E'}}>
-              ⚠️ <strong>Aviso profissional:</strong> Esta análise é preliminar e não dispensa revisão por profissional habilitado.
+            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'10px 16px',marginBottom:20,fontSize:12,color:'#92400E'}}>
+              ⚠️ <strong>Aviso profissional obrigatório:</strong> Esta análise é preliminar e não dispensa revisão por contador, advogado tributarista ou consultor fiscal habilitado. Nenhuma declaração deve ser retificada e nenhum PER/DCOMP deve ser transmitido sem validação humana prévia. Créditos tributários exigem lastro documental completo.
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:28}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
               <KpiCard icon="👥" value={clientes.length}  label="Clientes cadastrados"           color="#2563EB" />
               <KpiCard icon="🎯" value={totalOpp}         label="Oportunidades mapeadas"         color="#7C3AED" />
               <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável"    color="#16A34A" />
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
 
-            <div style={{background:C.navy,borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(11,31,77,0.2)'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+            {/* Card Central de Inteligência */}
+            <div style={{background:C.navy,borderRadius:12,padding:20,marginBottom:20,boxShadow:'0 4px 16px rgba(11,31,77,0.15)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
                 <div>
-                  <div style={{fontSize:16,fontWeight:700,color:C.white,marginBottom:4}}>🏛️ Central de Inteligência Tributária</div>
-                  <div style={{fontSize:12,color:'#A0C4FF'}}>Consulte CNAE, CFOP, CST, CSOSN, Teses Tributárias e Impactos da Reforma</div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.white,marginBottom:4}}>🏛️ Central de Inteligência Tributária</div>
+                  <div style={{fontSize:12,color:'#A0C4FF'}}>Consulte CNAE, CFOP, CST, CSOSN, Teses e Reforma Tributária com análise por IA</div>
                 </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses'],['🏛️','Reforma']].map(([ic,lb])=>(
                     <button key={lb} onClick={()=>setPage('central')}
-                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}}
+                      style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',color:C.white,padding:'5px 12px',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}}
                       onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.22)'}
                       onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.12)'}>
                       {ic} {lb}
@@ -332,45 +334,48 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               </div>
             </div>
 
-            <div style={{background:'linear-gradient(135deg,#7C3AED,#4F46E5)',borderRadius:12,padding:24,marginBottom:24,boxShadow:'0 4px 16px rgba(124,58,237,0.3)'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+            {/* Card Reforma */}
+            <div style={{background:'linear-gradient(135deg,#7C3AED,#4F46E5)',borderRadius:12,padding:20,marginBottom:24,boxShadow:'0 4px 16px rgba(124,58,237,0.25)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
                 <div>
-                  <div style={{fontSize:16,fontWeight:700,color:C.white,marginBottom:4}}>🚨 Reforma Tributária — Impacto nas Recuperações</div>
-                  <div style={{fontSize:12,color:'#DDD6FE',marginBottom:8}}>Algumas oportunidades de recuperação podem ser extintas com CBS e IBS. Aja agora.</div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.white,marginBottom:4}}>🚨 Reforma Tributária — Impacto nas Recuperações</div>
+                  <div style={{fontSize:12,color:'#DDD6FE',marginBottom:8}}>Algumas oportunidades podem ser extintas com CBS e IBS. Aja agora.</div>
                   <div style={{display:'flex',gap:16}}>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:C.white}}>2033</div><div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div></div>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#86EFAC'}}>16</div><div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div></div>
-                    <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#FCA5A5'}}>Alto</div><div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div></div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:C.white}}>2033</div><div style={{fontSize:10,color:'#DDD6FE'}}>Extinção do sistema atual</div></div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:'#86EFAC'}}>16</div><div style={{fontSize:10,color:'#DDD6FE'}}>Temas mapeados</div></div>
+                    <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:'#FCA5A5'}}>Alto</div><div style={{fontSize:10,color:'#DDD6FE'}}>Impacto no monofásico</div></div>
                   </div>
                 </div>
-                <button onClick={()=>setPage('central')} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'10px 20px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
+                <button onClick={()=>setPage('central')} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:C.white,padding:'8px 18px',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:600}}>
                   Ver impactos →
                 </button>
               </div>
             </div>
 
             {clientes.length===0 ? (
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
                 <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum cliente ainda</div>
-                <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={btnPrimary}>+ Cadastrar primeiro cliente</button>
+                <button onClick={()=>handleNavigate('novo-cliente')} style={btnPrimary}>+ Cadastrar primeiro cliente</button>
               </div>
             ) : (
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+                <div style={{padding:'14px 18px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                   <span style={{fontSize:15,fontWeight:600,color:C.text}}>Clientes — visão rápida</span>
-                  <button onClick={()=>setPage('clientes')} style={{...btnOutline,padding:'5px 14px',fontSize:12}}>Ver todos</button>
+                  <button onClick={()=>setPage('clientes')} style={{...btnOutline,padding:'5px 14px',fontSize:12}}>Ver todos os clientes</button>
                 </div>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead><tr style={{background:'#F8FAFC'}}>{['Razão Social','CNPJ','Regime','Oportunidades','Potencial','Status',''].map(h=><th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.5}}>{h}</th>)}</tr></thead>
                   <tbody>{clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
-                    <tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+                    <tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                       <td style={{padding:'12px 16px',fontWeight:600,color:C.text}}>{c.razao_social}</td>
                       <td style={{padding:'12px 16px',color:C.muted,fontSize:12}}>{c.cnpj}</td>
                       <td style={{padding:'12px 16px'}}>{badge(c.regime)}</td>
                       <td style={{padding:'12px 16px',color:C.text}}>{ee.filter(e=>e.credito>0).length}</td>
                       <td style={{padding:'12px 16px',color:'#16A34A',fontWeight:600}}>{fmtR(tot)}</td>
-                      <td style={{padding:'12px 16px'}}><span style={{background:'#DCFCE7',color:'#166534',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• {c.status}</span></td>
+                      <td style={{padding:'12px 16px'}}><span style={{background:'#DCFCE7',color:'#166534',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>• Oportunidade encontrada</span></td>
                       <td style={{padding:'12px 16px'}}><button onClick={()=>{setActiveId(c.id.toString());setPage('diagnostico')}} style={{...btnOutline,padding:'4px 12px',fontSize:12}}>Ver diagnóstico</button></td>
                     </tr>
                   )})}</tbody>
@@ -383,11 +388,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
-              <button onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setPage('novo-cliente')}} style={{...btnPrimary,padding:'7px 16px',fontSize:13}}>+ Novo cliente</button>
+              <button onClick={()=>handleNavigate('novo-cliente')} style={{...btnPrimary,padding:'7px 16px',fontSize:13}}>+ Novo cliente</button>
             </div>
             {clientes.length===0 && <div style={{textAlign:'center',padding:40,color:C.muted}}>Nenhum cliente cadastrado ainda.</div>}
             {clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
-              <div key={c.id} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+              <div key={c.id} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12}}>
                 <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
                   <div>
                     <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:4}}>{c.razao_social}</div>
@@ -411,7 +416,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='novo-cliente' && novoCliente && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
-            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📋 Identificação</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                 {[['Razão Social *','razao_social'],['Nome Fantasia','nome_fantasia'],['CNPJ *','cnpj'],['CNAE Principal','cnae_principal'],['CNAEs Secundários','cnaes_secundarios'],['Inscrição Estadual','inscricao_estadual'],['Inscrição Municipal','inscricao_municipal'],['Município','municipio'],['UF','uf']].map(([lb,k])=>(
@@ -428,7 +433,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
               </div>
             </div>
-            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📅 Período de análise</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                 {[['Competência inicial','competencia_inicio','month'],['Competência final','competencia_fim','month'],['Responsável contábil','responsavel_contabil','text'],['Observações','observacoes','text']].map(([lb,k,tp])=>(
@@ -481,12 +486,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 <button onClick={()=>setPage('entrada')}   style={{...btnOutline,padding:'6px 14px',fontSize:13}}>+ Dados</button>
               </div>
             </div>
-            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#92400E'}}>
+            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:12,color:'#92400E'}}>
               ⚠️ <strong>Aviso:</strong> Análise preliminar — não dispensa revisão profissional.
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
               {[[fmtR(totalPot),'Total potencial recuperável','#16A34A'],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Créditos confirmados','#0D9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possíveis créditos','#D97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'Hipóteses a validar','#DC2626']].map(([v,lb,vc],i)=>(
-                <div key={i} style={{background:C.white,borderRadius:12,padding:20,borderTop:`4px solid ${vc}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div key={i} style={{background:C.white,borderRadius:12,padding:20,borderTop:`4px solid ${vc}`}}>
                   <div style={{fontSize:i===0?18:24,fontWeight:700,color:vc,marginBottom:4}}>{v}</div>
                   <div style={{fontSize:12,color:C.muted}}>{lb}</div>
                 </div>
@@ -494,7 +499,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
             {ents.filter(e=>e.credito>0).length>0 && <>
               <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:12}}>Oportunidades mapeadas</div>
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead><tr style={{background:'#F8FAFC'}}>{['Competência','Tributo','Tipo de oportunidade','Pago','Devido','Crédito','Risco'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.4}}>{h}</th>)}</tr></thead>
                   <tbody>{ents.filter(e=>e.credito>0).map((e,i)=>(
@@ -537,7 +542,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 18px',fontSize:13,fontWeight:calcTab===id?600:500,color:calcTab===id?C.navy:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.navy:'transparent'}`,marginBottom:-2}}>{lb}</div>
               ))}
             </div>
-            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:28,maxWidth:580,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:28,maxWidth:580}}>
               {calcTab==='fator-r'    && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>🔺 Fator R</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={btnPrimary}>Calcular →</button></>}
               {calcTab==='das'        && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>📋 DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Receita do mês (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={btnPrimary}>Calcular →</button></>}
               {calcTab==='regime'     && <><div style={{fontSize:15,fontWeight:600,color:C.navy,marginBottom:16}}>⚖️ Simulador de regime</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Margem líquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comércio'],['industria','Indústria'],['servicos','Serviços']])}</div></div><button onClick={calcRegime} style={btnPrimary}>Simular →</button></>}
