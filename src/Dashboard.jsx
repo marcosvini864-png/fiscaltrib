@@ -34,9 +34,9 @@ const fmtR      = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFra
 const C = {
   navy:'#0B1F4D', navyHov:'#163B8C', navyAct:'#1A4499',
   green:'#22C55E', white:'#FFFFFF',
-  bg:'#F0F2F5', border:'#E2E8F0',
+  bg:'#E4E7EC', border:'#C8D0DC',
   text:'#1E293B', muted:'#64748B',
-  sidebar:'#FFFFFF', sidebarBorder:'#E8ECF0',
+  sidebar:'#FFFFFF', sidebarBorder:'#C8D0DC',
 }
 
 const PAGE_LABELS = {

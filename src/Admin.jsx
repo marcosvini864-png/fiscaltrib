@@ -9,8 +9,8 @@ const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f59e0
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
 const C = {
-  navy: '#0B1F4D', bg: '#F0F2F5', white: '#FFFFFF',
-  border: '#E2E8F0', text: '#1E293B', muted: '#64748B',
+  navy: '#0B1F4D', bg: '#E4E7EC', white: '#FFFFFF',
+  border: '#C8D0DC', text: '#1E293B', muted: '#64748B',
 }
 
 export default function Admin({ onVoltar }) {
