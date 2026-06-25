@@ -315,26 +315,36 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
 
             {/* Acesso rápido — Central e Reforma */}
-            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
-              <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-                <span style={{fontSize:13,fontWeight:600,color:C.text}}>🏛️ Central Tributária</span>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses']].map(([ic,lb])=>(
-                    <button key={lb} onClick={()=>setPage('central')}
-                      style={{background:'#F1F5F9',border:`1px solid ${C.border}`,color:C.text,padding:'4px 10px',borderRadius:6,fontSize:12,cursor:'pointer'}}
-                      onMouseEnter={e=>e.currentTarget.style.background='#E2E8F0'}
-                      onMouseLeave={e=>e.currentTarget.style.background='#F1F5F9'}>
-                      {ic} {lb}
-                    </button>
-                  ))}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>🏛️ Central Tributária</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {[['🏢','CNAE'],['📋','CFOP'],['🔢','CST'],['📄','CSOSN'],['⚖️','Teses']].map(([ic,lb])=>(
+                      <button key={lb} onClick={()=>setPage('central')}
+                        style={{background:'#F1F5F9',border:`1px solid ${C.border}`,color:C.text,padding:'3px 8px',borderRadius:6,fontSize:11,cursor:'pointer'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#E2E8F0'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#F1F5F9'}>
+                        {ic} {lb}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <button onClick={()=>setPage('central')}
+                  style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>
+                  Abrir →
+                </button>
               </div>
-              <button onClick={()=>setPage('central')}
-                style={{background:'#F1F5F9',border:`1px solid ${C.border}`,color:C.muted,padding:'4px 12px',borderRadius:6,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}
-                onMouseEnter={e=>e.currentTarget.style.background='#E2E8F0'}
-                onMouseLeave={e=>e.currentTarget.style.background='#F1F5F9'}>
-                ⚠️ Reforma Tributária →
-              </button>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚠️ Reforma Tributária</div>
+                  <div style={{fontSize:12,color:C.muted}}>Impacto nas recuperações tributárias — CBS, IBS e período de transição.</div>
+                </div>
+                <button onClick={()=>setPage('central')}
+                  style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>
+                  Ver →
+                </button>
+              </div>
             </div>
 
             {clientes.length===0 ? (
