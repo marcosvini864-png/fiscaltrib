@@ -1,4 +1,5 @@
-import { useState } from 'react'
+cd C:\fiscaltrib\src
+code Simuladores.jsximport { useState } from 'react'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtP = v => parseFloat(v || 0).toFixed(1) + '%'
