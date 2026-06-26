@@ -5,53 +5,55 @@ const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFr
 
 // ─── NCMs MONOFÁSICOS (PIS/COFINS alíquota zero) ────────────────────────────
 const NCM_MONOFASICOS = [
-  '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715', // combustíveis
-  '3002','3003','3004','3005','3006', // farmacêuticos
-  '3303','3304','3305','3306','3307', // cosméticos/perfumaria
-  '2201','2202','2203','2204','2205','2206','2207','2208','2209','2210', // bebidas
-  '1001','1002','1003','1004','1005','1006','1007','1008', // cereais/trigo
-  '7108','7109','7110','7111','7112', // metais preciosos
+  '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
+  '3002','3003','3004','3005','3006',
+  '3303','3304','3305','3306','3307',
+  '2201','2202','2203','2204','2205','2206','2207','2208','2209','2210',
+  '1001','1002','1003','1004','1005','1006','1007','1008',
+  '7108','7109','7110','7111','7112',
 ]
 
-// ─── CSTs QUE INDICAM ST ────────────────────────────────────────────────────
 const CST_ST = ['10','30','60','70','90']
-
-// ─── CFOPs DE SAÍDA TRIBUTADA ────────────────────────────────────────────────
 const CFOP_SAIDA_TRIB = ['5101','5102','5103','5104','5105','5106','6101','6102','6103','6104','5401','5402','5403','5405','6401','6402','6403','6404']
 const CFOP_SERVICO    = ['5301','5302','5303','5304','5305','5306','5307','5308','5309','5310','5311','5312','5313','5314','5315','5316','6301','6302']
 
-// ─── PARSER NF-e COMPLETO ───────────────────────────────────────────────────
+// ─── PARSER NF-e CORRIGIDO (com suporte a namespace) ────────────────────────
 function parseXMLNFe(xmlStr) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(xmlStr, 'application/xml')
-  const get = tag => doc.querySelector(tag)?.textContent?.trim() || ''
+
+  const get = tag => {
+    const els = doc.getElementsByTagNameNS('*', tag)
+    return els[0]?.textContent?.trim() || ''
+  }
+  const getAll = tag => Array.from(doc.getElementsByTagNameNS('*', tag))
 
   const dhEmi = get('dhEmi') || get('dEmi')
   const competencia = dhEmi ? dhEmi.slice(0, 7) : ''
-  const vNF      = parseFloat(get('vNF')   || 0)
-  const vICMS    = parseFloat(get('vICMS') || 0)
-  const vPIS     = parseFloat(get('vPIS')  || 0)
-  const vCOFINS  = parseFloat(get('vCOFINS') || 0)
-  const vISS     = parseFloat(get('vISS')  || get('vISSQN') || 0)
-  const vST      = parseFloat(get('vST')   || 0)
-  const cnpjEmi  = get('CNPJ')
-  const natOp    = get('natOp')
+  const vNF     = parseFloat(get('vNF')      || 0)
+  const vICMS   = parseFloat(get('vICMS')    || 0)
+  const vPIS    = parseFloat(get('vPIS')     || 0)
+  const vCOFINS = parseFloat(get('vCOFINS') || 0)
+  const vISS    = parseFloat(get('vISS')     || get('vISSQN') || 0)
+  const vST     = parseFloat(get('vST')      || 0)
+  const cnpjEmi = get('CNPJ')
+  const natOp   = get('natOp')
 
-  // Itens/produtos
   const itens = []
-  const dets = doc.querySelectorAll('det')
+  const dets = getAll('det')
   dets.forEach(det => {
-    const ncm   = det.querySelector('NCM')?.textContent?.trim() || ''
-    const cfop  = det.querySelector('CFOP')?.textContent?.trim() || ''
-    const cst   = det.querySelector('CST')?.textContent?.trim() || det.querySelector('CSOSN')?.textContent?.trim() || ''
-    const xProd = det.querySelector('xProd')?.textContent?.trim() || ''
-    const vProd = parseFloat(det.querySelector('vProd')?.textContent || 0)
-    const vItemPIS    = parseFloat(det.querySelector('vPIS')?.textContent || 0)
-    const vItemCOFINS = parseFloat(det.querySelector('vCOFINS')?.textContent || 0)
-    const vItemICMS   = parseFloat(det.querySelector('vICMS')?.textContent || 0)
-    const vItemST     = parseFloat(det.querySelector('vICMSST')?.textContent || det.querySelector('vST')?.textContent || 0)
-    const pPIS        = parseFloat(det.querySelector('pPIS')?.textContent || 0)
-    const pCOFINS     = parseFloat(det.querySelector('pCOFINS')?.textContent || 0)
+    const getD = tag => Array.from(det.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || ''
+    const ncm          = getD('NCM')
+    const cfop         = getD('CFOP')
+    const cst          = getD('CST') || getD('CSOSN')
+    const xProd        = getD('xProd')
+    const vProd        = parseFloat(getD('vProd')    || 0)
+    const vItemPIS     = parseFloat(getD('vPIS')     || 0)
+    const vItemCOFINS  = parseFloat(getD('vCOFINS') || 0)
+    const vItemICMS    = parseFloat(getD('vICMS')    || 0)
+    const vItemST      = parseFloat(getD('vICMSST') || getD('vST') || 0)
+    const pPIS         = parseFloat(getD('pPIS')     || 0)
+    const pCOFINS      = parseFloat(getD('pCOFINS') || 0)
 
     if (ncm || cfop) {
       itens.push({ ncm, cfop, cst, xProd, vProd, vItemPIS, vItemCOFINS, vItemICMS, vItemST, pPIS, pCOFINS })
@@ -77,10 +79,8 @@ function detectarOportunidades(nfes, regime) {
   nfes.forEach(n => { totalVNF += n.vNF; totalVST += n.vST; totalVPIS += n.vPIS; totalVCOFINS += n.vCOFINS })
 
   const meses = [...new Set(nfes.map(n => n.competencia))].length || 1
-  // Média mensal base para projeções
   const mediaMensal = meses > 0 ? totalVNF / meses : totalVNF
 
-  // ── TESE 1: Receitas Monofásicas ──────────────────────────────────────────
   const itensMonofasicos = todosItens.filter(i => NCM_MONOFASICOS.some(ncm => i.ncm.startsWith(ncm)))
   if (itensMonofasicos.length > 0) {
     const valorMensal = itensMonofasicos.reduce((s, i) => s + i.vProd, 0) / meses
@@ -94,13 +94,11 @@ function detectarOportunidades(nfes, regime) {
       produtos: itensMonofasicos.map(i => i.xProd).slice(0, 3),
       mediaMensal: pisCofinsIndevido,
       potencial: pisCofinsIndevido * 60,
-      projecoes,
-      meses,
+      projecoes, meses,
       risco: 'baixo', cor: '#16a34a', icon: '💊',
     })
   }
 
-  // ── TESE 2: ICMS-ST Indevido ──────────────────────────────────────────────
   const itensST = todosItens.filter(i => CST_ST.includes(i.cst) && i.vItemST > 0)
   if (itensST.length > 0 || totalVST > 0) {
     const valorSTMensal = (itensST.reduce((s, i) => s + i.vItemST, 0) || totalVST) / meses
@@ -112,13 +110,11 @@ function detectarOportunidades(nfes, regime) {
       produtos: itensST.map(i => i.xProd).slice(0, 3),
       mediaMensal: valorSTMensal,
       potencial: valorSTMensal * 60,
-      projecoes,
-      meses,
+      projecoes, meses,
       risco: 'baixo', cor: '#2563eb', icon: '🏷️',
     })
   }
 
-  // ── TESE 3: Segregação de Receitas ────────────────────────────────────────
   const itensServico    = todosItens.filter(i => CFOP_SERVICO.some(c => i.cfop === c))
   const itensMercadoria = todosItens.filter(i => CFOP_SAIDA_TRIB.some(c => i.cfop === c))
   if (itensServico.length > 0 && itensMercadoria.length > 0 && regime === 'Simples Nacional') {
@@ -130,13 +126,11 @@ function detectarOportunidades(nfes, regime) {
       ncms: [], produtos: [],
       mediaMensal: vlMensal,
       potencial: vlMensal * 60,
-      projecoes,
-      meses,
+      projecoes, meses,
       risco: 'medio', cor: '#7c3aed', icon: '📊',
     })
   }
 
-  // ── TESE 4: Fator R ───────────────────────────────────────────────────────
   if (regime === 'Simples Nacional' && itensServico.length > 0) {
     const vlMensal = (itensServico.reduce((s, i) => s + i.vProd, 0) || totalVNF) / meses * 0.05
     const projecoes = PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses }))
@@ -146,13 +140,11 @@ function detectarOportunidades(nfes, regime) {
       ncms: [], produtos: [],
       mediaMensal: vlMensal,
       potencial: vlMensal * 60,
-      projecoes,
-      meses,
+      projecoes, meses,
       risco: 'medio', cor: '#d97706', icon: '🔄',
     })
   }
 
-  // ── TESE 5: PIS/COFINS alíquota incorreta ─────────────────────────────────
   const itensPisAlto = todosItens.filter(i => i.pPIS > 1.65 || i.pCOFINS > 7.6)
   if (itensPisAlto.length > 0) {
     const excessoMensal = itensPisAlto.reduce((s, i) => {
@@ -167,8 +159,7 @@ function detectarOportunidades(nfes, regime) {
         produtos: itensPisAlto.map(i => i.xProd).slice(0, 3),
         mediaMensal: excessoMensal,
         potencial: excessoMensal * 60,
-        projecoes,
-        meses,
+        projecoes, meses,
         risco: 'medio', cor: '#0d9488', icon: '📋',
       })
     }
@@ -177,7 +168,6 @@ function detectarOportunidades(nfes, regime) {
   return oportunidades
 }
 
-// ─── PARSERS EXISTENTES ──────────────────────────────────────────────────────
 function parsePGDAS(xmlStr) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(xmlStr, 'application/xml')
@@ -195,8 +185,8 @@ function parseDCTFWeb(xmlStr) {
   const doc = parser.parseFromString(xmlStr, 'application/xml')
   const get = tag => doc.querySelector(tag)?.textContent || ''
   const competencia = get('periodoApuracao') || get('competencia') || ''
-  const totalDebito  = parseFloat(get('totalDebito')  || 0)
-  const totalCredito = parseFloat(get('totalCredito') || 0)
+  const totalDebito   = parseFloat(get('totalDebito')   || 0)
+  const totalCredito  = parseFloat(get('totalCredito')  || 0)
   const totalRecolher = parseFloat(get('totalRecolher') || 0)
   return { competencia: competencia.slice(0, 7), totalDebito, totalCredito, totalRecolher, valido: !!competencia }
 }
@@ -209,9 +199,9 @@ function parseSPED(txtStr, tipo) {
     const reg = c[0]
     if (reg === '0000') { const dtIni = c[2] || ''; result.competencia = dtIni ? `${dtIni.slice(4,8)}-${dtIni.slice(2,4)}` : ''; result.valido = true }
     if (reg === 'C100') { const vDoc = parseFloat(c[10] || 0); if (c[1]==='0') result.totalEntradas+=vDoc; else result.totalSaidas+=vDoc }
-    if (reg === 'E110') result.totalICMS += parseFloat(c[12] || 0)
-    if (reg === 'M200') result.totalPIS  += parseFloat(c[1]  || 0)
-    if (reg === 'M600') result.totalCOFINS += parseFloat(c[1] || 0)
+    if (reg === 'E110') result.totalICMS   += parseFloat(c[12] || 0)
+    if (reg === 'M200') result.totalPIS    += parseFloat(c[1]  || 0)
+    if (reg === 'M600') result.totalCOFINS += parseFloat(c[1]  || 0)
   })
   return result
 }
@@ -261,22 +251,18 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
   const [criado,  setCriado]  = useState(false)
   const hoje = new Date()
 
-  // Oportunidades detectadas automaticamente
   const oportunidades = nfes && nfes.length > 0
     ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional')
     : []
 
   const totalPotencial = oportunidades.reduce((s, o) => s + o.potencial, 0)
-
-  // Créditos das entradas
-  const totalCreditos = entradas.reduce((s, e) => s + (e.credito || 0), 0)
+  const totalCreditos  = entradas.reduce((s, e) => s + (e.credito || 0), 0)
   const potencialFinal = Math.max(totalPotencial, totalCreditos)
 
-  // Prazos críticos
   const criticos = entradas.filter(e => {
     if (!e.competencia || e.credito <= 0) return false
     const [a, m] = e.competencia.split('-')
-    const lim = new Date(parseInt(a) + 5, parseInt(m) - 1, 1)
+    const lim  = new Date(parseInt(a) + 5, parseInt(m) - 1, 1)
     const dias = Math.round((lim - hoje) / (1000 * 60 * 60 * 24))
     return dias <= 365 && dias > 0
   }).map(e => {
@@ -285,7 +271,6 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
     return { ...e, dias: Math.round((lim - hoje) / (1000 * 60 * 60 * 24)), lim }
   })
 
-  // Score
   const score = Math.min(100, Math.max(20,
     100
     - oportunidades.filter(o => o.risco === 'baixo').length * 15
@@ -319,21 +304,18 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
 
   return (
     <div style={{ marginTop: 32 }}>
-
-      {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — ANÁLISE AUTOMÁTICA</div>
         <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8 }}>⚡ Raio-X Tributário</h2>
         <div style={{ fontSize: 14, color: '#93c5fd', marginBottom: 16 }}>
           Cliente: <strong style={{ color: '#fff' }}>{cliente?.razao_social}</strong> · Regime: <strong style={{ color: '#4ade80' }}>{cliente?.regime}</strong>
         </div>
-        {/* Resumo rápido */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginTop: 8 }}>
           {[
-            { label: 'NF-e analisadas',       valor: nfes?.length || 0,           cor: '#7CC4FF' },
-            { label: 'Oportunidades',          valor: oportunidades.length,         cor: '#4ade80' },
-            { label: 'Potencial estimado',     valor: fmtR(potencialFinal),         cor: '#fbbf24' },
-            { label: 'Prazos críticos',        valor: criticos.length,              cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
+            { label: 'NF-e analisadas',   valor: nfes?.length || 0,       cor: '#7CC4FF' },
+            { label: 'Oportunidades',      valor: oportunidades.length,     cor: '#4ade80' },
+            { label: 'Potencial estimado', valor: fmtR(potencialFinal),     cor: '#fbbf24' },
+            { label: 'Prazos críticos',    valor: criticos.length,          cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
           ].map((c, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: c.cor }}>{c.valor}</div>
@@ -343,16 +325,13 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       </div>
 
-      {/* OPORTUNIDADES DETECTADAS */}
       {oportunidades.length > 0 ? (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>
             🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Tributária{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
           </div>
-                      {oportunidades.map((op, i) => (
+          {oportunidades.map((op, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-
-              {/* Cabeçalho */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 4 }}>
@@ -369,25 +348,17 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                   <div style={{ fontSize: 11, color: '#94a3b8' }}>base: {op.meses} mês(es) analisado(s)</div>
                 </div>
               </div>
-
-              {/* Tabela de projeções */}
               <div style={{ background: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
                   {op.projecoes.map((p, j) => (
                     <div key={j} style={{ padding: '12px 16px', borderRight: j < 3 ? '1px solid #e2e8f0' : 'none', textAlign: 'center', background: j === 3 ? op.cor + '12' : 'transparent' }}>
-                      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>
-                        {p.label}
-                      </div>
-                      <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>
-                        {fmtR(p.valor)}
-                      </div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
+                      <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>{fmtR(p.valor)}</div>
                       {j === 3 && <div style={{ fontSize: 10, color: op.cor, fontWeight: 700, marginTop: 2 }}>★ POTENCIAL MÁXIMO</div>}
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* NCMs e produtos */}
               {op.ncms.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                   <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>NCMs:</span>
@@ -401,8 +372,6 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
               )}
             </div>
           ))}
-
-          {/* Total */}
           <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
             <div>
               <div style={{ fontSize: 13, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>POTENCIAL TOTAL IDENTIFICADO</div>
@@ -420,9 +389,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       )}
 
-      {/* Score + Prazos */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        {/* Score */}
         <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${scoreCor}33`, padding: '24px', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>📊 SCORE FISCAL</div>
           <div style={{ fontSize: 56, fontWeight: 900, color: scoreCor, lineHeight: 1 }}>{score}</div>
@@ -432,8 +399,6 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: scoreCor }}>{scoreLabel}</div>
         </div>
-
-        {/* Prazos */}
         <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${criticos.length > 0 ? '#fecdd3' : '#e2e8f0'}`, padding: '24px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>⏳ PRAZOS PRESCRICIONAIS</div>
           {criticos.length === 0 ? (
@@ -453,7 +418,6 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       </div>
 
-      {/* Ações */}
       <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>🎯 Próximas ações recomendadas</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
@@ -466,7 +430,6 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       </div>
 
-      {/* Botão Iniciar Recuperação */}
       {!criado ? (
         <button onClick={iniciarRecuperacao} disabled={criando || potencialFinal === 0}
           style={{ width: '100%', padding: '18px 0', background: potencialFinal > 0 ? 'linear-gradient(135deg, #0B1F4D, #163B8C)' : '#e2e8f0', color: potencialFinal > 0 ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, fontSize: 17, fontWeight: 900, cursor: potencialFinal > 0 ? 'pointer' : 'default' }}>
@@ -532,8 +495,6 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px' }}>
-
-      {/* Banner */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — AUTOMAÇÃO FISCAL</div>
         <h1 style={{ fontSize:26, fontWeight:900, marginBottom:8, color:'#fff' }}>💼 Gestão de Recuperações</h1>
@@ -550,7 +511,6 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         </div>
       </div>
 
-      {/* Seletor cliente */}
       <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:20 }}>
         <label style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', display:'block', marginBottom:10 }}>👤 Cliente para importação:</label>
         <select value={clienteId} onChange={e=>{ setClienteId(e.target.value); setSalvo(false); setNfesLidas([]) }}
@@ -560,7 +520,6 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         </select>
       </div>
 
-      {/* Abas */}
       <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
         {ABAS.map(a=>(
           <button key={a.id} onClick={()=>{ setAba(a.id); setSalvo(false) }}
@@ -570,7 +529,6 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         ))}
       </div>
 
-      {/* Conteúdo */}
       {!clienteId ? (
         <div style={{ background:'#fff', borderRadius:16, border:'2px solid #e2e8f0', padding:48, textAlign:'center', color:'#94a3b8' }}>
           <div style={{ fontSize:40, marginBottom:12 }}>👆</div>
@@ -607,7 +565,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   )
 }
 
-// ─── ABA NF-e (com extração completa) ───────────────────────────────────────
+// ─── ABA NF-e ────────────────────────────────────────────────────────────────
 function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
   const inputRef = useRef()
   const [nfes,     setNfes]     = useState([])
@@ -636,7 +594,6 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
 
   const agrupadas = agruparNFePorCompetencia(nfes)
 
-  // Preview das oportunidades antes de salvar
   const oportunidadesPreview = nfes.length > 0
     ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional')
     : []
@@ -653,7 +610,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
         }, { onConflict: 'cliente_id,competencia,tributo' })
       }
       setSalvo(true)
-      if (onSalvo) onSalvo(nfes) // passa as NF-es para o Raio-X
+      if (onSalvo) onSalvo(nfes)
     } catch { alert('Erro ao salvar.') }
     finally { setSalvando(false) }
   }
@@ -675,13 +632,12 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
 
       {nfes.length > 0 && (
         <div>
-          {/* Totais */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:20 }}>
             {[
-              { label:'NF-e lidas',   valor:nfes.length,                                              cor:'#0B1F4D' },
-              { label:'Faturamento',  valor:fmtR(nfes.reduce((s,n)=>s+n.vNF,0)),                     cor:'#16a34a' },
-              { label:'ICMS+ST',      valor:fmtR(nfes.reduce((s,n)=>s+n.vICMS+n.vST,0)),             cor:'#d97706' },
-              { label:'PIS+COFINS',   valor:fmtR(nfes.reduce((s,n)=>s+n.vPIS+n.vCOFINS,0)),         cor:'#7c3aed' },
+              { label:'NF-e lidas',  valor:nfes.length,                                      cor:'#0B1F4D' },
+              { label:'Faturamento', valor:fmtR(nfes.reduce((s,n)=>s+n.vNF,0)),              cor:'#16a34a' },
+              { label:'ICMS+ST',     valor:fmtR(nfes.reduce((s,n)=>s+n.vICMS+n.vST,0)),     cor:'#d97706' },
+              { label:'PIS+COFINS',  valor:fmtR(nfes.reduce((s,n)=>s+n.vPIS+n.vCOFINS,0)), cor:'#7c3aed' },
             ].map((c,i)=>(
               <div key={i} style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px' }}>
                 <div style={{ fontSize:18, fontWeight:800, color:c.cor }}>{c.valor}</div>
@@ -690,7 +646,6 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
             ))}
           </div>
 
-          {/* Preview oportunidades */}
           {oportunidadesPreview.length > 0 && (
             <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
               <div style={{ fontSize:14, fontWeight:800, color:'#166534', marginBottom:12 }}>
@@ -718,32 +673,11 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
 // ─── ABAS RESTANTES ──────────────────────────────────────────────────────────
 function AbaPGDAS({ clienteId, onSalvo }) {
   const inputRef = useRef()
-  const [dados, setDados] = useState(null)
-  const [erro,  setErro]  = useState('')
-  const [salvando, setSalvando] = useState(false)
-  const [salvo, setSalvo] = useState(false)
-
-  function processarArquivo(file) {
-    setSalvo(false); setErro('')
-    const reader = new FileReader()
-    reader.onload = e => { const r = parsePGDAS(e.target.result); if (r.valido) setDados(r); else setErro('XML não reconhecido como PGDAS-D.') }
-    reader.readAsText(file, 'UTF-8')
-  }
-
-  async function salvarDados() {
-    setSalvando(true)
-    try {
-      await supabase.from('entradas').upsert({ cliente_id:clienteId, competencia:dados.competencia, tributo:'DAS', receita_bruta:dados.receitaBruta, tributo_pago:dados.dasDevido, tributo_devido:dados.dasDevido, credito:0, tipo_oportunidade:'', risco:'baixo' }, { onConflict:'cliente_id,competencia,tributo' })
-      setSalvo(true); if (onSalvo) onSalvo()
-    } catch { setErro('Erro ao salvar.') }
-    finally { setSalvando(false) }
-  }
-
+  const [dados, setDados] = useState(null); const [erro, setErro] = useState(''); const [salvando, setSalvando] = useState(false); const [salvo, setSalvo] = useState(false)
+  function processarArquivo(file) { setSalvo(false); setErro(''); const reader = new FileReader(); reader.onload = e => { const r = parsePGDAS(e.target.result); if (r.valido) setDados(r); else setErro('XML não reconhecido como PGDAS-D.') }; reader.readAsText(file, 'UTF-8') }
+  async function salvarDados() { setSalvando(true); try { await supabase.from('entradas').upsert({ cliente_id:clienteId, competencia:dados.competencia, tributo:'DAS', receita_bruta:dados.receitaBruta, tributo_pago:dados.dasDevido, tributo_devido:dados.dasDevido, credito:0, tipo_oportunidade:'', risco:'baixo' }, { onConflict:'cliente_id,competencia,tributo' }); setSalvo(true); if (onSalvo) onSalvo() } catch { setErro('Erro ao salvar.') } finally { setSalvando(false) } }
   return <AbaUpload icon="📋" titulo="Importar PGDAS-D em XML" sub="Arquivo XML exportado do portal do Simples Nacional" accept=".xml" onFile={processarArquivo} inputRef={inputRef} erro={erro}>
-    {dados && <div>
-      <GridCards items={[{label:'Competência',valor:dados.competencia},{label:'Receita Bruta',valor:fmtR(dados.receitaBruta)},{label:'DAS Devido',valor:fmtR(dados.dasDevido)},{label:'Alíquota',valor:dados.aliquota?`${dados.aliquota.toFixed(2)}%`:'—'}]} />
-      <div style={{ marginTop:16 }}>{salvo?<SalvoRaioX />:<BotoesAcao onLimpar={()=>setDados(null)} onSalvar={salvarDados} salvando={salvando} />}</div>
-    </div>}
+    {dados && <div><GridCards items={[{label:'Competência',valor:dados.competencia},{label:'Receita Bruta',valor:fmtR(dados.receitaBruta)},{label:'DAS Devido',valor:fmtR(dados.dasDevido)},{label:'Alíquota',valor:dados.aliquota?`${dados.aliquota.toFixed(2)}%`:'—'}]} /><div style={{ marginTop:16 }}>{salvo?<SalvoRaioX />:<BotoesAcao onLimpar={()=>setDados(null)} onSalvar={salvarDados} salvando={salvando} />}</div></div>}
   </AbaUpload>
 }
 
@@ -753,7 +687,6 @@ function AbaDAS({ clienteId, onSalvo }) {
   const [salvo,    setSalvo]    = useState(false)
   const mask = v => { const n=v.replace(/\D/g,''); if(!n) return ''; return (parseFloat(n)/100).toLocaleString('pt-BR',{minimumFractionDigits:2}) }
   const upd  = (i,k,v) => setLinhas(p=>p.map((l,j)=>j===i?{...l,[k]:v}:l))
-
   async function salvar() {
     const val = linhas.filter(l=>l.competencia&&l.valor)
     if (!val.length) { alert('Preencha ao menos uma linha.'); return }
@@ -767,7 +700,6 @@ function AbaDAS({ clienteId, onSalvo }) {
     } catch { alert('Erro ao salvar.') }
     finally { setSalvando(false) }
   }
-
   return <div>
     <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'24px 28px', marginBottom:20 }}>
       <div style={{ fontSize:15, fontWeight:700, color:'#0B1F4D', marginBottom:20 }}>💳 Registrar DAS Pagos</div>
@@ -833,7 +765,6 @@ function AbaDebitos({ clienteId, onSalvo }) {
   </AbaUpload>
 }
 
-// ─── AUXILIARES ──────────────────────────────────────────────────────────────
 function AbaUpload({ icon, titulo, sub, accept, onFile, inputRef, erro, children }) {
   const [dragOver, setDragOver] = useState(false)
   return <div>
