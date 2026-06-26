@@ -47,7 +47,7 @@ const PAGE_LABELS = {
   central:'Central Tributária', calculadoras:'Calculadoras',
   simuladores:'Simuladores', relatorio:'Relatório', perdcomp:'PER/DCOMP',
   prazos:'Controle Prescricional', acompanhamento:'Acompanhamento',
-  prazosfiscais:'Prazos Fiscais',
+  prazosfiscais:'Prazos Fiscais', reforma:'Reforma Tributária',
 }
 
 const MENU = [
@@ -75,17 +75,10 @@ const MENU = [
 
 function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
   return (
-    <aside style={{
-      width:220, minHeight:'100%', background:C.sidebar,
-      borderRight:`1px solid ${C.sidebarBorder}`,
-      display:'flex', flexDirection:'column',
-      flexShrink:0, overflowY:'auto',
-    }}>
+    <aside style={{ width:220, minHeight:'100%', background:C.sidebar, borderRight:`1px solid ${C.sidebarBorder}`, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
       <div style={{padding:'14px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
         <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,marginBottom:6}}>CLIENTE ATIVO</div>
-        <select
-          value={activeId?.toString()||''}
-          onChange={e=>onChangeCliente(e.target.value||null)}
+        <select value={activeId?.toString()||''} onChange={e=>onChangeCliente(e.target.value||null)}
           style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,color:C.text,background:C.white,cursor:'pointer'}}>
           <option value=''>— Nenhum —</option>
           {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
@@ -96,14 +89,7 @@ function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
           const act = page===item.key
           return (
             <button key={item.key} onClick={()=>onNavigate(item.key)}
-              style={{
-                width:'100%', display:'flex', alignItems:'center', gap:10,
-                padding:'9px 16px', background: act?'#EFF6FF':'none',
-                border:'none', borderLeft: act?`3px solid ${C.navy}`:'3px solid transparent',
-                cursor:'pointer', color: act?C.navy:C.text,
-                fontSize:13, textAlign:'left', fontWeight: act?600:400,
-                transition:'background 0.15s',
-              }}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 16px', background: act?'#EFF6FF':'none', border:'none', borderLeft: act?`3px solid ${C.navy}`:'3px solid transparent', cursor:'pointer', color: act?C.navy:C.text, fontSize:13, textAlign:'left', fontWeight: act?600:400, transition:'background 0.15s' }}
               onMouseEnter={e=>{ if(!act) e.currentTarget.style.background='#F8FAFC' }}
               onMouseLeave={e=>{ if(!act) e.currentTarget.style.background='none' }}>
               <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
@@ -112,9 +98,7 @@ function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
           )
         })}
       </nav>
-      <div style={{padding:'10px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>
-        fiscaltrib.com.br
-      </div>
+      <div style={{padding:'10px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>fiscaltrib.com.br</div>
     </aside>
   )
 }
@@ -138,6 +122,59 @@ function BtnVoltar({ onClick }) {
       onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted}}>
       ← Voltar
     </button>
+  )
+}
+
+function PaginaReforma({ onVoltar }) {
+  return (
+    <div>
+      <BtnVoltar onClick={onVoltar} />
+      <div style={{maxWidth:800,margin:'0 auto'}}>
+        <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:16,padding:'32px 36px',color:'#fff',marginBottom:24}}>
+          <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
+          <h1 style={{fontSize:26,fontWeight:900,marginBottom:8,color:'#fff'}}>⚠️ Reforma Tributária</h1>
+          <p style={{fontSize:15,color:'#93c5fd',maxWidth:560,margin:0}}>Impacto nas recuperações tributárias — CBS, IBS e período de transição (2026–2032).</p>
+        </div>
+        {[
+          { titulo:'📌 O que muda com a Reforma', cor:'#2563eb', itens:[
+            'O PIS e a COFINS serão substituídos pela CBS (Contribuição sobre Bens e Serviços).',
+            'O ICMS e o ISS serão substituídos pelo IBS (Imposto sobre Bens e Serviços).',
+            'O período de transição ocorre entre 2026 e 2032.',
+            'Em 2026 e 2027, CBS e IBS serão cobrados em alíquotas reduzidas para teste do sistema.',
+          ]},
+          { titulo:'⏳ Impacto nos créditos em recuperação', cor:'#d97706', itens:[
+            'Créditos de PIS/COFINS relativos a períodos anteriores à reforma continuam sendo recuperáveis via PER/DCOMP.',
+            'O prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.',
+            'Créditos de ICMS-ST também continuam recuperáveis até a extinção do imposto.',
+            'Empresas devem correr para recuperar créditos ANTES da migração completa em 2033.',
+          ]},
+          { titulo:'✅ O que fazer agora', cor:'#16a34a', itens:[
+            'Levantar e protocolar créditos de PIS/COFINS e ICMS-ST o quanto antes.',
+            'Revisar todas as competências dos últimos 5 anos antes da vigência plena da CBS.',
+            'Mapear impactos da não-cumulatividade do IBS para clientes do Lucro Real.',
+            'Acompanhar a regulamentação complementar — muitos detalhes ainda serão definidos.',
+          ]},
+          { titulo:'📅 Cronograma da Transição', cor:'#7c3aed', itens:[
+            '2026–2027: Alíquotas-teste de CBS (0,9%) e IBS (0,1%) — coexistência com PIS/COFINS/ICMS/ISS.',
+            '2029–2032: Redução gradual do ICMS e ISS com aumento proporcional do IBS.',
+            '2033: Extinção completa de PIS, COFINS, ICMS e ISS — vigência plena de CBS e IBS.',
+            'IPI: mantido apenas para produtos que têm similar nacional — Zona Franca de Manaus.',
+          ]},
+        ].map((s,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:12,border:`2px solid ${s.cor}22`,borderLeft:`5px solid ${s.cor}`,padding:'20px 24px',marginBottom:16}}>
+            <div style={{fontSize:15,fontWeight:700,color:s.cor,marginBottom:12}}>{s.titulo}</div>
+            {s.itens.map((item,j)=>(
+              <div key={j} style={{display:'flex',gap:10,marginBottom:8,fontSize:13,color:'#374151',lineHeight:1.6}}>
+                <span style={{color:s.cor,flexShrink:0,fontWeight:700}}>→</span><span>{item}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#92400e'}}>
+          ⚠️ As informações acima são de caráter informativo e estão sujeitas a alterações conforme regulamentação complementar. Consulte sempre um especialista tributário.
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -173,11 +210,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       const { data:{ user } } = await supabase.auth.getUser()
       if (!user) return
       await supabase.from('sessoes_ativas').upsert({
-        usuario_id: user.id,
-        email: user.email,
-        nome: nomeUsuario || user.email,
-        ultima_atividade: new Date().toISOString(),
-        pagina_atual: PAGE_LABELS[page] || page,
+        usuario_id: user.id, email: user.email, nome: nomeUsuario || user.email,
+        ultima_atividade: new Date().toISOString(), pagina_atual: PAGE_LABELS[page] || page,
       }, { onConflict: 'usuario_id' })
     } catch(e) {}
   }
@@ -245,30 +279,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     const doc = new DOMParser().parseFromString(text, 'application/xml')
     const emitEl = Array.from(doc.getElementsByTagNameNS('*', 'emit'))[0]
     const getEmit = tag => emitEl ? Array.from(emitEl.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || '' : ''
-    const cnpj     = getEmit('CNPJ')
-    const nome     = getEmit('xNome')
-    const fantasia = getEmit('xFant')
-    const cnae     = getEmit('CNAE')
-    const uf       = getEmit('UF')
-    const municipio= getEmit('xMun')
-    const ie       = getEmit('IE')
-    const im       = getEmit('IM')
-    const crt      = getEmit('CRT')
-    const regime   = crt === '1' || crt === '2' ? 'Simples Nacional' : 'Lucro Presumido'
-    const cnpjFmt  = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-    const cnaeFmt  = maskCNAE(cnae)
-    setNovoCliente(prev => ({
-      ...prev,
-      razao_social: nome,
-      nome_fantasia: fantasia,
-      cnpj: cnpjFmt,
-      cnae_principal: cnaeFmt,
-      municipio,
-      uf,
-      inscricao_estadual: ie,
-      inscricao_municipal: im,
-      regime,
-    }))
+    const cnpj=getEmit('CNPJ'); const nome=getEmit('xNome'); const fantasia=getEmit('xFant')
+    const cnae=getEmit('CNAE'); const uf=getEmit('UF'); const municipio=getEmit('xMun')
+    const ie=getEmit('IE'); const im=getEmit('IM'); const crt=getEmit('CRT')
+    const regime = crt==='1'||crt==='2'?'Simples Nacional':'Lucro Presumido'
+    const cnpjFmt = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')
+    setNovoCliente(prev=>({...prev,razao_social:nome,nome_fantasia:fantasia,cnpj:cnpjFmt,cnae_principal:maskCNAE(cnae),municipio,uf,inscricao_estadual:ie,inscricao_municipal:im,regime}))
   }
 
   const active     = clientes.find(c=>c.id.toString()===activeId)||null
@@ -307,9 +323,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
       {/* TOPBAR */}
       <div style={{background:C.navy,display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
         <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:34,objectFit:'contain',flexShrink:0}} />
-        <span style={{fontSize:13,color:'rgba(255,255,255,0.7)',flex:1}}>
-          Sistema de diagnóstico e recuperação tributária — FiscalTrib
-        </span>
+        <span style={{fontSize:13,color:'rgba(255,255,255,0.7)',flex:1}}>Sistema de diagnóstico e recuperação tributária — FiscalTrib</span>
         {active && (
           <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.1)',padding:'4px 12px',borderRadius:20}}>
             <div style={{width:8,height:8,borderRadius:'50%',background:'#F0B429',flexShrink:0}}></div>
@@ -326,6 +340,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
         <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'24px 28px',background:C.bg,minWidth:0}}>
 
+          {/* ── PAINEL ── */}
           {page==='painel' && <>
             <div style={{marginBottom:20}}>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Painel Geral</div>
@@ -340,7 +355,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável"    color="#16A34A" />
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+              {/* Central Tributária */}
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>🏛️ Central Tributária</div>
@@ -357,14 +374,17 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
                 <button onClick={()=>setPage('central')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Abrir →</button>
               </div>
+
+              {/* Reforma Tributária — botão corrigido */}
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚠️ Reforma Tributária</div>
                   <div style={{fontSize:12,color:C.muted}}>Impacto nas recuperações tributárias — CBS, IBS e período de transição.</div>
                 </div>
-                <button onClick={()=>setPage('central')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Ver →</button>
+                <button onClick={()=>setPage('reforma')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Ver →</button>
               </div>
             </div>
+
             {clientes.length===0 ? (
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
@@ -397,6 +417,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )}
           </>}
 
+          {/* ── CLIENTES ── */}
           {page==='clientes' && <>
             <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
@@ -426,11 +447,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )})}
           </>}
 
+          {/* ── NOVO CLIENTE ── */}
           {page==='novo-cliente' && novoCliente && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
 
-            {/* BOTÃO IMPORTAR XML */}
             {!novoCliente.id && (
               <div style={{background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:12,padding:'20px 24px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
                 <div>
@@ -439,12 +460,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
                 <label style={{padding:'10px 20px',background:'#1e40af',color:'#fff',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
                   📂 Importar XML
-                  <input type="file" accept=".xml" style={{display:'none'}} onChange={async e => {
-                    const file = e.target.files[0]
-                    if (!file) return
-                    await preencherViaXML(file)
-                    e.target.value = ''
-                  }} />
+                  <input type="file" accept=".xml" style={{display:'none'}} onChange={async e=>{const file=e.target.files[0];if(!file)return;await preencherViaXML(file);e.target.value=''}} />
                 </label>
               </div>
             )}
@@ -478,13 +494,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 ))}
               </div>
             </div>
-
             <div style={{display:'flex',gap:12}}>
               <button onClick={salvarCliente} disabled={salvando} style={btnPrimary}>{salvando?'💾 Salvando...':'💾 Salvar cliente'}</button>
               <button onClick={()=>setPage('clientes')} style={btnOutline}>Cancelar</button>
             </div>
           </>}
 
+          {/* ── CHECKLIST ── */}
           {page==='checklist' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
@@ -508,6 +524,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
           {page==='entrada' && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />}
 
+          {/* ── DIAGNÓSTICO ── */}
           {page==='diagnostico' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
@@ -553,21 +570,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </>}
           </>}
 
-          {page==='score'          && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><ScoreFiscal /></>}
-          {page==='analise'        && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><AnaliseFiscal /></>}
-          {page==='teses'          && <><BtnVoltar onClick={()=>setPage('painel')} /><TesesTributarias /></>}
-          {page==='monitor'        && <><BtnVoltar onClick={()=>setPage('painel')} /><MonitorObrigacoes /></>}
-          {page==='importacoes'    && <><BtnVoltar onClick={()=>setPage('painel')} /><CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} /></>}
-          {page==='recuperacoes'   && <><BtnVoltar onClick={()=>setPage('painel')} /><GestaoRecuperacoes /></>}
-          {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
-          {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
-          {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
-          {page==='prazosfiscais'  && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
-          {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
-          {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
-          {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
-          {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
-
+          {/* ── CALCULADORAS ── */}
           {page==='calculadoras' && <>
             <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributárias</div>
@@ -586,6 +589,23 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               {calcResult && <div style={{marginTop:20,background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,padding:'14px 18px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
             </div>
           </>}
+
+          {/* ── ROTAS SIMPLES ── */}
+          {page==='score'          && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><ScoreFiscal /></>}
+          {page==='analise'        && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><AnaliseFiscal /></>}
+          {page==='teses'          && <><BtnVoltar onClick={()=>setPage('painel')} /><TesesTributarias /></>}
+          {page==='monitor'        && <><BtnVoltar onClick={()=>setPage('painel')} /><MonitorObrigacoes /></>}
+          {page==='importacoes'    && <><BtnVoltar onClick={()=>setPage('painel')} /><CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} /></>}
+          {page==='recuperacoes'   && <><BtnVoltar onClick={()=>setPage('painel')} /><GestaoRecuperacoes /></>}
+          {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
+          {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
+          {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
+          {page==='prazosfiscais'  && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
+          {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
+          {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
+          {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
+          {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
+          {page==='reforma'        && <PaginaReforma onVoltar={()=>setPage('painel')} />}
 
         </div>
       </div>
