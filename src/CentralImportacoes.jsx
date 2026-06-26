@@ -198,7 +198,7 @@ function imprimirRelatorio(idElemento) {
     </head><body>${conteudo}</body></html>`)
   janela.document.close()
   janela.focus()
-  setTimeout(() => { janela.print(); janela.close() }, 600)
+  setTimeout(() => { janela.print() }, 600)
 }
 
 // ─── RELATÓRIO DE IMPORTAÇÃO ──────────────────────────────────────────────────

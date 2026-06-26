@@ -126,51 +126,152 @@ function BtnVoltar({ onClick }) {
 }
 
 function PaginaReforma({ onVoltar }) {
+  const [query,      setQuery]      = useState('')
+  const [resposta,   setResposta]   = useState('')
+  const [carregando, setCarregando] = useState(false)
+  const [historico,  setHistorico]  = useState([])
+
+  const SUGESTOES = [
+    'O que é a CBS e como substitui o PIS/COFINS?',
+    'Quais são as alíquotas do IBS em 2026?',
+    'Como funciona o período de transição da Reforma?',
+    'O que muda para empresas do Simples Nacional?',
+    'Como recuperar créditos de PIS/COFINS antes da CBS?',
+    'O que é o Imposto Seletivo e quem paga?',
+    'Qual o cronograma de extinção do ICMS?',
+    'Como fica o aproveitamento de créditos no Lucro Real?',
+  ]
+
+  async function buscar(pergunta) {
+    const texto = pergunta || query
+    if (!texto.trim()) return
+    setCarregando(true)
+    setResposta('')
+    try {
+      const { data, error } = await supabase.functions.invoke('consulta-ia', {
+        body: {
+          mensagem: `Você é um especialista em direito tributário brasileiro com foco na Reforma Tributária (EC 132/2023, LC 214/2025 e legislação complementar). Responda de forma clara, objetiva e com referências às leis quando possível. Pergunta: ${texto}`,
+        },
+      })
+      if (error) throw error
+      setResposta(data?.resposta || data?.content || 'Sem resposta.')
+      setHistorico(prev => [{ pergunta: texto, resposta: data?.resposta || data?.content || '' }, ...prev].slice(0, 5))
+    } catch (e) {
+      setResposta('Erro ao consultar IA: ' + e.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   return (
     <div>
       <BtnVoltar onClick={onVoltar} />
-      <div style={{maxWidth:800,margin:'0 auto'}}>
-        <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:16,padding:'32px 36px',color:'#fff',marginBottom:24}}>
-          <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
-          <h1 style={{fontSize:26,fontWeight:900,marginBottom:8,color:'#fff'}}>⚠️ Reforma Tributária</h1>
-          <p style={{fontSize:15,color:'#93c5fd',maxWidth:560,margin:0}}>Impacto nas recuperações tributárias — CBS, IBS e período de transição (2026–2032).</p>
+      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+
+        <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius: 16, padding: '32px 36px', color: '#fff', marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>⚠️ Reforma Tributária</h1>
+          <p style={{ fontSize: 15, color: '#93c5fd', margin: 0 }}>Consulte leis, decretos e impactos da Reforma — CBS, IBS, IS e período de transição (2026–2032).</p>
         </div>
+
+        {/* Busca IA */}
+        <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px 28px', marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 16 }}>🤖 Pergunte sobre a Reforma Tributária</div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && buscar()}
+              placeholder="Ex: Como funciona a CBS? Qual o impacto no Simples Nacional?"
+              style={{ flex: 1, padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#1e293b', outline: 'none' }}
+            />
+            <button onClick={() => buscar()} disabled={carregando}
+              style={{ padding: '12px 24px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: carregando ? 'default' : 'pointer', opacity: carregando ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+              {carregando ? '⏳ Consultando...' : '🔍 Buscar'}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {SUGESTOES.map((s, i) => (
+              <button key={i} onClick={() => { setQuery(s); buscar(s) }}
+                style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 20, fontSize: 12, color: '#475569', cursor: 'pointer', fontWeight: 500 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {carregando && (
+            <div style={{ marginTop: 20, background: '#f8fafc', borderRadius: 10, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 20 }}>⏳</div>
+              <div style={{ fontSize: 14, color: '#64748b' }}>Consultando base de conhecimento tributário...</div>
+            </div>
+          )}
+
+          {resposta && !carregando && (
+            <div style={{ marginTop: 20, background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '20px 24px' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>✅ Resposta da IA Tributária</div>
+              <div style={{ fontSize: 14, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{resposta}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Histórico */}
+        {historico.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 28px', marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🕓 Consultas anteriores</div>
+            {historico.map((h, i) => (
+              <div key={i} style={{ borderBottom: i < historico.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#0B1F4D', marginBottom: 4 }}>❓ {h.pergunta}</div>
+                <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{h.resposta}</div>
+                <button onClick={() => { setQuery(h.pergunta); setResposta(h.resposta) }}
+                  style={{ marginTop: 6, fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+                  Ver resposta completa →
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Cards informativos */}
         {[
-          { titulo:'📌 O que muda com a Reforma', cor:'#2563eb', itens:[
-            'O PIS e a COFINS serão substituídos pela CBS (Contribuição sobre Bens e Serviços).',
-            'O ICMS e o ISS serão substituídos pelo IBS (Imposto sobre Bens e Serviços).',
-            'O período de transição ocorre entre 2026 e 2032.',
-            'Em 2026 e 2027, CBS e IBS serão cobrados em alíquotas reduzidas para teste do sistema.',
+          { titulo: '📌 O que muda com a Reforma', cor: '#2563eb', itens: [
+            'PIS e COFINS substituídos pela CBS (Contribuição sobre Bens e Serviços) — EC 132/2023.',
+            'ICMS e ISS substituídos pelo IBS (Imposto sobre Bens e Serviços) — LC 214/2025.',
+            'Criação do Imposto Seletivo (IS) sobre bens prejudiciais à saúde e ao meio ambiente.',
+            'Período de transição entre 2026 e 2032 com coexistência dos sistemas.',
           ]},
-          { titulo:'⏳ Impacto nos créditos em recuperação', cor:'#d97706', itens:[
-            'Créditos de PIS/COFINS relativos a períodos anteriores à reforma continuam sendo recuperáveis via PER/DCOMP.',
-            'O prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.',
-            'Créditos de ICMS-ST também continuam recuperáveis até a extinção do imposto.',
-            'Empresas devem correr para recuperar créditos ANTES da migração completa em 2033.',
+          { titulo: '⏳ Impacto nos créditos em recuperação', cor: '#d97706', itens: [
+            'Créditos de PIS/COFINS anteriores à reforma continuam recuperáveis via PER/DCOMP.',
+            'Prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.',
+            'Créditos de ICMS-ST continuam recuperáveis até a extinção do imposto em 2033.',
+            'Empresas devem protocolar créditos ANTES da migração completa para evitar perda.',
           ]},
-          { titulo:'✅ O que fazer agora', cor:'#16a34a', itens:[
-            'Levantar e protocolar créditos de PIS/COFINS e ICMS-ST o quanto antes.',
-            'Revisar todas as competências dos últimos 5 anos antes da vigência plena da CBS.',
-            'Mapear impactos da não-cumulatividade do IBS para clientes do Lucro Real.',
-            'Acompanhar a regulamentação complementar — muitos detalhes ainda serão definidos.',
-          ]},
-          { titulo:'📅 Cronograma da Transição', cor:'#7c3aed', itens:[
-            '2026–2027: Alíquotas-teste de CBS (0,9%) e IBS (0,1%) — coexistência com PIS/COFINS/ICMS/ISS.',
+          { titulo: '📅 Cronograma da Transição', cor: '#7c3aed', itens: [
+            '2026–2027: Alíquotas-teste CBS (0,9%) e IBS (0,1%) — coexistência com PIS/COFINS/ICMS/ISS.',
             '2029–2032: Redução gradual do ICMS e ISS com aumento proporcional do IBS.',
             '2033: Extinção completa de PIS, COFINS, ICMS e ISS — vigência plena de CBS e IBS.',
-            'IPI: mantido apenas para produtos que têm similar nacional — Zona Franca de Manaus.',
+            'IPI mantido apenas para produtos sem similar nacional — proteção Zona Franca de Manaus.',
           ]},
-        ].map((s,i)=>(
-          <div key={i} style={{background:'#fff',borderRadius:12,border:`2px solid ${s.cor}22`,borderLeft:`5px solid ${s.cor}`,padding:'20px 24px',marginBottom:16}}>
-            <div style={{fontSize:15,fontWeight:700,color:s.cor,marginBottom:12}}>{s.titulo}</div>
-            {s.itens.map((item,j)=>(
-              <div key={j} style={{display:'flex',gap:10,marginBottom:8,fontSize:13,color:'#374151',lineHeight:1.6}}>
-                <span style={{color:s.cor,flexShrink:0,fontWeight:700}}>→</span><span>{item}</span>
+          { titulo: '✅ O que fazer agora', cor: '#16a34a', itens: [
+            'Levantar e protocolar créditos de PIS/COFINS e ICMS-ST o quanto antes.',
+            'Revisar competências dos últimos 5 anos antes da vigência plena da CBS.',
+            'Mapear impactos da não-cumulatividade do IBS para clientes do Lucro Real.',
+            'Acompanhar regulamentação complementar — muitos detalhes ainda serão definidos.',
+          ]},
+        ].map((s, i) => (
+          <div key={i} style={{ background: '#fff', borderRadius: 12, border: `2px solid ${s.cor}22`, borderLeft: `5px solid ${s.cor}`, padding: '20px 24px', marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: s.cor, marginBottom: 12 }}>{s.titulo}</div>
+            {s.itens.map((item, j) => (
+              <div key={j} style={{ display: 'flex', gap: 10, marginBottom: 8, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
+                <span style={{ color: s.cor, flexShrink: 0, fontWeight: 700 }}>→</span><span>{item}</span>
               </div>
             ))}
           </div>
         ))}
-        <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#92400e'}}>
+
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '14px 18px', fontSize: 12, color: '#92400e', marginBottom: 24 }}>
           ⚠️ As informações acima são de caráter informativo e estão sujeitas a alterações conforme regulamentação complementar. Consulte sempre um especialista tributário.
         </div>
       </div>
@@ -320,7 +421,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
-      {/* TOPBAR */}
       <div style={{background:C.navy,display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
         <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:34,objectFit:'contain',flexShrink:0}} />
         <span style={{fontSize:13,color:'rgba(255,255,255,0.7)',flex:1}}>Sistema de diagnóstico e recuperação tributária — FiscalTrib</span>
@@ -340,7 +440,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
 
         <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'24px 28px',background:C.bg,minWidth:0}}>
 
-          {/* ── PAINEL ── */}
           {page==='painel' && <>
             <div style={{marginBottom:20}}>
               <div style={{fontSize:22,fontWeight:700,color:C.text}}>Painel Geral</div>
@@ -355,9 +454,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável"    color="#16A34A" />
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
-
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
-              {/* Central Tributária */}
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>🏛️ Central Tributária</div>
@@ -374,8 +471,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
                 <button onClick={()=>setPage('central')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Abrir →</button>
               </div>
-
-              {/* Reforma Tributária — botão corrigido */}
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚠️ Reforma Tributária</div>
@@ -384,7 +479,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 <button onClick={()=>setPage('reforma')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Ver →</button>
               </div>
             </div>
-
             {clientes.length===0 ? (
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
@@ -417,7 +511,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )}
           </>}
 
-          {/* ── CLIENTES ── */}
           {page==='clientes' && <>
             <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
@@ -447,11 +540,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             )})}
           </>}
 
-          {/* ── NOVO CLIENTE ── */}
           {page==='novo-cliente' && novoCliente && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
-
             {!novoCliente.id && (
               <div style={{background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:12,padding:'20px 24px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
                 <div>
@@ -464,7 +555,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </label>
               </div>
             )}
-
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📋 Identificação</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
@@ -482,7 +572,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
               </div>
             </div>
-
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📅 Período de análise</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
@@ -500,7 +589,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
           </>}
 
-          {/* ── CHECKLIST ── */}
           {page==='checklist' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
@@ -522,9 +610,23 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </div>
           </>}
 
-          {page==='entrada' && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />}
+          {page==='entrada'        && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={setPage} />}
+          {page==='score'          && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><ScoreFiscal /></>}
+          {page==='analise'        && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><AnaliseFiscal /></>}
+          {page==='teses'          && <><BtnVoltar onClick={()=>setPage('painel')} /><TesesTributarias /></>}
+          {page==='monitor'        && <><BtnVoltar onClick={()=>setPage('painel')} /><MonitorObrigacoes /></>}
+          {page==='importacoes'    && <><BtnVoltar onClick={()=>setPage('painel')} /><CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} /></>}
+          {page==='recuperacoes'   && <><BtnVoltar onClick={()=>setPage('painel')} /><GestaoRecuperacoes /></>}
+          {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
+          {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
+          {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
+          {page==='prazosfiscais'  && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
+          {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
+          {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
+          {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
+          {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
+          {page==='reforma'        && <PaginaReforma onVoltar={()=>setPage('painel')} />}
 
-          {/* ── DIAGNÓSTICO ── */}
           {page==='diagnostico' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
@@ -570,7 +672,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
             </>}
           </>}
 
-          {/* ── CALCULADORAS ── */}
           {page==='calculadoras' && <>
             <BtnVoltar onClick={()=>setPage('painel')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributárias</div>
@@ -589,23 +690,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               {calcResult && <div style={{marginTop:20,background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,padding:'14px 18px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
             </div>
           </>}
-
-          {/* ── ROTAS SIMPLES ── */}
-          {page==='score'          && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><ScoreFiscal /></>}
-          {page==='analise'        && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><AnaliseFiscal /></>}
-          {page==='teses'          && <><BtnVoltar onClick={()=>setPage('painel')} /><TesesTributarias /></>}
-          {page==='monitor'        && <><BtnVoltar onClick={()=>setPage('painel')} /><MonitorObrigacoes /></>}
-          {page==='importacoes'    && <><BtnVoltar onClick={()=>setPage('painel')} /><CentralImportacoes abaInicial={abaImportacao} onDiagnostico={()=>setPage('diagnostico')} onRelatorio={()=>setPage('relatorio')} onRecuperacao={()=>setPage('recuperacoes')} /></>}
-          {page==='recuperacoes'   && <><BtnVoltar onClick={()=>setPage('painel')} /><GestaoRecuperacoes /></>}
-          {page==='perdcomp'       && <><BtnVoltar onClick={()=>setPage('recuperacoes')} /><PerdComp /></>}
-          {page==='prazos'         && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosPrescricionais active={active} /></>}
-          {page==='acompanhamento' && <><BtnVoltar onClick={()=>setPage('painel')} /><Acompanhamento /></>}
-          {page==='prazosfiscais'  && <><BtnVoltar onClick={()=>setPage('painel')} /><PrazosFiscais /></>}
-          {page==='simuladores'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Simuladores /></>}
-          {page==='relatorio'      && <><BtnVoltar onClick={()=>setPage('diagnostico')} /><Relatorio active={active} ents={ents} /></>}
-          {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
-          {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
-          {page==='reforma'        && <PaginaReforma onVoltar={()=>setPage('painel')} />}
 
         </div>
       </div>
