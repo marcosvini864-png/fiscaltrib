@@ -1,8 +1,17 @@
-cd C:\fiscaltrib\src
-code Simuladores.jsximport { useState } from 'react'
+import { useState } from 'react'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtP = v => parseFloat(v || 0).toFixed(1) + '%'
+
+function parseMoeda(str) {
+  return parseFloat(String(str).replace(/\./g, '').replace(',', '.')) || 0
+}
+
+function aplicarMascara(valor) {
+  const apenasNumeros = String(valor).replace(/\D/g, '')
+  if (!apenasNumeros) return ''
+  return Number(apenasNumeros).toLocaleString('pt-BR')
+}
 
 const C = {
   navy: '#0B1F4D', bg: '#F5F7FA', border: '#E2E8F0',
@@ -40,8 +49,23 @@ function Campo({ label, children }) {
   )
 }
 
-const inputStyle = { padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }
-const selectStyle = { ...inputStyle }
+function InputMoeda({ value, onChange, placeholder }) {
+  function handleChange(e) {
+    const mascara = aplicarMascara(e.target.value)
+    onChange(mascara)
+  }
+  return (
+    <input
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder || 'Ex: 100.000'}
+      inputMode="numeric"
+      style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+    />
+  )
+}
+
+const selectStyle = { padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }
 const btnCalc = { width: '100%', padding: '14px 0', background: C.navy, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 8 }
 
 // ─── SIMULADOR 1: RECUPERAÇÃO TRIBUTÁRIA ─────────────────────────────────────
@@ -52,7 +76,7 @@ function SimRecuperacao() {
   const [result, setResult] = useState(null)
 
   function calcular() {
-    const f = parseFloat(fat) || 0
+    const f = parseMoeda(fat)
     const m = parseInt(meses) || 60
     if (!f) { alert('Informe o faturamento.'); return }
 
@@ -69,12 +93,12 @@ function SimRecuperacao() {
     }
 
     const faturamentoTotal = f * m
-    const creditoMin = faturamentoTotal * taxaMin
-    const creditoMax = faturamentoTotal * taxaMax
-    const creditoMed = (creditoMin + creditoMax) / 2
+    const creditoMin  = faturamentoTotal * taxaMin
+    const creditoMax  = faturamentoTotal * taxaMax
+    const creditoMed  = (creditoMin + creditoMax) / 2
     const mediaMensal = creditoMed / m
 
-    setResult({ creditoMin, creditoMax, creditoMed, mediaMensal, faturamentoTotal, teses, taxaMin, taxaMax })
+    setResult({ creditoMin, creditoMax, creditoMed, mediaMensal, teses, taxaMin, taxaMax })
   }
 
   return (
@@ -83,7 +107,7 @@ function SimRecuperacao() {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>💰 Dados para simulação</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Campo label="Faturamento mensal médio (R$)">
-            <input value={fat} onChange={e => setFat(e.target.value)} type="number" placeholder="Ex: 150000" style={inputStyle} />
+            <InputMoeda value={fat} onChange={setFat} placeholder="Ex: 150.000" />
           </Campo>
           <Campo label="Período analisado (meses)">
             <select value={meses} onChange={e => setMeses(e.target.value)} style={selectStyle}>
@@ -143,14 +167,12 @@ function SimEconomia() {
   const [result,  setResult]  = useState(null)
 
   function calcular() {
-    const r = parseFloat(receita) || 0
-    const f = parseFloat(folha)   || 0
-    const m = parseFloat(margem)  || 20
+    const r = parseMoeda(receita)
+    const f = parseMoeda(folha)
+    const m = parseFloat(margem) || 20
     if (!r) { alert('Informe a receita.'); return }
 
     const lucro = r * (m / 100)
-
-    // Simples Nacional (estimativa Anexo III serviços)
     let aliqSN = 6
     if (r * 12 > 180000)  aliqSN = 11.2
     if (r * 12 > 360000)  aliqSN = 13.5
@@ -159,7 +181,6 @@ function SimEconomia() {
     if (r * 12 > 3600000) aliqSN = 33.0
     const impostoSN = r * (aliqSN / 100)
 
-    // Lucro Presumido
     const pis      = r * 0.0065
     const cofins   = r * 0.03
     const csll     = (r * 0.32) * 0.09
@@ -167,18 +188,17 @@ function SimEconomia() {
     const inss     = f * 0.26
     const impostoLP = pis + cofins + csll + irpj + inss
 
-    // Lucro Real
     const pisLR    = r * 0.0165
     const cofinsLR = r * 0.076
     const csllLR   = lucro * 0.09
     const irpjLR   = lucro * 0.15 + Math.max(0, lucro - 20000) * 0.10
     const impostoLR = pisLR + cofinsLR + csllLR + irpjLR + inss
 
-    const melhor = Math.min(impostoSN, impostoLP, impostoLR)
-    const pior   = Math.max(impostoSN, impostoLP, impostoLR)
+    const pior    = Math.max(impostoSN, impostoLP, impostoLR)
+    const melhor  = Math.min(impostoSN, impostoLP, impostoLR)
     const economia = pior - melhor
 
-    setResult({ impostoSN, impostoLP, impostoLR, melhor, economia, aliqSN, receita: r })
+    setResult({ impostoSN, impostoLP, impostoLR, economia, aliqSN })
   }
 
   const comparar = (val, todos) => {
@@ -195,13 +215,13 @@ function SimEconomia() {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>⚖️ Dados da empresa</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Campo label="Receita mensal (R$)">
-            <input value={receita} onChange={e => setReceita(e.target.value)} type="number" placeholder="Ex: 80000" style={inputStyle} />
+            <InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 80.000" />
           </Campo>
           <Campo label="Folha de pagamento mensal (R$)">
-            <input value={folha} onChange={e => setFolha(e.target.value)} type="number" placeholder="Ex: 20000" style={inputStyle} />
+            <InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 20.000" />
           </Campo>
           <Campo label="Margem líquida estimada (%)">
-            <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20" style={inputStyle} />
+            <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20" style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
           </Campo>
           <button onClick={calcular} style={btnCalc}>⚡ Comparar regimes</button>
         </div>
@@ -243,39 +263,52 @@ function SimEconomia() {
 
 // ─── SIMULADOR 3: TRANSAÇÃO TRIBUTÁRIA ───────────────────────────────────────
 function SimTransacao() {
-  const [divida,    setDivida]    = useState('')
-  const [capacidade,setCapacidade]= useState('')
-  const [prazo,     setPrazo]     = useState('60')
-  const [modalidade,setModalidade]= useState('PERT')
-  const [result,    setResult]    = useState(null)
+  const [divida,     setDivida]     = useState('')
+  const [capacidade, setCapacidade] = useState('')
+  const [prazo,      setPrazo]      = useState('60')
+  const [modalidade, setModalidade] = useState('Capacidade de Pagamento')
+  const [result,     setResult]     = useState(null)
+
+  const MODALIDADES = {
+    'Capacidade de Pagamento': {
+      multa: 0.50, juros: 0.40, prazoMax: 120,
+      desc: 'Para contribuintes cuja capacidade de pagamento é insuficiente para quitar o passivo em até 5 anos. Prazo de até 120 meses.',
+    },
+    'Débitos de Difícil Recuperação': {
+      multa: 0.70, juros: 1.00, prazoMax: 72,
+      desc: 'Para dívidas com maior risco de não recebimento. Redução de até 100% em juros e multas. Prazo de até 72 meses.',
+    },
+    'Transação de Pequeno Valor': {
+      multa: 0.50, juros: 0.50, prazoMax: 60,
+      desc: 'Para pessoas físicas, MEI, microempresas e EPP com dívidas de até 60 salários mínimos.',
+    },
+    'Seguro Garantia ou Carta Fiança': {
+      multa: 0.30, juros: 0.20, prazoMax: 84,
+      desc: 'Para débitos garantidos judicialmente por apólice de seguro garantia ou carta fiança.',
+    },
+    'Desenrola Rural': {
+      multa: 0.60, juros: 0.50, prazoMax: 96,
+      desc: 'Regularização de dívidas de Crédito Rural da Agricultura Familiar. Condições especiais por edital.',
+    },
+  }
 
   function calcular() {
-    const d = parseFloat(divida)     || 0
-    const c = parseFloat(capacidade) || 0
-    const p = parseInt(prazo)        || 60
+    const d = parseMoeda(divida)
+    const c = parseMoeda(capacidade)
+    const p = parseInt(prazo) || 60
     if (!d) { alert('Informe o valor da dívida.'); return }
 
-    const descontos = {
-      'PERT':          { multa: 0.50, juros: 0.25, desc: 'Programa Especial de Regularização Tributária' },
-      'REFIS':         { multa: 0.60, juros: 0.25, desc: 'Refinanciamento de dívidas fiscais' },
-      'Transação AT':  { multa: 0.65, juros: 0.50, desc: 'Transação com a Advocacia-Geral da União' },
-      'Parcelamento':  { multa: 0.20, juros: 0.10, desc: 'Parcelamento ordinário — art. 96 Lei 9430/96' },
-    }
-
-    const desc   = descontos[modalidade]
-    const multaOrig    = d * 0.75  // estimativa de multa e juros acumulados
-    const reducaoMulta = multaOrig * desc.multa
-    const reducaoJuros = multaOrig * desc.juros
-    const totalReducao = reducaoMulta + reducaoJuros
+    const mod          = MODALIDADES[modalidade]
+    const multaOrig    = d * 0.75
+    const reducaoMulta = multaOrig * mod.multa
+    const reducaoJuros = multaOrig * Math.min(mod.juros, 1.0)
+    const totalReducao = Math.min(reducaoMulta + reducaoJuros, multaOrig)
     const saldoFinal   = d - totalReducao
-
     const entradaPct   = c > 0 ? Math.min(0.20, c / saldoFinal) : 0.05
     const entrada      = saldoFinal * entradaPct
-    const saldoParc    = saldoFinal - entrada
-    const parcela      = saldoParc / p
-    const economiaTotal = totalReducao
+    const parcela      = (saldoFinal - entrada) / p
 
-    setResult({ saldoFinal, entrada, parcela, economiaTotal, totalReducao, reducaoMulta, reducaoJuros, desc: desc.desc, p })
+    setResult({ saldoFinal, entrada, parcela, totalReducao, reducaoMulta, reducaoJuros, desc: mod.desc, prazoMax: mod.prazoMax, p })
   }
 
   return (
@@ -284,28 +317,19 @@ function SimTransacao() {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🤝 Dados da transação</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Campo label="Valor total da dívida (R$)">
-            <input value={divida} onChange={e => setDivida(e.target.value)} type="number" placeholder="Ex: 500000" style={inputStyle} />
+            <InputMoeda value={divida} onChange={setDivida} placeholder="Ex: 500.000" />
           </Campo>
           <Campo label="Capacidade de pagamento mensal (R$)">
-            <input value={capacidade} onChange={e => setCapacidade(e.target.value)} type="number" placeholder="Ex: 5000" style={inputStyle} />
+            <InputMoeda value={capacidade} onChange={setCapacidade} placeholder="Ex: 5.000" />
           </Campo>
           <Campo label="Modalidade">
             <select value={modalidade} onChange={e => setModalidade(e.target.value)} style={selectStyle}>
-              <option>PERT</option>
-              <option>REFIS</option>
-              <option>Transação AT</option>
-              <option>Parcelamento</option>
+              {Object.keys(MODALIDADES).map(m => <option key={m}>{m}</option>)}
             </select>
           </Campo>
           <Campo label="Prazo de pagamento (meses)">
             <select value={prazo} onChange={e => setPrazo(e.target.value)} style={selectStyle}>
-              <option value="12">12 meses</option>
-              <option value="24">24 meses</option>
-              <option value="36">36 meses</option>
-              <option value="48">48 meses</option>
-              <option value="60">60 meses</option>
-              <option value="84">84 meses</option>
-              <option value="120">120 meses</option>
+              {[12,24,36,48,60,72,84,96,120].map(p => <option key={p} value={p}>{p} meses</option>)}
             </select>
           </Campo>
           <button onClick={calcular} style={btnCalc}>⚡ Simular transação</button>
@@ -314,13 +338,14 @@ function SimTransacao() {
 
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#1e40af', fontWeight: 600 }}>
+          <div style={{ background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#1e40af', fontWeight: 600, lineHeight: 1.6 }}>
             📌 {result.desc}
+            <span style={{ display: 'block', marginTop: 4, color: '#64748b', fontWeight: 400 }}>Prazo máximo desta modalidade: {result.prazoMax} meses</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <ResultCard label="Saldo após descontos" valor={fmtR(result.saldoFinal)} cor="#0B1F4D" />
-            <ResultCard label="Economia total" valor={fmtR(result.economiaTotal)} cor="#16a34a" />
-            <ResultCard label="Entrada estimada" valor={fmtR(result.entrada)} cor="#7c3aed" />
+            <ResultCard label="Economia total"       valor={fmtR(result.totalReducao)} cor="#16a34a" />
+            <ResultCard label="Entrada estimada"     valor={fmtR(result.entrada)} cor="#7c3aed" />
             <ResultCard label={`Parcela (${result.p}x)`} valor={fmtR(result.parcela)} cor="#d97706" />
           </div>
           <Card style={{ padding: '14px 18px' }}>
@@ -356,24 +381,24 @@ function SimParcelamento() {
   const [result, setResult] = useState(null)
 
   function calcular() {
-    const pv = parseFloat(valor) || 0
+    const pv = parseMoeda(valor)
     const i  = parseFloat(taxa) / 100
     const n  = parseInt(qtd)
     if (!pv) { alert('Informe o valor.'); return }
 
     let parcela, totalPago, totalJuros
     if (i === 0) {
-      parcela   = pv / n
-      totalPago = pv
+      parcela    = pv / n
+      totalPago  = pv
       totalJuros = 0
     } else {
-      parcela   = pv * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1)
-      totalPago = parcela * n
+      parcela    = pv * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1)
+      totalPago  = parcela * n
       totalJuros = totalPago - pv
     }
 
     const tabela = Array.from({ length: Math.min(n, 12) }, (_, idx) => {
-      const mes = idx + 1
+      const mes   = idx + 1
       const juros = (pv - (parcela - pv * i) * (mes - 1) / n) * i
       return { mes, parcela, juros: i > 0 ? juros : 0 }
     })
@@ -387,7 +412,7 @@ function SimParcelamento() {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📋 Dados do parcelamento</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Campo label="Valor total (R$)">
-            <input value={valor} onChange={e => setValor(e.target.value)} type="number" placeholder="Ex: 120000" style={inputStyle} />
+            <InputMoeda value={valor} onChange={setValor} placeholder="Ex: 120.000" />
           </Campo>
           <Campo label="Taxa de juros mensal (%)">
             <select value={taxa} onChange={e => setTaxa(e.target.value)} style={selectStyle}>
@@ -411,8 +436,8 @@ function SimParcelamento() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <ResultCard label="Valor da parcela" valor={fmtR(result.parcela)} cor="#0B1F4D" sub={`${result.n}x`} />
-            <ResultCard label="Total pago" valor={fmtR(result.totalPago)} cor="#7c3aed" />
-            <ResultCard label="Total de juros" valor={fmtR(result.totalJuros)} cor={result.totalJuros > 0 ? '#dc2626' : '#16a34a'} />
+            <ResultCard label="Total pago"        valor={fmtR(result.totalPago)} cor="#7c3aed" />
+            <ResultCard label="Total de juros"    valor={fmtR(result.totalJuros)} cor={result.totalJuros > 0 ? '#dc2626' : '#16a34a'} />
           </div>
           <Card style={{ padding: '16px 20px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 12 }}>Primeiras 12 parcelas</div>
@@ -426,7 +451,7 @@ function SimParcelamento() {
               </thead>
               <tbody>
                 {result.tabela.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid #f1f5f9` }}>
+                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '7px 10px', color: C.muted }}>{row.mes}ª</td>
                     <td style={{ padding: '7px 10px', fontWeight: 700, color: C.navy }}>{fmtR(row.parcela)}</td>
                     <td style={{ padding: '7px 10px', color: row.juros > 0 ? '#dc2626' : C.muted }}>{fmtR(row.juros)}</td>
@@ -449,25 +474,24 @@ function SimParcelamento() {
 // ─── SIMULADOR 5: HONORÁRIOS ──────────────────────────────────────────────────
 function SimHonorarios() {
   const [credito,    setCredito]    = useState('')
-  const [pctFixo,   setPctFixo]    = useState('5')
-  const [pctSucesso,setPctSucesso] = useState('20')
-  const [prazoRec,  setPrazoRec]   = useState('12')
-  const [result,    setResult]     = useState(null)
+  const [pctFixo,    setPctFixo]    = useState('5')
+  const [pctSucesso, setPctSucesso] = useState('20')
+  const [prazoRec,   setPrazoRec]   = useState('12')
+  const [result,     setResult]     = useState(null)
 
   function calcular() {
-    const c  = parseFloat(credito)     || 0
-    const pf = parseFloat(pctFixo)     || 0
-    const ps = parseFloat(pctSucesso)  || 0
-    const pr = parseInt(prazoRec)      || 12
+    const c  = parseMoeda(credito)
+    const pf = parseFloat(pctFixo)    || 0
+    const ps = parseFloat(pctSucesso) || 0
+    const pr = parseInt(prazoRec)     || 12
     if (!c) { alert('Informe o crédito identificado.'); return }
 
     const honorarioFixo    = c * (pf / 100)
     const honorarioSucesso = c * (ps / 100)
     const receitaTotal     = honorarioFixo + honorarioSucesso
     const mensalidadeFixa  = honorarioFixo / pr
-    const receitaAnual     = receitaTotal
 
-    setResult({ honorarioFixo, honorarioSucesso, receitaTotal, mensalidadeFixa, receitaAnual, c, pf, ps, pr })
+    setResult({ honorarioFixo, honorarioSucesso, receitaTotal, mensalidadeFixa, c, pf, ps, pr })
   }
 
   return (
@@ -476,7 +500,7 @@ function SimHonorarios() {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🏆 Dados dos honorários</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Campo label="Crédito identificado (R$)">
-            <input value={credito} onChange={e => setCredito(e.target.value)} type="number" placeholder="Ex: 300000" style={inputStyle} />
+            <InputMoeda value={credito} onChange={setCredito} placeholder="Ex: 300.000" />
           </Campo>
           <Campo label="Honorário fixo sobre crédito (%)">
             <select value={pctFixo} onChange={e => setPctFixo(e.target.value)} style={selectStyle}>
@@ -507,11 +531,11 @@ function SimHonorarios() {
           <Card style={{ padding: '16px 20px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 12 }}>📊 Resumo do contrato</div>
             {[
-              { label: 'Crédito identificado',  valor: fmtR(result.c),                 cor: '#0B1F4D' },
-              { label: 'Honorário fixo total',  valor: fmtR(result.honorarioFixo),      cor: '#2563eb' },
-              { label: 'Honorário de sucesso',  valor: fmtR(result.honorarioSucesso),   cor: '#7c3aed' },
-              { label: 'Mensalidade fixa',      valor: fmtR(result.mensalidadeFixa),    cor: '#d97706' },
-              { label: 'Receita total',         valor: fmtR(result.receitaTotal),       cor: '#16a34a' },
+              { label: 'Crédito identificado', valor: fmtR(result.c),               cor: '#0B1F4D' },
+              { label: 'Honorário fixo total', valor: fmtR(result.honorarioFixo),    cor: '#2563eb' },
+              { label: 'Honorário de sucesso', valor: fmtR(result.honorarioSucesso), cor: '#7c3aed' },
+              { label: 'Mensalidade fixa',     valor: fmtR(result.mensalidadeFixa),  cor: '#d97706' },
+              { label: 'Receita total',        valor: fmtR(result.receitaTotal),     cor: '#16a34a' },
             ].map((r, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 4 ? `1px solid ${C.border}` : 'none', fontSize: 13 }}>
                 <span style={{ color: C.muted }}>{r.label}</span>
@@ -539,8 +563,6 @@ export default function Simuladores() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px' }}>
-
-      {/* BANNER */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — FERRAMENTAS COMERCIAIS</div>
         <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
@@ -549,7 +571,6 @@ export default function Simuladores() {
         </p>
       </div>
 
-      {/* ABAS */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {ABAS.map(a => (
           <button key={a.id} onClick={() => setAba(a.id)}
@@ -559,7 +580,6 @@ export default function Simuladores() {
         ))}
       </div>
 
-      {/* CONTEÚDO */}
       {aba === 'recuperacao'  && <SimRecuperacao />}
       {aba === 'economia'     && <SimEconomia />}
       {aba === 'transacao'    && <SimTransacao />}
