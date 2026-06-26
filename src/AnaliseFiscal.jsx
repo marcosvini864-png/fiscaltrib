@@ -20,7 +20,6 @@ function montarContexto(cliente, entradas, recuperacoes) {
   const totalPotencial = recuperacoes.reduce((s, r) => s + (r.potencial_recuperavel || 0), 0)
   const hoje = new Date()
 
-  // Prazos
   const prazos = entsCredito.map(e => {
     if (!e.competencia) return null
     const [a, m] = e.competencia.split('-')
@@ -32,7 +31,6 @@ function montarContexto(cliente, entradas, recuperacoes) {
   const criticos = prazos.filter(p => p.dias <= 180 && p.dias > 0)
   const prescritos = prazos.filter(p => p.dias <= 0)
 
-  // Tributos
   const tributos = [...new Set(entradas.map(e => e.tributo).filter(Boolean))]
   const competencias = [...new Set(entradas.map(e => e.competencia).filter(Boolean))].sort()
 
@@ -134,26 +132,22 @@ export default function AnaliseFiscal() {
     try {
       const contexto = montarContexto(cliente, entradas, recuperacoes)
 
-      // Monta histórico para a API
       const historico = novasMensagens.map(m => ({
         role: m.role,
-        content: m.role === 'user' ? m.content : m.content,
+        content: m.content,
       }))
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
+      // Chama a Edge Function consulta-ia (Groq — sem CORS)
+      const { data, error } = await supabase.functions.invoke('consulta-ia', {
+        body: {
           system: contexto,
           messages: historico,
-        }),
+        },
       })
 
-      const data = await response.json()
-      const resposta = data.content?.[0]?.text || 'Não foi possível processar a resposta.'
+      if (error) throw new Error(error.message)
 
+      const resposta = data?.resposta || data?.content || 'Não foi possível processar a resposta.'
       setMensagens(prev => [...prev, { role: 'assistant', content: resposta }])
     } catch (e) {
       setMensagens(prev => [...prev, {
@@ -166,7 +160,6 @@ export default function AnaliseFiscal() {
   }
 
   function renderMensagem(texto) {
-    // Formatação simples de markdown
     return texto
       .split('\n')
       .map((linha, i) => {
@@ -216,7 +209,6 @@ export default function AnaliseFiscal() {
           {clientes.map(c => <option key={c.id} value={c.id}>{c.razao_social} ({c.regime})</option>)}
         </select>
 
-        {/* KPIs do cliente selecionado */}
         {clienteId && !loading && entradas.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginTop: 16 }}>
             {[
@@ -260,7 +252,7 @@ export default function AnaliseFiscal() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {PERGUNTAS_RAPIDAS.map((p, i) => (
                 <button key={i} onClick={() => enviarPergunta(p)}
-                  style={{ padding: '6px 12px', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 20, fontSize: 12, color: '#374151', cursor: 'pointer', fontWeight: 500, transition: 'all 0.15s' }}
+                  style={{ padding: '6px 12px', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 20, fontSize: 12, color: '#374151', cursor: 'pointer', fontWeight: 500 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#0B1F4D'; e.currentTarget.style.color = '#0B1F4D' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#374151' }}
                 >
@@ -299,7 +291,6 @@ export default function AnaliseFiscal() {
               </div>
             ))}
 
-            {/* Loading */}
             {loadingIA && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px 16px 16px 4px', padding: '14px 20px', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -334,7 +325,6 @@ export default function AnaliseFiscal() {
         </div>
       )}
 
-      {/* Aviso */}
       <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginTop: 16, fontSize: 12, color: '#92400e' }}>
         ⚠️ A IA responde com base nos dados importados. Resultados são estimativas e não substituem análise profissional habilitada.
       </div>
