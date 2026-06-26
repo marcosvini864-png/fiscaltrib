@@ -270,28 +270,37 @@ function SimTransacao() {
   const [modalidade, setModalidade] = useState('Capacidade de Pagamento')
   const [result,     setResult]     = useState(null)
 
-  const MODALIDADES = {
-    'Capacidade de Pagamento': {
-      multa: 0.50, juros: 0.40, prazoMax: 120,
-      desc: 'Para contribuintes cuja capacidade de pagamento é insuficiente para quitar o passivo em até 5 anos. Prazo de até 120 meses.',
-    },
-    'Débitos de Difícil Recuperação': {
-      multa: 0.70, juros: 1.00, prazoMax: 72,
-      desc: 'Para dívidas com maior risco de não recebimento. Redução de até 100% em juros e multas. Prazo de até 72 meses.',
-    },
-    'Transação de Pequeno Valor': {
-      multa: 0.50, juros: 0.50, prazoMax: 60,
-      desc: 'Para pessoas físicas, MEI, microempresas e EPP com dívidas de até 60 salários mínimos.',
-    },
-    'Seguro Garantia ou Carta Fiança': {
-      multa: 0.30, juros: 0.20, prazoMax: 84,
-      desc: 'Para débitos garantidos judicialmente por apólice de seguro garantia ou carta fiança.',
-    },
-    'Desenrola Rural': {
-      multa: 0.60, juros: 0.50, prazoMax: 96,
-      desc: 'Regularização de dívidas de Crédito Rural da Agricultura Familiar. Condições especiais por edital.',
-    },
-  }
+const MODALIDADES = {
+  'Capacidade de Pagamento': {
+    multa: 0.50, juros: 0.40, prazoMax: 120,
+    
+    desc: 'Para contribuintes cuja capacidade de pagamento é insuficiente para quitar o passivo em até 5 anos. Prazo de até 120 meses.',
+  },
+  'Débitos de Difícil Recuperação': {
+    multa: 0.70, juros: 1.00, prazoMax: 72,
+    desc: 'Para dívidas com maior risco de não recebimento. Redução de até 100% em juros e multas. Prazo de até 72 meses.',
+  },
+  'Transação de Pequeno Valor': {
+    multa: 0.50, juros: 0.50, prazoMax: 60,
+    desc: 'Para pessoas físicas, MEI, microempresas e EPP com dívidas de até 60 salários mínimos.',
+  },
+  'Seguro Garantia ou Carta Fiança': {
+    multa: 0.30, juros: 0.20, prazoMax: 84,
+    desc: 'Para débitos garantidos judicialmente por apólice de seguro garantia ou carta fiança.',
+  },
+  'Desenrola Rural': {
+    multa: 0.60, juros: 0.50, prazoMax: 96,
+    desc: 'Regularização de dívidas de Crédito Rural da Agricultura Familiar. Condições especiais por edital.',
+  },
+  'Proposta Individual': {
+    multa: 0.65, juros: 0.60, prazoMax: 120,
+    desc: 'Negociação customizada para casos específicos de alto valor, devedores em recuperação judicial, falência ou entes públicos. Pode ser proposta pela PGFN ou pelo contribuinte.',
+  },
+  'Transação por Contencioso': {
+    multa: 0.55, juros: 0.50, prazoMax: 120,
+    desc: 'Focada em disputas jurídicas relevantes e disseminadas, permitindo o encerramento consensual de processos judiciais.',
+  },
+}
 
   function calcular() {
     const d = parseMoeda(divida)
