@@ -161,7 +161,6 @@ function agruparNFePorCompetencia(nfes) {
   return Object.values(map).sort((a,b) => a.competencia.localeCompare(b.competencia))
 }
 
-// ─── SALVAR RELATÓRIO PERSISTENTE ────────────────────────────────────────────
 async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, oportunidades }) {
   const agrupadas       = agruparNFePorCompetencia(nfes)
   const competencias    = agrupadas.map(a => a.competencia).sort()
@@ -172,30 +171,40 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
   const totalST          = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos    = totalICMS + totalPIS + totalCOFINS + totalST
   const potencialTotal   = oportunidades.reduce((s, o) => s + o.potencial, 0)
-
   const { error } = await supabase.from('relatorios_importacao').insert({
-    usuario_id:          usuarioId,
-    cliente_id:          clienteId,
-    cliente_nome:        cliente?.razao_social || '',
-    cliente_cnpj:        cliente?.cnpj || '',
-    cliente_regime:      cliente?.regime || '',
-    origem,
-    total_nfes:          nfes.length,
-    periodo_inicio:      competencias[0] || '',
-    periodo_fim:         competencias[competencias.length - 1] || '',
-    total_faturamento:   totalFaturamento,
-    total_impostos:      totalImpostos,
-    oportunidades_count: oportunidades.length,
-    potencial_total:     potencialTotal,
+    usuario_id: usuarioId, cliente_id: clienteId, cliente_nome: cliente?.razao_social || '',
+    cliente_cnpj: cliente?.cnpj || '', cliente_regime: cliente?.regime || '', origem,
+    total_nfes: nfes.length, periodo_inicio: competencias[0] || '', periodo_fim: competencias[competencias.length - 1] || '',
+    total_faturamento: totalFaturamento, total_impostos: totalImpostos,
+    oportunidades_count: oportunidades.length, potencial_total: potencialTotal,
     dados_json: { nfes, oportunidades, agrupadas },
   })
   return error
 }
 
-// ─── RELATÓRIO DE IMPORTAÇÃO ─────────────────────────────────────────────────
+// ─── IMPRIMIR RELATÓRIO ───────────────────────────────────────────────────────
+function imprimirRelatorio(idElemento) {
+  const conteudo = document.getElementById(idElemento)?.innerHTML
+  if (!conteudo) return
+  const janela = window.open('', '_blank', 'width=1000,height=800')
+  janela.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Relatório de Importação Fiscal — FiscalTrib</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1e293b; padding: 32px 36px; }
+      table { width: 100%; border-collapse: collapse; }
+      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style>
+    </head><body>${conteudo}</body></html>`)
+  janela.document.close()
+  janela.focus()
+  setTimeout(() => { janela.print(); janela.close() }, 600)
+}
+
+// ─── RELATÓRIO DE IMPORTAÇÃO ──────────────────────────────────────────────────
 function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
-  const agrupadas = agruparNFePorCompetencia(nfes)
-  const competencias = agrupadas.map(a => a.competencia)
+  const agrupadas     = agruparNFePorCompetencia(nfes)
+  const competencias  = agrupadas.map(a => a.competencia)
   const periodoInicio = competencias[0] || '—'
   const periodoFim    = competencias[competencias.length - 1] || '—'
   const totalNF       = nfes.reduce((s, n) => s + n.vNF, 0)
@@ -253,21 +262,16 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
 
   return (
     <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', overflow: 'hidden', marginTop: 24 }}>
-      <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="no-print">
+      <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Relatório de Importação</div>
-        <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={() => imprimirRelatorio('relatorio-importacao-conteudo')}
+          style={{ padding: '8px 20px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
           🖨️ Imprimir
         </button>
       </div>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body * { visibility: hidden; }
-          #relatorio-importacao, #relatorio-importacao * { visibility: visible; }
-          #relatorio-importacao { position: fixed; top: 0; left: 0; width: 100%; }
-        }
-      `}</style>
-      <div id="relatorio-importacao" style={{ padding: '32px 36px' }}>
+
+      <div id="relatorio-importacao-conteudo" style={{ padding: '32px 36px' }}>
+        {/* Cabeçalho */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottom: '2px solid #0B1F4D' }}>
           <div>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>FISCALTRIB — RELATÓRIO DE IMPORTAÇÃO</div>
@@ -279,6 +283,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             <div style={{ fontSize: 11, color: '#64748b' }}>Sistema de Recuperação Tributária</div>
           </div>
         </div>
+
+        {/* Dados do cliente */}
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Dados do Cliente</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
@@ -287,6 +293,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{regime}</div></div>
           </div>
         </div>
+
+        {/* Resumo */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📥 Resumo da Importação</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
@@ -303,13 +311,15 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             ))}
           </div>
         </div>
+
+        {/* Valores fiscais */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>💰 Valores Fiscais Identificados</div>
           <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#0B1F4D', color: '#fff' }}>
-                  {['Tributo', 'Valor Total', '% sobre Faturamento'].map(h => (
+                  {['Tributo','Valor Total','% sobre Faturamento'].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
@@ -333,6 +343,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </table>
           </div>
         </div>
+
+        {/* Detalhamento por competência */}
         {agrupadas.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📅 Detalhamento por Competência</div>
@@ -362,6 +374,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </div>
           </div>
         )}
+
+        {/* Diagnóstico tributário */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 4 }}>⚖️ {diag.titulo}</div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>{diag.intro}</div>
@@ -386,12 +400,14 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             })}
           </div>
         </div>
+
+        {/* Resultado */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>⚡ Resultado da Análise</div>
           {oportunidades.length > 0 ? (
             <div>
               <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '14px 18px', marginBottom: 12 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
                   ✅ {oportunidades.length} oportunidade(s) identificada(s) — Potencial total: {fmtR(totalPotencial)}
                 </div>
               </div>
@@ -422,6 +438,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </div>
           )}
         </div>
+
+        {/* Rodapé */}
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>⚠️ Relatório preliminar — não substitui análise profissional habilitada.</div>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822</div>
@@ -431,16 +449,13 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   )
 }
 
-// ─── RAIO-X TRIBUTÁRIO ───────────────────────────────────────────────────────
+// ─── RAIO-X TRIBUTÁRIO ────────────────────────────────────────────────────────
 function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciarRecuperacao, onDiagnostico, onRelatorio }) {
   const [criando, setCriando] = useState(false)
   const [criado,  setCriado]  = useState(false)
   const hoje = new Date()
 
-  const oportunidades = nfes && nfes.length > 0
-    ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional')
-    : []
-
+  const oportunidades  = nfes && nfes.length > 0 ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional') : []
   const totalPotencial = oportunidades.reduce((s, o) => s + o.potencial, 0)
   const totalCreditos  = entradas.reduce((s, e) => s + (e.credito || 0), 0)
   const potencialFinal = Math.max(totalPotencial, totalCreditos)
@@ -457,12 +472,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
     return { ...e, dias: Math.round((lim - hoje) / (1000 * 60 * 60 * 24)), lim }
   })
 
-  const score = Math.min(100, Math.max(20,
-    100
-    - oportunidades.filter(o => o.risco === 'baixo').length * 15
-    - oportunidades.filter(o => o.risco === 'medio').length * 8
-    - criticos.length * 5
-  ))
+  const score      = Math.min(100, Math.max(20, 100 - oportunidades.filter(o => o.risco === 'baixo').length * 15 - oportunidades.filter(o => o.risco === 'medio').length * 8 - criticos.length * 5))
   const scoreCor   = score >= 80 ? '#16a34a' : score >= 60 ? '#d97706' : '#dc2626'
   const scoreLabel = score >= 80 ? 'Boa saúde tributária' : score >= 60 ? 'Atenção necessária' : 'Situação crítica'
 
@@ -470,16 +480,11 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
     setCriando(true)
     try {
       await supabase.from('recuperacoes').insert({
-        cliente_id: clienteId,
-        competencia: new Date().toISOString().slice(0, 7),
-        tributo: oportunidades[0]?.tese || 'A definir',
-        valor_credito: potencialFinal,
-        potencial_recuperavel: potencialFinal,
-        tese_aplicada: oportunidades.map(o => o.tese).join(', '),
+        cliente_id: clienteId, competencia: new Date().toISOString().slice(0, 7),
+        tributo: oportunidades[0]?.tese || 'A definir', valor_credito: potencialFinal,
+        potencial_recuperavel: potencialFinal, tese_aplicada: oportunidades.map(o => o.tese).join(', '),
         risco: oportunidades.some(o => o.risco === 'baixo') ? 'baixo' : 'medio',
-        origem: origem || 'Raio-X XML',
-        status: 'Identificado',
-        score_fiscal: score,
+        origem: origem || 'Raio-X XML', status: 'Identificado', score_fiscal: score,
         observacoes: `Raio-X automático. ${oportunidades.length} oportunidades detectadas via ${origem}.`,
       })
       setCriado(true)
@@ -510,6 +515,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
           ))}
         </div>
       </div>
+
       {oportunidades.length > 0 ? (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>
@@ -563,9 +569,10 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
       ) : (
         <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 14, padding: '24px', textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: '#16a34a', marginBottom: 8 }}>✅ Nenhuma irregularidade detectada</div>
-          <div style={{ fontSize: 14, color: '#64748b' }}>Os XMLs analisados não indicam oportunidades tributárias evidentes. Continue monitorando.</div>
+          <div style={{ fontSize: 14, color: '#64748b' }}>Os XMLs analisados não indicam oportunidades tributárias evidentes.</div>
         </div>
       )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${scoreCor}33`, padding: '24px', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>📊 SCORE FISCAL</div>
@@ -594,17 +601,15 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
           )}
         </div>
       </div>
+
       <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>🎯 Próximas ações recomendadas</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
-          <button onClick={onDiagnostico} style={{ padding: '14px 20px', background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#1e40af', cursor: 'pointer', textAlign: 'left' }}>
-            📋 Gerar diagnóstico completo
-          </button>
-          <button onClick={onRelatorio} style={{ padding: '14px 20px', background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#166534', cursor: 'pointer', textAlign: 'left' }}>
-            📄 Emitir relatório executivo
-          </button>
+          <button onClick={onDiagnostico} style={{ padding: '14px 20px', background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#1e40af', cursor: 'pointer', textAlign: 'left' }}>📋 Gerar diagnóstico completo</button>
+          <button onClick={onRelatorio}   style={{ padding: '14px 20px', background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#166534', cursor: 'pointer', textAlign: 'left' }}>📄 Emitir relatório executivo</button>
         </div>
       </div>
+
       {!criado ? (
         <button onClick={iniciarRecuperacao} disabled={criando || potencialFinal === 0}
           style={{ width: '100%', padding: '18px 0', background: potencialFinal > 0 ? 'linear-gradient(135deg, #0B1F4D, #163B8C)' : '#e2e8f0', color: potencialFinal > 0 ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, fontSize: 17, fontWeight: 900, cursor: potencialFinal > 0 ? 'pointer' : 'default' }}>
@@ -620,20 +625,20 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
   )
 }
 
-// ─── ABAS ────────────────────────────────────────────────────────────────────
+// ─── ABAS ─────────────────────────────────────────────────────────────────────
 const ABAS = [
-  { id:'nfe',     icon:'🧾', label:'XML NF-e em lote',   tipo:'xml'    },
-  { id:'pgdas',   icon:'📋', label:'PGDAS-D',            tipo:'xml'    },
-  { id:'das',     icon:'💳', label:'DAS Pagos',          tipo:'manual' },
-  { id:'dctfweb', icon:'📑', label:'DCTFWeb',            tipo:'xml'    },
-  { id:'sped_f',  icon:'📂', label:'SPED Fiscal',        tipo:'txt'    },
-  { id:'sped_c',  icon:'📂', label:'SPED Contribuições', tipo:'txt'    },
-  { id:'ecd',     icon:'📊', label:'ECD',                tipo:'txt'    },
-  { id:'ecf',     icon:'📈', label:'ECF',                tipo:'txt'    },
-  { id:'debitos', icon:'⚠️', label:'Extrato de Débitos', tipo:'txt'    },
+  { id:'nfe',     icon:'🧾', label:'XML NF-e em lote'   },
+  { id:'pgdas',   icon:'📋', label:'PGDAS-D'            },
+  { id:'das',     icon:'💳', label:'DAS Pagos'          },
+  { id:'dctfweb', icon:'📑', label:'DCTFWeb'            },
+  { id:'sped_f',  icon:'📂', label:'SPED Fiscal'        },
+  { id:'sped_c',  icon:'📂', label:'SPED Contribuições' },
+  { id:'ecd',     icon:'📊', label:'ECD'                },
+  { id:'ecf',     icon:'📈', label:'ECF'                },
+  { id:'debitos', icon:'⚠️', label:'Extrato de Débitos' },
 ]
 
-// ─── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, onRelatorio, onRecuperacao }) {
   const [aba,              setAba]              = useState(abaInicial)
   const [clientes,         setClientes]         = useState([])
@@ -675,11 +680,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
     setRelatorioAberto(null)
     setSalvo(false)
     setMostrarRelatorio(false)
-    const { data } = await supabase
-      .from('relatorios_importacao')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data } = await supabase.from('relatorios_importacao').select('*').eq('id', id).single()
     if (data) setRelatorioAberto(data)
     setCarregando(false)
   }
@@ -716,15 +717,10 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   }
 
   const cliente             = clientes.find(c => c.id === clienteId)
-  const oportunidadesAtivas = nfesLidas.length > 0
-    ? detectarOportunidades(nfesLidas, cliente?.regime || 'Simples Nacional')
-    : []
-
+  const oportunidadesAtivas = nfesLidas.length > 0 ? detectarOportunidades(nfesLidas, cliente?.regime || 'Simples Nacional') : []
   const nfesHistorico          = relatorioAberto?.dados_json?.nfes         || []
   const oportunidadesHistorico = relatorioAberto?.dados_json?.oportunidades || []
-  const clienteHistorico       = relatorioAberto
-    ? { razao_social: relatorioAberto.cliente_nome, cnpj: relatorioAberto.cliente_cnpj, regime: relatorioAberto.cliente_regime }
-    : null
+  const clienteHistorico       = relatorioAberto ? { razao_social: relatorioAberto.cliente_nome, cnpj: relatorioAberto.cliente_cnpj, regime: relatorioAberto.cliente_regime } : null
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -746,7 +742,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         </div>
       </div>
 
-      {/* HISTÓRICO DE RELATÓRIOS */}
+      {/* HISTÓRICO */}
       {relatorios.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🗂️ Relatórios Anteriores</div>
@@ -760,9 +756,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
                     {r.periodo_inicio} a {r.periodo_fim} · {r.total_nfes} NF-e · {r.oportunidades_count} oportunidade(s) · Potencial: {fmtR(r.potencial_total)}
                   </div>
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
-                    {new Date(r.created_at).toLocaleString('pt-BR')}
-                  </div>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{new Date(r.created_at).toLocaleString('pt-BR')}</div>
                 </div>
                 <button onClick={() => abrirRelatorio(r.id)} disabled={carregando}
                   style={{ padding: '6px 14px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
@@ -778,24 +772,17 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         </div>
       )}
 
-      {/* RELATÓRIO DO HISTÓRICO ABERTO */}
+      {/* RELATÓRIO HISTÓRICO ABERTO */}
       {relatorioAberto && nfesHistorico.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>
-              📋 Exibindo relatório salvo — {relatorioAberto.cliente_nome}
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Exibindo relatório salvo — {relatorioAberto.cliente_nome}</div>
             <button onClick={() => setRelatorioAberto(null)}
               style={{ padding: '6px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
               ✕ Fechar
             </button>
           </div>
-          <RelatorioImportacao
-            cliente={clienteHistorico}
-            nfes={nfesHistorico}
-            origem={relatorioAberto.origem}
-            oportunidades={oportunidadesHistorico}
-          />
+          <RelatorioImportacao cliente={clienteHistorico} nfes={nfesHistorico} origem={relatorioAberto.origem} oportunidades={oportunidadesHistorico} />
         </div>
       )}
 
@@ -838,24 +825,13 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
           {aba==='debitos' && <AbaDebitos   clienteId={clienteId} cliente={cliente}                          onSalvo={() => onSalvo('Extrato Débitos')} />}
 
           {mostrarRelatorio && nfesLidas.length > 0 && (
-            <RelatorioImportacao
-              cliente={cliente}
-              nfes={nfesLidas}
-              origem={origem}
-              oportunidades={oportunidadesAtivas}
-            />
+            <RelatorioImportacao cliente={cliente} nfes={nfesLidas} origem={origem} oportunidades={oportunidadesAtivas} />
           )}
 
           {salvo && (
             <RaioXTributario
-              clienteId={clienteId}
-              cliente={cliente}
-              entradas={entradas}
-              nfes={nfesLidas}
-              origem={origem}
-              onIniciarRecuperacao={onRecuperacao}
-              onDiagnostico={onDiagnostico}
-              onRelatorio={onRelatorio}
+              clienteId={clienteId} cliente={cliente} entradas={entradas} nfes={nfesLidas} origem={origem}
+              onIniciarRecuperacao={onRecuperacao} onDiagnostico={onDiagnostico} onRelatorio={onRelatorio}
             />
           )}
         </>
@@ -864,14 +840,10 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   )
 }
 
-// ─── ABA NF-e ────────────────────────────────────────────────────────────────
+// ─── ABA NF-e ─────────────────────────────────────────────────────────────────
 function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
   const inputRef = useRef()
-  const [nfes,     setNfes]     = useState([])
-  const [erros,    setErros]    = useState([])
-  const [salvando, setSalvando] = useState(false)
-  const [salvo,    setSalvo]    = useState(false)
-  const [dragOver, setDragOver] = useState(false)
+  const [nfes, setNfes] = useState([]); const [erros, setErros] = useState([]); const [salvando, setSalvando] = useState(false); const [salvo, setSalvo] = useState(false); const [dragOver, setDragOver] = useState(false)
 
   function processarArquivos(files) {
     setSalvo(false)
@@ -901,8 +873,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
         await supabase.from('entradas').upsert({
           cliente_id: clienteId, competencia: comp.competencia, tributo: 'NF-e importada',
           receita_bruta: comp.vNF, tributo_pago: comp.vICMS + comp.vPIS + comp.vCOFINS,
-          tributo_devido: comp.vICMS + comp.vPIS + comp.vCOFINS, credito: 0,
-          tipo_oportunidade: '', risco: 'baixo'
+          tributo_devido: comp.vICMS + comp.vPIS + comp.vCOFINS, credito: 0, tipo_oportunidade: '', risco: 'baixo'
         }, { onConflict: 'cliente_id,competencia,tributo' })
       }
       setSalvo(true)
@@ -958,7 +929,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
   )
 }
 
-// ─── ABAS RESTANTES ──────────────────────────────────────────────────────────
+// ─── ABAS RESTANTES ───────────────────────────────────────────────────────────
 function AbaPGDAS({ clienteId, onSalvo }) {
   const inputRef = useRef()
   const [dados, setDados] = useState(null); const [erro, setErro] = useState(''); const [salvando, setSalvando] = useState(false); const [salvo, setSalvo] = useState(false)
