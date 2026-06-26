@@ -3,7 +3,6 @@ import { supabase } from './supabase'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
-// ─── NCMs MONOFÁSICOS (PIS/COFINS alíquota zero) ────────────────────────────
 const NCM_MONOFASICOS = [
   '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
   '3002','3003','3004','3005','3006',
@@ -17,17 +16,11 @@ const CST_ST = ['10','30','60','70','90']
 const CFOP_SAIDA_TRIB = ['5101','5102','5103','5104','5105','5106','6101','6102','6103','6104','5401','5402','5403','5405','6401','6402','6403','6404']
 const CFOP_SERVICO    = ['5301','5302','5303','5304','5305','5306','5307','5308','5309','5310','5311','5312','5313','5314','5315','5316','6301','6302']
 
-// ─── PARSER NF-e CORRIGIDO (com suporte a namespace) ────────────────────────
 function parseXMLNFe(xmlStr) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(xmlStr, 'application/xml')
-
-  const get = tag => {
-    const els = doc.getElementsByTagNameNS('*', tag)
-    return els[0]?.textContent?.trim() || ''
-  }
+  const get = tag => { const els = doc.getElementsByTagNameNS('*', tag); return els[0]?.textContent?.trim() || '' }
   const getAll = tag => Array.from(doc.getElementsByTagNameNS('*', tag))
-
   const dhEmi = get('dhEmi') || get('dEmi')
   const competencia = dhEmi ? dhEmi.slice(0, 7) : ''
   const vNF     = parseFloat(get('vNF')      || 0)
@@ -38,32 +31,20 @@ function parseXMLNFe(xmlStr) {
   const vST     = parseFloat(get('vST')      || 0)
   const cnpjEmi = get('CNPJ')
   const natOp   = get('natOp')
-
   const itens = []
   const dets = getAll('det')
   dets.forEach(det => {
     const getD = tag => Array.from(det.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || ''
-    const ncm          = getD('NCM')
-    const cfop         = getD('CFOP')
-    const cst          = getD('CST') || getD('CSOSN')
-    const xProd        = getD('xProd')
-    const vProd        = parseFloat(getD('vProd')    || 0)
-    const vItemPIS     = parseFloat(getD('vPIS')     || 0)
-    const vItemCOFINS  = parseFloat(getD('vCOFINS') || 0)
-    const vItemICMS    = parseFloat(getD('vICMS')    || 0)
-    const vItemST      = parseFloat(getD('vICMSST') || getD('vST') || 0)
-    const pPIS         = parseFloat(getD('pPIS')     || 0)
-    const pCOFINS      = parseFloat(getD('pCOFINS') || 0)
-
-    if (ncm || cfop) {
-      itens.push({ ncm, cfop, cst, xProd, vProd, vItemPIS, vItemCOFINS, vItemICMS, vItemST, pPIS, pCOFINS })
-    }
+    const ncm = getD('NCM'); const cfop = getD('CFOP'); const cst = getD('CST') || getD('CSOSN')
+    const xProd = getD('xProd'); const vProd = parseFloat(getD('vProd') || 0)
+    const vItemPIS = parseFloat(getD('vPIS') || 0); const vItemCOFINS = parseFloat(getD('vCOFINS') || 0)
+    const vItemICMS = parseFloat(getD('vICMS') || 0); const vItemST = parseFloat(getD('vICMSST') || getD('vST') || 0)
+    const pPIS = parseFloat(getD('pPIS') || 0); const pCOFINS = parseFloat(getD('pCOFINS') || 0)
+    if (ncm || cfop) itens.push({ ncm, cfop, cst, xProd, vProd, vItemPIS, vItemCOFINS, vItemICMS, vItemST, pPIS, pCOFINS })
   })
-
   return { competencia, vNF, vICMS, vPIS, vCOFINS, vISS, vST, cnpjEmi, natOp, itens, valido: !!competencia && vNF > 0 }
 }
 
-// ─── MOTOR DE TESES AUTOMÁTICO ──────────────────────────────────────────────
 const PERIODOS = [
   { label: '12 meses', meses: 12 },
   { label: '24 meses', meses: 24 },
@@ -73,135 +54,71 @@ const PERIODOS = [
 
 function detectarOportunidades(nfes, regime) {
   const oportunidades = []
-  let totalVNF = 0, totalVST = 0, totalVPIS = 0, totalVCOFINS = 0
-
+  let totalVNF = 0, totalVST = 0
   const todosItens = nfes.flatMap(n => n.itens || [])
-  nfes.forEach(n => { totalVNF += n.vNF; totalVST += n.vST; totalVPIS += n.vPIS; totalVCOFINS += n.vCOFINS })
-
+  nfes.forEach(n => { totalVNF += n.vNF; totalVST += n.vST })
   const meses = [...new Set(nfes.map(n => n.competencia))].length || 1
-  const mediaMensal = meses > 0 ? totalVNF / meses : totalVNF
 
   const itensMonofasicos = todosItens.filter(i => NCM_MONOFASICOS.some(ncm => i.ncm.startsWith(ncm)))
   if (itensMonofasicos.length > 0) {
     const valorMensal = itensMonofasicos.reduce((s, i) => s + i.vProd, 0) / meses
     const pisCofinsIndevido = itensMonofasicos.reduce((s, i) => s + i.vItemPIS + i.vItemCOFINS, 0) / meses || valorMensal * 0.0365
-    const projecoes = PERIODOS.map(p => ({ ...p, valor: pisCofinsIndevido * p.meses }))
-    const ncmsEncontrados = [...new Set(itensMonofasicos.map(i => i.ncm))].slice(0, 5)
-    oportunidades.push({
-      tese: 'Receitas Monofásicas',
-      descricao: `${itensMonofasicos.length} produto(s) com NCM sujeito à alíquota zero de PIS/COFINS tributados indevidamente.`,
-      ncms: ncmsEncontrados,
-      produtos: itensMonofasicos.map(i => i.xProd).slice(0, 3),
-      mediaMensal: pisCofinsIndevido,
-      potencial: pisCofinsIndevido * 60,
-      projecoes, meses,
-      risco: 'baixo', cor: '#16a34a', icon: '💊',
-    })
+    oportunidades.push({ tese: 'Receitas Monofásicas', descricao: `${itensMonofasicos.length} produto(s) com NCM monofásico tributados indevidamente.`, ncms: [...new Set(itensMonofasicos.map(i => i.ncm))].slice(0, 5), produtos: itensMonofasicos.map(i => i.xProd).slice(0, 3), mediaMensal: pisCofinsIndevido, potencial: pisCofinsIndevido * 60, projecoes: PERIODOS.map(p => ({ ...p, valor: pisCofinsIndevido * p.meses })), meses, risco: 'baixo', cor: '#16a34a', icon: '💊' })
   }
 
   const itensST = todosItens.filter(i => CST_ST.includes(i.cst) && i.vItemST > 0)
   if (itensST.length > 0 || totalVST > 0) {
     const valorSTMensal = (itensST.reduce((s, i) => s + i.vItemST, 0) || totalVST) / meses
-    const projecoes = PERIODOS.map(p => ({ ...p, valor: valorSTMensal * p.meses }))
-    oportunidades.push({
-      tese: regime === 'Simples Nacional' ? 'Exclusão ICMS-ST da Base do Simples' : 'Exclusão ICMS-ST da Base PIS/COFINS',
-      descricao: `ICMS-ST identificado. No ${regime}, o valor retido por substituição tributária pode ser excluído da base de cálculo.`,
-      ncms: [...new Set(itensST.map(i => i.ncm))].slice(0, 5),
-      produtos: itensST.map(i => i.xProd).slice(0, 3),
-      mediaMensal: valorSTMensal,
-      potencial: valorSTMensal * 60,
-      projecoes, meses,
-      risco: 'baixo', cor: '#2563eb', icon: '🏷️',
-    })
+    oportunidades.push({ tese: regime === 'Simples Nacional' ? 'Exclusão ICMS-ST da Base do Simples' : 'Exclusão ICMS-ST da Base PIS/COFINS', descricao: `ICMS-ST identificado. Valor retido pode ser excluído da base de cálculo.`, ncms: [...new Set(itensST.map(i => i.ncm))].slice(0, 5), produtos: itensST.map(i => i.xProd).slice(0, 3), mediaMensal: valorSTMensal, potencial: valorSTMensal * 60, projecoes: PERIODOS.map(p => ({ ...p, valor: valorSTMensal * p.meses })), meses, risco: 'baixo', cor: '#2563eb', icon: '🏷️' })
   }
 
   const itensServico    = todosItens.filter(i => CFOP_SERVICO.some(c => i.cfop === c))
   const itensMercadoria = todosItens.filter(i => CFOP_SAIDA_TRIB.some(c => i.cfop === c))
   if (itensServico.length > 0 && itensMercadoria.length > 0 && regime === 'Simples Nacional') {
     const vlMensal = itensServico.reduce((s, i) => s + i.vProd, 0) / meses * 0.02
-    const projecoes = PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses }))
-    oportunidades.push({
-      tese: 'Segregação de Receitas por Anexo',
-      descricao: 'Mix de mercadorias e serviços detectado. A segregação correta pode reduzir a alíquota efetiva do Simples Nacional.',
-      ncms: [], produtos: [],
-      mediaMensal: vlMensal,
-      potencial: vlMensal * 60,
-      projecoes, meses,
-      risco: 'medio', cor: '#7c3aed', icon: '📊',
-    })
+    oportunidades.push({ tese: 'Segregação de Receitas por Anexo', descricao: 'Mix de mercadorias e serviços detectado.', ncms: [], produtos: [], mediaMensal: vlMensal, potencial: vlMensal * 60, projecoes: PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses })), meses, risco: 'medio', cor: '#7c3aed', icon: '📊' })
   }
 
   if (regime === 'Simples Nacional' && itensServico.length > 0) {
     const vlMensal = (itensServico.reduce((s, i) => s + i.vProd, 0) || totalVNF) / meses * 0.05
-    const projecoes = PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses }))
-    oportunidades.push({
-      tese: 'Fator R — Migração Anexo V para III',
-      descricao: 'Empresa prestadora de serviços pode migrar do Anexo V para o III via Fator R, reduzindo a carga tributária.',
-      ncms: [], produtos: [],
-      mediaMensal: vlMensal,
-      potencial: vlMensal * 60,
-      projecoes, meses,
-      risco: 'medio', cor: '#d97706', icon: '🔄',
-    })
+    oportunidades.push({ tese: 'Fator R — Migração Anexo V para III', descricao: 'Empresa prestadora de serviços pode migrar para Anexo III via Fator R.', ncms: [], produtos: [], mediaMensal: vlMensal, potencial: vlMensal * 60, projecoes: PERIODOS.map(p => ({ ...p, valor: vlMensal * p.meses })), meses, risco: 'medio', cor: '#d97706', icon: '🔄' })
   }
 
   const itensPisAlto = todosItens.filter(i => i.pPIS > 1.65 || i.pCOFINS > 7.6)
   if (itensPisAlto.length > 0) {
-    const excessoMensal = itensPisAlto.reduce((s, i) => {
-      return s + Math.max(0, i.vItemPIS - i.vProd * 0.0165) + Math.max(0, i.vItemCOFINS - i.vProd * 0.076)
-    }, 0) / meses
-    if (excessoMensal > 0) {
-      const projecoes = PERIODOS.map(p => ({ ...p, valor: excessoMensal * p.meses }))
-      oportunidades.push({
-        tese: 'PIS/COFINS — Alíquota Incorreta',
-        descricao: `${itensPisAlto.length} produto(s) tributados com alíquota de PIS/COFINS acima do permitido pela legislação.`,
-        ncms: [...new Set(itensPisAlto.map(i => i.ncm))].slice(0, 5),
-        produtos: itensPisAlto.map(i => i.xProd).slice(0, 3),
-        mediaMensal: excessoMensal,
-        potencial: excessoMensal * 60,
-        projecoes, meses,
-        risco: 'medio', cor: '#0d9488', icon: '📋',
-      })
-    }
+    const excessoMensal = itensPisAlto.reduce((s, i) => s + Math.max(0, i.vItemPIS - i.vProd * 0.0165) + Math.max(0, i.vItemCOFINS - i.vProd * 0.076), 0) / meses
+    if (excessoMensal > 0) oportunidades.push({ tese: 'PIS/COFINS — Alíquota Incorreta', descricao: `${itensPisAlto.length} produto(s) com alíquota acima do permitido.`, ncms: [...new Set(itensPisAlto.map(i => i.ncm))].slice(0, 5), produtos: itensPisAlto.map(i => i.xProd).slice(0, 3), mediaMensal: excessoMensal, potencial: excessoMensal * 60, projecoes: PERIODOS.map(p => ({ ...p, valor: excessoMensal * p.meses })), meses, risco: 'medio', cor: '#0d9488', icon: '📋' })
   }
 
   return oportunidades
 }
 
 function parsePGDAS(xmlStr) {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xmlStr, 'application/xml')
+  const parser = new DOMParser(); const doc = parser.parseFromString(xmlStr, 'application/xml')
   const competencia = doc.querySelector('periodoApuracao')?.textContent || doc.querySelector('competencia')?.textContent || ''
   const receitaBruta = parseFloat(doc.querySelector('receitaBrutaTotal')?.textContent || doc.querySelector('totalReceita')?.textContent || 0)
   const dasDevido = parseFloat(doc.querySelector('valorDevido')?.textContent || doc.querySelector('dasDevido')?.textContent || 0)
-  const cnpj = doc.querySelector('cnpj')?.textContent || ''
-  const razaoSocial = doc.querySelector('razaoSocial')?.textContent || ''
   const aliquota = parseFloat(doc.querySelector('aliquotaEfetiva')?.textContent || 0)
-  return { competencia: competencia.slice(0, 7), receitaBruta, dasDevido, cnpj, razaoSocial, aliquota, valido: !!competencia && receitaBruta > 0 }
+  return { competencia: competencia.slice(0, 7), receitaBruta, dasDevido, aliquota, valido: !!competencia && receitaBruta > 0 }
 }
 
 function parseDCTFWeb(xmlStr) {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xmlStr, 'application/xml')
+  const parser = new DOMParser(); const doc = parser.parseFromString(xmlStr, 'application/xml')
   const get = tag => doc.querySelector(tag)?.textContent || ''
   const competencia = get('periodoApuracao') || get('competencia') || ''
-  const totalDebito   = parseFloat(get('totalDebito')   || 0)
-  const totalCredito  = parseFloat(get('totalCredito')  || 0)
-  const totalRecolher = parseFloat(get('totalRecolher') || 0)
-  return { competencia: competencia.slice(0, 7), totalDebito, totalCredito, totalRecolher, valido: !!competencia }
+  return { competencia: competencia.slice(0, 7), totalDebito: parseFloat(get('totalDebito') || 0), totalCredito: parseFloat(get('totalCredito') || 0), totalRecolher: parseFloat(get('totalRecolher') || 0), valido: !!competencia }
 }
 
 function parseSPED(txtStr, tipo) {
   const linhas = txtStr.split('\n').map(l => l.trim()).filter(Boolean)
-  const result = { tipo, competencia: '', cnpj: '', totalEntradas: 0, totalSaidas: 0, totalICMS: 0, totalPIS: 0, totalCOFINS: 0, linhasLidas: linhas.length, valido: false }
+  const result = { tipo, competencia: '', totalEntradas: 0, totalSaidas: 0, totalICMS: 0, totalPIS: 0, totalCOFINS: 0, linhasLidas: linhas.length, valido: false }
   linhas.forEach(linha => {
-    const c = linha.split('|').filter((_, i) => i > 0)
-    const reg = c[0]
+    const c = linha.split('|').filter((_, i) => i > 0); const reg = c[0]
     if (reg === '0000') { const dtIni = c[2] || ''; result.competencia = dtIni ? `${dtIni.slice(4,8)}-${dtIni.slice(2,4)}` : ''; result.valido = true }
     if (reg === 'C100') { const vDoc = parseFloat(c[10] || 0); if (c[1]==='0') result.totalEntradas+=vDoc; else result.totalSaidas+=vDoc }
-    if (reg === 'E110') result.totalICMS   += parseFloat(c[12] || 0)
-    if (reg === 'M200') result.totalPIS    += parseFloat(c[1]  || 0)
-    if (reg === 'M600') result.totalCOFINS += parseFloat(c[1]  || 0)
+    if (reg === 'E110') result.totalICMS += parseFloat(c[12] || 0)
+    if (reg === 'M200') result.totalPIS  += parseFloat(c[1]  || 0)
+    if (reg === 'M600') result.totalCOFINS += parseFloat(c[1] || 0)
   })
   return result
 }
@@ -210,8 +127,7 @@ function parseECDECF(txtStr, tipo) {
   const linhas = txtStr.split('\n').map(l => l.trim()).filter(Boolean)
   const result = { tipo, competencia: '', totalReceita: 0, irpj: 0, csll: 0, linhasLidas: linhas.length, valido: false }
   linhas.forEach(linha => {
-    const c = linha.split('|').filter((_, i) => i > 0)
-    const reg = c[0]
+    const c = linha.split('|').filter((_, i) => i > 0); const reg = c[0]
     if (reg === '0000') { const dtIni = c[2] || ''; result.competencia = dtIni ? `${dtIni.slice(4,8)}-${dtIni.slice(2,4)}` : ''; result.valido = true }
     if (reg === 'P100') result.totalReceita += parseFloat(c[6] || 0)
     if (reg === 'P150') { result.irpj += parseFloat(c[3] || 0); result.csll += parseFloat(c[4] || 0) }
@@ -243,6 +159,200 @@ function agruparNFePorCompetencia(nfes) {
     m.qtd++; m.vNF+=nf.vNF; m.vICMS+=nf.vICMS; m.vPIS+=nf.vPIS; m.vCOFINS+=nf.vCOFINS; m.vST+=nf.vST
   })
   return Object.values(map).sort((a,b) => a.competencia.localeCompare(b.competencia))
+}
+
+// ─── RELATÓRIO DE IMPORTAÇÃO ─────────────────────────────────────────────────
+function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
+  const agrupadas = agruparNFePorCompetencia(nfes)
+  const competencias = agrupadas.map(a => a.competencia)
+  const periodoInicio = competencias[0] || '—'
+  const periodoFim    = competencias[competencias.length - 1] || '—'
+  const totalNF       = nfes.reduce((s, n) => s + n.vNF, 0)
+  const totalICMS     = nfes.reduce((s, n) => s + n.vICMS, 0)
+  const totalPIS      = nfes.reduce((s, n) => s + n.vPIS, 0)
+  const totalCOFINS   = nfes.reduce((s, n) => s + n.vCOFINS, 0)
+  const totalST       = nfes.reduce((s, n) => s + n.vST, 0)
+  const totalImpostos = totalICMS + totalPIS + totalCOFINS + totalST
+  const totalPotencial = oportunidades.reduce((s, o) => s + o.potencial, 0)
+  const dataHoje = new Date().toLocaleDateString('pt-BR')
+  const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', overflow: 'hidden', marginTop: 24 }}>
+
+      {/* Botão imprimir — some na impressão */}
+      <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="no-print">
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Relatório de Importação</div>
+        <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          🖨️ Imprimir
+        </button>
+      </div>
+
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          #relatorio-importacao, #relatorio-importacao * { visibility: visible; }
+          #relatorio-importacao { position: fixed; top: 0; left: 0; width: 100%; }
+        }
+      `}</style>
+
+      <div id="relatorio-importacao" style={{ padding: '32px 36px' }}>
+
+        {/* Cabeçalho */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottom: '2px solid #0B1F4D' }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>FISCALTRIB — RELATÓRIO DE IMPORTAÇÃO</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#0B1F4D', marginBottom: 4 }}>Relatório de Importação Fiscal</div>
+            <div style={{ fontSize: 13, color: '#64748b' }}>Gerado em {dataHoje} às {horaAgora}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 28, fontWeight: 900, color: '#0B1F4D' }}>⚖️ e-FiscalTrib®</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>Sistema de Recuperação Tributária</div>
+          </div>
+        </div>
+
+        {/* Dados do cliente */}
+        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Dados do Cliente</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div><div style={{ fontSize: 11, color: '#64748b' }}>Razão Social</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.razao_social || '—'}</div></div>
+            <div><div style={{ fontSize: 11, color: '#64748b' }}>CNPJ</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.cnpj || '—'}</div></div>
+            <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.regime || '—'}</div></div>
+          </div>
+        </div>
+
+        {/* Resumo da importação */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📥 Resumo da Importação</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+            {[
+              { label: 'Tipo de arquivo',    valor: origem,          cor: '#0B1F4D' },
+              { label: 'NF-e importadas',    valor: nfes.length,     cor: '#2563eb' },
+              { label: 'Período analisado',  valor: `${periodoInicio} a ${periodoFim}`, cor: '#7c3aed' },
+              { label: 'Competências',       valor: competencias.length, cor: '#d97706' },
+            ].map((c, i) => (
+              <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{c.label}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: c.cor }}>{c.valor}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Valores fiscais */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>💰 Valores Fiscais Identificados</div>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#0B1F4D', color: '#fff' }}>
+                  {['Tributo', 'Valor Total', '% sobre Faturamento'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { tributo: 'Faturamento Total (NF-e)', valor: totalNF,     pct: 100 },
+                  { tributo: 'ICMS',                     valor: totalICMS,   pct: totalNF > 0 ? totalICMS/totalNF*100 : 0 },
+                  { tributo: 'PIS',                      valor: totalPIS,    pct: totalNF > 0 ? totalPIS/totalNF*100 : 0 },
+                  { tributo: 'COFINS',                   valor: totalCOFINS, pct: totalNF > 0 ? totalCOFINS/totalNF*100 : 0 },
+                  { tributo: 'ICMS-ST',                  valor: totalST,     pct: totalNF > 0 ? totalST/totalNF*100 : 0 },
+                  { tributo: 'Total de Impostos',        valor: totalImpostos, pct: totalNF > 0 ? totalImpostos/totalNF*100 : 0, bold: true },
+                ].map((r, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.bold ? '#f0f9ff' : i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                    <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151' }}>{r.tributo}</td>
+                    <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151' }}>{fmtR(r.valor)}</td>
+                    <td style={{ padding: '10px 16px', color: '#64748b' }}>{r.pct.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Competências */}
+        {agrupadas.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📅 Detalhamento por Competência</div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['Competência', 'NF-e', 'Faturamento', 'ICMS', 'PIS', 'COFINS', 'ST'].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {agrupadas.map((a, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0B1F4D' }}>{a.competencia}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{a.qtd}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vNF)}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vICMS)}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vPIS)}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vCOFINS)}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vST)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Resultado da análise */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>⚡ Resultado da Análise Tributária</div>
+          {oportunidades.length > 0 ? (
+            <div>
+              <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '14px 18px', marginBottom: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
+                  ✅ {oportunidades.length} oportunidade(s) tributária(s) identificada(s)
+                </div>
+                <div style={{ fontSize: 13, color: '#166534' }}>
+                  Potencial total estimado (60 meses): <strong>{fmtR(totalPotencial)}</strong>
+                </div>
+              </div>
+              {oportunidades.map((op, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderRadius: 8, marginBottom: 8, border: `1px solid ${op.cor}33` }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: op.cor }}>{op.icon} {op.tese}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{op.descricao}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Potencial 60m</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: op.cor }}>{fmtR(op.potencial)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '16px 20px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>✅ Nenhuma irregularidade detectada neste período</div>
+              <div style={{ fontSize: 13, color: '#64748b' }}>
+                As NF-es analisadas não indicam oportunidades tributárias evidentes com base nos parâmetros automáticos.
+                Recomenda-se análise manual para verificar possíveis oportunidades não detectadas automaticamente.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé */}
+        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+            ⚠️ Este relatório é preliminar e não substitui análise profissional habilitada.
+          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+            FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
 }
 
 // ─── RAIO-X TRIBUTÁRIO ───────────────────────────────────────────────────────
@@ -312,10 +422,10 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginTop: 8 }}>
           {[
-            { label: 'NF-e analisadas',   valor: nfes?.length || 0,       cor: '#7CC4FF' },
-            { label: 'Oportunidades',      valor: oportunidades.length,     cor: '#4ade80' },
-            { label: 'Potencial estimado', valor: fmtR(potencialFinal),     cor: '#fbbf24' },
-            { label: 'Prazos críticos',    valor: criticos.length,          cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
+            { label: 'NF-e analisadas',   valor: nfes?.length || 0,   cor: '#7CC4FF' },
+            { label: 'Oportunidades',      valor: oportunidades.length, cor: '#4ade80' },
+            { label: 'Potencial estimado', valor: fmtR(potencialFinal), cor: '#fbbf24' },
+            { label: 'Prazos críticos',    valor: criticos.length,      cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
           ].map((c, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: c.cor }}>{c.valor}</div>
@@ -328,7 +438,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
       {oportunidades.length > 0 ? (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>
-            🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Tributária{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
+            🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
           </div>
           {oportunidades.map((op, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -343,9 +453,8 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                   <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, maxWidth: 560 }}>{op.descricao}</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 20 }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Média mensal identificada</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Média mensal</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: op.cor }}>{fmtR(op.mediaMensal)}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>base: {op.meses} mês(es) analisado(s)</div>
                 </div>
               </div>
               <div style={{ background: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
@@ -362,14 +471,10 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
               {op.ncms.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                   <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>NCMs:</span>
-                  {op.ncms.map((n, j) => (
-                    <span key={j} style={{ fontSize: 11, background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 8px', borderRadius: 6, color: '#374151', fontWeight: 600 }}>{n}</span>
-                  ))}
+                  {op.ncms.map((n, j) => <span key={j} style={{ fontSize: 11, background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 8px', borderRadius: 6, color: '#374151', fontWeight: 600 }}>{n}</span>)}
                 </div>
               )}
-              {op.produtos.length > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>
-              )}
+              {op.produtos.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>}
             </div>
           ))}
           <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
@@ -377,9 +482,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
               <div style={{ fontSize: 13, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>POTENCIAL TOTAL IDENTIFICADO</div>
               <div style={{ fontSize: 12, color: '#93c5fd' }}>{oportunidades.length} teses · {nfes?.length || 0} NF-e analisadas</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 32, fontWeight: 900, color: '#4ade80' }}>{fmtR(totalPotencial)}</div>
-            </div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: '#4ade80' }}>{fmtR(totalPotencial)}</div>
           </div>
         </div>
       ) : (
@@ -467,6 +570,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   const [salvo,     setSalvo]     = useState(false)
   const [origem,    setOrigem]    = useState('Manual')
   const [nfesLidas, setNfesLidas] = useState([])
+  const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
 
   useEffect(() => { setAba(abaInicial) }, [abaInicial])
 
@@ -488,10 +592,14 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
     setSalvo(true)
     setOrigem(origemImp)
     if (nfes) setNfesLidas(nfes)
+    setMostrarRelatorio(true)
     carregarEntradas()
   }
 
   const cliente = clientes.find(c => c.id === clienteId)
+  const oportunidadesAtivas = nfesLidas.length > 0
+    ? detectarOportunidades(nfesLidas, cliente?.regime || 'Simples Nacional')
+    : []
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -513,7 +621,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
       <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:20 }}>
         <label style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', display:'block', marginBottom:10 }}>👤 Cliente para importação:</label>
-        <select value={clienteId} onChange={e=>{ setClienteId(e.target.value); setSalvo(false); setNfesLidas([]) }}
+        <select value={clienteId} onChange={e=>{ setClienteId(e.target.value); setSalvo(false); setNfesLidas([]); setMostrarRelatorio(false) }}
           style={{ width:'100%', padding:'12px 16px', border:'2px solid #e2e8f0', borderRadius:10, fontSize:14, color:'#374151', background:'#f8fafc' }}>
           <option value="">— Selecione um cliente —</option>
           {clientes.map(c=><option key={c.id} value={c.id}>{c.razao_social} ({c.regime})</option>)}
@@ -522,7 +630,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
       <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
         {ABAS.map(a=>(
-          <button key={a.id} onClick={()=>{ setAba(a.id); setSalvo(false) }}
+          <button key={a.id} onClick={()=>{ setAba(a.id); setSalvo(false); setMostrarRelatorio(false) }}
             style={{ padding:'9px 14px', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer', border:`2px solid ${aba===a.id?'#0B1F4D':'#e2e8f0'}`, background:aba===a.id?'#0B1F4D':'#fff', color:aba===a.id?'#fff':'#374151', display:'flex', alignItems:'center', gap:6 }}>
             {a.icon} {a.label}
           </button>
@@ -546,6 +654,16 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
           {aba==='ecd'     && <AbaECDECF    clienteId={clienteId} cliente={cliente} tipo="ECD"               onSalvo={()=>onSalvo('ECD')} />}
           {aba==='ecf'     && <AbaECDECF    clienteId={clienteId} cliente={cliente} tipo="ECF"               onSalvo={()=>onSalvo('ECF')} />}
           {aba==='debitos' && <AbaDebitos   clienteId={clienteId} cliente={cliente}                          onSalvo={()=>onSalvo('Extrato Débitos')} />}
+
+          {/* RELATÓRIO DE IMPORTAÇÃO */}
+          {mostrarRelatorio && nfesLidas.length > 0 && (
+            <RelatorioImportacao
+              cliente={cliente}
+              nfes={nfesLidas}
+              origem={origem}
+              oportunidades={oportunidadesAtivas}
+            />
+          )}
 
           {salvo && (
             <RaioXTributario
@@ -593,10 +711,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
   }
 
   const agrupadas = agruparNFePorCompetencia(nfes)
-
-  const oportunidadesPreview = nfes.length > 0
-    ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional')
-    : []
+  const oportunidadesPreview = nfes.length > 0 ? detectarOportunidades(nfes, cliente?.regime || 'Simples Nacional') : []
 
   async function salvarEntradas() {
     setSalvando(true)
@@ -649,21 +764,17 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
           {oportunidadesPreview.length > 0 && (
             <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
               <div style={{ fontSize:14, fontWeight:800, color:'#166534', marginBottom:12 }}>
-                ⚡ {oportunidadesPreview.length} oportunidade(s) detectada(s) — Potencial: {fmtR(oportunidadesPreview.reduce((s,o)=>s+o.potencial,0))}
+                ⚡ {oportunidadesPreview.length} oportunidade(s) — Potencial: {fmtR(oportunidadesPreview.reduce((s,o)=>s+o.potencial,0))}
               </div>
               {oportunidadesPreview.map((op,i)=>(
                 <div key={i} style={{ fontSize:13, color:'#166534', marginBottom:4, display:'flex', justifyContent:'space-between' }}>
-                  <span>✓ {op.tese}</span>
-                  <span style={{ fontWeight:700 }}>{fmtR(op.potencial)}</span>
+                  <span>✓ {op.tese}</span><span style={{ fontWeight:700 }}>{fmtR(op.potencial)}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {salvo
-            ? <SalvoRaioX />
-            : <BotoesAcao onLimpar={()=>{ setNfes([]); setErros([]) }} onSalvar={salvarEntradas} salvando={salvando} />
-          }
+          {salvo ? <SalvoRaioX /> : <BotoesAcao onLimpar={()=>{ setNfes([]); setErros([]) }} onSalvar={salvarEntradas} salvando={salvando} />}
         </div>
       )}
     </div>
@@ -682,11 +793,10 @@ function AbaPGDAS({ clienteId, onSalvo }) {
 }
 
 function AbaDAS({ clienteId, onSalvo }) {
-  const [linhas,   setLinhas]   = useState([{competencia:'',valor:'',situacao:'pago'}])
-  const [salvando, setSalvando] = useState(false)
-  const [salvo,    setSalvo]    = useState(false)
+  const [linhas, setLinhas] = useState([{competencia:'',valor:'',situacao:'pago'}])
+  const [salvando, setSalvando] = useState(false); const [salvo, setSalvo] = useState(false)
   const mask = v => { const n=v.replace(/\D/g,''); if(!n) return ''; return (parseFloat(n)/100).toLocaleString('pt-BR',{minimumFractionDigits:2}) }
-  const upd  = (i,k,v) => setLinhas(p=>p.map((l,j)=>j===i?{...l,[k]:v}:l))
+  const upd = (i,k,v) => setLinhas(p=>p.map((l,j)=>j===i?{...l,[k]:v}:l))
   async function salvar() {
     const val = linhas.filter(l=>l.competencia&&l.valor)
     if (!val.length) { alert('Preencha ao menos uma linha.'); return }
