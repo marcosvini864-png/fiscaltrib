@@ -10,7 +10,6 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
 
   async function handleCadastro() {
     setErro('')
-
     if (!nome.trim() || !email.trim() || !senha.trim()) {
       setErro('Preencha todos os campos.')
       return
@@ -19,7 +18,6 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
       setErro('A senha deve ter pelo menos 6 caracteres.')
       return
     }
-
     setLoad(true)
     try {
       // Cria a conta
@@ -28,7 +26,6 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
         password: senha,
         options: { data: { nome } }
       })
-
       if (authError) throw authError
 
       // Faz login imediato após cadastro
@@ -36,7 +33,6 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
         email,
         password: senha,
       })
-
       if (loginError) throw loginError
 
       const userId = loginData.user?.id
@@ -47,8 +43,12 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
         if (dbError) console.warn('Aviso tabela usuarios:', dbError.message)
       }
 
-      onCadastrado(loginData.user)
+      // Dispara e-mail de boas-vindas (sem bloquear o fluxo)
+      supabase.functions.invoke('email-boas-vindas', {
+        body: { nome, email },
+      }).catch(err => console.warn('Aviso e-mail boas-vindas:', err.message))
 
+      onCadastrado(loginData.user)
     } catch (e) {
       setErro(e.message || 'Erro ao criar conta.')
     } finally {
@@ -60,7 +60,6 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
     <div style={styles.container}>
       <div style={styles.card}>
         <h2 style={styles.titulo}>Criar Conta — FiscalTrib</h2>
-
         <input
           style={styles.input}
           placeholder="Seu nome completo"
@@ -81,13 +80,10 @@ export default function Cadastro({ onVoltar, onCadastrado }) {
           value={senha}
           onChange={e => setSenha(e.target.value)}
         />
-
         {erro && <p style={styles.erro}>{erro}</p>}
-
         <button style={styles.btn} onClick={handleCadastro} disabled={load}>
           {load ? 'Criando conta...' : 'Continuar →'}
         </button>
-
         <button style={styles.btnVoltar} onClick={onVoltar}>
           ← Voltar ao Login
         </button>
