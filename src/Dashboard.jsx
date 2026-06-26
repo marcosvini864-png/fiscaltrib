@@ -81,7 +81,6 @@ function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
       display:'flex', flexDirection:'column',
       flexShrink:0, overflowY:'auto',
     }}>
-      {/* Cliente Ativo */}
       <div style={{padding:'14px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
         <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,marginBottom:6}}>CLIENTE ATIVO</div>
         <select
@@ -92,8 +91,6 @@ function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
           {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
         </select>
       </div>
-
-      {/* Menu */}
       <nav style={{flex:1,padding:'8px 0'}}>
         {MENU.map(item => {
           const act = page===item.key
@@ -115,7 +112,6 @@ function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
           )
         })}
       </nav>
-
       <div style={{padding:'10px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>
         fiscaltrib.com.br
       </div>
@@ -244,6 +240,37 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
     else setPage(key)
   }
 
+  async function preencherViaXML(file) {
+    const text = await file.text()
+    const doc = new DOMParser().parseFromString(text, 'application/xml')
+    const emitEl = Array.from(doc.getElementsByTagNameNS('*', 'emit'))[0]
+    const getEmit = tag => emitEl ? Array.from(emitEl.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || '' : ''
+    const cnpj     = getEmit('CNPJ')
+    const nome     = getEmit('xNome')
+    const fantasia = getEmit('xFant')
+    const cnae     = getEmit('CNAE')
+    const uf       = getEmit('UF')
+    const municipio= getEmit('xMun')
+    const ie       = getEmit('IE')
+    const im       = getEmit('IM')
+    const crt      = getEmit('CRT')
+    const regime   = crt === '1' || crt === '2' ? 'Simples Nacional' : 'Lucro Presumido'
+    const cnpjFmt  = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+    const cnaeFmt  = maskCNAE(cnae)
+    setNovoCliente(prev => ({
+      ...prev,
+      razao_social: nome,
+      nome_fantasia: fantasia,
+      cnpj: cnpjFmt,
+      cnae_principal: cnaeFmt,
+      municipio,
+      uf,
+      inscricao_estadual: ie,
+      inscricao_municipal: im,
+      regime,
+    }))
+  }
+
   const active     = clientes.find(c=>c.id.toString()===activeId)||null
   const ents       = entradas[activeId]||[]
   const totalPot   = ents.reduce((s,e)=>s+(e.credito||0),0)
@@ -313,8 +340,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
               <KpiCard icon="💰" value={fmtR(totalGeral)} label="Valor potencial recuperável"    color="#16A34A" />
               <KpiCard icon="⏱️" value={criticos}         label="Competências críticas (≤1 ano)" color="#DC2626" />
             </div>
-
-            {/* Acesso rápido — Central e Reforma */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
@@ -330,23 +355,16 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                     ))}
                   </div>
                 </div>
-                <button onClick={()=>setPage('central')}
-                  style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>
-                  Abrir →
-                </button>
+                <button onClick={()=>setPage('central')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Abrir →</button>
               </div>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚠️ Reforma Tributária</div>
                   <div style={{fontSize:12,color:C.muted}}>Impacto nas recuperações tributárias — CBS, IBS e período de transição.</div>
                 </div>
-                <button onClick={()=>setPage('central')}
-                  style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>
-                  Ver →
-                </button>
+                <button onClick={()=>setPage('central')} style={{background:C.navy,border:'none',color:C.white,padding:'6px 14px',borderRadius:8,fontSize:12,cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>Ver →</button>
               </div>
             </div>
-
             {clientes.length===0 ? (
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>👥</div>
@@ -411,6 +429,26 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='novo-cliente' && novoCliente && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
             <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:24}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
+
+            {/* BOTÃO IMPORTAR XML */}
+            {!novoCliente.id && (
+              <div style={{background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:12,padding:'20px 24px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1e40af',marginBottom:4}}>⚡ Preencher via XML de NF-e</div>
+                  <div style={{fontSize:13,color:'#64748b'}}>Importe um XML do cliente para preencher os dados automaticamente</div>
+                </div>
+                <label style={{padding:'10px 20px',background:'#1e40af',color:'#fff',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+                  📂 Importar XML
+                  <input type="file" accept=".xml" style={{display:'none'}} onChange={async e => {
+                    const file = e.target.files[0]
+                    if (!file) return
+                    await preencherViaXML(file)
+                    e.target.value = ''
+                  }} />
+                </label>
+              </div>
+            )}
+
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📋 Identificação</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
@@ -428,6 +466,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 </div>
               </div>
             </div>
+
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
               <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16}}>📅 Período de análise</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
@@ -439,6 +478,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
                 ))}
               </div>
             </div>
+
             <div style={{display:'flex',gap:12}}>
               <button onClick={salvarCliente} disabled={salvando} style={btnPrimary}>{salvando?'💾 Salvando...':'💾 Salvar cliente'}</button>
               <button onClick={()=>setPage('clientes')} style={btnOutline}>Cancelar</button>
