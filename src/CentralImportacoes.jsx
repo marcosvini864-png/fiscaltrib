@@ -174,13 +174,57 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   const totalST       = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos = totalICMS + totalPIS + totalCOFINS + totalST
   const totalPotencial = oportunidades.reduce((s, o) => s + o.potencial, 0)
-  const dataHoje = new Date().toLocaleDateString('pt-BR')
+  const dataHoje  = new Date().toLocaleDateString('pt-BR')
   const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const regime    = cliente?.regime || 'Simples Nacional'
+
+  const DIAGNOSTICO = {
+    'Simples Nacional': {
+      titulo: 'Condições para Recuperação de Crédito — Simples Nacional',
+      intro: 'Empresas optantes pelo Simples Nacional podem recuperar créditos tributários nas seguintes situações:',
+      condicoes: [
+        { icon: '💊', titulo: 'Receitas Monofásicas', desc: 'Produtos com NCM específico (combustíveis, farmacêuticos, bebidas, cosméticos, cereais) sujeitos à alíquota zero de PIS/COFINS que foram recolhidos indevidamente dentro do DAS.' },
+        { icon: '🏷️', titulo: 'ICMS-ST (Substituição Tributária)', desc: 'Valores retidos por substituição tributária que podem ser excluídos da base de cálculo do Simples Nacional, gerando crédito a recuperar conforme decisão do STJ.' },
+        { icon: '📊', titulo: 'Segregação de Receitas por Anexo', desc: 'Empresas com mix de mercadorias e serviços podem reduzir a alíquota efetiva separando as receitas nos anexos corretos do Simples Nacional.' },
+        { icon: '🔄', titulo: 'Fator R — Migração Anexo V para III', desc: 'Prestadores de serviços com folha de pagamento ≥ 28% da receita bruta dos últimos 12 meses podem migrar do Anexo V (maior carga) para o Anexo III (menor carga).' },
+        { icon: '📋', titulo: 'PIS/COFINS — Alíquota Incorreta', desc: 'Produtos tributados pelo fornecedor com alíquota de PIS/COFINS acima do permitido, gerando pagamento indevido que pode ser recuperado via PER/DCOMP.' },
+      ],
+    },
+    'Lucro Presumido': {
+      titulo: 'Condições para Recuperação de Crédito — Lucro Presumido',
+      intro: 'Empresas no Lucro Presumido podem recuperar créditos tributários nas seguintes situações:',
+      condicoes: [
+        { icon: '💰', titulo: 'Exclusão do ICMS da Base PIS/COFINS', desc: 'Conforme decisão do STF (Tema 69), o ICMS destacado nas notas fiscais não integra a base de cálculo do PIS e da COFINS, gerando crédito para os últimos 5 anos.' },
+        { icon: '🏷️', titulo: 'ICMS-ST na Base PIS/COFINS', desc: 'O ICMS retido por substituição tributária também não deve compor a base de cálculo do PIS/COFINS, gerando direito a crédito.' },
+        { icon: '📋', titulo: 'Alíquota Incorreta PIS/COFINS', desc: 'Produtos sujeitos à alíquota zero, isenção ou monofasia que foram tributados com alíquota cheia de PIS (0,65%) e COFINS (3%).' },
+        { icon: '🏢', titulo: 'INSS sobre Verbas Indenizatórias', desc: 'Contribuições previdenciárias recolhidas sobre verbas de natureza indenizatória (férias, aviso prévio, auxílio-doença) que não integram o salário de contribuição.' },
+        { icon: '📊', titulo: 'IRPJ/CSLL — Base de Cálculo Reduzida', desc: 'Receitas financeiras, ganhos de capital e outras receitas que não se enquadram na base presumida padrão podem ter alíquota diferenciada de IRPJ e CSLL.' },
+        { icon: '🔄', titulo: 'Créditos de IPI sobre Insumos', desc: 'Indústrias no Lucro Presumido podem apropriar créditos de IPI sobre matérias-primas e insumos utilizados na produção.' },
+      ],
+    },
+    'Lucro Real': {
+      titulo: 'Condições para Recuperação de Crédito — Lucro Real',
+      intro: 'Empresas no Lucro Real têm o maior conjunto de oportunidades para recuperação de créditos tributários:',
+      condicoes: [
+        { icon: '💰', titulo: 'Créditos de PIS/COFINS Não Cumulativo', desc: 'No regime não cumulativo, são permitidos créditos de PIS (1,65%) e COFINS (7,6%) sobre insumos, energia elétrica, aluguéis, depreciação de ativos e outros itens da legislação.' },
+        { icon: '🏛️', titulo: 'Exclusão do ICMS da Base PIS/COFINS', desc: 'Conforme STF (Tema 69), o ICMS destacado nas NF-es não compõe a base de cálculo do PIS/COFINS — direito aos últimos 5 anos.' },
+        { icon: '📊', titulo: 'Prejuízo Fiscal e Base Negativa CSLL', desc: 'Prejuízos fiscais acumulados podem ser compensados com lucros futuros (limitado a 30% por período), reduzindo IRPJ e CSLL a recolher.' },
+        { icon: '🏢', titulo: 'INSS sobre Verbas Indenizatórias', desc: 'Contribuições previdenciárias recolhidas sobre férias, aviso prévio indenizado, PLR e outros itens de natureza indenizatória.' },
+        { icon: '🔄', titulo: 'Créditos de IPI sobre Insumos e Exportação', desc: 'Créditos de IPI sobre matérias-primas, insumos e embalagens utilizados na produção, além de créditos sobre exportações.' },
+        { icon: '📋', titulo: 'Ativos Diferidos e Depreciação Acelerada', desc: 'Revisão de taxas de depreciação de bens do ativo imobilizado, especialmente para bens com vida útil diferenciada ou utilizados em múltiplos turnos.' },
+        { icon: '⚖️', titulo: 'JCP — Juros sobre Capital Próprio', desc: 'Dedutibilidade dos Juros sobre Capital Próprio calculados sobre o patrimônio líquido, reduzindo a base de IRPJ e CSLL.' },
+      ],
+    },
+  }
+
+  const diag = DIAGNOSTICO[regime] || DIAGNOSTICO['Simples Nacional']
+
+  // Teses detectadas nas NF-es
+  const tesasDetectadas = oportunidades.map(o => o.tese)
 
   return (
     <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', overflow: 'hidden', marginTop: 24 }}>
 
-      {/* Botão imprimir — some na impressão */}
       <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="no-print">
         <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Relatório de Importação</div>
         <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -218,19 +262,19 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div><div style={{ fontSize: 11, color: '#64748b' }}>Razão Social</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.razao_social || '—'}</div></div>
             <div><div style={{ fontSize: 11, color: '#64748b' }}>CNPJ</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.cnpj || '—'}</div></div>
-            <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.regime || '—'}</div></div>
+            <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{regime}</div></div>
           </div>
         </div>
 
-        {/* Resumo da importação */}
+        {/* Resumo */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📥 Resumo da Importação</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {[
-              { label: 'Tipo de arquivo',    valor: origem,          cor: '#0B1F4D' },
-              { label: 'NF-e importadas',    valor: nfes.length,     cor: '#2563eb' },
+              { label: 'Tipo de arquivo',    valor: origem,                            cor: '#0B1F4D' },
+              { label: 'NF-e importadas',    valor: nfes.length,                       cor: '#2563eb' },
               { label: 'Período analisado',  valor: `${periodoInicio} a ${periodoFim}`, cor: '#7c3aed' },
-              { label: 'Competências',       valor: competencias.length, cor: '#d97706' },
+              { label: 'Competências',       valor: competencias.length,               cor: '#d97706' },
             ].map((c, i) => (
               <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{c.label}</div>
@@ -254,12 +298,12 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
               </thead>
               <tbody>
                 {[
-                  { tributo: 'Faturamento Total (NF-e)', valor: totalNF,     pct: 100 },
-                  { tributo: 'ICMS',                     valor: totalICMS,   pct: totalNF > 0 ? totalICMS/totalNF*100 : 0 },
-                  { tributo: 'PIS',                      valor: totalPIS,    pct: totalNF > 0 ? totalPIS/totalNF*100 : 0 },
-                  { tributo: 'COFINS',                   valor: totalCOFINS, pct: totalNF > 0 ? totalCOFINS/totalNF*100 : 0 },
-                  { tributo: 'ICMS-ST',                  valor: totalST,     pct: totalNF > 0 ? totalST/totalNF*100 : 0 },
-                  { tributo: 'Total de Impostos',        valor: totalImpostos, pct: totalNF > 0 ? totalImpostos/totalNF*100 : 0, bold: true },
+                  { tributo: 'Faturamento Total (NF-e)', valor: totalNF,      pct: 100,                                        bold: false },
+                  { tributo: 'ICMS',                     valor: totalICMS,    pct: totalNF > 0 ? totalICMS/totalNF*100 : 0,    bold: false },
+                  { tributo: 'PIS',                      valor: totalPIS,     pct: totalNF > 0 ? totalPIS/totalNF*100 : 0,     bold: false },
+                  { tributo: 'COFINS',                   valor: totalCOFINS,  pct: totalNF > 0 ? totalCOFINS/totalNF*100 : 0, bold: false },
+                  { tributo: 'ICMS-ST',                  valor: totalST,      pct: totalNF > 0 ? totalST/totalNF*100 : 0,     bold: false },
+                  { tributo: 'Total de Impostos',        valor: totalImpostos,pct: totalNF > 0 ? totalImpostos/totalNF*100 : 0, bold: true },
                 ].map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.bold ? '#f0f9ff' : i % 2 === 0 ? '#fff' : '#f8fafc' }}>
                     <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151' }}>{r.tributo}</td>
@@ -272,7 +316,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           </div>
         </div>
 
-        {/* Competências */}
+        {/* Detalhamento por competência */}
         {agrupadas.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📅 Detalhamento por Competência</div>
@@ -280,7 +324,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    {['Competência', 'NF-e', 'Faturamento', 'ICMS', 'PIS', 'COFINS', 'ST'].map(h => (
+                    {['Competência','NF-e','Faturamento','ICMS','PIS','COFINS','ST'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                     ))}
                   </tr>
@@ -289,12 +333,12 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
                   {agrupadas.map((a, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
                       <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0B1F4D' }}>{a.competencia}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{a.qtd}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vNF)}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vICMS)}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vPIS)}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vCOFINS)}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151' }}>{fmtR(a.vST)}</td>
+                      <td style={{ padding: '8px 12px' }}>{a.qtd}</td>
+                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vNF)}</td>
+                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vICMS)}</td>
+                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vPIS)}</td>
+                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vCOFINS)}</td>
+                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vST)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -303,17 +347,40 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           </div>
         )}
 
-        {/* Resultado da análise */}
+        {/* DIAGNÓSTICO TRIBUTÁRIO */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>⚡ Resultado da Análise Tributária</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 4 }}>⚖️ {diag.titulo}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>{diag.intro}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {diag.condicoes.map((c, i) => {
+              const detectada = tesasDetectadas.some(t => t.toLowerCase().includes(c.titulo.toLowerCase().split('—')[0].trim().toLowerCase()))
+              return (
+                <div key={i} style={{ display: 'flex', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${detectada ? '#86efac' : '#e2e8f0'}`, background: detectada ? '#f0fdf4' : '#f8fafc' }}>
+                  <div style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{c.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: detectada ? '#16a34a' : '#0B1F4D' }}>{c.titulo}</span>
+                      {detectada
+                        ? <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 99 }}>✅ IDENTIFICADO</span>
+                        : <span style={{ fontSize: 10, fontWeight: 700, background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: 99 }}>Não identificado neste período</span>
+                      }
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{c.desc}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Resultado */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>⚡ Resultado da Análise</div>
           {oportunidades.length > 0 ? (
             <div>
               <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '14px 18px', marginBottom: 12 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
-                  ✅ {oportunidades.length} oportunidade(s) tributária(s) identificada(s)
-                </div>
-                <div style={{ fontSize: 13, color: '#166534' }}>
-                  Potencial total estimado (60 meses): <strong>{fmtR(totalPotencial)}</strong>
+                  ✅ {oportunidades.length} oportunidade(s) identificada(s) — Potencial total: {fmtR(totalPotencial)}
                 </div>
               </div>
               {oportunidades.map((op, i) => (
@@ -330,11 +397,22 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
               ))}
             </div>
           ) : (
-            <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '16px 20px' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>✅ Nenhuma irregularidade detectada neste período</div>
-              <div style={{ fontSize: 13, color: '#64748b' }}>
-                As NF-es analisadas não indicam oportunidades tributárias evidentes com base nos parâmetros automáticos.
-                Recomenda-se análise manual para verificar possíveis oportunidades não detectadas automaticamente.
+            <div style={{ background: '#fffbeb', border: '2px solid #fde68a', borderRadius: 10, padding: '16px 20px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
+                ⚠️ Nenhuma oportunidade detectada automaticamente neste período
+              </div>
+              <div style={{ fontSize: 13, color: '#78350f', lineHeight: 1.7 }}>
+                Com base nas NF-es importadas, o sistema não identificou automaticamente as condições listadas acima.
+                Isso pode ocorrer porque:
+              </div>
+              <ul style={{ fontSize: 13, color: '#78350f', lineHeight: 1.8, marginTop: 8, paddingLeft: 20 }}>
+                <li>Os produtos não possuem NCMs sujeitos à monofasia de PIS/COFINS</li>
+                <li>Não há ICMS-ST destacado nas notas fiscais deste período</li>
+                <li>As alíquotas de PIS/COFINS estão dentro do permitido pela legislação</li>
+                <li>O volume de serviços não é suficiente para aplicar o Fator R</li>
+              </ul>
+              <div style={{ fontSize: 13, color: '#92400e', marginTop: 8, fontWeight: 600 }}>
+                Recomendamos análise manual complementar por consultor tributário habilitado, pois podem existir oportunidades não detectáveis automaticamente como: revisão de base de cálculo, compensações e outros créditos.
               </div>
             </div>
           )}
@@ -342,18 +420,14 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
 
         {/* Rodapé */}
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>
-            ⚠️ Este relatório é preliminar e não substitui análise profissional habilitada.
-          </div>
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>
-            FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822
-          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>⚠️ Relatório preliminar — não substitui análise profissional habilitada.</div>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822</div>
         </div>
 
       </div>
     </div>
   )
-}
+}  
 
 // ─── RAIO-X TRIBUTÁRIO ───────────────────────────────────────────────────────
 function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciarRecuperacao, onDiagnostico, onRelatorio }) {
