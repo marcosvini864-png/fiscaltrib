@@ -75,7 +75,7 @@ const MENU = [
 
 function Sidebar({ page, onNavigate, clientes, activeId, onChangeCliente }) {
   return (
-    <aside style={{ width:220, minHeight:'100%', background:C.sidebar, borderRight:`1px solid ${C.sidebarBorder}`, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
+    <aside style={{ width:295, minHeight:'100%', background:C.sidebar, borderRight:`1px solid ${C.sidebarBorder}`, display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto' }}>
       <div style={{padding:'14px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
         <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:1,marginBottom:6}}>CLIENTE ATIVO</div>
         <select value={activeId?.toString()||''} onChange={e=>onChangeCliente(e.target.value||null)}
