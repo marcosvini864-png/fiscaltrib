@@ -15,6 +15,7 @@ import PerdComp from './PerdComp'
 import PrazosPrescricionais from './PrazosPrescricionais'
 import EntradaDados from './EntradaDados'
 import CentralTributaria from './CentralTributaria'
+import Laboratorio from './Laboratorio'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -48,6 +49,7 @@ const PAGE_LABELS = {
   simuladores:'Simuladores', relatorio:'Relatório', perdcomp:'PER/DCOMP',
   prazos:'Controle Prescricional', acompanhamento:'Acompanhamento',
   prazosfiscais:'Prazos Fiscais', reforma:'Reforma Tributária',
+  laboratorio:'Laboratório',
 }
 
 const MENU = [
@@ -70,6 +72,7 @@ const MENU = [
   { label:'Prazos Fiscais',        key:'prazosfiscais', icon:'📅' },
   { label:'Importações',           key:'importacoes',   icon:'📥' },
   { label:'Score Fiscal',          key:'score',         icon:'🎯' },
+  { label:'Laboratório',           key:'laboratorio',   icon:'🧪' },
   { label:'Central Tributária',    key:'central',       icon:'🏛️' },
 ]
 
@@ -149,9 +152,7 @@ function PaginaReforma({ onVoltar }) {
     setResposta('')
     try {
       const { data, error } = await supabase.functions.invoke('consulta-ia', {
-        body: {
-          mensagem: `Você é um especialista em direito tributário brasileiro com foco na Reforma Tributária (EC 132/2023, LC 214/2025 e legislação complementar). Responda de forma clara, objetiva e com referências às leis quando possível. Pergunta: ${texto}`,
-        },
+        body: { mensagem: `Você é um especialista em direito tributário brasileiro com foco na Reforma Tributária (EC 132/2023, LC 214/2025 e legislação complementar). Responda de forma clara, objetiva e com referências às leis quando possível. Pergunta: ${texto}` },
       })
       if (error) throw error
       setResposta(data?.resposta || data?.content || 'Sem resposta.')
@@ -167,48 +168,39 @@ function PaginaReforma({ onVoltar }) {
     <div>
       <BtnVoltar onClick={onVoltar} />
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
-
         <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius: 16, padding: '32px 36px', color: '#fff', marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
           <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>⚠️ Reforma Tributária</h1>
           <p style={{ fontSize: 15, color: '#93c5fd', margin: 0 }}>Consulte leis, decretos e impactos da Reforma — CBS, IBS, IS e período de transição (2026–2032).</p>
         </div>
 
-        {/* Busca IA */}
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px 28px', marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 16 }}>🤖 Pergunte sobre a Reforma Tributária</div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && buscar()}
+            <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscar()}
               placeholder="Ex: Como funciona a CBS? Qual o impacto no Simples Nacional?"
-              style={{ flex: 1, padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#1e293b', outline: 'none' }}
-            />
+              style={{ flex: 1, padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#1e293b', outline: 'none' }} />
             <button onClick={() => buscar()} disabled={carregando}
-              style={{ padding: '12px 24px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: carregando ? 'default' : 'pointer', opacity: carregando ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+              style={{ padding: '12px 24px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: carregando?'default':'pointer', opacity: carregando?0.7:1, whiteSpace: 'nowrap' }}>
               {carregando ? '⏳ Consultando...' : '🔍 Buscar'}
             </button>
           </div>
-
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {SUGESTOES.map((s, i) => (
               <button key={i} onClick={() => { setQuery(s); buscar(s) }}
                 style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 20, fontSize: 12, color: '#475569', cursor: 'pointer', fontWeight: 500 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+                onMouseEnter={e => e.currentTarget.style.background='#e2e8f0'}
+                onMouseLeave={e => e.currentTarget.style.background='#f1f5f9'}>
                 {s}
               </button>
             ))}
           </div>
-
           {carregando && (
             <div style={{ marginTop: 20, background: '#f8fafc', borderRadius: 10, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ fontSize: 20 }}>⏳</div>
               <div style={{ fontSize: 14, color: '#64748b' }}>Consultando base de conhecimento tributário...</div>
             </div>
           )}
-
           {resposta && !carregando && (
             <div style={{ marginTop: 20, background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '20px 24px' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>✅ Resposta da IA Tributária</div>
@@ -217,12 +209,11 @@ function PaginaReforma({ onVoltar }) {
           )}
         </div>
 
-        {/* Histórico */}
         {historico.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 28px', marginBottom: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🕓 Consultas anteriores</div>
             {historico.map((h, i) => (
-              <div key={i} style={{ borderBottom: i < historico.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: 12, marginBottom: 12 }}>
+              <div key={i} style={{ borderBottom: i < historico.length-1 ? '1px solid #f1f5f9' : 'none', paddingBottom: 12, marginBottom: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#0B1F4D', marginBottom: 4 }}>❓ {h.pergunta}</div>
                 <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{h.resposta}</div>
                 <button onClick={() => { setQuery(h.pergunta); setResposta(h.resposta) }}
@@ -234,32 +225,11 @@ function PaginaReforma({ onVoltar }) {
           </div>
         )}
 
-        {/* Cards informativos */}
         {[
-          { titulo: '📌 O que muda com a Reforma', cor: '#2563eb', itens: [
-            'PIS e COFINS substituídos pela CBS (Contribuição sobre Bens e Serviços) — EC 132/2023.',
-            'ICMS e ISS substituídos pelo IBS (Imposto sobre Bens e Serviços) — LC 214/2025.',
-            'Criação do Imposto Seletivo (IS) sobre bens prejudiciais à saúde e ao meio ambiente.',
-            'Período de transição entre 2026 e 2032 com coexistência dos sistemas.',
-          ]},
-          { titulo: '⏳ Impacto nos créditos em recuperação', cor: '#d97706', itens: [
-            'Créditos de PIS/COFINS anteriores à reforma continuam recuperáveis via PER/DCOMP.',
-            'Prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.',
-            'Créditos de ICMS-ST continuam recuperáveis até a extinção do imposto em 2033.',
-            'Empresas devem protocolar créditos ANTES da migração completa para evitar perda.',
-          ]},
-          { titulo: '📅 Cronograma da Transição', cor: '#7c3aed', itens: [
-            '2026–2027: Alíquotas-teste CBS (0,9%) e IBS (0,1%) — coexistência com PIS/COFINS/ICMS/ISS.',
-            '2029–2032: Redução gradual do ICMS e ISS com aumento proporcional do IBS.',
-            '2033: Extinção completa de PIS, COFINS, ICMS e ISS — vigência plena de CBS e IBS.',
-            'IPI mantido apenas para produtos sem similar nacional — proteção Zona Franca de Manaus.',
-          ]},
-          { titulo: '✅ O que fazer agora', cor: '#16a34a', itens: [
-            'Levantar e protocolar créditos de PIS/COFINS e ICMS-ST o quanto antes.',
-            'Revisar competências dos últimos 5 anos antes da vigência plena da CBS.',
-            'Mapear impactos da não-cumulatividade do IBS para clientes do Lucro Real.',
-            'Acompanhar regulamentação complementar — muitos detalhes ainda serão definidos.',
-          ]},
+          { titulo:'📌 O que muda com a Reforma', cor:'#2563eb', itens:['PIS e COFINS substituídos pela CBS (Contribuição sobre Bens e Serviços) — EC 132/2023.','ICMS e ISS substituídos pelo IBS (Imposto sobre Bens e Serviços) — LC 214/2025.','Criação do Imposto Seletivo (IS) sobre bens prejudiciais à saúde e ao meio ambiente.','Período de transição entre 2026 e 2032 com coexistência dos sistemas.'] },
+          { titulo:'⏳ Impacto nos créditos em recuperação', cor:'#d97706', itens:['Créditos de PIS/COFINS anteriores à reforma continuam recuperáveis via PER/DCOMP.','Prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.','Créditos de ICMS-ST continuam recuperáveis até a extinção do imposto em 2033.','Empresas devem protocolar créditos ANTES da migração completa para evitar perda.'] },
+          { titulo:'📅 Cronograma da Transição', cor:'#7c3aed', itens:['2026–2027: Alíquotas-teste CBS (0,9%) e IBS (0,1%) — coexistência com PIS/COFINS/ICMS/ISS.','2029–2032: Redução gradual do ICMS e ISS com aumento proporcional do IBS.','2033: Extinção completa de PIS, COFINS, ICMS e ISS — vigência plena de CBS e IBS.','IPI mantido apenas para produtos sem similar nacional — proteção Zona Franca de Manaus.'] },
+          { titulo:'✅ O que fazer agora', cor:'#16a34a', itens:['Levantar e protocolar créditos de PIS/COFINS e ICMS-ST o quanto antes.','Revisar competências dos últimos 5 anos antes da vigência plena da CBS.','Mapear impactos da não-cumulatividade do IBS para clientes do Lucro Real.','Acompanhar regulamentação complementar — muitos detalhes ainda serão definidos.'] },
         ].map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, border: `2px solid ${s.cor}22`, borderLeft: `5px solid ${s.cor}`, padding: '20px 24px', marginBottom: 14 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: s.cor, marginBottom: 12 }}>{s.titulo}</div>
@@ -626,6 +596,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
           {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
           {page==='reforma'        && <PaginaReforma onVoltar={()=>setPage('painel')} />}
+          {page==='laboratorio'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Laboratorio /></>}
 
           {page==='diagnostico' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
