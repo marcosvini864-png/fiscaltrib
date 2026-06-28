@@ -48,7 +48,6 @@ const PAGE_LABELS = {
   simuladores:'Simuladores', relatorio:'Relatório', perdcomp:'PER/DCOMP',
   prazos:'Controle Prescricional', acompanhamento:'Acompanhamento',
   prazosfiscais:'Prazos Fiscais', reforma:'Reforma Tributária',
-  laboratorio:'Laboratório',
 }
 
 const MENU = [
@@ -71,7 +70,6 @@ const MENU = [
   { label:'Prazos Fiscais',        key:'prazosfiscais', icon:'📅' },
   { label:'Importações',           key:'importacoes',   icon:'📥' },
   { label:'Score Fiscal',          key:'score',         icon:'🎯' },
-  { label:'Laboratório',           key:'laboratorio',   icon:'🧪' },
   { label:'Central Tributária',    key:'central',       icon:'🏛️' },
 ]
 
@@ -172,7 +170,6 @@ function PaginaReforma({ onVoltar }) {
           <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>⚠️ Reforma Tributária</h1>
           <p style={{ fontSize: 15, color: '#93c5fd', margin: 0 }}>Consulte leis, decretos e impactos da Reforma — CBS, IBS, IS e período de transição (2026–2032).</p>
         </div>
-
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px 28px', marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 16 }}>🤖 Pergunte sobre a Reforma Tributária</div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -207,7 +204,6 @@ function PaginaReforma({ onVoltar }) {
             </div>
           )}
         </div>
-
         {historico.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 28px', marginBottom: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🕓 Consultas anteriores</div>
@@ -223,7 +219,6 @@ function PaginaReforma({ onVoltar }) {
             ))}
           </div>
         )}
-
         {[
           { titulo:'📌 O que muda com a Reforma', cor:'#2563eb', itens:['PIS e COFINS substituídos pela CBS (Contribuição sobre Bens e Serviços) — EC 132/2023.','ICMS e ISS substituídos pelo IBS (Imposto sobre Bens e Serviços) — LC 214/2025.','Criação do Imposto Seletivo (IS) sobre bens prejudiciais à saúde e ao meio ambiente.','Período de transição entre 2026 e 2032 com coexistência dos sistemas.'] },
           { titulo:'⏳ Impacto nos créditos em recuperação', cor:'#d97706', itens:['Créditos de PIS/COFINS anteriores à reforma continuam recuperáveis via PER/DCOMP.','Prazo prescricional de 5 anos se aplica normalmente aos créditos anteriores à CBS.','Créditos de ICMS-ST continuam recuperáveis até a extinção do imposto em 2033.','Empresas devem protocolar créditos ANTES da migração completa para evitar perda.'] },
@@ -239,7 +234,6 @@ function PaginaReforma({ onVoltar }) {
             ))}
           </div>
         ))}
-
         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '14px 18px', fontSize: 12, color: '#92400e', marginBottom: 24 }}>
           ⚠️ As informações acima são de caráter informativo e estão sujeitas a alterações conforme regulamentação complementar. Consulte sempre um especialista tributário.
         </div>
@@ -595,7 +589,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin }) {
           {page==='planos'         && <Planos user={user} assinatura={null} onVoltar={()=>setPage('painel')} />}
           {page==='central'        && <CentralTributaria onVoltar={()=>setPage('painel')} />}
           {page==='reforma'        && <PaginaReforma onVoltar={()=>setPage('painel')} />}
-          {page==='laboratorio'    && <><BtnVoltar onClick={()=>setPage('painel')} /><Laboratorio /></>}
 
           {page==='diagnostico' && <>
             <BtnVoltar onClick={()=>setPage('clientes')} />
