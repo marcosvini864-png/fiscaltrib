@@ -15,7 +15,6 @@ import PerdComp from './PerdComp'
 import PrazosPrescricionais from './PrazosPrescricionais'
 import EntradaDados from './EntradaDados'
 import CentralTributaria from './CentralTributaria'
-import Laboratorio from './Laboratorio'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],

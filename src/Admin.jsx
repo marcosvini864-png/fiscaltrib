@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
+import Laboratorio from './Laboratorio'
 
 const ADMIN_EMAIL  = 'marcosvini864@gmail.com'
 const SUPABASE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co'
@@ -31,6 +32,7 @@ export default function Admin({ onVoltar }) {
 
   const [sessoes,     setSessoes]     = useState([])
   const [loadSessoes, setLoadSessoes] = useState(false)
+  const [abaDesenv,   setAbaDesenv]   = useState('laboratorio')
   const monitorRef = useRef(null)
 
   useEffect(() => { carregarUsuarios() }, [])
@@ -89,8 +91,7 @@ export default function Admin({ onVoltar }) {
 
   async function enviarBackup() {
     if (!window.confirm('Enviar backup completo do banco para ' + ADMIN_EMAIL + '?')) return
-    setEnviandoBkp(true)
-    setMsgBkp('')
+    setEnviandoBkp(true); setMsgBkp('')
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/backup-semanal`, {
         method: 'POST',
@@ -100,19 +101,15 @@ export default function Admin({ onVoltar }) {
       const result = await res.json()
       if (res.ok && result.success) setMsgBkp('✅ Backup enviado com sucesso para ' + ADMIN_EMAIL)
       else setMsgBkp('⚠️ Erro: ' + JSON.stringify(result))
-    } catch (e) {
-      setMsgBkp('❌ Erro: ' + e.message)
-    } finally {
-      setEnviandoBkp(false)
-    }
+    } catch (e) { setMsgBkp('❌ Erro: ' + e.message) }
+    finally { setEnviandoBkp(false) }
   }
 
   async function liberarAcesso() {
     if (!bonEmail.trim()) { setBonMsg('❌ Informe o e-mail do cliente.'); return }
     if (bonTipo === 'prazo' && (!bonDias || parseInt(bonDias) < 1)) { setBonMsg('❌ Informe um prazo válido.'); return }
     if (!window.confirm(`Liberar acesso ${bonTipo === 'permanente' ? 'permanente' : `por ${bonDias} dias`} no plano ${planoLabel[bonPlano]} para ${bonEmail}?`)) return
-    setBonLoading(true)
-    setBonMsg('')
+    setBonLoading(true); setBonMsg('')
     try {
       const { data: usuarioEncontrado, error: authError } = await supabase.from('usuarios').select('id, email').eq('email', bonEmail.trim().toLowerCase()).single()
       if (authError || !usuarioEncontrado) { setBonMsg('❌ Usuário não encontrado.'); setBonLoading(false); return }
@@ -171,12 +168,12 @@ export default function Admin({ onVoltar }) {
       {/* CARDS */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))',gap:12,marginBottom:24}}>
         {[
-          {label:'Total de Usuários',valor:total,      cor:'#64748b'},
-          {label:'Ativos',           valor:ativos,     cor:'#22c55e'},
-          {label:'Bloqueados',       valor:bloqueados, cor:'#ef4444'},
-          {label:'Essencial',        valor:essencial,  cor:'#3b82f6'},
-          {label:'Avançado',         valor:avancado,   cor:'#8b5cf6'},
-          {label:'Premium',          valor:premium,    cor:'#f59e0b'},
+          {label:'Total de Usuários',valor:total,          cor:'#64748b'},
+          {label:'Ativos',           valor:ativos,         cor:'#22c55e'},
+          {label:'Bloqueados',       valor:bloqueados,     cor:'#ef4444'},
+          {label:'Essencial',        valor:essencial,      cor:'#3b82f6'},
+          {label:'Avançado',         valor:avancado,       cor:'#8b5cf6'},
+          {label:'Premium',          valor:premium,        cor:'#f59e0b'},
           {label:'Online agora',     valor:sessoes.length, cor:'#10b981'},
         ].map((c,i)=>(
           <div key={i} style={{background:C.white,borderRadius:10,padding:16,display:'flex',flexDirection:'column',gap:4,borderTop:`3px solid ${c.cor}`,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
@@ -186,12 +183,13 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
-      {/* ABAS */}
+      {/* ABAS PRINCIPAIS */}
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[
           {key:'usuarios',    label:'👥 Usuários'},
           {key:'bonificacao', label:'🎁 Liberar Acesso Bonificado'},
           {key:'monitor',     label:'👁️ Monitoramento em Tempo Real'},
+          {key:'desenvolvimento', label:'🔬 Centro de Desenvolvimento'},
         ].map(a=>(
           <button key={a.key} onClick={()=>setAbaAtiva(a.key)}
             style={{padding:'7px 16px',borderRadius:20,border:`1px solid ${abaAtiva===a.key?C.navy:C.border}`,background:abaAtiva===a.key?C.navy:'transparent',color:abaAtiva===a.key?C.white:C.muted,cursor:'pointer',fontSize:13,fontWeight:abaAtiva===a.key?600:400}}>
@@ -200,7 +198,7 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
-      {/* ABA MONITORAMENTO */}
+      {/* ── ABA MONITORAMENTO ── */}
       {abaAtiva === 'monitor' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
@@ -226,7 +224,7 @@ export default function Admin({ onVoltar }) {
                   <div style={{display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:10,height:10,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 8px #10b981',flexShrink:0}}></div>
                     <div>
-                      <div style={{color:C.text,fontWeight:600,fontSize:14}}>{s2.nome || '—'}</div>
+                      <div style={{color:C.text,fontWeight:600,fontSize:14}}>{s2.nome||'—'}</div>
                       <div style={{color:C.muted,fontSize:12}}>{s2.email}</div>
                     </div>
                   </div>
@@ -248,7 +246,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ABA BONIFICAÇÃO */}
+      {/* ── ABA BONIFICAÇÃO ── */}
       {abaAtiva === 'bonificacao' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🎁 Liberar Acesso Bonificado</div>
@@ -306,7 +304,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ABA USUÁRIOS */}
+      {/* ── ABA USUÁRIOS ── */}
       {abaAtiva === 'usuarios' && <>
         <div style={{marginBottom:16}}>
           <input
@@ -322,7 +320,6 @@ export default function Admin({ onVoltar }) {
             ))}
           </div>
         </div>
-
         {load ? (
           <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando usuários...</p>
         ) : lista.length === 0 ? (
@@ -350,7 +347,7 @@ export default function Admin({ onVoltar }) {
                       </span>
                     </td>
                     <td style={{padding:'12px 14px'}}>
-                      {u.plano ? <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:planoColor[u.plano]+'18',color:planoColor[u.plano],border:`1px solid ${planoColor[u.plano]}44`}}>{planoLabel[u.plano]||u.plano}</span> : '—'}
+                      {u.plano?<span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:planoColor[u.plano]+'18',color:planoColor[u.plano],border:`1px solid ${planoColor[u.plano]}44`}}>{planoLabel[u.plano]||u.plano}</span>:'—'}
                     </td>
                     <td style={{padding:'12px 14px',color:C.muted,fontSize:12}}>{u.cnpj||u.cpf||'—'}</td>
                     <td style={{padding:'12px 14px',color:C.muted,fontSize:12}}>{u.cidade?`${u.cidade}/${u.estado}`:'—'}</td>
@@ -376,6 +373,164 @@ export default function Admin({ onVoltar }) {
           </div>
         )}
       </>}
+
+      {/* ── ABA CENTRO DE DESENVOLVIMENTO ── */}
+      {abaAtiva === 'desenvolvimento' && (
+        <div>
+          {/* Header do Centro */}
+          <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff'}}>
+            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — USO INTERNO</div>
+            <h2 style={{fontSize:20,fontWeight:900,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
+            <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Ferramentas internas de teste, homologação e desenvolvimento. Não visível aos usuários do sistema.</p>
+          </div>
+
+          {/* Sub-abas do Centro */}
+          <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+            {[
+              {key:'laboratorio', label:'🧪 Laboratório FiscalTrib'},
+              {key:'cenarios',    label:'📚 Base de Cenários'},
+              {key:'logs',        label:'📝 Logs de Homologação'},
+              {key:'ferramentas', label:'🔧 Ferramentas'},
+            ].map(a=>(
+              <button key={a.key} onClick={()=>setAbaDesenv(a.key)}
+                style={{padding:'8px 18px',borderRadius:20,border:`1px solid ${abaDesenv===a.key?'#0B1F4D':'#e2e8f0'}`,background:abaDesenv===a.key?'#0B1F4D':'#fff',color:abaDesenv===a.key?'#fff':'#64748b',cursor:'pointer',fontSize:13,fontWeight:abaDesenv===a.key?600:400}}>
+                {a.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Laboratório */}
+          {abaDesenv === 'laboratorio' && <Laboratorio />}
+
+          {/* Base de Cenários */}
+          {abaDesenv === 'cenarios' && (
+            <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center'}}>
+              <div style={{fontSize:40,marginBottom:12}}>📚</div>
+              <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D',marginBottom:8}}>Base de Cenários de Homologação</div>
+              <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
+                Biblioteca de empresas fictícias completas para teste do FiscalTrib.<br/>
+                Importe pelo Laboratório e os cenários ficam registrados aqui.
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,maxWidth:600,margin:'0 auto'}}>
+                {[
+                  {codigo:'FT-001',nome:'Comércio Varejista',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-002',nome:'Prestadora de Serviços',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-003',nome:'Indústria',regime:'Lucro Presumido',status:'Em breve'},
+                  {codigo:'FT-004',nome:'Lucro Real',regime:'Lucro Real',status:'Em breve'},
+                  {codigo:'FT-005',nome:'Casos com Erros',regime:'Simples Nacional',status:'Em breve'},
+                ].map((c,i)=>(
+                  <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left'}}>
+                    <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,marginBottom:4}}>{c.codigo}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:'#0B1F4D',marginBottom:4}}>{c.nome}</div>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>{c.regime}</div>
+                    <span style={{background:'#fef9c3',color:'#854d0e',padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>{c.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Logs */}
+          {abaDesenv === 'logs' && <LogsHomologacao />}
+
+          {/* Ferramentas */}
+          {abaDesenv === 'ferramentas' && (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              {[
+                {icon:'🗄️',titulo:'Limpar banco de testes',desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.',cor:'#dc2626',btn:'Limpar',disabled:false},
+                {icon:'📊',titulo:'Relatório de cobertura',desc:'Verifica quais módulos do FiscalTrib foram testados nos cenários importados.',cor:'#2563eb',btn:'Gerar',disabled:true},
+                {icon:'🔄',titulo:'Sincronizar layouts CSV',desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',cor:'#7c3aed',btn:'Sincronizar',disabled:true},
+                {icon:'📤',titulo:'Exportar todos os cenários',desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',cor:'#d97706',btn:'Exportar',disabled:true},
+              ].map((f,i)=>(
+                <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px'}}>
+                  <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#0B1F4D',marginBottom:6}}>{f.titulo}</div>
+                  <div style={{fontSize:13,color:'#64748b',marginBottom:16,lineHeight:1.6}}>{f.desc}</div>
+                  <button disabled={f.disabled}
+                    style={{padding:'8px 20px',background:f.disabled?'#e2e8f0':f.cor,color:f.disabled?'#94a3b8':'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:f.disabled?'default':'pointer'}}>
+                    {f.disabled?'Em breve':f.btn}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Logs de Homologação ───────────────────────────────────────────────────────
+function LogsHomologacao() {
+  const [logs, setLogs] = useState([])
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    async function carregar() {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase.from('log_importacao').select('*').eq('usuario_id', user.id).order('created_at', { ascending: false }).limit(100)
+      setLogs(data || [])
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  if (carregando) return <div style={{textAlign:'center',padding:40,color:'#64748b'}}>⏳ Carregando logs...</div>
+
+  if (logs.length === 0) return (
+    <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:48,textAlign:'center',color:'#94a3b8'}}>
+      <div style={{fontSize:40,marginBottom:12}}>📝</div>
+      <div style={{fontSize:15,fontWeight:600}}>Nenhum log registrado ainda</div>
+      <div style={{fontSize:13,marginTop:8}}>Os logs aparecem após a primeira importação no Laboratório</div>
+    </div>
+  )
+
+  const totalImportados = logs.reduce((s,l)=>s+(l.importados||0),0)
+  const totalRejeitados = logs.reduce((s,l)=>s+(l.rejeitados||0),0)
+
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
+        {[
+          {label:'Total de logs',    valor:logs.length,                        cor:'#0B1F4D'},
+          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'), cor:'#16a34a'},
+          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'), cor:'#dc2626'},
+          {label:'Último import',    valor:logs[0]?new Date(logs[0].created_at).toLocaleDateString('pt-BR'):'—', cor:'#7c3aed'},
+        ].map((c,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px'}}>
+            <div style={{fontSize:18,fontWeight:800,color:c.cor}}>{c.valor}</div>
+            <div style={{fontSize:11,color:'#64748b',marginTop:3}}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',overflow:'hidden'}}>
+        <div style={{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontSize:13,fontWeight:700,color:'#0B1F4D'}}>
+          📝 Logs de homologação (últimos 100)
+        </div>
+        <div style={{maxHeight:500,overflowY:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead>
+              <tr style={{background:'#f8fafc',position:'sticky',top:0}}>
+                {['Data/Hora','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=>(
+                  <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l,i)=>(
+                <tr key={i} style={{borderBottom:'1px solid #f1f5f9'}}>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',fontWeight:600,color:'#0B1F4D'}}>{l.arquivo}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tabela}</td>
+                  <td style={{padding:'9px 14px',color:'#16a34a',fontWeight:700}}>{(l.importados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:l.rejeitados>0?'#dc2626':'#94a3b8',fontWeight:l.rejeitados>0?700:400}}>{(l.rejeitados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
