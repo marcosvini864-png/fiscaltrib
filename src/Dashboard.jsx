@@ -15,7 +15,6 @@ import PerdComp from './PerdComp'
 import PrazosPrescricionais from './PrazosPrescricionais'
 import EntradaDados from './EntradaDados'
 import CentralTributaria from './CentralTributaria'
-import Cadastro from './Cadastro'
 import Admin from './Admin'
 import Laboratorio from './Laboratorio'
 
@@ -44,8 +43,8 @@ const C = {
 
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
-  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações'] },
-  analise:      { label:'Análise Fiscal',           icon:'🔍', tabs:['Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
+  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
+  analise:      { label:'Análise Fiscal',           icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperação',              icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
@@ -54,11 +53,9 @@ const MODULES = {
 }
 
 const RESTRICTED = {
-  admin: { label:'Admin',              icon:'⚙️' },
+  admin: { label:'Admin',                   icon:'⚙️' },
   dev:   { label:'Centro de Desenvolvimento', icon:'🔬' },
 }
-
-const maskCNPJ2 = maskCNPJ
 
 function TabBar({ tabs, activeTab, onTab }) {
   if (!tabs || tabs.length === 0) return null
@@ -100,24 +97,22 @@ function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAd
             </button>
           )
         })}
-        {isAdmin && (
-          <>
-            <div style={{height:1,background:C.sidebarBorder,margin:'6px 0'}}></div>
-            <div style={{fontSize:9,fontWeight:700,color:C.muted,letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
-            {Object.entries(RESTRICTED).map(([key, mod]) => {
-              const act = module === key
-              return (
-                <button key={key} onClick={() => onNavigate(key)}
-                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 16px', background: act?'#FFF7ED':'none', border:'none', borderLeft: act?`3px solid #F59E0B`:'3px solid transparent', cursor:'pointer', color: act?'#92400E':C.muted, fontSize:13, textAlign:'left', fontWeight: act?600:400, transition:'background 0.15s' }}
-                  onMouseEnter={e=>{ if(!act) e.currentTarget.style.background='#F8FAFC' }}
-                  onMouseLeave={e=>{ if(!act) e.currentTarget.style.background='none' }}>
-                  <span style={{fontSize:15,flexShrink:0}}>{mod.icon}</span>
-                  <span>{mod.label}</span>
-                </button>
-              )
-            })}
-          </>
-        )}
+        {isAdmin && <>
+          <div style={{height:1,background:C.sidebarBorder,margin:'6px 0'}}></div>
+          <div style={{fontSize:9,fontWeight:700,color:C.muted,letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
+          {Object.entries(RESTRICTED).map(([key, mod]) => {
+            const act = module === key
+            return (
+              <button key={key} onClick={() => onNavigate(key)}
+                style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 16px', background: act?'#FFF7ED':'none', border:'none', borderLeft: act?`3px solid #F59E0B`:'3px solid transparent', cursor:'pointer', color: act?'#92400E':C.muted, fontSize:13, textAlign:'left', fontWeight: act?600:400, transition:'background 0.15s' }}
+                onMouseEnter={e=>{ if(!act) e.currentTarget.style.background='#F8FAFC' }}
+                onMouseLeave={e=>{ if(!act) e.currentTarget.style.background='none' }}>
+                <span style={{fontSize:15,flexShrink:0}}>{mod.icon}</span>
+                <span>{mod.label}</span>
+              </button>
+            )
+          })}
+        </>}
       </nav>
       <div style={{padding:'8px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>fiscaltrib.com.br</div>
     </aside>
@@ -136,7 +131,7 @@ function KpiCard({ icon, value, label, color }) {
   )
 }
 
-function PaginaReforma({ }) {
+function PaginaReforma() {
   const [query,setQuery]=useState('')
   const [resposta,setResposta]=useState('')
   const [carregando,setCarregando]=useState(false)
@@ -210,7 +205,7 @@ function PaginaDividaAtiva({ active }) {
         <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
         <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Análise e estratégias para regularização de débitos inscritos na dívida ativa da União e estados.</p>
       </div>
-      <div style={{background:'#fff',borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',textAlign:'center',color:C.muted}}>
+      <div style={{background:'#fff',borderRadius:12,border:`1px solid ${C.border}`,padding:'48px',textAlign:'center',color:C.muted}}>
         <div style={{fontSize:48,marginBottom:12}}>⚖️</div>
         <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Módulo em desenvolvimento</div>
         <div style={{fontSize:13,color:C.muted}}>Em breve: consulta PGFN, análise de débitos, estratégias de transação tributária e simulador de desconto.</div>
@@ -314,8 +309,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   }
 
   function handleNavigate(key) {
-    if(key==='clientes' && novoCliente===null) setNovoCliente(null)
     setModule(key); setActiveTab(0)
+    if(key==='clientes') setNovoCliente(null)
   }
 
   function handleTab(i) {
@@ -371,7 +366,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
-      {/* TOPBAR */}
       <div style={{background:C.navy,display:'flex',alignItems:'center',padding:'0 20px',height:52,flexShrink:0,gap:12}}>
         <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:34,objectFit:'contain',flexShrink:0}} />
         <span style={{fontSize:13,color:'rgba(255,255,255,0.7)',flex:1}}>Sistema de diagnóstico e recuperação tributária</span>
@@ -382,6 +376,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           </div>
         )}
         <span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>👤 {nomeUsuario||'Usuário'}</span>
+        {onAdmin && <button onClick={onAdmin} style={{background:'#F59E0B',border:'none',color:C.white,padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>⚙️ Admin</button>}
         <button onClick={()=>onLogout()} style={{background:'none',border:'1px solid rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.7)',padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
       </div>
 
@@ -389,11 +384,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         <Sidebar module={module} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} isAdmin={!!onAdmin} />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-
-          {/* ABAS HORIZONTAIS */}
           <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
 
-          {/* ÁREA DE CONTEÚDO */}
           <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'24px 28px',background:C.bg,minWidth:0}}>
 
             {/* ── PAINEL ── */}
@@ -537,12 +529,80 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
             {module==='clientes' && activeTab===2 && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={()=>{}} />}
             {module==='clientes' && activeTab===3 && <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />}
+            {module==='clientes' && activeTab===4 && <>
+              <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
+              <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{active?.razao_social} · {active?.regime}</div>
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+                <div style={{background:C.border,borderRadius:99,height:8,overflow:'hidden',marginBottom:6}}><div style={{background:C.green,height:8,borderRadius:99,width:pct+'%',transition:'width .3s'}}></div></div>
+                <div style={{fontSize:12,color:C.muted}}>{done} de {docs.length} documentos — {pct}%</div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+                {docs.map((d,i)=>(
+                  <div key={i} onClick={()=>toggleCheck(i)} style={{display:'flex',alignItems:'center',gap:10,background:checks[i]?'#F0FDF4':C.white,border:`1px solid ${checks[i]?'#86EFAC':C.border}`,borderRadius:8,padding:'10px 14px',cursor:'pointer',fontSize:13,color:checks[i]?'#166534':C.text}}>
+                    <input type="checkbox" checked={checks[i]} onChange={()=>toggleCheck(i)} style={{accentColor:C.green,width:16,height:16}} />{d}
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:12}}>
+                <button onClick={()=>navigateTo('clientes',2)} style={btnPrimary}>Avançar para entrada de dados</button>
+                <button onClick={()=>navigateTo('analise',0)} style={btnOutline}>Ir para diagnóstico</button>
+              </div>
+            </>}
 
             {/* ── ANÁLISE FISCAL ── */}
-            {module==='analise' && activeTab===0 && <AnaliseFiscal />}
-            {module==='analise' && activeTab===1 && <TesesTributarias />}
-            {module==='analise' && activeTab===2 && <Simuladores />}
-            {module==='analise' && activeTab===3 && <>
+            {module==='analise' && activeTab===0 && <>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                <div>
+                  <div style={{fontSize:22,fontWeight:700,color:C.text}}>Diagnóstico tributário</div>
+                  <div style={{fontSize:13,color:C.muted,marginTop:2}}>{active?.razao_social} · {active?.cnpj} · {active?.regime}</div>
+                </div>
+                <div style={{display:'flex',gap:10}}>
+                  <button onClick={()=>navigateTo('relatorios',1)} style={{...btnOutline,borderColor:'#7C3AED',color:'#7C3AED',padding:'6px 14px',fontSize:13}}>🎯 Score Fiscal</button>
+                  <button onClick={()=>navigateTo('relatorios',0)} style={{...btnOutline,padding:'6px 14px',fontSize:13}}>📄 Relatório</button>
+                  <button onClick={()=>navigateTo('clientes',2)} style={{...btnOutline,padding:'6px 14px',fontSize:13}}>+ Dados</button>
+                </div>
+              </div>
+              <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:12,color:'#92400E'}}>
+                ⚠️ <strong>Aviso:</strong> Análise preliminar — não dispensa revisão profissional.
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+                {[[fmtR(totalPot),'Total potencial recuperável','#16A34A'],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Créditos confirmados','#0D9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possíveis créditos','#D97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'Hipóteses a validar','#DC2626']].map(([v,lb,vc],i)=>(
+                  <div key={i} style={{background:C.white,borderRadius:12,padding:20,borderTop:`4px solid ${vc}`}}>
+                    <div style={{fontSize:i===0?18:24,fontWeight:700,color:vc,marginBottom:4}}>{v}</div>
+                    <div style={{fontSize:12,color:C.muted}}>{lb}</div>
+                  </div>
+                ))}
+              </div>
+              {ents.filter(e=>e.credito>0).length>0 ? <>
+                <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:12}}>Oportunidades mapeadas</div>
+                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                    <thead><tr style={{background:'#F8FAFC'}}>{['Competência','Tributo','Tipo de oportunidade','Pago','Devido','Crédito','Risco'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.4}}>{h}</th>)}</tr></thead>
+                    <tbody>{ents.filter(e=>e.credito>0).map((e,i)=>(
+                      <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+                        <td style={{padding:'10px 12px'}}>{e.competencia}</td>
+                        <td style={{padding:'10px 12px'}}>{e.tributo}</td>
+                        <td style={{padding:'10px 12px',fontSize:12,color:C.muted}}>{e.tipo_oportunidade}</td>
+                        <td style={{padding:'10px 12px'}}>{fmtR(e.tributo_pago)}</td>
+                        <td style={{padding:'10px 12px'}}>{fmtR(e.tributo_devido)}</td>
+                        <td style={{padding:'10px 12px',fontWeight:600,color:'#16A34A'}}>{fmtR(e.credito)}</td>
+                        <td style={{padding:'10px 12px'}}>{riskBadge(e.risco)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </> : (
+                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
+                  <div style={{fontSize:40,marginBottom:12}}>🔍</div>
+                  <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhuma oportunidade mapeada ainda</div>
+                  <button onClick={()=>navigateTo('clientes',2)} style={btnPrimary}>+ Adicionar dados fiscais</button>
+                </div>
+              )}
+            </>}
+            {module==='analise' && activeTab===1 && <AnaliseFiscal />}
+            {module==='analise' && activeTab===2 && <TesesTributarias />}
+            {module==='analise' && activeTab===3 && <Simuladores />}
+            {module==='analise' && activeTab===4 && <>
               <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributárias</div>
               <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Estimativas para diagnóstico — valide sempre com profissional habilitado</div>
               <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`}}>
