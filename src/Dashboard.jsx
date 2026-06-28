@@ -17,6 +17,7 @@ import EntradaDados from './EntradaDados'
 import CentralTributaria from './CentralTributaria'
 import Admin from './Admin'
 import Laboratorio from './Laboratorio'
+import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -49,11 +50,11 @@ const MODULES = {
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
-  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:['Visão Geral','Consulta PGFN','Estratégias','Simulador'] },
+  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:[] },
 }
 
 const RESTRICTED = {
-  admin: { label:'Admin',                   icon:'⚙️' },
+  admin: { label:'Admin',                    icon:'⚙️' },
   dev:   { label:'Centro de Desenvolvimento', icon:'🔬' },
 }
 
@@ -193,23 +194,6 @@ function PaginaReforma() {
           </div>
         ))}
       </div>}
-    </div>
-  )
-}
-
-function PaginaDividaAtiva({ active }) {
-  return (
-    <div style={{maxWidth:860,margin:'0 auto'}}>
-      <div style={{background:'linear-gradient(135deg,#1e293b,#334155)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
-        <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
-        <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
-        <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Análise e estratégias para regularização de débitos inscritos na dívida ativa da União e estados.</p>
-      </div>
-      <div style={{background:'#fff',borderRadius:12,border:`1px solid ${C.border}`,padding:'48px',textAlign:'center',color:C.muted}}>
-        <div style={{fontSize:48,marginBottom:12}}>⚖️</div>
-        <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Módulo em desenvolvimento</div>
-        <div style={{fontSize:13,color:C.muted}}>Em breve: consulta PGFN, análise de débitos, estratégias de transação tributária e simulador de desconto.</div>
-      </div>
     </div>
   )
 }
@@ -638,7 +622,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
 
             {/* ── DÍVIDA ATIVA ── */}
-            {module==='divida' && <PaginaDividaAtiva active={active} />}
+            {module==='divida' && <DiagnosticoDividaAtiva active={active} />}
 
             {/* ── ADMIN ── */}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
