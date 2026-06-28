@@ -9,6 +9,17 @@ const C = {
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
+const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
+const maskProcesso = v => {
+  const d = v.replace(/\D/g,'').slice(0,20)
+  if(d.length<=7) return d
+  if(d.length<=9) return d.slice(0,7)+'-'+d.slice(7)
+  if(d.length<=13) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9)
+  if(d.length<=14) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13)
+  if(d.length<=15) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13,14)+'.'+d.slice(14)
+  return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13,14)+'.'+d.slice(14,20)
+}
+
 const MODALIDADES = [
   { key:'transacao_excepcional', label:'Transação Excepcional', desc:'Descontos de até 100% em multas, juros e encargos para contribuintes em situação de insuficiência de recursos.', desconto_multa:[50,100], desconto_juros:[50,100], entrada_min:0, parcelas_max:60, elegibilidade:'Comprovação de insuficiência de recursos (CAPAG D ou equivalente).' },
   { key:'transacao_individual', label:'Transação Individual', desc:'Negociação caso a caso com a PGFN para dívidas acima de R$ 10 milhões.', desconto_multa:[0,50], desconto_juros:[0,50], entrada_min:5, parcelas_max:84, elegibilidade:'Dívida ativa superior a R$ 10 milhões.' },
@@ -30,7 +41,6 @@ const TESES = [
 function ScoreDividaAtiva({ score }) {
   const cor = score >= 70 ? '#16A34A' : score >= 40 ? '#D97706' : '#DC2626'
   const label = score >= 70 ? 'Alto potencial de regularização' : score >= 40 ? 'Potencial moderado' : 'Situação crítica'
-  const pct = score + '%'
   return (
     <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Score da Dívida Ativa</div>
@@ -53,7 +63,7 @@ function ScoreDividaAtiva({ score }) {
 
 function TabInterna({ tabs, active, onTab }) {
   return (
-    <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`,paddingBottom:0}}>
+    <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`}}>
       {tabs.map((t,i)=>(
         <button key={i} onClick={()=>onTab(i)}
           style={{padding:'8px 16px',fontSize:13,fontWeight:active===i?600:400,color:active===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${active===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
@@ -102,7 +112,17 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   const btnPrimary = {padding:'10px 20px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
   const btnOutline = {padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
-  const inp = (k,ph,tp='text') => <input value={dados[k]} onChange={e=>setDados({...dados,[k]:e.target.value})} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+
+  const inp = (k,ph,tp='text') => {
+    const handleChange = e => {
+      let v = e.target.value
+      if(k==='cnpj') v = maskCNPJ(v)
+      if(k==='processo_execucao') v = maskProcesso(v)
+      setDados({...dados,[k]:v})
+    }
+    return <input value={dados[k]} onChange={handleChange} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+  }
+
   const chk = (k,lb) => (
     <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.text,cursor:'pointer'}}>
       <input type="checkbox" checked={dados[k]} onChange={e=>setDados({...dados,[k]:e.target.checked})} style={{accentColor:C.navy,width:15,height:15}}/>
@@ -134,7 +154,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const tesesIdentificadas = []
     if (diasConstituicao > 1825) tesesIdentificadas.push({ ...TESES.find(t=>t.id==='prescricao_quinquenal'), status:'Verificar', prioridade:'Alta' })
     if (diasInscricao > 1825) tesesIdentificadas.push({ ...TESES.find(t=>t.id==='prescricao_intercorrente'), status:'Verificar', prioridade:'Alta' })
-    if (!dados.data_constituicao || diasConstituicao > 1825) tesesIdentificadas.push({ ...TESES.find(t=>t.id==='decadencia'), status:'Analisar', prioridade:'Média' })
+    tesesIdentificadas.push({ ...TESES.find(t=>t.id==='decadencia'), status:'Analisar', prioridade:'Média' })
     tesesIdentificadas.push({ ...TESES.find(t=>t.id==='vicio_formal_cda'), status:'Analisar', prioridade:'Média' })
     tesesIdentificadas.push({ ...TESES.find(t=>t.id==='multa_qualificada'), status:'Analisar', prioridade:'Baixa' })
 
@@ -168,7 +188,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const valor = parseFloat(sim.valor)||0
     const multa = valor * (sim.multa_pct/100)
     const juros = valor * (sim.juros_pct/100)
-    const principal = valor - multa - juros
     const descMulta = multa * (sim.desconto_multa/100)
     const descJuros = juros * (sim.desconto_juros/100)
     const totalDesconto = descMulta + descJuros
@@ -176,7 +195,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const entrada = valorFinal * (sim.entrada_pct/100)
     const saldo = valorFinal - entrada
     const parcela = sim.parcelas > 1 ? saldo / (sim.parcelas-1) : saldo
-    setSimResult({ principal, multa, juros, descMulta, descJuros, totalDesconto, valorFinal, entrada, parcela, economia:totalDesconto })
+    setSimResult({ multa, juros, descMulta, descJuros, totalDesconto, valorFinal, entrada, parcela, economia:totalDesconto })
   }
 
   function gerarRelatorio() {
@@ -229,21 +248,15 @@ export default function DiagnosticoDividaAtiva({ active }) {
   return (
     <div style={{maxWidth:960,margin:'0 auto'}}>
 
-      {/* HEADER */}
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
         <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
         <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Análise inteligente de débitos inscritos · Estratégias de regularização · Simulador de transação tributária</p>
         {active && <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
-          <span>👤 {active.razao_social}</span>
-          <span>·</span>
-          <span>{active.cnpj}</span>
-          <span>·</span>
-          <span>{active.regime}</span>
+          <span>👤 {active.razao_social}</span><span>·</span><span>{active.cnpj}</span><span>·</span><span>{active.regime}</span>
         </div>}
       </div>
 
-      {/* ABAS INTERNAS */}
       <TabInterna tabs={ABAS} active={aba} onTab={setAba} />
 
       {/* ── ABA 0: VISÃO GERAL ── */}
@@ -415,7 +428,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
         <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
           ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor. Consulte sempre um advogado tributarista para validação.
         </div>
-        {MODALIDADES.map((m,i)=>{
+        {MODALIDADES.map((m)=>{
           const elegivel = !diagnostico || (diagnostico?.modalidades||[]).includes(m.key)
           return (
             <div key={m.key} style={{background:C.white,borderRadius:12,border:`1px solid ${elegivel?'#86EFAC':C.border}`,borderLeft:`5px solid ${elegivel?'#16A34A':'#C8D0DC'}`,padding:'18px 22px',marginBottom:12,opacity:elegivel?1:0.6}}>
@@ -518,7 +531,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                     <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.parcela)}</span>
                   </div>
                 </div>
-                <button onClick={()=>setAba(5)} style={{...btnOutline,width:'100%',justifyContent:'center'}}>📄 Gerar relatório executivo →</button>
+                <button onClick={()=>setAba(5)} style={{...btnOutline,width:'100%'}}>📄 Gerar relatório executivo →</button>
               </div>
             )}
           </div>
@@ -538,23 +551,12 @@ export default function DiagnosticoDividaAtiva({ active }) {
             </div>
           ) : <>
             {[
-              {titulo:'1. Resumo Executivo', cor:'#0B1F4D', conteudo:[
-                `Cliente: ${active?.razao_social || dados.cnpj}`,
-                `CNPJ: ${dados.cnpj}`,
-                `Valor total da dívida: ${fmtR(parseFloat(dados.valor_total)||0)}`,
-                `CDAs: ${dados.qtd_cdas||'—'} · Órgão: ${dados.orgao_credor}`,
-                `Score da Dívida Ativa: ${diagnostico.score}/100`,
-                `Economia potencial estimada: ${fmtR((parseFloat(dados.valor_total)||0)*0.5)}`,
-              ]},
-              {titulo:'2. Diagnóstico Técnico', cor:'#7C3AED', conteudo: diagnostico.teses.map(t=>`[${t.prioridade}] ${t.label} — ${t.fundamento}`)},
-              {titulo:'3. Alertas Identificados', cor:'#DC2626', conteudo: diagnostico.alertas.length>0 ? diagnostico.alertas.map(a=>a.msg) : ['Nenhum alerta crítico identificado.']},
-              {titulo:'4. Estratégias Recomendadas', cor:'#16A34A', conteudo: diagnostico.modalidades.map(m=>{ const mod=MODALIDADES.find(x=>x.key===m); return mod?`${mod.label}: desconto de até ${mod.desconto_multa[1]}% em multas e ${mod.desconto_juros[1]}% em juros`:''}  )},
-              {titulo:'5. Plano de Ação', cor:'#D97706', conteudo: diagnostico.planoAcao.map(p=>`${p.prioridade} — ${p.acao} (${p.prazo})`)},
-              {titulo:'6. Conclusão', cor:'#0B1F4D', conteudo:[
-                `Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial de regularização':diagnostico.score>=40?'Potencial moderado':'Situação crítica — ação urgente necessária'}.`,
-                'Recomenda-se análise jurídica complementar com advogado tributarista habilitado.',
-                'Este relatório é preliminar e não substitui parecer técnico ou jurídico.',
-              ]},
+              {titulo:'1. Resumo Executivo', cor:'#0B1F4D', conteudo:[`Cliente: ${active?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Valor total: ${fmtR(parseFloat(dados.valor_total)||0)}`,`CDAs: ${dados.qtd_cdas||'—'} · Órgão: ${dados.orgao_credor}`,`Score: ${diagnostico.score}/100`,`Economia potencial: ${fmtR((parseFloat(dados.valor_total)||0)*0.5)}`]},
+              {titulo:'2. Diagnóstico Técnico', cor:'#7C3AED', conteudo:diagnostico.teses.map(t=>`[${t.prioridade}] ${t.label} — ${t.fundamento}`)},
+              {titulo:'3. Alertas', cor:'#DC2626', conteudo:diagnostico.alertas.length>0?diagnostico.alertas.map(a=>a.msg):['Nenhum alerta crítico identificado.']},
+              {titulo:'4. Estratégias Recomendadas', cor:'#16A34A', conteudo:diagnostico.modalidades.map(m=>{const mod=MODALIDADES.find(x=>x.key===m);return mod?`${mod.label}: até ${mod.desconto_multa[1]}% em multas e ${mod.desconto_juros[1]}% em juros`:''})},
+              {titulo:'5. Plano de Ação', cor:'#D97706', conteudo:diagnostico.planoAcao.map(p=>`${p.prioridade} — ${p.acao} (${p.prazo})`)},
+              {titulo:'6. Conclusão', cor:'#0B1F4D', conteudo:[`Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial':diagnostico.score>=40?'Potencial moderado':'Situação crítica'}.`,'Recomenda-se análise jurídica complementar com advogado tributarista habilitado.']},
             ].map((s,i)=>(
               <div key={i} style={{borderLeft:`4px solid ${s.cor}`,paddingLeft:16,marginBottom:20}}>
                 <div style={{fontSize:14,fontWeight:700,color:s.cor,marginBottom:8}}>{s.titulo}</div>
