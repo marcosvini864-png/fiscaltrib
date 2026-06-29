@@ -123,7 +123,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const handleChange = e => {
       let v = e.target.value
       if(k==='cnpj') v = maskCNPJ(v)
-		if(k==='valor_total') v = maskMoeda(v)  
       if(k==='processo_execucao') v = maskProcesso(v)
       setDados({...dados,[k]:v})
     }
