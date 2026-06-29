@@ -9,23 +9,6 @@ const C = {
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
-const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
-const maskMoeda = v => {
-  const n = v.replace(/\D/g,'')
-  if(!n) return ''
-  const num = parseInt(n)/100
-  return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-}
-const maskProcesso = v => {
-  const d = v.replace(/\D/g,'').slice(0,20)
-  if(d.length<=7) return d
-  if(d.length<=9) return d.slice(0,7)+'-'+d.slice(7)
-  if(d.length<=13) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9)
-  if(d.length<=14) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13)
-  if(d.length<=15) return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13,14)+'.'+d.slice(14)
-  return d.slice(0,7)+'-'+d.slice(7,9)+'.'+d.slice(9,13)+'.'+d.slice(13,14)+'.'+d.slice(14,20)
-}
-
 const MODALIDADES = [
   { key:'transacao_excepcional', label:'Transação Excepcional', desc:'Descontos de até 100% em multas, juros e encargos para contribuintes em situação de insuficiência de recursos.', desconto_multa:[50,100], desconto_juros:[50,100], entrada_min:0, parcelas_max:60, elegibilidade:'Comprovação de insuficiência de recursos (CAPAG D ou equivalente).' },
   { key:'transacao_individual', label:'Transação Individual', desc:'Negociação caso a caso com a PGFN para dívidas acima de R$ 10 milhões.', desconto_multa:[0,50], desconto_juros:[0,50], entrada_min:5, parcelas_max:84, elegibilidade:'Dívida ativa superior a R$ 10 milhões.' },
@@ -82,7 +65,6 @@ function TabInterna({ tabs, active, onTab }) {
 
 export default function DiagnosticoDividaAtiva({ active }) {
   const [aba, setAba] = useState(0)
-
   const [dados, setDados] = useState({
     cnpj: active?.cnpj || '',
     valor_total: '',
@@ -100,30 +82,41 @@ export default function DiagnosticoDividaAtiva({ active }) {
     possui_embargos: false,
     observacoes: '',
   })
-
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
-
-  const [sim, setSim] = useState({
-    valor: '',
-    modalidade: 'transacao_edital',
-    desconto_multa: 50,
-    desconto_juros: 50,
-    parcelas: 60,
-    entrada_pct: 5,
-    multa_pct: 20,
-    juros_pct: 30,
-  })
+  const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
 
   const btnPrimary = {padding:'10px 20px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
   const btnOutline = {padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
 
   const inp = (k,ph,tp='text') => {
-   const handleChange = e => {
-      setDados({...dados,[k]:e.target.value})
+    const handleChange = e => {
+      let v = e.target.value
+      if(k==='cnpj'){
+        v = v.replace(/\D/g,'').slice(0,14)
+        v = v.replace(/^(\d{2})(\d)/,'$1.$2')
+        v = v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3')
+        v = v.replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3/$4')
+        v = v.replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/,'$1.$2.$3/$4-$5')
+      }
+      if(k==='processo_execucao'){
+        v = v.replace(/\D/g,'').slice(0,20)
+        v = v.replace(/^(\d{7})(\d)/,'$1-$2')
+        v = v.replace(/^(\d{7})-(\d{2})(\d)/,'$1-$2.$3')
+        v = v.replace(/^(\d{7})-(\d{2})\.(\d{4})(\d)/,'$1-$2.$3.$4')
+        v = v.replace(/^(\d{7})-(\d{2})\.(\d{4})\.(\d{1})(\d)/,'$1-$2.$3.$4.$5')
+      }
+      setDados({...dados,[k]:v})
     }
-    return <input value={dados[k]} onChange={handleChange} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+    const handleBlur = e => {
+      if(k==='valor_total'){
+        const raw = e.target.value.replace(/\./g,'').replace(',','.')
+        const n = parseFloat(raw)||0
+        if(n>0) setDados(d=>({...d,valor_total:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}))
+      }
+    }
+    return <input value={dados[k]} onChange={handleChange} onBlur={handleBlur} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
   }
 
   const chk = (k,lb) => (
@@ -135,153 +128,130 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   function calcularScore() {
     let score = 50
-    const valor = parseFloat(dados.valor_total)||0
-    const diasConstituicao = dados.data_constituicao ? Math.floor((new Date()-new Date(dados.data_constituicao))/(1000*60*60*24)) : 0
-    const diasInscricao = dados.data_inscricao ? Math.floor((new Date()-new Date(dados.data_inscricao))/(1000*60*60*24)) : 0
-    if (diasConstituicao > 1825) score += 20
-    if (diasInscricao > 1825) score += 10
-    if (!dados.possui_garantia) score += 10
-    if (!dados.possui_penhora) score += 5
-    if (dados.possui_embargos) score -= 10
-    if (valor < 100000) score += 10
-    else if (valor > 10000000) score -= 10
-    return Math.min(100, Math.max(0, score))
+    const valor = parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0
+    const diasC = dados.data_constituicao ? Math.floor((new Date()-new Date(dados.data_constituicao))/(1000*60*60*24)) : 0
+    const diasI = dados.data_inscricao ? Math.floor((new Date()-new Date(dados.data_inscricao))/(1000*60*60*24)) : 0
+    if(diasC>1825) score+=20
+    if(diasI>1825) score+=10
+    if(!dados.possui_garantia) score+=10
+    if(!dados.possui_penhora) score+=5
+    if(dados.possui_embargos) score-=10
+    if(valor<100000) score+=10
+    else if(valor>10000000) score-=10
+    return Math.min(100,Math.max(0,score))
   }
 
   function analisarDiagnostico() {
     setAnalisando(true)
-    const valor = parseFloat(dados.valor_total)||0
-    const diasConstituicao = dados.data_constituicao ? Math.floor((new Date()-new Date(dados.data_constituicao))/(1000*60*60*24)) : 0
-    const diasInscricao = dados.data_inscricao ? Math.floor((new Date()-new Date(dados.data_inscricao))/(1000*60*60*24)) : 0
+    const valor = parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0
+    const diasC = dados.data_constituicao ? Math.floor((new Date()-new Date(dados.data_constituicao))/(1000*60*60*24)) : 0
+    const diasI = dados.data_inscricao ? Math.floor((new Date()-new Date(dados.data_inscricao))/(1000*60*60*24)) : 0
 
-    const tesesIdentificadas = []
-    if (diasConstituicao > 1825) tesesIdentificadas.push({ ...TESES.find(t=>t.id==='prescricao_quinquenal'), status:'Verificar', prioridade:'Alta' })
-    if (diasInscricao > 1825) tesesIdentificadas.push({ ...TESES.find(t=>t.id==='prescricao_intercorrente'), status:'Verificar', prioridade:'Alta' })
-    tesesIdentificadas.push({ ...TESES.find(t=>t.id==='decadencia'), status:'Analisar', prioridade:'Média' })
-    tesesIdentificadas.push({ ...TESES.find(t=>t.id==='vicio_formal_cda'), status:'Analisar', prioridade:'Média' })
-    tesesIdentificadas.push({ ...TESES.find(t=>t.id==='multa_qualificada'), status:'Analisar', prioridade:'Baixa' })
+    const teses = []
+    if(diasC>1825) teses.push({...TESES.find(t=>t.id==='prescricao_quinquenal'),prioridade:'Alta'})
+    if(diasI>1825) teses.push({...TESES.find(t=>t.id==='prescricao_intercorrente'),prioridade:'Alta'})
+    teses.push({...TESES.find(t=>t.id==='decadencia'),prioridade:'Média'})
+    teses.push({...TESES.find(t=>t.id==='vicio_formal_cda'),prioridade:'Média'})
+    teses.push({...TESES.find(t=>t.id==='multa_qualificada'),prioridade:'Baixa'})
 
-    const modalidadesElegiveis = []
-    if (!dados.possui_garantia || !dados.possui_penhora) modalidadesElegiveis.push('transacao_edital')
-    if (valor > 10000000) modalidadesElegiveis.push('transacao_individual')
-    modalidadesElegiveis.push('parcelamento_ordinario')
-    if (dados.possui_penhora || dados.possui_embargos) modalidadesElegiveis.push('njp')
+    const modalidades = []
+    if(!dados.possui_garantia||!dados.possui_penhora) modalidades.push('transacao_edital')
+    if(valor>10000000) modalidades.push('transacao_individual')
+    modalidades.push('parcelamento_ordinario')
+    if(dados.possui_penhora||dados.possui_embargos) modalidades.push('njp')
 
     const alertas = []
-    if (diasConstituicao > 1640) alertas.push({ tipo:'danger', msg:'⚠️ Crédito constituído há mais de 4,5 anos — verificar prescrição com urgência.' })
-    if (dados.possui_penhora) alertas.push({ tipo:'danger', msg:'⚠️ Penhora ativa — risco de constrição de bens. Avaliar garantia alternativa.' })
-    if (dados.possui_bloqueio) alertas.push({ tipo:'danger', msg:'⚠️ Bloqueio BACENJUD ativo — solicitar substituição ou levantamento.' })
-    if (!dados.possui_parcelamento && valor > 0) alertas.push({ tipo:'warning', msg:'ℹ️ Nenhum parcelamento ativo — considere transação tributária para suspender exigibilidade.' })
+    if(diasC>1640) alertas.push({tipo:'danger',msg:'⚠️ Crédito constituído há mais de 4,5 anos — verificar prescrição com urgência.'})
+    if(dados.possui_penhora) alertas.push({tipo:'danger',msg:'⚠️ Penhora ativa — risco de constrição de bens. Avaliar garantia alternativa.'})
+    if(dados.possui_bloqueio) alertas.push({tipo:'danger',msg:'⚠️ Bloqueio BACENJUD ativo — solicitar substituição ou levantamento.'})
+    if(!dados.possui_parcelamento&&valor>0) alertas.push({tipo:'warning',msg:'ℹ️ Nenhum parcelamento ativo — considere transação tributária para suspender exigibilidade.'})
 
     const planoAcao = []
-    if (diasConstituicao > 1640) planoAcao.push({ prioridade:'🔴 Urgente', acao:'Analisar prescrição e decadência', beneficio:'Possível extinção do crédito', prazo:'Imediato' })
-    if (dados.possui_penhora) planoAcao.push({ prioridade:'🔴 Urgente', acao:'Avaliar substituição da penhora', beneficio:'Liberação de bens', prazo:'7 dias' })
-    planoAcao.push({ prioridade:'🟡 Importante', acao:'Verificar vícios formais da CDA', beneficio:'Possível nulidade da inscrição', prazo:'30 dias' })
-    planoAcao.push({ prioridade:'🟡 Importante', acao:'Simular transação tributária', beneficio:`Economia potencial de até ${fmtR(valor*0.5)}`, prazo:'15 dias' })
-    planoAcao.push({ prioridade:'🟢 Estratégico', acao:'Definir modalidade de regularização', beneficio:'Suspensão da exigibilidade', prazo:'30 dias' })
+    if(diasC>1640) planoAcao.push({prioridade:'🔴 Urgente',acao:'Analisar prescrição e decadência',beneficio:'Possível extinção do crédito',prazo:'Imediato'})
+    if(dados.possui_penhora) planoAcao.push({prioridade:'🔴 Urgente',acao:'Avaliar substituição da penhora',beneficio:'Liberação de bens',prazo:'7 dias'})
+    planoAcao.push({prioridade:'🟡 Importante',acao:'Verificar vícios formais da CDA',beneficio:'Possível nulidade da inscrição',prazo:'30 dias'})
+    planoAcao.push({prioridade:'🟡 Importante',acao:'Simular transação tributária',beneficio:`Economia potencial de até ${fmtR(valor*0.5)}`,prazo:'15 dias'})
+    planoAcao.push({prioridade:'🟢 Estratégico',acao:'Definir modalidade de regularização',beneficio:'Suspensão da exigibilidade',prazo:'30 dias'})
 
     setTimeout(()=>{
-      setDiagnostico({ teses:tesesIdentificadas, modalidades:modalidadesElegiveis, alertas, planoAcao, score:calcularScore(), valor })
+      setDiagnostico({teses,modalidades,alertas,planoAcao,score:calcularScore(),valor})
       setAnalisando(false)
       setAba(2)
-    }, 1500)
+    },1500)
   }
 
   function calcularSimulacao() {
     const valor = parseFloat(sim.valor)||0
-    const multa = valor * (sim.multa_pct/100)
-    const juros = valor * (sim.juros_pct/100)
-    const descMulta = multa * (sim.desconto_multa/100)
-    const descJuros = juros * (sim.desconto_juros/100)
-    const totalDesconto = descMulta + descJuros
-    const valorFinal = valor - totalDesconto
-    const entrada = valorFinal * (sim.entrada_pct/100)
-    const saldo = valorFinal - entrada
-    const parcela = sim.parcelas > 1 ? saldo / (sim.parcelas-1) : saldo
-    setSimResult({ multa, juros, descMulta, descJuros, totalDesconto, valorFinal, entrada, parcela, economia:totalDesconto })
+    const multa = valor*(sim.multa_pct/100)
+    const juros = valor*(sim.juros_pct/100)
+    const descMulta = multa*(sim.desconto_multa/100)
+    const descJuros = juros*(sim.desconto_juros/100)
+    const totalDesconto = descMulta+descJuros
+    const valorFinal = valor-totalDesconto
+    const entrada = valorFinal*(sim.entrada_pct/100)
+    const saldo = valorFinal-entrada
+    const parcela = sim.parcelas>1?saldo/(sim.parcelas-1):saldo
+    setSimResult({multa,juros,descMulta,descJuros,totalDesconto,valorFinal,entrada,parcela,economia:totalDesconto})
   }
 
   function gerarRelatorio() {
-    if (!diagnostico) { alert('Execute o diagnóstico antes de gerar o relatório.'); return }
+    if(!diagnostico){alert('Execute o diagnóstico antes de gerar o relatório.');return}
     const linhas = [
       '╔══════════════════════════════════════════════════════════════╗',
       '║         FISCALTRIB — RELATÓRIO EXECUTIVO DÍVIDA ATIVA        ║',
       '╚══════════════════════════════════════════════════════════════╝',
-      '',
-      `Cliente: ${active?.razao_social || dados.cnpj}`,
-      `CNPJ: ${dados.cnpj}`,
-      `Regime: ${active?.regime || '—'}`,
-      `Data do relatório: ${new Date().toLocaleDateString('pt-BR')}`,
-      '',
-      '─── 1. RESUMO EXECUTIVO ───────────────────────────────────────',
-      `Valor total da dívida: ${fmtR(parseFloat(dados.valor_total)||0)}`,
-      `Quantidade de CDAs: ${dados.qtd_cdas || '—'}`,
-      `Score da Dívida Ativa: ${diagnostico.score}/100`,
-      `Órgão credor: ${dados.orgao_credor}`,
-      '',
-      '─── 2. ALERTAS IDENTIFICADOS ──────────────────────────────────',
+      '',`Cliente: ${active?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Regime: ${active?.regime||'—'}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,
+      '','─── 1. RESUMO EXECUTIVO ───────────────────────────────────────',
+      `Valor total: ${dados.valor_total}`,`CDAs: ${dados.qtd_cdas||'—'}`,`Score: ${diagnostico.score}/100`,`Órgão: ${dados.orgao_credor}`,
+      '','─── 2. ALERTAS ────────────────────────────────────────────────',
       ...diagnostico.alertas.map(a=>`• ${a.msg}`),
-      '',
-      '─── 3. DIAGNÓSTICO TÉCNICO ────────────────────────────────────',
+      '','─── 3. DIAGNÓSTICO TÉCNICO ────────────────────────────────────',
       ...diagnostico.teses.map(t=>`[${t.prioridade}] ${t.label}\n   ${t.desc}\n   Fundamento: ${t.fundamento}`),
-      '',
-      '─── 4. ESTRATÉGIAS RECOMENDADAS ───────────────────────────────',
-      ...diagnostico.modalidades.map(m=>{ const mod=MODALIDADES.find(x=>x.key===m); return mod?`• ${mod.label}: ${mod.desc}`:''}),
-      '',
-      '─── 5. PLANO DE AÇÃO ──────────────────────────────────────────',
-      ...diagnostico.planoAcao.map(p=>`${p.prioridade} | ${p.acao}\n   Benefício: ${p.beneficio} | Prazo: ${p.prazo}`),
-      '',
-      '─── 6. CONCLUSÃO ──────────────────────────────────────────────',
-      `Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial de regularização':diagnostico.score>=40?'Potencial moderado':'Situação crítica — ação urgente necessária'}.`,
+      '','─── 4. ESTRATÉGIAS ────────────────────────────────────────────',
+      ...diagnostico.modalidades.map(m=>{const mod=MODALIDADES.find(x=>x.key===m);return mod?`• ${mod.label}: ${mod.desc}`:''}),
+      '','─── 5. PLANO DE AÇÃO ──────────────────────────────────────────',
+      ...diagnostico.planoAcao.map(p=>`${p.prioridade} — ${p.acao} (${p.prazo})`),
+      '','─── 6. CONCLUSÃO ──────────────────────────────────────────────',
+      `Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial':diagnostico.score>=40?'Potencial moderado':'Situação crítica'}.`,
       'Recomenda-se análise jurídica complementar com advogado tributarista habilitado.',
-      '',
-      '──────────────────────────────────────────────────────────────',
-      'Gerado por FiscalTrib — fiscaltrib.com.br',
-      'Este relatório é preliminar e não substitui parecer jurídico.',
+      '','Gerado por FiscalTrib — fiscaltrib.com.br',
     ]
-    const blob = new Blob([linhas.join('\n')], {type:'text/plain;charset=utf-8'})
+    const blob = new Blob([linhas.join('\n')],{type:'text/plain;charset=utf-8'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href=url; a.download=`RelatorioExecutivo_${dados.cnpj||'cliente'}_${new Date().toISOString().slice(0,10)}.txt`
-    a.click(); URL.revokeObjectURL(url)
+    a.href=url;a.download=`Relatorio_${dados.cnpj||'cliente'}_${new Date().toISOString().slice(0,10)}.txt`
+    a.click();URL.revokeObjectURL(url)
   }
 
   const ABAS = ['📋 Visão Geral','🔍 Consulta PGFN','🧠 Diagnóstico','⚡ Estratégias','📊 Simulador','📄 Relatório']
 
   return (
     <div style={{maxWidth:960,margin:'0 auto'}}>
-
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
         <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
         <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Análise inteligente de débitos inscritos · Estratégias de regularização · Simulador de transação tributária</p>
-        {active && <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
+        {active&&<div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
           <span>👤 {active.razao_social}</span><span>·</span><span>{active.cnpj}</span><span>·</span><span>{active.regime}</span>
         </div>}
       </div>
 
       <TabInterna tabs={ABAS} active={aba} onTab={setAba} />
 
-      {/* ── ABA 0: VISÃO GERAL ── */}
-      {aba===0 && <>
-        {!diagnostico ? (
+      {aba===0&&<>
+        {!diagnostico?(
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center',marginBottom:16}}>
             <div style={{fontSize:48,marginBottom:12}}>⚖️</div>
             <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum diagnóstico realizado ainda</div>
             <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Acesse a aba "Consulta PGFN" para inserir os dados e iniciar a análise.</div>
             <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados da dívida →</button>
           </div>
-        ) : <>
+        ):<>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
-            <ScoreDividaAtiva score={diagnostico.score} />
+            <ScoreDividaAtiva score={diagnostico.score}/>
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
               <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Resumo da Dívida</div>
-              {[
-                ['Valor total',fmtR(parseFloat(dados.valor_total)||0),'#DC2626'],
-                ['CDAs',dados.qtd_cdas||'—','#0B1F4D'],
-                ['Órgão credor',dados.orgao_credor,'#0B1F4D'],
-                ['Economia potencial',fmtR((parseFloat(dados.valor_total)||0)*0.5),'#16A34A'],
-              ].map(([lb,val,cor])=>(
+              {[['Valor total',dados.valor_total||'—','#DC2626'],['CDAs',dados.qtd_cdas||'—','#0B1F4D'],['Órgão credor',dados.orgao_credor,'#0B1F4D'],['Economia potencial',fmtR(diagnostico.valor*0.5),'#16A34A']].map(([lb,val,cor])=>(
                 <div key={lb} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
                   <span style={{fontSize:13,color:C.muted}}>{lb}</span>
                   <span style={{fontSize:14,fontWeight:700,color:cor}}>{val}</span>
@@ -289,13 +259,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
               ))}
             </div>
           </div>
-          {diagnostico.alertas.length>0 && (
-            <div style={{marginBottom:16}}>
-              {diagnostico.alertas.map((a,i)=>(
-                <div key={i} style={{background:a.tipo==='danger'?'#FEF2F2':'#FFFBEB',border:`1px solid ${a.tipo==='danger'?'#FECACA':'#FCD34D'}`,borderRadius:8,padding:'10px 16px',marginBottom:8,fontSize:13,color:a.tipo==='danger'?'#991B1B':'#92400E'}}>{a.msg}</div>
-              ))}
-            </div>
-          )}
+          {diagnostico.alertas.length>0&&<div style={{marginBottom:16}}>
+            {diagnostico.alertas.map((a,i)=>(
+              <div key={i} style={{background:a.tipo==='danger'?'#FEF2F2':'#FFFBEB',border:`1px solid ${a.tipo==='danger'?'#FECACA':'#FCD34D'}`,borderRadius:8,padding:'10px 16px',marginBottom:8,fontSize:13,color:a.tipo==='danger'?'#991B1B':'#92400E'}}>{a.msg}</div>
+            ))}
+          </div>}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>📋 Próximas ações</div>
             {diagnostico.planoAcao.map((p,i)=>(
@@ -310,8 +278,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </>}
       </>}
 
-      {/* ── ABA 1: CONSULTA PGFN ── */}
-      {aba===1 && <>
+      {aba===1&&<>
         <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
           ℹ️ <strong>Modo manual ativo.</strong> Preencha os dados da dívida abaixo. Em versões futuras, este módulo realizará consulta automática via API da PGFN/Regularize.
         </div>
@@ -334,7 +301,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>
         </div>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Situação Processual</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
             {chk('possui_parcelamento','Parcelamento ativo')}
             {chk('possui_transacao_anterior','Transação anterior')}
             {chk('possui_garantia','Garantia prestada')}
@@ -344,8 +312,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>
         </div>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>📝 Observações adicionais</div>
-          <textarea value={dados.observacoes} onChange={e=>setDados({...dados,observacoes:e.target.value})} placeholder="Informações complementares sobre a dívida, histórico de negociações, garantias, etc."
+          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>📝 Observações</div>
+          <textarea value={dados.observacoes} onChange={e=>setDados({...dados,observacoes:e.target.value})} placeholder="Informações complementares..."
             style={{width:'100%',padding:'10px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,minHeight:80,resize:'vertical',boxSizing:'border-box'}}/>
         </div>
         <button onClick={analisarDiagnostico} disabled={analisando} style={{...btnPrimary,opacity:analisando?0.7:1}}>
@@ -353,23 +321,22 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </button>
       </>}
 
-      {/* ── ABA 2: DIAGNÓSTICO ── */}
-      {aba===2 && <>
-        {!diagnostico ? (
+      {aba===2&&<>
+        {!diagnostico?(
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
             <div style={{fontSize:40,marginBottom:12}}>🧠</div>
             <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Diagnóstico não realizado</div>
             <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados →</button>
           </div>
-        ) : <>
+        ):<>
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>⏱️ Análise de Prescrição e Decadência</div>
             {[
               ['Prescrição quinquenal (Art. 174 CTN)','Constituição do crédito',dados.data_constituicao,1825],
               ['Prescrição intercorrente (Súmula 314 STJ)','Inscrição em Dívida Ativa',dados.data_inscricao,1825],
             ].map(([titulo,ref,data,limite],i)=>{
-              const dias = data ? Math.floor((new Date()-new Date(data))/(1000*60*60*24)) : 0
-              const pct = Math.min(100, (dias/limite)*100)
+              const dias = data?Math.floor((new Date()-new Date(data))/(1000*60*60*24)):0
+              const pct = Math.min(100,(dias/limite)*100)
               const cor = pct>=100?'#DC2626':pct>=80?'#D97706':'#16A34A'
               const status = pct>=100?'⚠️ VERIFICAR URGENTE':pct>=80?'⚠️ Próximo do prazo':'✅ Dentro do prazo'
               return (
@@ -378,7 +345,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                     <span style={{fontSize:13,fontWeight:600,color:C.text}}>{titulo}</span>
                     <span style={{fontSize:12,fontWeight:700,color:cor}}>{status}</span>
                   </div>
-                  <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{ref}: {data?new Date(data).toLocaleDateString('pt-BR'):'Não informado'} · {dias} dias decorridos de {limite}</div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{ref}: {data?new Date(data).toLocaleDateString('pt-BR'):'Não informado'} · {dias} dias de {limite}</div>
                   <div style={{background:C.border,borderRadius:99,height:6,overflow:'hidden'}}>
                     <div style={{background:cor,height:6,borderRadius:99,width:pct+'%',transition:'width 0.5s'}}></div>
                   </div>
@@ -387,7 +354,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
             })}
           </div>
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>⚖️ Teses e Oportunidades Identificadas</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>⚖️ Teses e Oportunidades</div>
             {diagnostico.teses.map((t,i)=>{
               const cores={'baixo':'#DCFCE7|#166534','medio':'#FEF9C3|#854D0E','alto':'#FEE2E2|#991B1B'}
               const [bg,cor]=(cores[t.risco]||'#F1F5F9|#475569').split('|')
@@ -407,16 +374,9 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>🗂️ Situação Processual</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {[
-                ['Parcelamento ativo',dados.possui_parcelamento],
-                ['Transação anterior',dados.possui_transacao_anterior],
-                ['Garantia prestada',dados.possui_garantia],
-                ['Penhora de bens',dados.possui_penhora],
-                ['Bloqueio BACENJUD',dados.possui_bloqueio],
-                ['Embargos à execução',dados.possui_embargos],
-              ].map(([lb,val])=>(
+              {[['Parcelamento ativo',dados.possui_parcelamento],['Transação anterior',dados.possui_transacao_anterior],['Garantia prestada',dados.possui_garantia],['Penhora de bens',dados.possui_penhora],['Bloqueio BACENJUD',dados.possui_bloqueio],['Embargos à execução',dados.possui_embargos]].map(([lb,val])=>(
                 <div key={lb} style={{display:'flex',alignItems:'center',gap:8,background:val?'#FEF2F2':'#F0FDF4',border:`1px solid ${val?'#FECACA':'#86EFAC'}`,borderRadius:8,padding:'10px 14px'}}>
-                  <span style={{fontSize:16}}>{val?'🔴':'🟢'}</span>
+                  <span>{val?'🔴':'🟢'}</span>
                   <span style={{fontSize:12,color:C.text,fontWeight:500}}>{lb}</span>
                 </div>
               ))}
@@ -425,44 +385,37 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </>}
       </>}
 
-      {/* ── ABA 3: ESTRATÉGIAS ── */}
-      {aba===3 && <>
+      {aba===3&&<>
         <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
-          ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor. Consulte sempre um advogado tributarista para validação.
+          ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor.
         </div>
-        {MODALIDADES.map((m)=>{
-          const elegivel = !diagnostico || (diagnostico?.modalidades||[]).includes(m.key)
+        {MODALIDADES.map(m=>{
+          const elegivel=!diagnostico||(diagnostico?.modalidades||[]).includes(m.key)
           return (
             <div key={m.key} style={{background:C.white,borderRadius:12,border:`1px solid ${elegivel?'#86EFAC':C.border}`,borderLeft:`5px solid ${elegivel?'#16A34A':'#C8D0DC'}`,padding:'18px 22px',marginBottom:12,opacity:elegivel?1:0.6}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                 <span style={{fontSize:14,fontWeight:700,color:C.navy}}>{m.label}</span>
-                {elegivel && <span style={{background:'#DCFCE7',color:'#166534',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>✓ Elegível</span>}
+                {elegivel&&<span style={{background:'#DCFCE7',color:'#166534',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>✓ Elegível</span>}
               </div>
               <div style={{fontSize:13,color:C.muted,marginBottom:10}}>{m.desc}</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:10}}>
-                {[
-                  ['Desconto multa',`${m.desconto_multa[0]}–${m.desconto_multa[1]}%`,'#7C3AED'],
-                  ['Desconto juros',`${m.desconto_juros[0]}–${m.desconto_juros[1]}%`,'#0D9488'],
-                  ['Entrada mínima',`${m.entrada_min}%`,'#D97706'],
-                  ['Parcelas máx.',`${m.parcelas_max}x`,'#2563EB'],
-                ].map(([lb,val,cor])=>(
+                {[['Desconto multa',`${m.desconto_multa[0]}–${m.desconto_multa[1]}%`,'#7C3AED'],['Desconto juros',`${m.desconto_juros[0]}–${m.desconto_juros[1]}%`,'#0D9488'],['Entrada mínima',`${m.entrada_min}%`,'#D97706'],['Parcelas máx.',`${m.parcelas_max}x`,'#2563EB']].map(([lb,val,cor])=>(
                   <div key={lb} style={{background:'#F8FAFC',borderRadius:8,padding:'8px 10px',textAlign:'center'}}>
                     <div style={{fontSize:14,fontWeight:700,color:cor}}>{val}</div>
                     <div style={{fontSize:10,color:C.muted}}>{lb}</div>
                   </div>
                 ))}
               </div>
-              <div style={{fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'6px 10px'}}>📋 Elegibilidade: {m.elegibilidade}</div>
+              <div style={{fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'6px 10px'}}>📋 {m.elegibilidade}</div>
             </div>
           )
         })}
       </>}
 
-      {/* ── ABA 4: SIMULADOR ── */}
-      {aba===4 && <>
+      {aba===4&&<>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚙️ Parâmetros da simulação</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚙️ Parâmetros</div>
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
                 <label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dívida (R$)</label>
@@ -470,19 +423,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
               </div>
               <div>
                 <label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Modalidade</label>
-                <select value={sim.modalidade} onChange={e=>{ const m=MODALIDADES.find(x=>x.key===e.target.value); setSim({...sim,modalidade:e.target.value,desconto_multa:m.desconto_multa[1],desconto_juros:m.desconto_juros[1],entrada_pct:m.entrada_min||5,parcelas:m.parcelas_max}) }}
-                  style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>
+                <select value={sim.modalidade} onChange={e=>{const m=MODALIDADES.find(x=>x.key===e.target.value);setSim({...sim,modalidade:e.target.value,desconto_multa:m.desconto_multa[1],desconto_juros:m.desconto_juros[1],entrada_pct:m.entrada_min||5,parcelas:m.parcelas_max})}} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>
                   {MODALIDADES.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}
                 </select>
               </div>
-              {[
-                ['% da dívida que é multa','multa_pct',0,80],
-                ['% da dívida que são juros','juros_pct',0,80],
-                ['Desconto sobre multa (%)','desconto_multa',0,100],
-                ['Desconto sobre juros (%)','desconto_juros',0,100],
-                ['Entrada (% do valor final)','entrada_pct',0,30],
-                ['Número de parcelas','parcelas',1,120],
-              ].map(([lb,k,min,max])=>(
+              {[['% da dívida que é multa','multa_pct',0,80],['% da dívida que são juros','juros_pct',0,80],['Desconto sobre multa (%)','desconto_multa',0,100],['Desconto sobre juros (%)','desconto_juros',0,100],['Entrada (% do valor final)','entrada_pct',0,30],['Número de parcelas','parcelas',1,120]].map(([lb,k,min,max])=>(
                 <div key={k}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                     <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
@@ -495,70 +440,50 @@ export default function DiagnosticoDividaAtiva({ active }) {
             </div>
           </div>
           <div>
-            {!simResult ? (
+            {!simResult?(
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>📊</div>
                 <div style={{fontSize:14,color:C.muted}}>Preencha os parâmetros e clique em Simular</div>
               </div>
-            ) : (
+            ):(
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>📊 Resultado da simulação</div>
-                {[
-                  ['Valor original',fmtR(parseFloat(sim.valor)||0),'#DC2626'],
-                  ['Multa ('+sim.multa_pct+'%)',fmtR(simResult.multa),'#D97706'],
-                  ['Juros ('+sim.juros_pct+'%)',fmtR(simResult.juros),'#D97706'],
-                  ['Desconto multa (-'+sim.desconto_multa+'%)','-'+fmtR(simResult.descMulta),'#16A34A'],
-                  ['Desconto juros (-'+sim.desconto_juros+'%)','-'+fmtR(simResult.descJuros),'#16A34A'],
-                ].map(([lb,val,cor])=>(
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>📊 Resultado</div>
+                {[['Valor original',fmtR(parseFloat(sim.valor)||0),'#DC2626'],['Multa ('+sim.multa_pct+'%)',fmtR(simResult.multa),'#D97706'],['Juros ('+sim.juros_pct+'%)',fmtR(simResult.juros),'#D97706'],['Desconto multa','-'+fmtR(simResult.descMulta),'#16A34A'],['Desconto juros','-'+fmtR(simResult.descJuros),'#16A34A']].map(([lb,val,cor])=>(
                   <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${C.border}`,fontSize:13}}>
-                    <span style={{color:C.muted}}>{lb}</span>
-                    <span style={{fontWeight:600,color:cor}}>{val}</span>
+                    <span style={{color:C.muted}}>{lb}</span><span style={{fontWeight:600,color:cor}}>{val}</span>
                   </div>
                 ))}
                 <div style={{background:'#F0FDF4',borderRadius:10,padding:'14px 16px',marginTop:14,marginBottom:14}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                    <span style={{fontSize:14,fontWeight:700,color:C.text}}>Valor final a pagar</span>
-                    <span style={{fontSize:18,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.valorFinal)}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                    <span style={{fontSize:13,color:C.muted}}>Economia total</span>
-                    <span style={{fontSize:14,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.economia)}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                    <span style={{fontSize:13,color:C.muted}}>Entrada ({sim.entrada_pct}%)</span>
-                    <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.entrada)}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between'}}>
-                    <span style={{fontSize:13,color:C.muted}}>{sim.parcelas>1?sim.parcelas-1:'1'} parcela(s) de</span>
-                    <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.parcela)}</span>
-                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:14,fontWeight:700,color:C.text}}>Valor final a pagar</span><span style={{fontSize:18,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.valorFinal)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Economia total</span><span style={{fontSize:14,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.economia)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Entrada ({sim.entrada_pct}%)</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.entrada)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:13,color:C.muted}}>{sim.parcelas>1?sim.parcelas-1:'1'} parcela(s) de</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.parcela)}</span></div>
                 </div>
-                <button onClick={()=>setAba(5)} style={{...btnOutline,width:'100%'}}>📄 Gerar relatório executivo →</button>
+                <button onClick={()=>setAba(5)} style={{...btnOutline,width:'100%'}}>📄 Gerar relatório →</button>
               </div>
             )}
           </div>
         </div>
       </>}
 
-      {/* ── ABA 5: RELATÓRIO ── */}
-      {aba===5 && <>
+      {aba===5&&<>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',marginBottom:16}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:4}}>📄 Relatório Executivo — Dívida Ativa</div>
-          <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Documento completo para apresentação ao cliente · {new Date().toLocaleDateString('pt-BR')}</div>
-          {!diagnostico ? (
-            <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
+          <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString('pt-BR')}</div>
+          {!diagnostico?(
+            <div style={{textAlign:'center',padding:'32px 0'}}>
               <div style={{fontSize:32,marginBottom:8}}>⚠️</div>
-              <div style={{fontSize:14,marginBottom:16}}>Execute o diagnóstico antes de gerar o relatório.</div>
+              <div style={{fontSize:14,color:C.muted,marginBottom:16}}>Execute o diagnóstico antes de gerar o relatório.</div>
               <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados →</button>
             </div>
-          ) : <>
+          ):<>
             {[
-              {titulo:'1. Resumo Executivo', cor:'#0B1F4D', conteudo:[`Cliente: ${active?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Valor total: ${fmtR(parseFloat(dados.valor_total)||0)}`,`CDAs: ${dados.qtd_cdas||'—'} · Órgão: ${dados.orgao_credor}`,`Score: ${diagnostico.score}/100`,`Economia potencial: ${fmtR((parseFloat(dados.valor_total)||0)*0.5)}`]},
-              {titulo:'2. Diagnóstico Técnico', cor:'#7C3AED', conteudo:diagnostico.teses.map(t=>`[${t.prioridade}] ${t.label} — ${t.fundamento}`)},
-              {titulo:'3. Alertas', cor:'#DC2626', conteudo:diagnostico.alertas.length>0?diagnostico.alertas.map(a=>a.msg):['Nenhum alerta crítico identificado.']},
-              {titulo:'4. Estratégias Recomendadas', cor:'#16A34A', conteudo:diagnostico.modalidades.map(m=>{const mod=MODALIDADES.find(x=>x.key===m);return mod?`${mod.label}: até ${mod.desconto_multa[1]}% em multas e ${mod.desconto_juros[1]}% em juros`:''})},
-              {titulo:'5. Plano de Ação', cor:'#D97706', conteudo:diagnostico.planoAcao.map(p=>`${p.prioridade} — ${p.acao} (${p.prazo})`)},
-              {titulo:'6. Conclusão', cor:'#0B1F4D', conteudo:[`Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial':diagnostico.score>=40?'Potencial moderado':'Situação crítica'}.`,'Recomenda-se análise jurídica complementar com advogado tributarista habilitado.']},
+              {titulo:'1. Resumo Executivo',cor:'#0B1F4D',conteudo:[`Cliente: ${active?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Valor: ${dados.valor_total}`,`CDAs: ${dados.qtd_cdas||'—'} · Órgão: ${dados.orgao_credor}`,`Score: ${diagnostico.score}/100`]},
+              {titulo:'2. Diagnóstico Técnico',cor:'#7C3AED',conteudo:diagnostico.teses.map(t=>`[${t.prioridade}] ${t.label} — ${t.fundamento}`)},
+              {titulo:'3. Alertas',cor:'#DC2626',conteudo:diagnostico.alertas.length>0?diagnostico.alertas.map(a=>a.msg):['Nenhum alerta crítico.']},
+              {titulo:'4. Estratégias',cor:'#16A34A',conteudo:diagnostico.modalidades.map(m=>{const mod=MODALIDADES.find(x=>x.key===m);return mod?`${mod.label}: até ${mod.desconto_multa[1]}% em multas`:''})},
+              {titulo:'5. Plano de Ação',cor:'#D97706',conteudo:diagnostico.planoAcao.map(p=>`${p.prioridade} — ${p.acao} (${p.prazo})`)},
+              {titulo:'6. Conclusão',cor:'#0B1F4D',conteudo:[`Score ${diagnostico.score}/100 — ${diagnostico.score>=70?'Alto potencial':diagnostico.score>=40?'Potencial moderado':'Situação crítica'}.`,'Recomenda-se análise jurídica complementar.']},
             ].map((s,i)=>(
               <div key={i} style={{borderLeft:`4px solid ${s.cor}`,paddingLeft:16,marginBottom:20}}>
                 <div style={{fontSize:14,fontWeight:700,color:s.cor,marginBottom:8}}>{s.titulo}</div>
@@ -569,7 +494,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </>}
         </div>
       </>}
-
     </div>
   )
 }
