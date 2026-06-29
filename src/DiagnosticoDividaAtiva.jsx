@@ -319,7 +319,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>📋 Identificação da Dívida</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
             <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>CNPJ</label>{inp('cnpj','00.000.000/0001-00')}</div>
-            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dívida (R$)</label>{inp('valor_total','Ex: 250000','number')}</div>
+            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dívida (R$)</label>{inp('valor_total','Ex: 250.000,00')}</div>
             <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Quantidade de CDAs</label>{inp('qtd_cdas','Ex: 3','number')}</div>
             <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Número(s) da(s) CDA(s)</label>{inp('cdas','Ex: 80 4 00001234-9')}</div>
             <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Data de constituição do crédito</label>{inp('data_constituicao','','date')}</div>
@@ -334,8 +334,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>
         </div>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-          <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dívida (R$)</label><input value={dados.valor_total} onChange={e=>setDados({...dados,valor_total:e.target.value})} onBlur={e=>{const raw=e.target.value.replace(/\./g,'').replace(',','.');const n=parseFloat(raw)||0;if(n>0)setDados(d=>({...d,valor_total:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}))}} placeholder="Ex: 250.000,00" style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/></div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
             {chk('possui_parcelamento','Parcelamento ativo')}
             {chk('possui_transacao_anterior','Transação anterior')}
             {chk('possui_garantia','Garantia prestada')}
