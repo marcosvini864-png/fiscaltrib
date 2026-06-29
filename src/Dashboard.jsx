@@ -1,4 +1,3 @@
-import MinhasAnalises from './MinhasAnalises'
 import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
 import Acompanhamento from './Acompanhamento'
@@ -19,6 +18,7 @@ import CentralTributaria from './CentralTributaria'
 import Admin from './Admin'
 import Laboratorio from './Laboratorio'
 import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
+import MinhasAnalises from './MinhasAnalises'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -45,10 +45,10 @@ const C = {
 
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
-  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
   analises:     { label:'Minhas Análises',         icon:'📂', tabs:[] },
-  analise:      { label:'Análise Fiscal',           icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
-  recuperacao:  { label:'Recuperação',              icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
+  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
+  analise:      { label:'Análise Fiscal',          icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
+  recuperacao:  { label:'Recuperação',             icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
@@ -399,10 +399,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚖️ Dívida Ativa</div>
-                    <div style={{fontSize:12,color:C.muted}}>Diagnóstico e estratégias para regularização de débitos.</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚠️ Reforma Tributária</div>
+                    <div style={{fontSize:12,color:C.muted}}>Impacto nas recuperações — CBS, IBS e período de transição.</div>
                   </div>
-                  <button onClick={()=>navigateTo('divida',0)} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Ver →</button>
+                  <button onClick={()=>navigateTo('inteligencia',1)} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Ver →</button>
                 </div>
               </div>
               {clientes.length===0 ? (
@@ -435,6 +435,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               )}
             </>}
+
+            {/* ── MINHAS ANÁLISES ── */}
+            {module==='analises' && <MinhasAnalises />}
 
             {/* ── CLIENTES ── */}
             {module==='clientes' && activeTab===0 && <>
@@ -622,7 +625,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {/* ── INTELIGÊNCIA TRIBUTÁRIA ── */}
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
-			{module==='analises' && <MinhasAnalises />}
+
+            {/* ── MINHAS ANÁLISES ── */}
+            {module==='analises' && <MinhasAnalises />}
+
+            {/* ── DÍVIDA ATIVA ── */}
             {module==='divida' && <DiagnosticoDividaAtiva active={active} />}
 
             {/* ── ADMIN ── */}
