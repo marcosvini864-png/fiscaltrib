@@ -18,7 +18,6 @@ import CentralTributaria from './CentralTributaria'
 import Admin from './Admin'
 import Laboratorio from './Laboratorio'
 import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
-import MinhasAnalises from './MinhasAnalises'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -45,7 +44,6 @@ const C = {
 
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
-  analises:     { label:'Minhas Análises',         icon:'📂', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
   analise:      { label:'Análise Fiscal',          icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperação',             icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
@@ -290,19 +288,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setChecklist({...checklist,[activeId]:novo})
   }
 
-  function navigateTo(mod, tab=0) {
-    setModule(mod); setActiveTab(tab)
-  }
-
-  function handleNavigate(key) {
-    setModule(key); setActiveTab(0)
-    if(key==='clientes') setNovoCliente(null)
-  }
-
-  function handleTab(i) {
-    setActiveTab(i)
-    if(module==='clientes' && i===1) setNovoCliente({...CLIENTE_VAZIO})
-  }
+  function navigateTo(mod, tab=0) { setModule(mod); setActiveTab(tab) }
+  function handleNavigate(key) { setModule(key); setActiveTab(0); if(key==='clientes') setNovoCliente(null) }
+  function handleTab(i) { setActiveTab(i); if(module==='clientes' && i===1) setNovoCliente({...CLIENTE_VAZIO}) }
 
   async function preencherViaXML(file) {
     const text = await file.text()
@@ -435,9 +423,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               )}
             </>}
-
-            {/* ── MINHAS ANÁLISES ── */}
-            {module==='analises' && <MinhasAnalises />}
 
             {/* ── CLIENTES ── */}
             {module==='clientes' && activeTab===0 && <>
@@ -625,9 +610,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {/* ── INTELIGÊNCIA TRIBUTÁRIA ── */}
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
-
-            {/* ── MINHAS ANÁLISES ── */}
-            {module==='analises' && <MinhasAnalises />}
 
             {/* ── DÍVIDA ATIVA ── */}
             {module==='divida' && <DiagnosticoDividaAtiva active={active} />}
