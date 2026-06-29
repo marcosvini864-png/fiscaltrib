@@ -259,11 +259,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
 
-  useEffect(()=>{
-    setTela('historico')
-    setAba(0)
-  },[active?.id])
-
+  useEffect(()=>{ setTela('historico'); setAba(0) },[active?.id])
   useEffect(()=>{ carregarHistorico() },[active])
 
   async function carregarHistorico() {
@@ -374,64 +370,95 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','📊 Simulador','📄 Parecer']
 
-  // ── TELA HISTÓRICO ────────────────────────────────────────────────────────
-  if(tela==='historico') return (
-    <div style={{maxWidth:960,margin:'0 auto'}}>
-      <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
-        <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
-        <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
-        <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
-      </div>
+  // ── TELA HISTÓRICO COM PAINEL ─────────────────────────────────────────────
+  if(tela==='historico') {
+    const totalAnalises = historico.length
+    const totalUrgentes = historico.filter(r=>r.diagnostico?.urgente).length
+    const totalValor = historico.reduce((s,r)=>{
+      const v = parseFloat((r.valor_total||'').replace(/\./g,'').replace(',','.'))||0
+      return s+v
+    },0)
+    const totalCDAs = historico.reduce((s,r)=>s+(r.cdas?.length||0),0)
 
-      <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.navy}}>
-            📂 Análises salvas{active?` — ${active.razao_social}`:''}
-          </div>
-          <button onClick={novoRegistro} style={{...btnPrimary,padding:'7px 16px',fontSize:12}}>+ Nova análise</button>
+    return (
+      <div style={{maxWidth:960,margin:'0 auto'}}>
+        {/* HEADER */}
+        <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
+          <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
+          <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
+          <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
         </div>
 
-        {loadingHist ? (
-          <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
-        ) : historico.length===0 ? (
-          <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
-            <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
-            <div style={{fontSize:14,marginBottom:16}}>Nenhuma análise salva ainda.</div>
-            <button onClick={novoRegistro} style={btnPrimary}>+ Nova análise</button>
+        {/* KPIs */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+          {[
+            ['Total de análises', totalAnalises,     '#2563EB', '📂'],
+            ['CDAs cadastradas',  totalCDAs,         '#7C3AED', '📄'],
+            ['Valor total',       fmtR(totalValor),  '#DC2626', '💰'],
+            ['Casos urgentes',    totalUrgentes,     '#D97706', '⚠️'],
+          ].map(([lb,val,cor,ic])=>(
+            <div key={lb} style={{background:C.white,borderRadius:12,padding:'16px 20px',border:`1px solid ${C.border}`,borderTop:`4px solid ${cor}`}}>
+              <div style={{fontSize:22,marginBottom:4}}>{ic}</div>
+              <div style={{fontSize:20,fontWeight:700,color:cor}}>{val}</div>
+              <div style={{fontSize:12,color:C.muted,marginTop:2}}>{lb}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* LISTA */}
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>
+              📂 Análises salvas{active?` — ${active.razao_social}`:''}
+            </div>
+            <button onClick={novoRegistro} style={{...btnPrimary,padding:'7px 16px',fontSize:12}}>+ Nova análise</button>
           </div>
-        ) : (
-          <div>
-            {historico.map(reg => {
-              const tipoPrincipal = reg.cdas?.[0]?.tipo_credito
-              const tipoLabel = TIPOS_CREDITO.find(t=>t.key===tipoPrincipal)?.label || 'Tributário Federal'
-              return (
-                <div key={reg.id} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'14px 18px',marginBottom:10}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>
-                        {reg.razao_social||reg.cnpj||'—'} · <span style={{color:C.muted,fontWeight:400,fontSize:13}}>{tipoLabel}</span>
+
+          {loadingHist ? (
+            <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
+          ) : historico.length===0 ? (
+            <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
+              <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
+              <div style={{fontSize:14,marginBottom:16}}>Nenhuma análise salva ainda.</div>
+              <button onClick={novoRegistro} style={btnPrimary}>+ Nova análise</button>
+            </div>
+          ) : (
+            <div>
+              {historico.map(reg => {
+                const tipoPrincipal = reg.cdas?.[0]?.tipo_credito
+                const tipoLabel = TIPOS_CREDITO.find(t=>t.key===tipoPrincipal)?.label || 'Tributário Federal'
+                const scoreCor = reg.score>=70?'#16A34A':reg.score>=40?'#D97706':'#DC2626'
+                const scoreBg  = reg.score>=70?'#DCFCE7':reg.score>=40?'#FEF9C3':'#FEE2E2'
+                return (
+                  <div key={reg.id} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'14px 18px',marginBottom:10}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>
+                          {reg.razao_social||reg.cnpj||'—'} · <span style={{color:C.muted,fontWeight:400,fontSize:13}}>{tipoLabel}</span>
+                        </div>
+                        <div style={{fontSize:12,color:C.muted,marginBottom:6}}>
+                          {reg.cnpj||'—'} · {reg.cdas?.length||0} CDA(s) · Valor: {reg.valor_total||'—'}
+                          {reg.score&&<span style={{background:scoreBg,color:scoreCor,padding:'1px 6px',borderRadius:8,fontSize:11,fontWeight:700,marginLeft:6}}>Score {reg.score}/100</span>}
+                          {reg.diagnostico?.urgente&&<span style={{color:'#DC2626',fontWeight:600,marginLeft:6}}>· ⚠️ Urgente</span>}
+                        </div>
+                        <div style={{fontSize:11,color:C.muted}}>{fmtDateTime(reg.created_at)}</div>
                       </div>
-                      <div style={{fontSize:12,color:C.muted,marginBottom:4}}>
-                        {reg.cnpj||'—'} · {reg.cdas?.length||0} CDA(s) · Valor: {reg.valor_total||'—'}{reg.score?` · Score: ${reg.score}/100`:''}
-                        {reg.diagnostico?.urgente&&<span style={{color:'#DC2626',fontWeight:600}}> · ⚠️ Urgente</span>}
+                      <div style={{display:'flex',gap:8,marginLeft:16,flexShrink:0}}>
+                        <button onClick={()=>abrirRegistro(reg)} style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600}}>
+                          📂 Abrir
+                        </button>
+                        <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️</button>
                       </div>
-                      <div style={{fontSize:11,color:C.muted}}>{fmtDateTime(reg.created_at)}</div>
-                    </div>
-                    <div style={{display:'flex',gap:8,marginLeft:16,flexShrink:0}}>
-                      <button onClick={()=>abrirRegistro(reg)} style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600}}>
-                        📂 Abrir
-                      </button>
-                      <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️</button>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // ── TELA FORMULÁRIO ───────────────────────────────────────────────────────
   return (
@@ -598,7 +625,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
               <ResultadoAnalise resultado={{...a.validadeCDA,teses:TESES_POR_TIPO[a.cda.tipo_credito]||[]}}/>
             </div>
           ))}
-          <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166634',marginBottom:16}}>
+          <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
             💡 Clique em "▼ Ver raciocínio" para ver o passo a passo do raciocínio jurídico aplicado.
           </div>
           <button onClick={()=>setAba(5)} style={btnPrimary}>📄 Gerar parecer técnico →</button>
@@ -606,7 +633,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
       </>}
 
       {aba===3&&<>
-        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166634'}}>
+        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
           ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor.
         </div>
         {MODALIDADES_PGFN.map(m=>(
@@ -687,7 +714,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
             </div>
           ):<>
             <div style={{background:diagnostico.urgente?'#FEF2F2':'#F0FDF4',border:`1px solid ${diagnostico.urgente?'#FECACA':'#86EFAC'}`,borderRadius:10,padding:'16px 20px',marginBottom:20}}>
-              <div style={{fontSize:14,fontWeight:700,color:diagnostico.urgente?'#991B1B':'#166634',marginBottom:10}}>
+              <div style={{fontSize:14,fontWeight:700,color:diagnostico.urgente?'#991B1B':'#166534',marginBottom:10}}>
                 {diagnostico.urgente?'⚠️ Irregularidades identificadas — ação urgente recomendada':'✅ Sem irregularidades graves identificadas'}
               </div>
               {diagnostico.parecer.map((p,i)=>(
