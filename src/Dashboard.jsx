@@ -1,3 +1,4 @@
+import MinhasAnalises from './MinhasAnalises'
 import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
 import Acompanhamento from './Acompanhamento'
@@ -45,6 +46,7 @@ const C = {
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
+  analises:     { label:'Minhas Análises',         icon:'📂', tabs:[] },
   analise:      { label:'Análise Fiscal',           icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperação',              icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
@@ -620,8 +622,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {/* ── INTELIGÊNCIA TRIBUTÁRIA ── */}
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
-
-            {/* ── DÍVIDA ATIVA ── */}
+			{module==='analises' && <MinhasAnalises />}
             {module==='divida' && <DiagnosticoDividaAtiva active={active} />}
 
             {/* ── ADMIN ── */}
