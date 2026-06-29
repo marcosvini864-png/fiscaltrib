@@ -10,6 +10,12 @@ const C = {
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
 const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2')
+const maskMoeda = v => {
+  const n = v.replace(/\D/g,'')
+  if(!n) return ''
+  const num = parseInt(n)/100
+  return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+}
 const maskProcesso = v => {
   const d = v.replace(/\D/g,'').slice(0,20)
   if(d.length<=7) return d
@@ -117,6 +123,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const handleChange = e => {
       let v = e.target.value
       if(k==='cnpj') v = maskCNPJ(v)
+		if(k==='valor_total') v = maskMoeda(v)  
       if(k==='processo_execucao') v = maskProcesso(v)
       setDados({...dados,[k]:v})
     }
