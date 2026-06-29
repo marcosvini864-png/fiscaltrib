@@ -120,26 +120,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const btnOutline = {padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
 
   const inp = (k,ph,tp='text') => {
-  const handleChange = e => {
-    let v = e.target.value
-    if(k==='cnpj'){
-      v = v.replace(/\D/g,'').slice(0,14)
-      if(v.length>12) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5')
-      else if(v.length>8) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/,'$1.$2.$3/$4')
-      else if(v.length>5) v=v.replace(/^(\d{2})(\d{3})(\d{3})/,'$1.$2.$3')
-      else if(v.length>2) v=v.replace(/^(\d{2})(\d+)/,'$1.$2')
+   const handleChange = e => {
+      setDados({...dados,[k]:e.target.value})
     }
-    if(k==='processo_execucao'){
-      v = v.replace(/\D/g,'').slice(0,20)
-      if(v.length>15) v=v.replace(/^(\d{7})(\d{2})(\d{4})(\d{1})(\d+)/,'$1-$2.$3.$5.$6')
-      else if(v.length>14) v=v.replace(/^(\d{7})(\d{2})(\d{4})(\d+)/,'$1-$2.$3.$4')
-      else if(v.length>9) v=v.replace(/^(\d{7})(\d{2})(\d+)/,'$1-$2.$3')
-      else if(v.length>7) v=v.replace(/^(\d{7})(\d+)/,'$1-$2')
-    }
-    setDados({...dados,[k]:v})
+    return <input value={dados[k]} onChange={handleChange} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
   }
-  return <input value={dados[k]} onChange={handleChange} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
-}
 
   const chk = (k,lb) => (
     <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.text,cursor:'pointer'}}>
@@ -349,7 +334,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>
         </div>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Situação Processual</div>
+          <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dívida (R$)</label><input value={dados.valor_total} onChange={e=>setDados({...dados,valor_total:e.target.value})} onBlur={e=>{const raw=e.target.value.replace(/\./g,'').replace(',','.');const n=parseFloat(raw)||0;if(n>0)setDados(d=>({...d,valor_total:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}))}} placeholder="Ex: 250.000,00" style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/></div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
             {chk('possui_parcelamento','Parcelamento ativo')}
             {chk('possui_transacao_anterior','Transação anterior')}
