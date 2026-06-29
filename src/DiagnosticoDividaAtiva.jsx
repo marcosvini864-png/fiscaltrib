@@ -120,11 +120,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const btnOutline = {padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
 
   const inp = (k,ph,tp='text') => {
-    const handleChange = e => {
-      let v = e.target.value
-      if(k==='cnpj') v = maskCNPJ(v)
-      if(k==='processo_execucao') v = maskProcesso(v)
-      setDados({...dados,[k]:v})
+   const handleChange = e => {
+      setDados({...dados,[k]:e.target.value})
     }
     return <input value={dados[k]} onChange={handleChange} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
   }
