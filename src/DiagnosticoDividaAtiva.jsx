@@ -259,6 +259,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
 
+  useEffect(()=>{
+    setTela('historico')
+    setAba(0)
+  },[active?.id])
+
   useEffect(()=>{ carregarHistorico() },[active])
 
   async function carregarHistorico() {
@@ -378,8 +383,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
         <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
       </div>
 
-      {/* LISTA DE ANÁLISES — estilo Relatórios Anteriores */}
-      <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
+      <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
           <div style={{fontSize:14,fontWeight:700,color:C.navy}}>
             📂 Análises salvas{active?` — ${active.razao_social}`:''}
@@ -400,8 +404,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
             {historico.map(reg => {
               const tipoPrincipal = reg.cdas?.[0]?.tipo_credito
               const tipoLabel = TIPOS_CREDITO.find(t=>t.key===tipoPrincipal)?.label || 'Tributário Federal'
-              const scoreCor = reg.score>=70?'#16A34A':reg.score>=40?'#D97706':'#DC2626'
-              const scoreBg  = reg.score>=70?'#DCFCE7':reg.score>=40?'#FEF9C3':'#FEE2E2'
               return (
                 <div key={reg.id} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'14px 18px',marginBottom:10}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -409,15 +411,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
                       <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>
                         {reg.razao_social||reg.cnpj||'—'} · <span style={{color:C.muted,fontWeight:400,fontSize:13}}>{tipoLabel}</span>
                       </div>
-                      <div style={{fontSize:12,color:C.muted,marginBottom:6}}>
+                      <div style={{fontSize:12,color:C.muted,marginBottom:4}}>
                         {reg.cnpj||'—'} · {reg.cdas?.length||0} CDA(s) · Valor: {reg.valor_total||'—'}{reg.score?` · Score: ${reg.score}/100`:''}
                         {reg.diagnostico?.urgente&&<span style={{color:'#DC2626',fontWeight:600}}> · ⚠️ Urgente</span>}
                       </div>
                       <div style={{fontSize:11,color:C.muted}}>{fmtDateTime(reg.created_at)}</div>
                     </div>
                     <div style={{display:'flex',gap:8,marginLeft:16,flexShrink:0}}>
-                      <button onClick={()=>abrirRegistro(reg)}
-                        style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+                      <button onClick={()=>abrirRegistro(reg)} style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600}}>
                         📂 Abrir
                       </button>
                       <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️</button>
@@ -452,7 +453,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
       <TabInterna tabs={ABAS} active={aba} onTab={setAba} />
 
-      {/* ABA 0 — VISÃO GERAL */}
       {aba===0&&<>
         {!diagnostico?(
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
@@ -487,7 +487,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </>}
       </>}
 
-      {/* ABA 1 — DADOS DA DÍVIDA */}
       {aba===1&&<>
         <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
           ℹ️ <strong>Modo manual.</strong> Preencha o máximo de campos possível para análise mais precisa.
@@ -506,7 +505,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Processo de execução fiscal</label>{inp('processo_execucao','Ex: 0001234-56.2019.4.03.6100')}</div>
           </div>
         </div>
-
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy}}>📄 CDAs — Certidões de Dívida Ativa</div>
@@ -569,7 +567,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
             </div>
           ))}
         </div>
-
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
           <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>📝 Observações</div>
           <textarea value={dados.observacoes} onChange={e=>setDados({...dados,observacoes:e.target.value})} placeholder="Informações complementares..." style={{width:'100%',padding:'10px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,minHeight:80,resize:'vertical',boxSizing:'border-box'}}/>
@@ -580,7 +577,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </div>
       </>}
 
-      {/* ABA 2 — DIAGNÓSTICO */}
       {aba===2&&<>
         {analisesCDA.length===0?(
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
@@ -602,16 +598,15 @@ export default function DiagnosticoDividaAtiva({ active }) {
               <ResultadoAnalise resultado={{...a.validadeCDA,teses:TESES_POR_TIPO[a.cda.tipo_credito]||[]}}/>
             </div>
           ))}
-          <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
+          <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166634',marginBottom:16}}>
             💡 Clique em "▼ Ver raciocínio" para ver o passo a passo do raciocínio jurídico aplicado.
           </div>
           <button onClick={()=>setAba(5)} style={btnPrimary}>📄 Gerar parecer técnico →</button>
         </>}
       </>}
 
-      {/* ABA 3 — ESTRATÉGIAS */}
       {aba===3&&<>
-        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
+        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166634'}}>
           ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor.
         </div>
         {MODALIDADES_PGFN.map(m=>(
@@ -630,7 +625,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         ))}
       </>}
 
-      {/* ABA 4 — SIMULADOR */}
       {aba===4&&<>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
@@ -681,7 +675,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </div>
       </>}
 
-      {/* ABA 5 — PARECER */}
       {aba===5&&<>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',marginBottom:16}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:4}}>📄 Parecer Técnico — Dívida Ativa (PGFN)</div>
@@ -694,7 +687,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
             </div>
           ):<>
             <div style={{background:diagnostico.urgente?'#FEF2F2':'#F0FDF4',border:`1px solid ${diagnostico.urgente?'#FECACA':'#86EFAC'}`,borderRadius:10,padding:'16px 20px',marginBottom:20}}>
-              <div style={{fontSize:14,fontWeight:700,color:diagnostico.urgente?'#991B1B':'#166534',marginBottom:10}}>
+              <div style={{fontSize:14,fontWeight:700,color:diagnostico.urgente?'#991B1B':'#166634',marginBottom:10}}>
                 {diagnostico.urgente?'⚠️ Irregularidades identificadas — ação urgente recomendada':'✅ Sem irregularidades graves identificadas'}
               </div>
               {diagnostico.parecer.map((p,i)=>(
