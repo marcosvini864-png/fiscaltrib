@@ -16,7 +16,7 @@ const ABAS = [
   { key:'csosn',   icon:'📄', label:'CSOSN' },
   { key:'teses',   icon:'⚖️',  label:'Teses' },
   { key:'reforma', icon:'🏛️', label:'Reforma Tributária' },
-  { key:'core',    icon:'🧩', label:'Core Jurídico' },
+  { key:'core',    icon:'🔒', label:'Gestão do Core Jurídico' },
 ]
 
 const EDGE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia'
@@ -243,19 +243,31 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
 
       <div style={{marginBottom:24}}>
         <div style={{fontSize:22,fontWeight:700,color:C.text}}>🏛️ Central de Inteligência Tributária</div>
-        <div style={{fontSize:13,color:C.muted,marginTop:2}}>Consulte CNAE, CFOP, CST, CSOSN, Teses, Reforma Tributária e administre o Core Jurídico, com análise por IA</div>
+        <div style={{fontSize:13,color:C.muted,marginTop:2}}>Consulte CNAE, CFOP, CST, CSOSN, Teses, Reforma Tributária e administre o Core Jurídico com análise por IA</div>
       </div>
 
       {/* Abas */}
       <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`,overflowX:'auto'}}>
         {ABAS.map(a => (
           <button key={a.key} onClick={()=>{setAba(a.key);setBusca('');setResultados([]);setSelecionado(null);setAnaliseIA('')}}
-            style={{padding:'8px 18px',fontSize:13,fontWeight:aba===a.key?600:500,color:aba===a.key?C.navy:C.muted,cursor:'pointer',background:'none',border:'none',borderBottom:`2px solid ${aba===a.key?C.navy:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>
+            style={{
+              padding:'8px 18px',fontSize:13,
+              fontWeight:aba===a.key?600:500,
+              color:aba===a.key?C.navy:a.key==='core'?'#7C3AED':C.muted,
+              cursor:'pointer',
+              background:a.key==='core'?'#F5F3FF':'none',
+              border:'none',
+              borderRadius:a.key==='core'?'8px 8px 0 0':'none',
+              borderBottom:`2px solid ${aba===a.key?C.navy:'transparent'}`,
+              marginBottom:-2,
+              whiteSpace:'nowrap'
+            }}>
             {a.icon} {a.label}
           </button>
         ))}
       </div>
 
+      {/* Aba Core Jurídico — painel administrativo */}
       {aba === 'core' ? (
         <GestaoCoreJuridico/>
       ) : <>
