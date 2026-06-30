@@ -284,9 +284,10 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
     setSalvandoNovo(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const { data } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:novoNome, cnpj:novoCnpj }]).select()
+      const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:novoNome, cnpj:novoCnpj }]).select()
+      if(error) throw error
       if(data?.[0]) {
-        onCadastrarNovo({ id:data[0].id, razao_social:data[0].razao_social, cnpj:data[0].cnpj })
+        onCadastrarNovo({ razao_social:data[0].razao_social, cnpj:data[0].cnpj })
         setModoNovo(false); setNovoNome(''); setNovoCnpj(''); setAberto(false)
       }
     } catch(e){ alert('Erro ao cadastrar cliente: '+e.message) }
@@ -317,7 +318,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
                 ):filtrados.length===0?(
                   <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Nenhum cliente encontrado.</div>
                 ):filtrados.map(c=>(
-                  <div key={c.id} onClick={()=>{ onSelecionar({id:c.id,razao_social:c.razao_social,cnpj:c.cnpj}); setAberto(false); setBusca('') }}
+                  <div key={c.id} onClick={()=>{ onSelecionar({razao_social:c.razao_social,cnpj:c.cnpj}); setAberto(false); setBusca('') }}
                     style={{padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13}}
                     onMouseEnter={e=>e.currentTarget.style.background='#F1F5F9'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -352,8 +353,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
 }
 
 export default function DiagnosticoDividaAtiva({ active }) {
-  const [tela, setTela] = useState('form') // ✅ entra direto no formulário
-  const [mostrarHistorico, setMostrarHistorico] = useState(false) // ✅ painel de análises salvas (modal)
+  const [mostrarHistorico, setMostrarHistorico] = useState(false)
   const [aba, setAba] = useState(0)
   const [historico, setHistorico] = useState([])
   const [loadingHist, setLoadingHist] = useState(false)
@@ -362,7 +362,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [analisesCDA, setAnalisesCDA] = useState([])
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
-  const [clienteAtual, setClienteAtual] = useState(active?{ id:active.id, razao_social:active.razao_social, cnpj:active.cnpj }:null)
+  const [clienteAtual, setClienteAtual] = useState(active?{ razao_social:active.razao_social, cnpj:active.cnpj }:null)
   const [dados, setDados] = useState({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
@@ -372,9 +372,10 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setLoadingHist(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const { data } = await supabase.from('divida_ativa').select('*').eq('usuario_id',user.id).order('created_at',{ascending:false})
+      const { data, error } = await supabase.from('divida_ativa').select('*').eq('usuario_id',user.id).order('created_at',{ascending:false})
+      if(error) throw error
       if(data) setHistorico(data)
-    } catch(e){}
+    } catch(e){ alert('Erro ao carregar análises: '+e.message) }
     setLoadingHist(false)
   }
 
@@ -390,7 +391,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
       const diagFinal = diagOverride ?? diagnostico
       const payload = {
         usuario_id: user.id,
-        cliente_id: clienteAtual?.id || null,
+        // cliente_id removido — tipo incompatível (cliente_id é int4, clientes.id é uuid)
         razao_social: clienteAtual?.razao_social || dados.cnpj,
         cnpj: dados.cnpj,
         valor_total: dados.valor_total,
@@ -409,9 +410,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
         updated_at: new Date().toISOString()
       }
       if(registroId) {
-        await supabase.from('divida_ativa').update(payload).eq('id',registroId)
+        const { error } = await supabase.from('divida_ativa').update(payload).eq('id',registroId)
+        if(error) throw error
       } else {
-        const { data } = await supabase.from('divida_ativa').insert([payload]).select()
+        const { data, error } = await supabase.from('divida_ativa').insert([payload]).select()
+        if(error) throw error
         if(data?.[0]) setRegistroId(data[0].id)
       }
     } catch(e){ alert('Erro ao salvar: '+e.message) }
@@ -420,12 +423,15 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   async function excluirRegistro(id) {
     if(!window.confirm('Excluir este diagnóstico?')) return
-    await supabase.from('divida_ativa').delete().eq('id',id)
-    await carregarHistorico()
+    try {
+      const { error } = await supabase.from('divida_ativa').delete().eq('id',id)
+      if(error) throw error
+      await carregarHistorico()
+    } catch(e){ alert('Erro ao excluir: '+e.message) }
   }
 
   function abrirRegistro(reg) {
-    setClienteAtual({ id:reg.cliente_id, razao_social:reg.razao_social, cnpj:reg.cnpj })
+    setClienteAtual({ razao_social:reg.razao_social, cnpj:reg.cnpj })
     setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
     setCdas(reg.cdas?.length>0?reg.cdas:[{...CDA_VAZIA}])
     setDiagnostico(reg.diagnostico||null)
@@ -435,8 +441,18 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setMostrarHistorico(false)
   }
 
+  function novaAnalise() {
+    setClienteAtual(null)
+    setDados({ cnpj:'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+    setCdas([{...CDA_VAZIA}])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+    setAba(0)
+  }
+
   function selecionarCliente(c) {
-    // ✅ sempre abre formulário em branco para o cliente escolhido
+    // sempre abre formulário em branco para o cliente escolhido
     setClienteAtual(c)
     setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
     setCdas([{...CDA_VAZIA}])
@@ -528,9 +544,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
             <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
           </div>
-          <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-            📂 Análises salvas
-          </button>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              + Nova análise
+            </button>
+            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              📂 Análises salvas
+            </button>
+          </div>
         </div>
         <div style={{marginTop:16}}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
