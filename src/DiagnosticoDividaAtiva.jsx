@@ -254,61 +254,117 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [analisesCDA, setAnalisesCDA] = useState([])
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
-  const [dados, setDados] = useState({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+  const [dados, setDados] = useState({ cnpj:'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
+  // cliente vinculado manualmente ao abrir nova análise
+  const [clienteAtual, setClienteAtual] = useState(null)
 
-  useEffect(()=>{ setTela('historico'); setAba(0) },[active?.id])
-  useEffect(()=>{ carregarHistorico() },[active])
+  // Recarrega histórico sempre que o componente monta — sem filtrar por cliente ativo
+  useEffect(()=>{ carregarHistorico() },[])
 
   async function carregarHistorico() {
     setLoadingHist(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      let q = supabase.from('divida_ativa').select('*').eq('usuario_id',user.id).order('created_at',{ascending:false})
-      if(active?.id) q = q.eq('cliente_id',active.id)
-      const { data } = await q
+      const { data } = await supabase
+        .from('divida_ativa')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('created_at', { ascending: false })
       if(data) setHistorico(data)
     } catch(e){}
     setLoadingHist(false)
   }
 
-  async function salvar() {
+  // ── SALVAR (upsert) ────────────────────────────────────────────────────────
+  async function salvar(diagOverride, analisesOverride) {
     setSalvando(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const payload = { usuario_id:user.id, cliente_id:active?.id||null, razao_social:active?.razao_social||'', cnpj:dados.cnpj, valor_total:dados.valor_total, orgao_credor:dados.orgao_credor, processo_execucao:dados.processo_execucao, possui_parcelamento:dados.possui_parcelamento, possui_transacao_anterior:dados.possui_transacao_anterior, possui_garantia:dados.possui_garantia, possui_penhora:dados.possui_penhora, possui_bloqueio:dados.possui_bloqueio, possui_embargos:dados.possui_embargos, observacoes:dados.observacoes, cdas, diagnostico, score:diagnostico?.score||null, updated_at:new Date().toISOString() }
-      if(registroId){ await supabase.from('divida_ativa').update(payload).eq('id',registroId) }
-      else { const { data } = await supabase.from('divida_ativa').insert([payload]).select(); if(data?.[0]) setRegistroId(data[0].id) }
+      const diagFinal     = diagOverride    ?? diagnostico
+      const analisesFinal = analisesOverride ?? analisesCDA
+      const payload = {
+        usuario_id: user.id,
+        cliente_id: clienteAtual?.id || null,
+        razao_social: clienteAtual?.razao_social || dados.cnpj,
+        cnpj: dados.cnpj,
+        valor_total: dados.valor_total,
+        orgao_credor: dados.orgao_credor,
+        processo_execucao: dados.processo_execucao,
+        possui_parcelamento: dados.possui_parcelamento,
+        possui_transacao_anterior: dados.possui_transacao_anterior,
+        possui_garantia: dados.possui_garantia,
+        possui_penhora: dados.possui_penhora,
+        possui_bloqueio: dados.possui_bloqueio,
+        possui_embargos: dados.possui_embargos,
+        observacoes: dados.observacoes,
+        cdas,
+        diagnostico: diagFinal,
+        score: diagFinal?.score || null,
+        updated_at: new Date().toISOString()
+      }
+      if(registroId) {
+        await supabase.from('divida_ativa').update(payload).eq('id', registroId)
+      } else {
+        const { data } = await supabase.from('divida_ativa').insert([payload]).select()
+        if(data?.[0]) setRegistroId(data[0].id)
+      }
       await carregarHistorico()
-      alert('✅ Diagnóstico salvo!')
-    } catch(e){ alert('Erro: '+e.message) }
+    } catch(e){ alert('Erro ao salvar: '+e.message) }
     setSalvando(false)
   }
 
   async function excluirRegistro(id) {
     if(!window.confirm('Excluir este diagnóstico?')) return
-    await supabase.from('divida_ativa').delete().eq('id',id)
+    await supabase.from('divida_ativa').delete().eq('id', id)
     await carregarHistorico()
   }
 
   function abrirRegistro(reg) {
-    setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
-    setCdas(reg.cdas?.length>0?reg.cdas:[{...CDA_VAZIA}])
-    setDiagnostico(reg.diagnostico||null); setAnalisesCDA([])
-    setRegistroId(reg.id); setAba(0); setTela('form')
+    setClienteAtual({ id: reg.cliente_id, razao_social: reg.razao_social, cnpj: reg.cnpj })
+    setDados({
+      cnpj: reg.cnpj||'', valor_total: reg.valor_total||'', orgao_credor: reg.orgao_credor||'PGFN',
+      processo_execucao: reg.processo_execucao||'', possui_parcelamento: reg.possui_parcelamento||false,
+      possui_transacao_anterior: reg.possui_transacao_anterior||false, possui_garantia: reg.possui_garantia||false,
+      possui_penhora: reg.possui_penhora||false, possui_bloqueio: reg.possui_bloqueio||false,
+      possui_embargos: reg.possui_embargos||false, observacoes: reg.observacoes||''
+    })
+    setCdas(reg.cdas?.length>0 ? reg.cdas : [{...CDA_VAZIA}])
+    setDiagnostico(reg.diagnostico||null)
+    setAnalisesCDA([])
+    setRegistroId(reg.id)
+    setAba(0)
+    setTela('form')
   }
 
   function novoRegistro() {
-    setDados({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
-    setCdas([{...CDA_VAZIA}]); setDiagnostico(null); setAnalisesCDA([])
-    setRegistroId(null); setAba(0); setTela('form')
+    // Se há um cliente ativo no dropdown, usa como ponto de partida
+    setClienteAtual(active ? { id: active.id, razao_social: active.razao_social, cnpj: active.cnpj } : null)
+    setDados({
+      cnpj: active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'',
+      possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false,
+      possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:''
+    })
+    setCdas([{...CDA_VAZIA}])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+    setAba(0)
+    setTela('form')
   }
 
+  // ── DIAGNÓSTICO + SALVA AUTOMATICAMENTE ──────────────────────────────────
   function executarDiagnostico() {
     setAnalisando(true)
-    const resultados = cdas.map(cda => ({ cda, decadencia:analisarDecadencia(cda), prescricao:analisarPrescricao(cda), prescricaoIntercorrente:analisarPrescricaoIntercorrente(cda), validadeCDA:analisarCDA(cda) }))
+    const resultados = cdas.map(cda => ({
+      cda,
+      decadencia: analisarDecadencia(cda),
+      prescricao: analisarPrescricao(cda),
+      prescricaoIntercorrente: analisarPrescricaoIntercorrente(cda),
+      validadeCDA: analisarCDA(cda)
+    }))
     const { parecer, urgente } = gerarParecer(resultados)
     let score = 50
     resultados.forEach(r => {
@@ -318,7 +374,19 @@ export default function DiagnosticoDividaAtiva({ active }) {
       if(r.validadeCDA.conclusao==='cda_vicio') score+=10
     })
     score = Math.min(100, score)
-    setTimeout(()=>{ setAnalisesCDA(resultados); setDiagnostico({ parecer, urgente, score, valor:parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0, data:new Date().toISOString() }); setAnalisando(false); setAba(2) },1500)
+    const diagNovo = {
+      parecer, urgente, score,
+      valor: parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0,
+      data: new Date().toISOString()
+    }
+    setTimeout(()=>{
+      setAnalisesCDA(resultados)
+      setDiagnostico(diagNovo)
+      setAnalisando(false)
+      setAba(2)
+      // ✅ Salva automaticamente após o diagnóstico
+      salvar(diagNovo, resultados)
+    }, 1500)
   }
 
   function calcularSimulacao() {
@@ -332,7 +400,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   function gerarRelatorio() {
     if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnóstico antes.');return}
-    const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${active?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
+    const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
     analisesCDA.forEach((a,i)=>{
       linhas.push(`═══ CDA ${i+1}: ${a.cda.numero||'Sem número'} — ${TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.label||''} ═══`)
       linhas.push(`Tributo: ${a.cda.tributo||'—'} | Valor: ${a.cda.valor||'—'}`)
@@ -370,11 +438,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','📊 Simulador','📄 Parecer']
 
-  // ── TELA HISTÓRICO COM PAINEL ─────────────────────────────────────────────
+  // ── TELA HISTÓRICO ────────────────────────────────────────────────────────
   if(tela==='historico') {
     const totalAnalises = historico.length
     const totalUrgentes = historico.filter(r=>r.diagnostico?.urgente).length
-    const totalValor = historico.reduce((s,r)=>{
+    const totalValor    = historico.reduce((s,r)=>{
       const v = parseFloat((r.valor_total||'').replace(/\./g,'').replace(',','.'))||0
       return s+v
     },0)
@@ -392,10 +460,10 @@ export default function DiagnosticoDividaAtiva({ active }) {
         {/* KPIs */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
           {[
-            ['Total de análises', totalAnalises,     '#2563EB', '📂'],
-            ['CDAs cadastradas',  totalCDAs,         '#7C3AED', '📄'],
-            ['Valor total',       fmtR(totalValor),  '#DC2626', '💰'],
-            ['Casos urgentes',    totalUrgentes,     '#D97706', '⚠️'],
+            ['Total de análises', totalAnalises,    '#2563EB','📂'],
+            ['CDAs cadastradas',  totalCDAs,        '#7C3AED','📄'],
+            ['Valor total',       fmtR(totalValor), '#DC2626','💰'],
+            ['Casos urgentes',    totalUrgentes,    '#D97706','⚠️'],
           ].map(([lb,val,cor,ic])=>(
             <div key={lb} style={{background:C.white,borderRadius:12,padding:'16px 20px',border:`1px solid ${C.border}`,borderTop:`4px solid ${cor}`}}>
               <div style={{fontSize:22,marginBottom:4}}>{ic}</div>
@@ -405,12 +473,10 @@ export default function DiagnosticoDividaAtiva({ active }) {
           ))}
         </div>
 
-        {/* LISTA */}
+        {/* LISTA — todos os clientes do usuário */}
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>
-              📂 Análises salvas{active?` — ${active.razao_social}`:''}
-            </div>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>📂 Análises salvas — todos os clientes</div>
             <button onClick={novoRegistro} style={{...btnPrimary,padding:'7px 16px',fontSize:12}}>+ Nova análise</button>
           </div>
 
@@ -427,28 +493,33 @@ export default function DiagnosticoDividaAtiva({ active }) {
               {historico.map(reg => {
                 const tipoPrincipal = reg.cdas?.[0]?.tipo_credito
                 const tipoLabel = TIPOS_CREDITO.find(t=>t.key===tipoPrincipal)?.label || 'Tributário Federal'
-                const scoreCor = reg.score>=70?'#16A34A':reg.score>=40?'#D97706':'#DC2626'
-                const scoreBg  = reg.score>=70?'#DCFCE7':reg.score>=40?'#FEF9C3':'#FEE2E2'
+                const scoreCor = !reg.score ? C.muted : reg.score>=70?'#16A34A':reg.score>=40?'#D97706':'#DC2626'
+                const scoreBg  = !reg.score ? '#F1F5F9' : reg.score>=70?'#DCFCE7':reg.score>=40?'#FEF9C3':'#FEE2E2'
                 return (
-                  <div key={reg.id} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'14px 18px',marginBottom:10}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>
-                          {reg.razao_social||reg.cnpj||'—'} · <span style={{color:C.muted,fontWeight:400,fontSize:13}}>{tipoLabel}</span>
-                        </div>
-                        <div style={{fontSize:12,color:C.muted,marginBottom:6}}>
-                          {reg.cnpj||'—'} · {reg.cdas?.length||0} CDA(s) · Valor: {reg.valor_total||'—'}
-                          {reg.score&&<span style={{background:scoreBg,color:scoreCor,padding:'1px 6px',borderRadius:8,fontSize:11,fontWeight:700,marginLeft:6}}>Score {reg.score}/100</span>}
-                          {reg.diagnostico?.urgente&&<span style={{color:'#DC2626',fontWeight:600,marginLeft:6}}>· ⚠️ Urgente</span>}
-                        </div>
-                        <div style={{fontSize:11,color:C.muted}}>{fmtDateTime(reg.created_at)}</div>
+                  <div key={reg.id} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'14px 18px',marginBottom:10,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>
+                        {reg.razao_social||reg.cnpj||'—'}
+                        <span style={{color:C.muted,fontWeight:400,fontSize:13}}> · {tipoLabel}</span>
                       </div>
-                      <div style={{display:'flex',gap:8,marginLeft:16,flexShrink:0}}>
-                        <button onClick={()=>abrirRegistro(reg)} style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600}}>
-                          📂 Abrir
-                        </button>
-                        <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️</button>
+                      <div style={{fontSize:12,color:C.muted,marginBottom:4}}>
+                        {reg.cnpj||'—'} · {reg.cdas?.length||0} CDA(s) · Valor: {reg.valor_total||'—'}
+                        {reg.score!=null&&(
+                          <span style={{background:scoreBg,color:scoreCor,padding:'1px 7px',borderRadius:8,fontSize:11,fontWeight:700,marginLeft:8}}>
+                            Score {reg.score}/100
+                          </span>
+                        )}
+                        {reg.diagnostico?.urgente&&(
+                          <span style={{color:'#DC2626',fontWeight:600,marginLeft:8}}>⚠️ Urgente</span>
+                        )}
                       </div>
+                      <div style={{fontSize:11,color:C.muted}}>{fmtDateTime(reg.created_at)}</div>
+                    </div>
+                    <div style={{display:'flex',gap:8,marginLeft:16,flexShrink:0}}>
+                      <button onClick={()=>abrirRegistro(reg)} style={{padding:'6px 18px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:600}}>
+                        📂 Abrir
+                      </button>
+                      <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️</button>
                     </div>
                   </div>
                 )
@@ -467,15 +538,20 @@ export default function DiagnosticoDividaAtiva({ active }) {
         <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
         <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
         <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Análise especializada por tipo de crédito</p>
-        {active&&<div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
-          <span>👤 {active.razao_social}</span><span>·</span><span>{active.cnpj}</span><span>·</span><span>{active.regime}</span>
-        </div>}
+        {clienteAtual&&(
+          <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
+            <span>👤 {clienteAtual.razao_social}</span><span>·</span><span>{clienteAtual.cnpj}</span>
+          </div>
+        )}
       </div>
 
-      <div style={{display:'flex',gap:10,marginBottom:16}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
         <button onClick={()=>setTela('historico')} style={{...btnOutline,padding:'7px 16px',fontSize:13}}>← Voltar</button>
-        <button onClick={salvar} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'💾 Salvando...':'💾 Salvar'}</button>
+        <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>
+          {salvando?'💾 Salvando...':'💾 Salvar'}
+        </button>
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
+        {salvando&&<span style={{fontSize:12,color:C.muted,alignSelf:'center'}}>Salvando automaticamente...</span>}
       </div>
 
       <TabInterna tabs={ABAS} active={aba} onTab={setAba} />
@@ -493,7 +569,12 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <ScoreDividaAtiva score={diagnostico.score}/>
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
               <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Resumo</div>
-              {[['Valor total',dados.valor_total||'—','#DC2626'],['CDAs analisadas',cdas.length,'#0B1F4D'],['Órgão',dados.orgao_credor,'#0B1F4D'],['Data da análise',new Date(diagnostico.data).toLocaleDateString('pt-BR'),'#0B1F4D']].map(([lb,val,cor])=>(
+              {[
+                ['Valor total',dados.valor_total||'—','#DC2626'],
+                ['CDAs analisadas',cdas.length,'#0B1F4D'],
+                ['Órgão',dados.orgao_credor,'#0B1F4D'],
+                ['Data da análise',new Date(diagnostico.data).toLocaleDateString('pt-BR'),'#0B1F4D']
+              ].map(([lb,val,cor])=>(
                 <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
                   <span style={{fontSize:13,color:C.muted}}>{lb}</span>
                   <span style={{fontSize:14,fontWeight:700,color:cor}}>{val}</span>
@@ -501,12 +582,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
               ))}
             </div>
           </div>
-          {diagnostico.parecer.length>0&&<div style={{marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>📋 Parecer Final</div>
-            {diagnostico.parecer.map((p,i)=>(
-              <div key={i} style={{background:p.tipo==='danger'?'#FEF2F2':'#FFFBEB',border:`1px solid ${p.tipo==='danger'?'#FECACA':'#FCD34D'}`,borderRadius:8,padding:'10px 16px',marginBottom:8,fontSize:13,color:p.tipo==='danger'?'#991B1B':'#92400E'}}>{p.msg}</div>
-            ))}
-          </div>}
+          {diagnostico.parecer.length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>📋 Parecer Final</div>
+              {diagnostico.parecer.map((p,i)=>(
+                <div key={i} style={{background:p.tipo==='danger'?'#FEF2F2':'#FFFBEB',border:`1px solid ${p.tipo==='danger'?'#FECACA':'#FCD34D'}`,borderRadius:8,padding:'10px 16px',marginBottom:8,fontSize:13,color:p.tipo==='danger'?'#991B1B':'#92400E'}}>{p.msg}</div>
+              ))}
+            </div>
+          )}
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>setAba(2)} style={btnPrimary}>Ver diagnóstico completo →</button>
             <button onClick={()=>setAba(5)} style={btnOutline}>📄 Gerar parecer</button>
@@ -599,8 +682,12 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <textarea value={dados.observacoes} onChange={e=>setDados({...dados,observacoes:e.target.value})} placeholder="Informações complementares..." style={{width:'100%',padding:'10px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,minHeight:80,resize:'vertical',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'flex',gap:10}}>
-          <button onClick={executarDiagnostico} disabled={analisando} style={{...btnPrimary,opacity:analisando?0.7:1}}>{analisando?'🔄 Analisando...':'🧠 Executar diagnóstico inteligente →'}</button>
-          <button onClick={salvar} disabled={salvando} style={btnOutline}>{salvando?'Salvando...':'💾 Salvar'}</button>
+          <button onClick={executarDiagnostico} disabled={analisando} style={{...btnPrimary,opacity:analisando?0.7:1}}>
+            {analisando?'🔄 Analisando...':'🧠 Executar diagnóstico inteligente →'}
+          </button>
+          <button onClick={()=>salvar()} disabled={salvando} style={btnOutline}>
+            {salvando?'Salvando...':'💾 Salvar'}
+          </button>
         </div>
       </>}
 
@@ -705,7 +792,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
       {aba===5&&<>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',marginBottom:16}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:4}}>📄 Parecer Técnico — Dívida Ativa (PGFN)</div>
-          <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString('pt-BR')} · {active?.razao_social||dados.cnpj}</div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString('pt-BR')} · {clienteAtual?.razao_social||dados.cnpj}</div>
           {!diagnostico||analisesCDA.length===0?(
             <div style={{textAlign:'center',padding:'32px 0'}}>
               <div style={{fontSize:32,marginBottom:8}}>⚠️</div>
