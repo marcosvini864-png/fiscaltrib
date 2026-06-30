@@ -15,19 +15,22 @@ const hoje = new Date().toISOString().slice(0,10)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : '—'
 const parseValor = v => parseFloat(String(v||'').replace(/\./g,'').replace(',','.')) || 0
 
-// ── Migração de formatos antigos → novo formato (inscrições com tipo próprio) ──
+// ── Migração de formatos antigos → novo formato (inscrições com tipo próprio + numero_cda) ──
 function migrarCDA(cda) {
-  if (cda.inscricoes && cda.inscricoes.length>0 && 'tipo_credito' in (cda.inscricoes[0]||{})) return cda // já no formato mais novo
-  const tipoPadrao = cda.tipo_credito || 'tributario_federal'
-  if (cda.inscricoes) {
+  let migrada = cda
+  if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
+
+  if (migrada.inscricoes && migrada.inscricoes.length>0 && 'tipo_credito' in (migrada.inscricoes[0]||{})) return migrada // já no formato mais novo
+  const tipoPadrao = migrada.tipo_credito || 'tributario_federal'
+  if (migrada.inscricoes) {
     // tinha inscrições (número+valor) mas sem tipo individual — herda o tipo da CDA
-    return { ...cda, inscricoes: cda.inscricoes.map(ins=>({...ins, tipo_credito: ins.tipo_credito||tipoPadrao})) }
+    return { ...migrada, inscricoes: migrada.inscricoes.map(ins=>({...ins, tipo_credito: ins.tipo_credito||tipoPadrao})) }
   }
-  if (cda.numeros) {
-    return { ...cda, inscricoes: cda.numeros.map(n=>({numero:n,valor:'',tipo_credito:tipoPadrao})) }
+  if (migrada.numeros) {
+    return { ...migrada, inscricoes: migrada.numeros.map(n=>({numero:n,valor:'',tipo_credito:tipoPadrao})) }
   }
-  const { numero } = cda
-  return { ...cda, inscricoes: [{numero: numero||'', valor:'', tipo_credito:tipoPadrao}] }
+  const { numero } = migrada
+  return { ...migrada, inscricoes: [{numero: numero||'', valor:'', tipo_credito:tipoPadrao}] }
 }
 function migrarListaCDAs(lista) {
   if (!lista || lista.length===0) return [{...CDA_VAZIA}]
@@ -65,6 +68,7 @@ const TESES_POR_TIPO = {
 }
 
 const CDA_VAZIA = {
+  numero_cda:'',
   inscricoes:[{numero:'',valor:'',tipo_credito:'tributario_federal'}],
   situacao:'Ativa',
   modalidade_lancamento:'oficio',
@@ -97,6 +101,13 @@ function tesesReferenciaCDA(cda) {
   const primeira = (cda.inscricoes||[])[0]
   const key = primeira?.tipo_credito || 'tributario_federal'
   return TESES_POR_TIPO[key] || TESES_POR_TIPO.outro
+}
+
+// Rótulo amigável da CDA para títulos/relatórios: usa número da CDA se houver, senão lista as inscrições
+function rotuloCDA(cda, indice) {
+  if (cda.numero_cda && cda.numero_cda.trim()) return `CDA ${cda.numero_cda}`
+  const inscricoesTxt = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
+  return `CDA ${indice+1}${inscricoesTxt?` (${inscricoesTxt})`:''}`
 }
 
 function analisarDecadencia(cda) {
@@ -173,6 +184,7 @@ function analisarCDA(cda) {
   const teses = tesesReferenciaCDA(cda)
   const problemas = []
   const inscricoesValidas = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim())
+  if (!cda.numero_cda || !cda.numero_cda.trim()) problemas.push('Número da CDA não informado')
   if (inscricoesValidas.length===0) problemas.push('Nenhum número de inscrição informado')
   if (totalInscricoes(cda)<=0) problemas.push('Valor não informado')
   if (!cda.data_constituicao) problemas.push('Data de constituição não informada')
@@ -180,9 +192,10 @@ function analisarCDA(cda) {
   if (!cda.data_fato_gerador) problemas.push('Data do fato gerador não informada')
   const tiposDistintos = [...new Set((cda.inscricoes||[]).map(ins=>ins.tipo_credito))].length
   const passos = [
+    { label:'Número da CDA',           valor:cda.numero_cda&&cda.numero_cda.trim()?cda.numero_cda:'Não informado', obs:cda.numero_cda&&cda.numero_cda.trim()?'✅ Informado (art. 202, I CTN)':'⚠️ Ausente (art. 202, I CTN)' },
     { label:'Natureza de referência',  valor:tipo.label,                    obs:`Legislação: ${tipo.legislacao}` },
     { label:'Tipos distintos na CDA',  valor:`${tiposDistintos} tipo(s)`,    obs:tiposDistintos>1?'⚠️ CDA com mais de um tipo de crédito — análise usa a 1ª inscrição como referência':'Tipo único nesta CDA' },
-    { label:'Números de inscrição', valor:inscricoesValidas.length>0?`${inscricoesValidas.length} informado(s)`:'Nenhum informado',   obs:inscricoesValidas.length>0?inscricoesValidas.map(i=>i.numero).join(', '):'⚠️ Ausente (art. 202, I CTN)' },
+    { label:'Números de inscrição', valor:inscricoesValidas.length>0?`${inscricoesValidas.length} informado(s)`:'Nenhum informado',   obs:inscricoesValidas.length>0?inscricoesValidas.map(i=>i.numero).join(', '):'⚠️ Ausente' },
     { label:'Valor total',          valor:totalInscricoes(cda)>0?fmtR(totalInscricoes(cda)):'Não informado', obs:totalInscricoes(cda)>0?'✅ Informado':'⚠️ Ausente' },
     { label:'Data de constituição', valor:fmtData(cda.data_constituicao),obs:cda.data_constituicao?'✅ Informada':'⚠️ Ausente' },
     { label:'Teses aplicáveis',     valor:`${teses.length} identificadas`,obs:teses.slice(0,2).join('; ')+'...' },
@@ -195,8 +208,7 @@ function analisarCDA(cda) {
 function gerarParecer(resultados) {
   const parecer = []; let urgente = false
   resultados.forEach((a,i) => {
-    const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(', ')
-    const num = `CDA ${i+1}${inscricoesTxt?` (${inscricoesTxt})`:''}`
+    const num = rotuloCDA(a.cda, i)
     if(a.decadencia.conclusao==='ha_decadencia')                            { parecer.push({tipo:'danger',msg:`${num}: Decadência identificada — crédito potencialmente extinto.`}); urgente=true }
     if(a.prescricao.conclusao==='ha_prescricao')                            { parecer.push({tipo:'danger',msg:`${num}: Prescrição identificada — execução potencialmente extinta.`}); urgente=true }
     if(a.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') { parecer.push({tipo:'danger',msg:`${num}: Prescrição intercorrente — verificar imediatamente.`}); urgente=true }
@@ -531,7 +543,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
     const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
     analisesCDA.forEach((a,i)=>{
       const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'—'}] (${fmtR(parseValor(ins.valor))})`).join(' / ')
-      linhas.push(`═══ CDA ${i+1} ═══`)
+      linhas.push(`═══ ${rotuloCDA(a.cda, i)} ═══`)
+      linhas.push(`Número da CDA: ${a.cda.numero_cda&&a.cda.numero_cda.trim()?a.cda.numero_cda:'Não informado'}`)
       linhas.push(`Inscrições: ${inscricoesTxt||'Sem número'}`)
       linhas.push(`Valor total: ${fmtR(totalInscricoes(a.cda))}`)
       linhas.push('',`── DECADÊNCIA: ${a.decadencia.titulo}`,a.decadencia.justificativa||'')
@@ -740,6 +753,12 @@ export default function DiagnosticoDividaAtiva({ active }) {
                 {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>🗑️ Remover CDA</button>}
               </div>
 
+              {/* ── NÚMERO DA CDA (nível da CDA, distinto das inscrições) ── */}
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Número da CDA</label>
+                <input value={cda.numero_cda||''} onChange={e=>updateCDA(i,'numero_cda',e.target.value)} placeholder="Ex: 80.6.18.123456-78" style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',maxWidth:320,boxSizing:'border-box'}}/>
+              </div>
+
               {/* ── INSCRIÇÕES (número + tipo + valor) ── */}
               <div style={{marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
@@ -824,12 +843,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>
         ):<>
           {analisesCDA.map((a,i)=>{
-            const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
             const tipo = tipoReferenciaCDA(a.cda)
             return (
             <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>CDA {i+1}{inscricoesTxt?` — ${inscricoesTxt}`:''}</div>
+                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
                 <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{tipo.label} (referência)</span>
               </div>
               <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{fmtR(totalInscricoes(a.cda))} · {a.cda.situacao}</div>
@@ -940,7 +958,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
               const tipo = tipoReferenciaCDA(a.cda)
               return (
               <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>CDA {i+1}</div>
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
                 <div style={{fontSize:12,color:'#1E40AF',marginBottom:8}}>{tipo.label} (referência) · {tipo.legislacao}</div>
                 <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Inscrições: {inscricoesTxt||'Sem número'}</div>
                 {[['Decadência',a.decadencia],['Prescrição',a.prescricao],['Prescrição Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
