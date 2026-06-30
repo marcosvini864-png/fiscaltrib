@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
+import GestaoCoreJuridico from './GestaoCoreJuridico'
 
 const C = {
   navy:'#0B1F4D', navyHov:'#163B8C',
@@ -15,6 +16,7 @@ const ABAS = [
   { key:'csosn',   icon:'📄', label:'CSOSN' },
   { key:'teses',   icon:'⚖️',  label:'Teses' },
   { key:'reforma', icon:'🏛️', label:'Reforma Tributária' },
+  { key:'core',    icon:'🧩', label:'Core Jurídico' },
 ]
 
 const EDGE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia'
@@ -241,7 +243,7 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
 
       <div style={{marginBottom:24}}>
         <div style={{fontSize:22,fontWeight:700,color:C.text}}>🏛️ Central de Inteligência Tributária</div>
-        <div style={{fontSize:13,color:C.muted,marginTop:2}}>Consulte CNAE, CFOP, CST, CSOSN, Teses e Reforma Tributária com análise por IA</div>
+        <div style={{fontSize:13,color:C.muted,marginTop:2}}>Consulte CNAE, CFOP, CST, CSOSN, Teses, Reforma Tributária e administre o Core Jurídico, com análise por IA</div>
       </div>
 
       {/* Abas */}
@@ -253,6 +255,10 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
           </button>
         ))}
       </div>
+
+      {aba === 'core' ? (
+        <GestaoCoreJuridico/>
+      ) : <>
 
       {/* Busca */}
       <div style={{...card, marginBottom:16}}>
@@ -437,6 +443,8 @@ Seja muito prático — o contador precisa saber O QUE FAZER AGORA.`
           <div style={{fontSize:13}}>Digite um código ou descrição e clique em Buscar. Para a Reforma Tributária, clique em Buscar sem digitar nada para ver todos os temas.</div>
         </div>
       )}
+
+      </>}
     </div>
   )
 }
