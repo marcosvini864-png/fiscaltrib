@@ -13,6 +13,22 @@ const diasEntre = (d1,d2) => d1&&d2 ? Math.floor((new Date(d2+'T00:00:00')-new D
 const addAnos = (d,anos) => { if(!d) return null; const dt=new Date(d+'T00:00:00'); dt.setFullYear(dt.getFullYear()+anos); return dt.toISOString().slice(0,10) }
 const hoje = new Date().toISOString().slice(0,10)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : '—'
+const parseValor = v => parseFloat(String(v||'').replace(/\./g,'').replace(',','.')) || 0
+
+// ── Migração CDA antiga → novo formato com inscrições (número + valor) ─────
+function migrarCDA(cda) {
+  if (cda.inscricoes) return cda // já está no formato novo
+  if (cda.numeros) {
+    // formato intermediário (só números, sem valor por inscrição)
+    return { ...cda, inscricoes: cda.numeros.map(n=>({numero:n,valor:''})) }
+  }
+  const { numero, ...resto } = cda
+  return { ...resto, inscricoes: [{numero: numero||'', valor:''}] }
+}
+function migrarListaCDAs(lista) {
+  if (!lista || lista.length===0) return [{...CDA_VAZIA}]
+  return lista.map(migrarCDA)
+}
 
 const TIPOS_CREDITO = [
   { key:'tributario_federal',    label:'Tributário Federal',              legislacao:'CTN + Lei 6.830/80',            exemplos:'IRPJ, CSLL, PIS, COFINS, IPI, IOF' },
@@ -43,7 +59,7 @@ const TESES_POR_TIPO = {
 }
 
 const CDA_VAZIA = {
-  numero:'', tipo_credito:'tributario_federal', tributo:'', valor:'', situacao:'Ativa',
+  inscricoes:[{numero:'',valor:''}], tipo_credito:'tributario_federal', tributo:'', valor:'', situacao:'Ativa',
   modalidade_lancamento:'oficio',
   data_fato_gerador:'', data_constituicao:'', data_inscricao:'',
   data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'',
@@ -64,6 +80,10 @@ function identificarCredito(cda) {
   const tipo = TIPOS_CREDITO.find(t=>t.key===cda.tipo_credito) || TIPOS_CREDITO[0]
   const teses = TESES_POR_TIPO[cda.tipo_credito] || TESES_POR_TIPO.outro
   return { tipo, teses }
+}
+
+function totalInscricoes(cda) {
+  return (cda.inscricoes||[]).reduce((s,ins)=>s+parseValor(ins.valor),0)
 }
 
 function analisarDecadencia(cda) {
@@ -138,18 +158,19 @@ function analisarPrescricaoIntercorrente(cda) {
 function analisarCDA(cda) {
   const { tipo, teses } = identificarCredito(cda)
   const problemas = []
-  if (!cda.numero) problemas.push('Número da CDA não informado')
+  const inscricoesValidas = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim())
+  if (inscricoesValidas.length===0) problemas.push('Nenhum número de inscrição informado')
   if (!cda.tributo) problemas.push('Tributo não identificado')
-  if (!cda.valor) problemas.push('Valor não informado')
+  if (totalInscricoes(cda)<=0) problemas.push('Valor não informado')
   if (!cda.data_constituicao) problemas.push('Data de constituição não informada')
   if (!cda.data_inscricao) problemas.push('Data de inscrição não informada')
   if (!cda.data_fato_gerador) problemas.push('Data do fato gerador não informada')
   const passos = [
     { label:'Natureza do crédito',  valor:tipo.label,                    obs:`Legislação: ${tipo.legislacao}` },
     { label:'Exemplos',             valor:tipo.exemplos,                 obs:'Categoria identificada' },
-    { label:'Número da CDA',        valor:cda.numero||'Não informado',   obs:cda.numero?'✅ Identificada':'⚠️ Ausente (art. 202, I CTN)' },
+    { label:'Números de inscrição', valor:inscricoesValidas.length>0?`${inscricoesValidas.length} informado(s)`:'Nenhum informado',   obs:inscricoesValidas.length>0?inscricoesValidas.map(i=>i.numero).join(', '):'⚠️ Ausente (art. 202, I CTN)' },
     { label:'Tributo',              valor:cda.tributo||'Não informado',  obs:cda.tributo?'✅ Identificado':'⚠️ Ausente' },
-    { label:'Valor',                valor:cda.valor||'Não informado',    obs:cda.valor?'✅ Informado':'⚠️ Ausente' },
+    { label:'Valor total',          valor:totalInscricoes(cda)>0?fmtR(totalInscricoes(cda)):'Não informado', obs:totalInscricoes(cda)>0?'✅ Informado':'⚠️ Ausente' },
     { label:'Data de constituição', valor:fmtData(cda.data_constituicao),obs:cda.data_constituicao?'✅ Informada':'⚠️ Ausente' },
     { label:'Teses aplicáveis',     valor:`${teses.length} identificadas`,obs:teses.slice(0,2).join('; ')+'...' },
     { label:'Problemas',            valor:`${problemas.length} item(ns)`, obs:problemas.join('; ')||'Nenhum problema identificado' },
@@ -161,7 +182,8 @@ function analisarCDA(cda) {
 function gerarParecer(resultados) {
   const parecer = []; let urgente = false
   resultados.forEach((a,i) => {
-    const num = `CDA ${i+1}${a.cda.numero?` (${a.cda.numero})`:''}`
+    const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(', ')
+    const num = `CDA ${i+1}${inscricoesTxt?` (${inscricoesTxt})`:''}`
     if(a.decadencia.conclusao==='ha_decadencia')                            { parecer.push({tipo:'danger',msg:`${num}: Decadência identificada — crédito potencialmente extinto.`}); urgente=true }
     if(a.prescricao.conclusao==='ha_prescricao')                            { parecer.push({tipo:'danger',msg:`${num}: Prescrição identificada — execução potencialmente extinta.`}); urgente=true }
     if(a.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') { parecer.push({tipo:'danger',msg:`${num}: Prescrição intercorrente — verificar imediatamente.`}); urgente=true }
@@ -391,7 +413,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
       const diagFinal = diagOverride ?? diagnostico
       const payload = {
         usuario_id: user.id,
-        // cliente_id removido — tipo incompatível (cliente_id é int4, clientes.id é uuid)
         razao_social: clienteAtual?.razao_social || dados.cnpj,
         cnpj: dados.cnpj,
         valor_total: dados.valor_total,
@@ -433,7 +454,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   function abrirRegistro(reg) {
     setClienteAtual({ razao_social:reg.razao_social, cnpj:reg.cnpj })
     setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
-    setCdas(reg.cdas?.length>0?reg.cdas:[{...CDA_VAZIA}])
+    setCdas(migrarListaCDAs(reg.cdas))
     setDiagnostico(reg.diagnostico||null)
     setAnalisesCDA([])
     setRegistroId(reg.id)
@@ -452,7 +473,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
   }
 
   function selecionarCliente(c) {
-    // sempre abre formulário em branco para o cliente escolhido
     setClienteAtual(c)
     setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
     setCdas([{...CDA_VAZIA}])
@@ -497,8 +517,10 @@ export default function DiagnosticoDividaAtiva({ active }) {
     if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnóstico antes.');return}
     const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
     analisesCDA.forEach((a,i)=>{
-      linhas.push(`═══ CDA ${i+1}: ${a.cda.numero||'Sem número'} — ${TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.label||''} ═══`)
-      linhas.push(`Tributo: ${a.cda.tributo||'—'} | Valor: ${a.cda.valor||'—'}`)
+      const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} (${fmtR(parseValor(ins.valor))})`).join(' / ')
+      linhas.push(`═══ CDA ${i+1} — ${TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.label||''} ═══`)
+      linhas.push(`Inscrições: ${inscricoesTxt||'Sem número'}`)
+      linhas.push(`Tributo: ${a.cda.tributo||'—'} | Valor total: ${fmtR(totalInscricoes(a.cda))}`)
       linhas.push('',`── DECADÊNCIA: ${a.decadencia.titulo}`,a.decadencia.justificativa||'')
       linhas.push('',`── PRESCRIÇÃO: ${a.prescricao.titulo}`,a.prescricao.justificativa||'')
       linhas.push('',`── PRESCRIÇÃO INTERCORRENTE: ${a.prescricaoIntercorrente.titulo}`,a.prescricaoIntercorrente.justificativa||'')
@@ -530,6 +552,49 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const addCDA = () => setCdas([...cdas,{...CDA_VAZIA}])
   const removeCDA = i => setCdas(cdas.filter((_,idx)=>idx!==i))
   const updateCDA = (i,k,v) => { const novo=[...cdas]; novo[i]={...novo[i],[k]:v}; setCdas(novo) }
+
+  // ── Funções de manipulação das inscrições (número + valor) ───────────────
+  function recalcularValorCDA(i, novo) {
+    const total = totalInscricoes(novo[i])
+    novo[i] = { ...novo[i], valor: total>0?total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'' }
+  }
+  const addInscricao = (i) => {
+    const novo=[...cdas]
+    novo[i]={...novo[i],inscricoes:[...(novo[i].inscricoes||[]),{numero:'',valor:''}]}
+    setCdas(novo)
+  }
+  const removeInscricao = (i,j) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    lista.splice(j,1)
+    novo[i]={...novo[i],inscricoes:lista.length>0?lista:[{numero:'',valor:''}]}
+    recalcularValorCDA(i,novo)
+    setCdas(novo)
+  }
+  const updateInscricaoNumero = (i,j,v) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    lista[j]={...lista[j],numero:v}
+    novo[i]={...novo[i],inscricoes:lista}
+    setCdas(novo)
+  }
+  const updateInscricaoValor = (i,j,v) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    lista[j]={...lista[j],valor:v}
+    novo[i]={...novo[i],inscricoes:lista}
+    recalcularValorCDA(i,novo)
+    setCdas(novo)
+  }
+  const blurInscricaoValor = (i,j) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    const n = parseValor(lista[j].valor)
+    if(n>0) lista[j]={...lista[j],valor:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+    novo[i]={...novo[i],inscricoes:lista}
+    recalcularValorCDA(i,novo)
+    setCdas(novo)
+  }
 
   const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','📊 Simulador','📄 Parecer']
 
@@ -673,7 +738,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <div key={i} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.navy}}>CDA {i+1}</div>
-                {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>🗑️ Remover</button>}
+                {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>🗑️ Remover CDA</button>}
               </div>
               <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8,padding:'12px 16px',marginBottom:14}}>
                 <label style={{fontSize:13,fontWeight:700,display:'block',marginBottom:8,color:C.navy}}>🏷️ Tipo de Crédito *</label>
@@ -686,10 +751,35 @@ export default function DiagnosticoDividaAtiva({ active }) {
                   </div>
                 )}
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Número da CDA</label><input value={cda.numero} onChange={e=>updateCDA(i,'numero',e.target.value)} placeholder="Ex: 80 4 00001234-9" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/></div>
+
+              {/* ── INSCRIÇÕES (número + valor) ── */}
+              <div style={{marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                  <label style={{fontSize:12,fontWeight:500,color:C.text}}>Números de inscrição e valores</label>
+                  <button onClick={()=>addInscricao(i)} style={{padding:'3px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:11,cursor:'pointer',fontWeight:600}}>+ Adicionar número</button>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {(cda.inscricoes||[]).map((ins,j)=>(
+                    <div key={j} style={{display:'flex',gap:6,alignItems:'center'}}>
+                      <input value={ins.numero} onChange={e=>updateInscricaoNumero(i,j,e.target.value)} placeholder="Ex: 80 4 00001234-9" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
+                      <input value={ins.valor} onChange={e=>updateInscricaoValor(i,j,e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
+                      {(cda.inscricoes||[]).length>1&&(
+                        <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>🗑️</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:8,display:'flex',justifyContent:'flex-end',fontSize:12,color:C.navy,fontWeight:700}}>
+                  Total das inscrições: {fmtR(totalInscricoes(cda))}
+                </div>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
                 <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Tributo / Descrição</label><input value={cda.tributo} onChange={e=>updateCDA(i,'tributo',e.target.value)} placeholder="IRPJ, CSLL, INSS..." style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/></div>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Valor da CDA (R$)</label><input value={cda.valor} onChange={e=>updateCDA(i,'valor',e.target.value)} placeholder="Ex: 85.000,00" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/></div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Valor da CDA (R$) — soma automática</label>
+                  <input value={cda.valor} readOnly disabled placeholder="Calculado a partir das inscrições" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box',background:'#F1F5F9',color:C.muted}}/>
+                </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
                 <div>
@@ -744,19 +834,21 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados →</button>
           </div>
         ):<>
-          {analisesCDA.map((a,i)=>(
+          {analisesCDA.map((a,i)=>{
+            const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
+            return (
             <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>CDA {i+1}{a.cda.numero?` — ${a.cda.numero}`:''}</div>
+                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>CDA {i+1}{inscricoesTxt?` — ${inscricoesTxt}`:''}</div>
                 <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.label||'—'}</span>
               </div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{a.cda.tributo||'Tributo não informado'} · {a.cda.valor||'Valor não informado'} · {a.cda.situacao}</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{a.cda.tributo||'Tributo não informado'} · {fmtR(totalInscricoes(a.cda))} · {a.cda.situacao}</div>
               <ResultadoAnalise resultado={a.decadencia}/>
               <ResultadoAnalise resultado={a.prescricao}/>
               <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
               <ResultadoAnalise resultado={{...a.validadeCDA,teses:TESES_POR_TIPO[a.cda.tipo_credito]||[]}}/>
             </div>
-          ))}
+          )})}
           <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
             💡 Clique em "▼ Ver raciocínio" para ver o passo a passo do raciocínio jurídico aplicado.
           </div>
@@ -853,9 +945,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
                 <div key={i} style={{fontSize:13,color:p.tipo==='danger'?'#991B1B':'#92400E',marginBottom:4}}>• {p.msg}</div>
               ))}
             </div>
-            {analisesCDA.map((a,i)=>(
+            {analisesCDA.map((a,i)=>{
+              const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
+              return (
               <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>CDA {i+1}{a.cda.numero?` — ${a.cda.numero}`:''}</div>
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>CDA {i+1}{inscricoesTxt?` — ${inscricoesTxt}`:''}</div>
                 <div style={{fontSize:12,color:'#1E40AF',marginBottom:12}}>{TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.label} · {TIPOS_CREDITO.find(t=>t.key===a.cda.tipo_credito)?.legislacao}</div>
                 {[['Decadência',a.decadencia],['Prescrição',a.prescricao],['Prescrição Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
                   <div key={titulo} style={{marginBottom:12}}>
@@ -871,7 +965,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
             <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',fontSize:12,color:'#92400E',marginBottom:16}}>
               ⚠️ Parecer preliminar — não substitui análise jurídica profissional.
             </div>
