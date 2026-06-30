@@ -244,23 +244,129 @@ function ScoreDividaAtiva({ score }) {
   )
 }
 
+// ── SELETOR DE CLIENTE COM BUSCA + CADASTRO RÁPIDO ─────────────────────────
+function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
+  const [aberto, setAberto] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [clientes, setClientes] = useState([])
+  const [carregando, setCarregando] = useState(false)
+  const [modoNovo, setModoNovo] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoCnpj, setNovoCnpj] = useState('')
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
+
+  useEffect(()=>{ if(aberto) carregarClientes() },[aberto])
+
+  async function carregarClientes() {
+    setCarregando(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data } = await supabase.from('clientes').select('id,razao_social,nome_fantasia,cnpj').eq('usuario_id',user.id).order('razao_social')
+      if(data) setClientes(data)
+    } catch(e){}
+    setCarregando(false)
+  }
+
+  const filtrados = clientes.filter(c =>
+    (c.razao_social||'').toLowerCase().includes(busca.toLowerCase()) ||
+    (c.nome_fantasia||'').toLowerCase().includes(busca.toLowerCase()) ||
+    (c.cnpj||'').includes(busca)
+  )
+
+  function maskCnpj(v) {
+    v = v.replace(/\D/g,'').slice(0,14)
+    v = v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3/$4').replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/,'$1.$2.$3/$4-$5')
+    return v
+  }
+
+  async function salvarNovoCliente() {
+    if(!novoNome.trim()) { alert('Informe a razão social.'); return }
+    setSalvandoNovo(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:novoNome, cnpj:novoCnpj }]).select()
+      if(data?.[0]) {
+        onCadastrarNovo({ id:data[0].id, razao_social:data[0].razao_social, cnpj:data[0].cnpj })
+        setModoNovo(false); setNovoNome(''); setNovoCnpj(''); setAberto(false)
+      }
+    } catch(e){ alert('Erro ao cadastrar cliente: '+e.message) }
+    setSalvandoNovo(false)
+  }
+
+  return (
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setAberto(!aberto)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 14px',color:'#fff',fontSize:13,cursor:'pointer',width:340}}>
+        <span>👤 {clienteAtual ? `${clienteAtual.razao_social}${clienteAtual.cnpj?' · '+clienteAtual.cnpj:''}` : 'Selecionar cliente...'}</span>
+        <span>▼</span>
+      </button>
+
+      {aberto&&(
+        <div style={{position:'absolute',top:'110%',left:0,width:380,background:C.white,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 8px 24px rgba(0,0,0,0.18)',zIndex:50,padding:14}}>
+          {!modoNovo ? (
+            <>
+              <input
+                autoFocus
+                value={busca}
+                onChange={e=>setBusca(e.target.value)}
+                placeholder="Buscar por nome ou CNPJ..."
+                style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}
+              />
+              <div style={{maxHeight:220,overflowY:'auto'}}>
+                {carregando?(
+                  <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Carregando...</div>
+                ):filtrados.length===0?(
+                  <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Nenhum cliente encontrado.</div>
+                ):filtrados.map(c=>(
+                  <div key={c.id} onClick={()=>{ onSelecionar({id:c.id,razao_social:c.razao_social,cnpj:c.cnpj}); setAberto(false); setBusca('') }}
+                    style={{padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13}}
+                    onMouseEnter={e=>e.currentTarget.style.background='#F1F5F9'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{fontWeight:600,color:C.text}}>{c.razao_social}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{c.cnpj||'CNPJ não informado'}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>setModoNovo(true)} style={{width:'100%',marginTop:10,padding:'8px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>
+                + Cadastrar novo cliente
+              </button>
+            </>
+          ):(
+            <>
+              <div style={{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}}>Novo cliente</div>
+              <label style={{fontSize:12,color:C.muted,display:'block',marginBottom:4}}>Razão Social / Nome</label>
+              <input value={novoNome} onChange={e=>setNovoNome(e.target.value)} placeholder="Ex: Empresa XYZ Ltda" style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}/>
+              <label style={{fontSize:12,color:C.muted,display:'block',marginBottom:4}}>CNPJ</label>
+              <input value={novoCnpj} onChange={e=>setNovoCnpj(maskCnpj(e.target.value))} placeholder="00.000.000/0001-00" style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:12,boxSizing:'border-box'}}/>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>setModoNovo(false)} style={{flex:1,padding:'8px 10px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:6,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                <button onClick={salvarNovoCliente} disabled={salvandoNovo} style={{flex:1,padding:'8px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600,opacity:salvandoNovo?0.7:1}}>
+                  {salvandoNovo?'Salvando...':'Salvar cliente'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DiagnosticoDividaAtiva({ active }) {
-  const [tela, setTela] = useState('historico')
+  const [tela, setTela] = useState('form') // ✅ entra direto no formulário
+  const [mostrarHistorico, setMostrarHistorico] = useState(false) // ✅ painel de análises salvas (modal)
   const [aba, setAba] = useState(0)
   const [historico, setHistorico] = useState([])
-  const [loadingHist, setLoadingHist] = useState(true)
+  const [loadingHist, setLoadingHist] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [registroId, setRegistroId] = useState(null)
   const [analisesCDA, setAnalisesCDA] = useState([])
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
-  const [clienteAtual, setClienteAtual] = useState(null)
-  const [dados, setDados] = useState({ cnpj:'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+  const [clienteAtual, setClienteAtual] = useState(active?{ id:active.id, razao_social:active.razao_social, cnpj:active.cnpj }:null)
+  const [dados, setDados] = useState({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
-
-  useEffect(()=>{ carregarHistorico() },[])
 
   async function carregarHistorico() {
     setLoadingHist(true)
@@ -270,6 +376,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
       if(data) setHistorico(data)
     } catch(e){}
     setLoadingHist(false)
+  }
+
+  function abrirPainelHistorico() {
+    setMostrarHistorico(true)
+    carregarHistorico()
   }
 
   async function salvar(diagOverride, analisesOverride) {
@@ -303,7 +414,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         const { data } = await supabase.from('divida_ativa').insert([payload]).select()
         if(data?.[0]) setRegistroId(data[0].id)
       }
-      await carregarHistorico()
     } catch(e){ alert('Erro ao salvar: '+e.message) }
     setSalvando(false)
   }
@@ -321,19 +431,19 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setDiagnostico(reg.diagnostico||null)
     setAnalisesCDA([])
     setRegistroId(reg.id)
-    setAba(0)
-    setTela('form')
+    setAba(reg.diagnostico?0:1)
+    setMostrarHistorico(false)
   }
 
-  function novoRegistro() {
-    setClienteAtual(active?{ id:active.id, razao_social:active.razao_social, cnpj:active.cnpj }:null)
-    setDados({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+  function selecionarCliente(c) {
+    // ✅ sempre abre formulário em branco para o cliente escolhido
+    setClienteAtual(c)
+    setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
     setCdas([{...CDA_VAZIA}])
     setDiagnostico(null)
     setAnalisesCDA([])
     setRegistroId(null)
     setAba(0)
-    setTela('form')
   }
 
   function executarDiagnostico() {
@@ -407,78 +517,74 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','📊 Simulador','📄 Parecer']
 
-  // ── TELA HISTÓRICO ────────────────────────────────────────────────────────
-  if(tela==='historico') {
-    return (
-      <div style={{maxWidth:960,margin:'0 auto'}}>
-        <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
-          <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
-          <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
-          <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
-        </div>
-
-        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>📂 Análises salvas</div>
-            <button onClick={novoRegistro} style={{...btnPrimary,padding:'7px 16px',fontSize:12}}>+ Nova análise</button>
-          </div>
-
-          {loadingHist ? (
-            <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
-          ) : historico.length===0 ? (
-            <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
-              <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
-              <div style={{fontSize:14,marginBottom:16}}>Nenhuma análise salva ainda.</div>
-              <button onClick={novoRegistro} style={btnPrimary}>+ Nova análise</button>
-            </div>
-          ) : (
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-              <thead>
-                <tr style={{background:'#F1F5F9'}}>
-                  <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Razão Social</th>
-                  <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>CNPJ</th>
-                  <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Data</th>
-                  <th style={{textAlign:'center',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historico.map((reg,idx)=>(
-                  <tr key={reg.id} style={{background:idx%2===0?C.white:'#F8FAFC',borderBottom:`1px solid ${C.border}`}}>
-                    <td style={{padding:'10px 14px',color:C.text,fontWeight:600}}>{reg.razao_social||'—'}</td>
-                    <td style={{padding:'10px 14px',color:C.muted}}>{reg.cnpj||'—'}</td>
-                    <td style={{padding:'10px 14px',color:C.muted}}>{fmtDateTime(reg.created_at)}</td>
-                    <td style={{padding:'10px 14px',textAlign:'center'}}>
-                      <div style={{display:'flex',gap:8,justifyContent:'center'}}>
-                        <button onClick={()=>abrirRegistro(reg)} style={{padding:'5px 16px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>📂 Abrir</button>
-                        <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️ Excluir</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ── TELA FORMULÁRIO ───────────────────────────────────────────────────────
   return (
-    <div style={{maxWidth:960,margin:'0 auto'}}>
+    <div style={{maxWidth:960,margin:'0 auto',position:'relative'}}>
+
+      {/* HEADER COM SELETOR DE CLIENTE */}
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
-        <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
-        <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
-        <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Análise especializada por tipo de crédito</p>
-        {clienteAtual&&(
-          <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',display:'inline-flex',gap:16,fontSize:12,color:'#e2e8f0'}}>
-            <span>👤 {clienteAtual.razao_social}</span><span>·</span><span>{clienteAtual.cnpj}</span>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
+          <div>
+            <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
+            <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
+            <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
           </div>
-        )}
+          <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+            📂 Análises salvas
+          </button>
+        </div>
+        <div style={{marginTop:16}}>
+          <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
+        </div>
       </div>
 
+      {/* MODAL — ANÁLISES SALVAS */}
+      {mostrarHistorico&&(
+        <div onClick={()=>setMostrarHistorico(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:14,maxWidth:780,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <div style={{fontSize:16,fontWeight:700,color:C.navy}}>📂 Análises salvas</div>
+              <button onClick={()=>setMostrarHistorico(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.muted}}>✕</button>
+            </div>
+            {loadingHist?(
+              <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
+            ):historico.length===0?(
+              <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
+                <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
+                <div style={{fontSize:14}}>Nenhuma análise salva ainda.</div>
+              </div>
+            ):(
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#F1F5F9'}}>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Razão Social</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>CNPJ</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Data</th>
+                    <th style={{textAlign:'center',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historico.map((reg,idx)=>(
+                    <tr key={reg.id} style={{background:idx%2===0?C.white:'#F8FAFC',borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'10px 14px',color:C.text,fontWeight:600}}>{reg.razao_social||'—'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{reg.cnpj||'—'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{fmtDateTime(reg.created_at)}</td>
+                      <td style={{padding:'10px 14px',textAlign:'center'}}>
+                        <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+                          <button onClick={()=>abrirRegistro(reg)} style={{padding:'5px 16px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>📂 Abrir</button>
+                          <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️ Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AÇÕES */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-        <button onClick={()=>setTela('historico')} style={{...btnOutline,padding:'7px 16px',fontSize:13}}>← Voltar</button>
         <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'💾 Salvando...':'💾 Salvar'}</button>
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
       </div>
