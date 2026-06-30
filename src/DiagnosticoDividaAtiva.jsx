@@ -15,15 +15,13 @@ const hoje = new Date().toISOString().slice(0,10)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : '—'
 const parseValor = v => parseFloat(String(v||'').replace(/\./g,'').replace(',','.')) || 0
 
-// ── Migração de formatos antigos → novo formato (inscrições com tipo próprio + numero_cda) ──
 function migrarCDA(cda) {
   let migrada = cda
   if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
 
-  if (migrada.inscricoes && migrada.inscricoes.length>0 && 'tipo_credito' in (migrada.inscricoes[0]||{})) return migrada // já no formato mais novo
+  if (migrada.inscricoes && migrada.inscricoes.length>0 && 'tipo_credito' in (migrada.inscricoes[0]||{})) return migrada
   const tipoPadrao = migrada.tipo_credito || 'tributario_federal'
   if (migrada.inscricoes) {
-    // tinha inscrições (número+valor) mas sem tipo individual — herda o tipo da CDA
     return { ...migrada, inscricoes: migrada.inscricoes.map(ins=>({...ins, tipo_credito: ins.tipo_credito||tipoPadrao})) }
   }
   if (migrada.numeros) {
@@ -91,7 +89,6 @@ function totalInscricoes(cda) {
   return (cda.inscricoes||[]).reduce((s,ins)=>s+parseValor(ins.valor),0)
 }
 
-// tipo de referência da CDA = tipo da primeira inscrição com tipo definido
 function tipoReferenciaCDA(cda) {
   const primeira = (cda.inscricoes||[])[0]
   const key = primeira?.tipo_credito || 'tributario_federal'
@@ -103,7 +100,6 @@ function tesesReferenciaCDA(cda) {
   return TESES_POR_TIPO[key] || TESES_POR_TIPO.outro
 }
 
-// Rótulo amigável da CDA para títulos/relatórios: usa número da CDA se houver, senão lista as inscrições
 function rotuloCDA(cda, indice) {
   if (cda.numero_cda && cda.numero_cda.trim()) return `CDA ${cda.numero_cda}`
   const inscricoesTxt = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
@@ -205,6 +201,32 @@ function analisarCDA(cda) {
   return { conclusao:'cda_vicio', titulo:'⚠️ Possíveis vícios na CDA', cor:'#DC2626', passos, teses, justificativa:`Foram identificados ${problemas.length} ponto(s): ${problemas.join('; ')}.` }
 }
 
+// ── Elegibilidade para Transação Tributária — consome o Core (motor_regras) ──
+function analisarElegibilidadeTransacao(cda, regraCapag) {
+  const valor = totalInscricoes(cda)
+  const condicao = regraCapag?.condicao || {
+    valor_consolidado_maximo: 45000000,
+    data_inscricao_limite: '2026-03-03',
+  }
+  const problemas = []
+  if (valor > condicao.valor_consolidado_maximo) problemas.push(`Valor consolidado (${fmtR(valor)}) excede o limite de ${fmtR(condicao.valor_consolidado_maximo)}`)
+  if (cda.data_inscricao && cda.data_inscricao > condicao.data_inscricao_limite) problemas.push(`Inscrição em ${fmtData(cda.data_inscricao)} é posterior ao limite de ${fmtData(condicao.data_inscricao_limite)}`)
+  if (!cda.data_inscricao) problemas.push('Data de inscrição não informada')
+  if (cda.possui_garantia) problemas.push('CDA possui garantia prestada — verificar modalidade específica para débitos garantidos')
+  if (cda.possui_parcelamento) problemas.push('CDA já está parcelada — não elegível nesta modalidade')
+
+  const passos = [
+    { label:'Valor consolidado da CDA', valor:fmtR(valor), obs:`Limite: ${fmtR(condicao.valor_consolidado_maximo)}` },
+    { label:'Data de inscrição', valor:fmtData(cda.data_inscricao), obs:`Limite: ${fmtData(condicao.data_inscricao_limite)}` },
+    { label:'Garantia prestada', valor:cda.possui_garantia?'Sim':'Não', obs:cda.possui_garantia?'⚠️ Verificar modalidade de débitos garantidos':'—' },
+    { label:'Parcelamento ativo', valor:cda.possui_parcelamento?'Sim':'Não', obs:cda.possui_parcelamento?'⚠️ Impede adesão nesta modalidade':'—' },
+    { label:'Situação', valor:problemas.length===0?'✅ ELEGÍVEL':'⚠️ NÃO ELEGÍVEL (verificar pontos)', obs:'' },
+  ]
+
+  if (problemas.length===0) return { conclusao:'elegivel', titulo:'✅ Elegível à Transação por Capacidade de Pagamento', cor:'#16A34A', passos, justificativa:`A CDA atende aos critérios de elegibilidade do Edital PGDAU 6/2026 para a modalidade de capacidade de pagamento: valor dentro do limite e inscrição dentro do prazo, sem garantia ou parcelamento que impeçam a adesão.` }
+  return { conclusao:'nao_elegivel', titulo:'⚠️ Possível inelegibilidade', cor:'#D97706', passos, justificativa:`Foram identificados ${problemas.length} ponto(s) que podem impedir ou exigir modalidade diferente: ${problemas.join('; ')}.` }
+}
+
 function gerarParecer(resultados) {
   const parecer = []; let urgente = false
   resultados.forEach((a,i) => {
@@ -222,7 +244,7 @@ function gerarParecer(resultados) {
 function ResultadoAnalise({ resultado }) {
   const [expandido, setExpandido] = useState(false)
   if (!resultado) return null
-  const isNeg = resultado.conclusao.includes('ha_')||resultado.conclusao==='cda_vicio'
+  const isNeg = resultado.conclusao.includes('ha_')||resultado.conclusao==='cda_vicio'||resultado.conclusao==='nao_elegivel'
   const isIndef = resultado.conclusao==='indefinida'
   return (
     <div style={{background:isNeg?'#FEF2F2':isIndef?'#FFFBEB':'#F0FDF4',border:`1px solid ${resultado.cor}33`,borderLeft:`4px solid ${resultado.cor}`,borderRadius:10,padding:'14px 18px',marginBottom:10}}>
@@ -291,7 +313,6 @@ function ScoreDividaAtiva({ score }) {
   )
 }
 
-// ── SELETOR DE CLIENTE COM BUSCA + CADASTRO RÁPIDO ─────────────────────────
 function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
@@ -414,6 +435,20 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
+  const [regraCapag, setRegraCapag] = useState(null)
+  const [teseTransacao, setTeseTransacao] = useState(null)
+
+  useEffect(()=>{
+    async function carregarCore() {
+      try {
+        const { data: regra } = await supabase.from('motor_regras').select('*').eq('nome_regra','Elegibilidade para Transação por Capacidade de Pagamento (Edital PGDAU 6/2026)').single()
+        if(regra) setRegraCapag(regra)
+        const { data: tese } = await supabase.from('base_teses').select('*').eq('nome_tese','Transação Tributária - Estratégia de Adesão').single()
+        if(tese) setTeseTransacao(tese)
+      } catch(e){}
+    }
+    carregarCore()
+  },[])
 
   async function carregarHistorico() {
     setLoadingHist(true)
@@ -579,7 +614,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const removeCDA = i => setCdas(cdas.filter((_,idx)=>idx!==i))
   const updateCDA = (i,k,v) => { const novo=[...cdas]; novo[i]={...novo[i],[k]:v}; setCdas(novo) }
 
-  // ── Funções de manipulação das inscrições (número + tipo + valor) ────────
   const addInscricao = (i) => {
     const novo=[...cdas]
     novo[i]={...novo[i],inscricoes:[...(novo[i].inscricoes||[]),{numero:'',valor:'',tipo_credito:'tributario_federal'}]}
@@ -608,12 +642,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setCdas(novo)
   }
 
-  const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','📊 Simulador','📄 Parecer']
+  const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer']
 
   return (
     <div style={{maxWidth:960,margin:'0 auto',position:'relative'}}>
 
-      {/* HEADER COM SELETOR DE CLIENTE */}
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
           <div>
@@ -635,7 +668,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </div>
       </div>
 
-      {/* MODAL — ANÁLISES SALVAS */}
       {mostrarHistorico&&(
         <div onClick={()=>setMostrarHistorico(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
           <div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:14,maxWidth:780,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
@@ -681,7 +713,6 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </div>
       )}
 
-      {/* AÇÕES */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
         <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'💾 Salvando...':'💾 Salvar'}</button>
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
@@ -718,7 +749,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </div>}
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>setAba(2)} style={btnPrimary}>Ver diagnóstico completo →</button>
-            <button onClick={()=>setAba(5)} style={btnOutline}>📄 Gerar parecer</button>
+            <button onClick={()=>setAba(6)} style={btnOutline}>📄 Gerar parecer</button>
           </div>
         </>}
       </>}
@@ -753,13 +784,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
                 {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>🗑️ Remover CDA</button>}
               </div>
 
-              {/* ── NÚMERO DA CDA (nível da CDA, distinto das inscrições) ── */}
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Número da CDA</label>
                 <input value={cda.numero_cda||''} onChange={e=>updateCDA(i,'numero_cda',e.target.value)} placeholder="Ex: 80.6.18.123456-78" style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',maxWidth:320,boxSizing:'border-box'}}/>
               </div>
 
-              {/* ── INSCRIÇÕES (número + tipo + valor) ── */}
               <div style={{marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                   <label style={{fontSize:12,fontWeight:500,color:C.text}}>Inscrições desta CDA — número, tipo de crédito e valor</label>
@@ -860,7 +889,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
             💡 Clique em "▼ Ver raciocínio" para ver o passo a passo do raciocínio jurídico aplicado.
           </div>
-          <button onClick={()=>setAba(5)} style={btnPrimary}>📄 Gerar parecer técnico →</button>
+          <button onClick={()=>setAba(6)} style={btnPrimary}>📄 Gerar parecer técnico →</button>
         </>}
       </>}
 
@@ -885,6 +914,29 @@ export default function DiagnosticoDividaAtiva({ active }) {
       </>}
 
       {aba===4&&<>
+        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
+          ℹ️ Análise baseada no Core de Inteligência Fiscal e Tributária — {regraCapag?'regra carregada da base jurídica viva':'carregando regra...'}.
+        </div>
+        {cdas.map((cda,i)=>{
+          const elegibilidade = analisarElegibilidadeTransacao(cda, regraCapag)
+          return (
+            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
+              <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:12}}>{rotuloCDA(cda,i)}</div>
+              <ResultadoAnalise resultado={elegibilidade}/>
+            </div>
+          )
+        })}
+        {teseTransacao&&(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginTop:8}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>📚 Tese aplicável — {teseTransacao.nome_tese}</div>
+            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>Requisitos:</strong> {teseTransacao.requisitos}</div>
+            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>Exceções:</strong> {teseTransacao.excecoes}</div>
+            <div style={{fontSize:13,color:C.text,lineHeight:1.7}}><strong>Estratégia recomendada:</strong> {teseTransacao.estrategia_recomendada}</div>
+          </div>
+        )}
+      </>}
+
+      {aba===5&&<>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚙️ Parâmetros</div>
@@ -934,7 +986,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
         </div>
       </>}
 
-      {aba===5&&<>
+      {aba===6&&<>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',marginBottom:16}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:4}}>📄 Parecer Técnico — Dívida Ativa (PGFN)</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString('pt-BR')} · {clienteAtual?.razao_social||dados.cnpj}</div>
