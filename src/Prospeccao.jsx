@@ -13,13 +13,13 @@ const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.
 const maskFone = v => { const n=v.replace(/\D/g,'').slice(0,11); if(n.length<=10) return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2'); return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2'); };
 
 const STATUS_COLORS = {
-  'Pendente':   '#334155|#94a3b8',
-  'Em contato': '#1e3a5f|#60a5fa',
-  'Convertido': '#14532d|#4ade80',
-  'Descartado': '#450a0a|#f87171',
+  'Pendente':   '#EFF6FF|#1e40af',
+  'Em contato': '#FFF7ED|#92400e',
+  'Convertido': '#F0FDF4|#166534',
+  'Descartado': '#FEF2F2|#991b1b',
 };
 
-const TRF_LINKS = (cnpjCpf, nome) => [
+const TRF_LINKS = () => [
   { label: '🏛️ TRF1', url: 'https://pje1g-consultapublica.trf1.jus.br/consultapublica/ConsultaPublica/listView.seam', ufs: ['AC','AM','AP','BA','DF','GO','MA','MG','MT','PA','PI','RO','RR','TO'] },
   { label: '🏛️ TRF2', url: 'https://eproc-consulta.trf2.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica', ufs: ['ES','RJ'] },
   { label: '🏛️ TRF3', url: 'https://pje1g.trf3.jus.br/pje/ConsultaPublica/listView.seam', ufs: ['MS','SP'] },
@@ -28,14 +28,13 @@ const TRF_LINKS = (cnpjCpf, nome) => [
   { label: '🏛️ TRF6', url: 'https://eproc1g.trf6.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica&acao_origem=principal&acao_retorno=processo_consulta_publica', ufs: ['MG'] },
 ];
 
-const OUTROS_LINKS = (cnpjCpf, nome) => [
-  { label: '🔍 Google',            url: `https://www.google.com/search?q=${encodeURIComponent(nome)}` },
-  { label: '📸 Instagram',         url: `https://www.instagram.com/explore/search/?q=${encodeURIComponent(nome)}` },
-  { label: '👤 Facebook',          url: `https://www.facebook.com/search/top?q=${encodeURIComponent(nome)}` },
-  { label: '💼 LinkedIn',          url: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(nome)}` },
-  { label: '⚖️ PGFN Regularize',  url: 'https://regularize.pgfn.gov.br' },
-  { label: '📋 Lista Devedores',   url: `https://listadevedores.pgfn.gov.br/?cnpjCpf=${cnpjCpf}` },
-];
+const inputStyle = {
+  width: '100%', padding: '8px 12px', borderRadius: 6,
+  border: '1px solid #C8D0DC', background: '#FFFFFF',
+  color: '#1E293B', fontSize: 13, boxSizing: 'border-box'
+};
+
+const labelStyle = { fontSize: 12, fontWeight: 500, color: C.navy, display: 'block', marginBottom: 4 };
 
 export default function Prospeccao({ onVoltar }) {
   const [tela, setTela] = useState('lista');
@@ -220,18 +219,23 @@ export default function Prospeccao({ onVoltar }) {
 
   const inp = (campo, placeholder, tipo = 'text') => (
     <input value={editando?.[campo] || ''} onChange={e => setEditando({ ...editando, [campo]: e.target.value })}
-      placeholder={placeholder} type={tipo}
-      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }} />
+      placeholder={placeholder} type={tipo} style={inputStyle} />
   );
 
   const foneInp = (campo, placeholder) => (
     <input value={editando?.[campo] || ''} onChange={e => setEditando({ ...editando, [campo]: maskFone(e.target.value) })}
-      placeholder={placeholder}
-      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }} />
+      placeholder={placeholder} style={inputStyle} />
   );
 
   const section = (titulo) => (
-    <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 12 }}>{titulo}</div>
+    <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>{titulo}</div>
+  );
+
+  const field = (label, conteudo) => (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {conteudo}
+    </div>
   );
 
   const registrosFiltrados = registros.filter(r =>
@@ -240,24 +244,27 @@ export default function Prospeccao({ onVoltar }) {
     (r.endereco_municipio || '').toLowerCase().includes(busca.toLowerCase())
   );
 
+  const btnPrimary = { padding: '8px 20px', borderRadius: 8, background: C.navy, color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 13 };
+  const btnOutline = { padding: '8px 20px', borderRadius: 8, background: '#fff', color: C.navy, border: `1.5px solid ${C.navy}`, fontWeight: 600, cursor: 'pointer', fontSize: 13 };
+  const btnWarning = { padding: '8px 20px', borderRadius: 8, background: '#F59E0B', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 13 };
+
   // ── TELA LISTA ──
   if (tela === 'lista') return (
     <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
-      <button onClick={onVoltar} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 14 }}>← Voltar</button>
+      <button onClick={onVoltar} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>← Voltar</button>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.textLight, margin: 0 }}>🎯 Prospecção de Clientes</h2>
-          <p style={{ color: C.text, fontSize: 13, margin: '4px 0 0' }}>{registros.length} registros salvos</p>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.textLight }}>🎯 Prospecção de Clientes</div>
+          <div style={{ color: C.text, fontSize: 13, marginTop: 2 }}>{registros.length} registros salvos</div>
         </div>
-        <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }}
-          style={{ padding: '10px 20px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
+        <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>
           + Nova Consulta
         </button>
       </div>
 
       <input value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar por nome, CNPJ ou cidade..."
-        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }} />
+        style={{ ...inputStyle, marginBottom: 16, fontSize: 14, padding: '10px 14px' }} />
 
       {loadingLista && <div style={{ color: C.text, textAlign: 'center', padding: 40 }}>Carregando...</div>}
 
@@ -277,7 +284,7 @@ export default function Prospeccao({ onVoltar }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.razao_social || '—'}</span>
-                  <span style={{ background: bg, color: cor, padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{r.status_lead || 'Pendente'}</span>
+                  <span style={{ background: bg, color: cor, padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>• {r.status_lead || 'Pendente'}</span>
                 </div>
                 <div style={{ fontSize: 12, color: C.text }}>
                   {r.cnpj} · {r.endereco_municipio || '—'}/{r.endereco_uf || '—'}
@@ -285,10 +292,8 @@ export default function Prospeccao({ onVoltar }) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                <button onClick={() => { setEditando({ ...r }); setTela('editar'); }}
-                  style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Abrir</button>
-                <button onClick={() => excluir(r.id)}
-                  style={{ padding: '6px 14px', borderRadius: 6, background: '#450a0a', color: C.red, border: `1px solid ${C.red}`, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>🗑️</button>
+                <button onClick={() => { setEditando({ ...r }); setTela('editar'); }} style={btnOutline}>Abrir</button>
+                <button onClick={() => excluir(r.id)} style={btnWarning}>🗑️ Excluir</button>
               </div>
             </div>
           );
@@ -300,38 +305,37 @@ export default function Prospeccao({ onVoltar }) {
   // ── TELA CONSULTA ──
   if (tela === 'consulta') return (
     <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
-      <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 14 }}>← Voltar à lista</button>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.textLight, marginBottom: 4 }}>🔍 Nova Consulta</h2>
-      <p style={{ color: C.text, fontSize: 13, marginBottom: 24 }}>Digite o CPF ou CNPJ. Os dados serão salvos automaticamente.</p>
+      <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>← Voltar à lista</button>
+      <div style={{ fontSize: 22, fontWeight: 700, color: C.textLight, marginBottom: 4 }}>🔍 Nova Consulta</div>
+      <div style={{ color: C.text, fontSize: 13, marginBottom: 24 }}>Digite o CPF ou CNPJ. Os dados serão salvos automaticamente.</div>
 
-      <div style={{ display: 'grid', gap: 12, marginBottom: 24, maxWidth: 600 }}>
-        <div>
-          <div style={{ fontSize: 11, color: C.text, marginBottom: 4 }}>
-            {docLimpo.length > 0 && docLimpo.length <= 11 ? '👤 CPF — Pessoa Física' : '🏢 CNPJ — Pessoa Jurídica'}
-          </div>
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 24, maxWidth: 600 }}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ ...labelStyle, marginBottom: 4 }}>
+            {docLimpo.length > 0 && docLimpo.length <= 11 ? '👤 CPF — Pessoa Física' : '🏢 CPF ou CNPJ'}
+          </label>
           <input value={doc} onChange={e => { setDoc(formatarDoc(e.target.value)); setErro(''); }}
             onKeyDown={e => e.key === 'Enter' && buscar()}
-            placeholder="CPF ou CNPJ"
-            style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }} />
+            placeholder="000.000.000-00 ou 00.000.000/0000-00"
+            style={{ ...inputStyle, fontSize: 15, padding: '10px 14px' }} />
         </div>
 
         {docLimpo.length > 0 && docLimpo.length <= 11 && (
-          <div>
-            <div style={{ fontSize: 11, color: C.text, marginBottom: 4 }}>Nome completo (obrigatório para CPF)</div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Nome completo (obrigatório para CPF)</label>
             <input value={nomeManual} onChange={e => setNomeManual(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && buscar()}
               placeholder="Ex: João Silva Santos"
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }} />
+              style={{ ...inputStyle, fontSize: 15, padding: '10px 14px' }} />
           </div>
         )}
 
-        <button onClick={buscar} disabled={loading}
-          style={{ padding: '12px 24px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 700, cursor: loading ? 'default' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+        <button onClick={buscar} disabled={loading} style={{ ...btnPrimary, width: '100%', padding: '12px', fontSize: 15, opacity: loading ? 0.7 : 1 }}>
           {loading ? '⏳ Consultando e salvando...' : '🔍 Consultar'}
         </button>
-      </div>
 
-      {erro && <div style={{ background: '#450a0a', border: `1px solid ${C.red}`, borderRadius: 8, padding: 12, color: C.red }}>{erro}</div>}
+        {erro && <div style={{ marginTop: 12, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: 12, color: '#991b1b', fontSize: 13 }}>{erro}</div>}
+      </div>
     </div>
   );
 
@@ -341,29 +345,34 @@ export default function Prospeccao({ onVoltar }) {
     const nomeConsulta = editando.razao_social || '';
     const cnpjDoc = editando.cnpj || '';
 
-    const trfLinks = TRF_LINKS(cnpjDoc, nomeConsulta).map(t => ({ ...t, ativo: t.ufs.includes(uf) }));
-    const outrosLinks = OUTROS_LINKS(cnpjDoc, nomeConsulta);
+    const trfLinks = TRF_LINKS().map(t => ({ ...t, ativo: t.ufs.includes(uf) }));
     const trfAtivo = trfLinks.find(t => t.ativo);
+
+    const outrosLinks = [
+      { label: '🔍 Google', url: `https://www.google.com/search?q=${encodeURIComponent(nomeConsulta)}` },
+      { label: '📸 Instagram', url: `https://www.instagram.com/explore/search/?q=${encodeURIComponent(nomeConsulta)}` },
+      { label: '👤 Facebook', url: `https://www.facebook.com/search/top?q=${encodeURIComponent(nomeConsulta)}` },
+      { label: '💼 LinkedIn', url: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(nomeConsulta)}` },
+      { label: '⚖️ PGFN Regularize', url: 'https://regularize.pgfn.gov.br' },
+      { label: '📋 Lista Devedores', url: `https://listadevedores.pgfn.gov.br/?cnpjCpf=${cnpjDoc}` },
+    ];
 
     return (
       <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', fontSize: 14 }}>← Voltar à lista</button>
+          <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', fontSize: 13 }}>← Voltar à lista</button>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={imprimir}
-              style={{ padding: '8px 18px', borderRadius: 8, background: C.card, color: C.textLight, border: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🖨️ Imprimir</button>
-            <button onClick={() => excluir(editando.id)}
-              style={{ padding: '8px 18px', borderRadius: 8, background: '#450a0a', color: C.red, border: `1px solid ${C.red}`, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🗑️ Excluir</button>
-            <button onClick={salvarEdicao} disabled={salvando}
-              style={{ padding: '8px 18px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontSize: 13, cursor: 'pointer', fontWeight: 600, opacity: salvando ? 0.7 : 1 }}>
+            <button onClick={imprimir} style={btnOutline}>🖨️ Imprimir</button>
+            <button onClick={() => excluir(editando.id)} style={btnWarning}>🗑️ Excluir</button>
+            <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity: salvando ? 0.7 : 1 }}>
               {salvando ? 'Salvando...' : '💾 Salvar'}
             </button>
           </div>
         </div>
 
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: C.textLight, marginBottom: 4 }}>{editando.razao_social || 'Sem nome'}</h2>
+        <div style={{ fontSize: 20, fontWeight: 700, color: C.textLight, marginBottom: 2 }}>{editando.razao_social || 'Sem nome'}</div>
         <div style={{ fontSize: 13, color: C.text, marginBottom: 20 }}>
           {cnpjDoc.length === 11 ? maskCPF(cnpjDoc) : maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}
         </div>
@@ -372,7 +381,7 @@ export default function Prospeccao({ onVoltar }) {
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('🏷️ Status do Lead')}
           <select value={editando.status_lead || 'Pendente'} onChange={e => setEditando({ ...editando, status_lead: e.target.value })}
-            style={{ padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, width: 200 }}>
+            style={{ ...inputStyle, width: 220 }}>
             {['Pendente', 'Em contato', 'Convertido', 'Descartado'].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
@@ -380,41 +389,41 @@ export default function Prospeccao({ onVoltar }) {
         {/* Dados Cadastrais */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('📋 Dados Cadastrais')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Razão Social / Nome</label>{inp('razao_social', 'Razão social ou nome')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Situação Cadastral</label>{inp('situacao_cadastral', 'Ex: ATIVA')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Data de Abertura</label>{inp('data_abertura', 'AAAA-MM-DD')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Porte</label>{inp('porte', 'Ex: MICRO EMPRESA')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Natureza Jurídica</label>{inp('natureza_juridica', 'Ex: Ltda')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ gridColumn: 'span 2' }}>{field('Razão Social / Nome', inp('razao_social', 'Razão social ou nome'))}</div>
+            {field('Situação Cadastral', inp('situacao_cadastral', 'Ex: ATIVA'))}
+            {field('Data de Abertura', inp('data_abertura', 'AAAA-MM-DD'))}
+            {field('Porte', inp('porte', 'Ex: MICRO EMPRESA'))}
+            {field('Natureza Jurídica', inp('natureza_juridica', 'Ex: Sociedade Empresária Ltda'))}
           </div>
         </div>
 
         {/* Endereço */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('📍 Endereço')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Logradouro</label>{inp('endereco_logradouro', 'Rua, Av...')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Número</label>{inp('endereco_numero', 'Nº')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Complemento</label>{inp('endereco_complemento', 'Sala, Andar...')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Bairro</label>{inp('endereco_bairro', 'Bairro')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>CEP</label>{inp('endereco_cep', '00000-000')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Município</label>{inp('endereco_municipio', 'Cidade')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>UF</label>{inp('endereco_uf', 'SP')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ gridColumn: 'span 2' }}>{field('Logradouro', inp('endereco_logradouro', 'Rua, Av...'))}</div>
+            {field('Número', inp('endereco_numero', 'Nº'))}
+            {field('Complemento', inp('endereco_complemento', 'Sala, Andar...'))}
+            {field('Bairro', inp('endereco_bairro', 'Bairro'))}
+            {field('CEP', inp('endereco_cep', '00000-000'))}
+            {field('Município', inp('endereco_municipio', 'Cidade'))}
+            {field('UF', inp('endereco_uf', 'SP'))}
           </div>
         </div>
 
         {/* Contato */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('📞 Contato')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Nome do Contato / Responsável</label>{inp('contato_nome', 'Ex: João Silva — Diretor Financeiro')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Telefone</label>{foneInp('telefone', '(11) 9999-9999')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>WhatsApp</label>{foneInp('whatsapp', '(11) 9999-9999')}</div>
-            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>E-mail</label>{inp('email_contato', 'email@empresa.com.br', 'email')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Site</label>{inp('site_url', 'https://www.empresa.com.br')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>LinkedIn</label>{inp('linkedin_url', 'https://linkedin.com/company/...')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Facebook</label>{inp('facebook_url', 'https://facebook.com/...')}</div>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Instagram</label>{inp('instagram_url', 'https://instagram.com/...')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ gridColumn: 'span 2' }}>{field('Nome do Contato / Responsável', inp('contato_nome', 'Ex: João Silva — Diretor Financeiro'))}</div>
+            {field('Telefone', foneInp('telefone', '(11) 9999-9999'))}
+            {field('WhatsApp', foneInp('whatsapp', '(11) 9999-9999'))}
+            <div style={{ gridColumn: 'span 2' }}>{field('E-mail', inp('email_contato', 'email@empresa.com.br', 'email'))}</div>
+            {field('Site', inp('site_url', 'https://www.empresa.com.br'))}
+            {field('LinkedIn', inp('linkedin_url', 'https://linkedin.com/company/...'))}
+            {field('Facebook', inp('facebook_url', 'https://facebook.com/...'))}
+            {field('Instagram', inp('instagram_url', 'https://instagram.com/...'))}
           </div>
         </div>
 
@@ -422,55 +431,56 @@ export default function Prospeccao({ onVoltar }) {
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('👥 Sócios')}
           {editando.socios && editando.socios.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: C.text, marginBottom: 6 }}>DA RECEITA FEDERAL</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, marginBottom: 8 }}>DA RECEITA FEDERAL</div>
               {editando.socios.map((s, i) => (
-                <div key={i} style={{ fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${C.border}`, color: C.textLight }}>
+                <div key={i} style={{ fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${C.border}`, color: C.textLight }}>
                   <span style={{ fontWeight: 600 }}>{s.nome}</span>
                   <span style={{ color: C.text, marginLeft: 8 }}>{s.qualificacao}</span>
                 </div>
               ))}
             </div>
           )}
-          <div style={{ marginTop: 8 }}>
-            <label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Sócios / Contatos adicionais (manual)</label>
+          <div>
+            <label style={labelStyle}>Sócios / Contatos adicionais (manual)</label>
             <textarea value={editando.socios_manual || ''} onChange={e => setEditando({ ...editando, socios_manual: e.target.value })}
               placeholder={'Nome — Cargo\nNome — Cargo'} rows={4}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }} />
+              style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
         </div>
 
         {/* TRF */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('⚖️ Situação Judicial (TRF)')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
-              <label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 6 }}>Execução Fiscal Ajuizada?</label>
+              <label style={labelStyle}>Execução Fiscal Ajuizada?</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[['Sim', true], ['Não', false], ['—', null]].map(([lb, val]) => (
                   <button key={lb} onClick={() => setEditando({ ...editando, trf_tem_execucao: val })}
-                    style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${C.border}`, background: editando.trf_tem_execucao === val ? C.accent : '#0f172a', color: editando.trf_tem_execucao === val ? '#fff' : C.text, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ padding: '6px 18px', borderRadius: 6, border: `1.5px solid ${C.border}`, background: editando.trf_tem_execucao === val ? C.navy : '#fff', color: editando.trf_tem_execucao === val ? '#fff' : C.textLight, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                     {lb}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 6 }}>Advogado Constituído?</label>
+              <label style={labelStyle}>Advogado Constituído?</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[['Sim', true], ['Não', false], ['—', null]].map(([lb, val]) => (
                   <button key={lb} onClick={() => setEditando({ ...editando, trf_tem_advogado: val })}
-                    style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${C.border}`, background: editando.trf_tem_advogado === val ? C.accent : '#0f172a', color: editando.trf_tem_advogado === val ? '#fff' : C.text, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ padding: '6px 18px', borderRadius: 6, border: `1.5px solid ${C.border}`, background: editando.trf_tem_advogado === val ? C.navy : '#fff', color: editando.trf_tem_advogado === val ? '#fff' : C.textLight, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                     {lb}
                   </button>
                 ))}
               </div>
             </div>
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Observação TRF</label>
-              <input value={editando.trf_observacao || ''} onChange={e => setEditando({ ...editando, trf_observacao: e.target.value })}
-                placeholder="Nº do processo, advogado, situação..."
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }} />
+              {field('Observação TRF', (
+                <input value={editando.trf_observacao || ''} onChange={e => setEditando({ ...editando, trf_observacao: e.target.value })}
+                  placeholder="Nº do processo, advogado, situação..."
+                  style={inputStyle} />
+              ))}
             </div>
           </div>
         </div>
@@ -480,29 +490,29 @@ export default function Prospeccao({ onVoltar }) {
           {section('🔗 Links de Verificação')}
 
           {trfAtivo && (
-            <div style={{ background: '#1c1917', border: `1px solid ${C.yellow}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: C.yellow }}>
+            <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#92400E' }}>
               ⚡ Tribunal da região ({uf}): <strong>{trfAtivo.label}</strong> — clique abaixo para consultar
             </div>
           )}
 
-          <div style={{ fontSize: 11, color: C.text, marginBottom: 8 }}>TRIBUNAIS REGIONAIS FEDERAIS</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, marginBottom: 8 }}>TRIBUNAIS REGIONAIS FEDERAIS</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
             {trfLinks.map((l, i) => (
               <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                  background: l.ativo ? C.accent : '#1e293b',
-                  color: l.ativo ? '#fff' : C.text,
-                  border: l.ativo ? `2px solid ${C.accent}` : `1px solid ${C.border}` }}>
+                style={{ padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none',
+                  background: l.ativo ? C.navy : '#F8FAFC',
+                  color: l.ativo ? '#fff' : C.textLight,
+                  border: l.ativo ? `2px solid ${C.navy}` : `1px solid ${C.border}` }}>
                 {l.label}{l.ativo ? ' ✓' : ''}
               </a>
             ))}
           </div>
 
-          <div style={{ fontSize: 11, color: C.text, marginBottom: 8 }}>PGFN E REDES SOCIAIS</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, marginBottom: 8 }}>PGFN E REDES SOCIAIS</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {outrosLinks.map((l, i) => (
               <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', background: '#1e293b', color: C.textLight, border: `1px solid ${C.border}` }}>
+                style={{ padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', background: '#F8FAFC', color: C.textLight, border: `1px solid ${C.border}` }}>
                 {l.label}
               </a>
             ))}
@@ -514,14 +524,13 @@ export default function Prospeccao({ onVoltar }) {
           {section('📝 Observações')}
           <textarea value={editando.observacoes || ''} onChange={e => setEditando({ ...editando, observacoes: e.target.value })}
             placeholder="Anotações sobre o lead, histórico de contato..." rows={4}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }} />
+            style={{ ...inputStyle, resize: 'vertical' }} />
         </div>
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingBottom: 40 }}>
-          <button onClick={() => setTela('lista')} style={{ padding: '10px 20px', borderRadius: 8, background: C.card, color: C.textLight, border: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-          <button onClick={imprimir} style={{ padding: '10px 20px', borderRadius: 8, background: C.card, color: C.textLight, border: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🖨️ Imprimir</button>
-          <button onClick={salvarEdicao} disabled={salvando}
-            style={{ padding: '10px 20px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontSize: 13, cursor: 'pointer', fontWeight: 600, opacity: salvando ? 0.7 : 1 }}>
+          <button onClick={() => setTela('lista')} style={btnOutline}>Cancelar</button>
+          <button onClick={imprimir} style={btnOutline}>🖨️ Imprimir</button>
+          <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity: salvando ? 0.7 : 1 }}>
             {salvando ? 'Salvando...' : '💾 Salvar'}
           </button>
         </div>
