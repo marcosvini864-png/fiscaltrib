@@ -13,26 +13,41 @@ const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.
 const maskFone = v => { const n=v.replace(/\D/g,'').slice(0,11); if(n.length<=10) return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2'); return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2'); };
 
 const STATUS_COLORS = {
-  'Pendente':    '#334155|#94a3b8',
-  'Em contato':  '#1e3a5f|#60a5fa',
-  'Convertido':  '#14532d|#4ade80',
-  'Descartado':  '#450a0a|#f87171',
+  'Pendente':   '#334155|#94a3b8',
+  'Em contato': '#1e3a5f|#60a5fa',
+  'Convertido': '#14532d|#4ade80',
+  'Descartado': '#450a0a|#f87171',
 };
 
+const TRF_LINKS = (cnpjCpf, nome) => [
+  { label: '🏛️ TRF1', url: 'https://pje1g-consultapublica.trf1.jus.br/consultapublica/ConsultaPublica/listView.seam', ufs: ['AC','AM','AP','BA','DF','GO','MA','MG','MT','PA','PI','RO','RR','TO'] },
+  { label: '🏛️ TRF2', url: 'https://eproc-consulta.trf2.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica', ufs: ['ES','RJ'] },
+  { label: '🏛️ TRF3', url: 'https://pje1g.trf3.jus.br/pje/ConsultaPublica/listView.seam', ufs: ['MS','SP'] },
+  { label: '🏛️ TRF4', url: 'https://consulta.trf4.jus.br/trf4/controlador.php?acao=consulta_processual_pesquisa&strSecao=RS&selForma=NU', ufs: ['PR','RS','SC'] },
+  { label: '🏛️ TRF5', url: 'https://pje.trf5.jus.br/pjeconsulta/ConsultaPublica/listView.seam', ufs: ['AL','CE','PB','PE','RN','SE'] },
+  { label: '🏛️ TRF6', url: 'https://eproc1g.trf6.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica&acao_origem=principal&acao_retorno=processo_consulta_publica', ufs: ['MG'] },
+];
+
+const OUTROS_LINKS = (cnpjCpf, nome) => [
+  { label: '🔍 Google',            url: `https://www.google.com/search?q=${encodeURIComponent(nome)}` },
+  { label: '📸 Instagram',         url: `https://www.instagram.com/explore/search/?q=${encodeURIComponent(nome)}` },
+  { label: '👤 Facebook',          url: `https://www.facebook.com/search/top?q=${encodeURIComponent(nome)}` },
+  { label: '💼 LinkedIn',          url: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(nome)}` },
+  { label: '⚖️ PGFN Regularize',  url: 'https://regularize.pgfn.gov.br' },
+  { label: '📋 Lista Devedores',   url: `https://listadevedores.pgfn.gov.br/?cnpjCpf=${cnpjCpf}` },
+];
+
 export default function Prospeccao({ onVoltar }) {
-  const [tela, setTela] = useState('lista'); // lista | consulta | editar
+  const [tela, setTela] = useState('lista');
   const [registros, setRegistros] = useState([]);
   const [loadingLista, setLoadingLista] = useState(true);
   const [busca, setBusca] = useState('');
 
-  // Consulta
   const [doc, setDoc] = useState('');
   const [nomeManual, setNomeManual] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState('');
 
-  // Edição
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -61,15 +76,14 @@ export default function Prospeccao({ onVoltar }) {
   async function buscar() {
     if (docLimpo.length !== 11 && docLimpo.length !== 14) { setErro('Digite um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.'); return; }
     if (docLimpo.length === 11 && !nomeManual.trim()) { setErro('Para Pessoa Física, informe o nome completo.'); return; }
-    setErro(''); setLoading(true); setResultado(null);
+    setErro(''); setLoading(true);
     try {
-      let dados = null;
+      let rec = null;
       if (docLimpo.length === 14) {
         const { data, error } = await supabase.functions.invoke('consulta-cnpj', { body: { cnpj: docLimpo } });
         if (error) throw error;
-        dados = data;
+        rec = data?.receita || null;
       }
-      const rec = dados?.receita;
       const { data: { user } } = await supabase.auth.getUser();
       const payload = {
         user_id: user.id,
@@ -89,15 +103,14 @@ export default function Prospeccao({ onVoltar }) {
         endereco_uf: rec?.endereco_uf || null,
         endereco_cep: rec?.endereco_cep || null,
         socios: rec?.socios || [],
-        status_prospeccao: 'PENDENTE',
         status_lead: 'Pendente',
+        status_prospeccao: 'PENDENTE',
       };
       const { data: saved, error: saveErr } = await supabase.from('prospeccao_clientes').insert([payload]).select().single();
       if (saveErr) throw saveErr;
-      setResultado({ ...saved, _receita: rec });
-      setTela('editar');
       setEditando({ ...saved });
       carregarLista();
+      setTela('editar');
     } catch (e) {
       setErro('Erro: ' + (e.message || JSON.stringify(e)));
     } finally {
@@ -132,14 +145,14 @@ export default function Prospeccao({ onVoltar }) {
       observacoes: editando.observacoes,
     }).eq('id', editando.id);
     setSalvando(false);
-    if (!error) { carregarLista(); alert('Salvo com sucesso!'); }
+    if (!error) { await carregarLista(); alert('Salvo com sucesso!'); }
     else alert('Erro ao salvar: ' + error.message);
   }
 
   async function excluir(id) {
     if (!window.confirm('Excluir este registro?')) return;
     await supabase.from('prospeccao_clientes').delete().eq('id', id);
-    carregarLista();
+    await carregarLista();
     if (tela === 'editar') setTela('lista');
   }
 
@@ -151,17 +164,19 @@ export default function Prospeccao({ onVoltar }) {
     const win = window.open('', '_blank');
     win.document.write(`
       <html><head><title>Prospecção — ${e.razao_social}</title>
-      <style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b;max-width:800px;margin:0 auto}
-      h1{font-size:20px;margin-bottom:4px}h2{font-size:14px;color:#64748b;font-weight:normal;margin-bottom:24px}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-bottom:20px}
-      .field label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px}
-      .field span{font-size:13px;font-weight:600}
-      .section{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:14px}
-      .section h3{font-size:13px;font-weight:700;color:#0B1F4D;margin-bottom:12px}
-      .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af}
-      @media print{body{padding:16px}}</style></head><body>
+      <style>
+        body{font-family:Arial,sans-serif;padding:32px;color:#1e293b;max-width:800px;margin:0 auto}
+        h1{font-size:20px;margin-bottom:4px}
+        h2{font-size:14px;color:#64748b;font-weight:normal;margin-bottom:24px}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-bottom:20px}
+        .field label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px}
+        .field span{font-size:13px;font-weight:600}
+        .section{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:14px}
+        .section h3{font-size:13px;font-weight:700;color:#0B1F4D;margin-bottom:12px}
+        @media print{body{padding:16px}}
+      </style></head><body>
       <h1>🎯 Prospecção — ${e.razao_social || '—'}</h1>
-      <h2>CNPJ/CPF: ${e.cnpj} · Status: ${e.status_lead || 'Pendente'}</h2>
+      <h2>CNPJ/CPF: ${e.cnpj} · Status: ${e.status_lead || 'Pendente'} · Gerado em ${new Date().toLocaleString('pt-BR')}</h2>
       <div class="section"><h3>📋 Dados Cadastrais</h3>
       <div class="grid">
         <div class="field"><label>Situação</label><span>${e.situacao_cadastral || '—'}</span></div>
@@ -172,7 +187,7 @@ export default function Prospeccao({ onVoltar }) {
       </div></div>
       <div class="section"><h3>📍 Endereço</h3>
       <div class="grid">
-        <div class="field"><label>Logradouro</label><span>${e.endereco_logradouro || '—'}, ${e.endereco_numero || ''} ${e.endereco_complemento || ''}</span></div>
+        <div class="field"><label>Logradouro</label><span>${[e.endereco_logradouro, e.endereco_numero, e.endereco_complemento].filter(Boolean).join(', ') || '—'}</span></div>
         <div class="field"><label>Bairro</label><span>${e.endereco_bairro || '—'}</span></div>
         <div class="field"><label>Município/UF</label><span>${e.endereco_municipio || '—'}/${e.endereco_uf || '—'}</span></div>
         <div class="field"><label>CEP</label><span>${e.endereco_cep || '—'}</span></div>
@@ -196,29 +211,27 @@ export default function Prospeccao({ onVoltar }) {
         <div class="field" style="grid-column:span 2"><label>Observação TRF</label><span>${e.trf_observacao || '—'}</span></div>
       </div></div>
       <div class="section"><h3>📝 Observações</h3><p style="font-size:13px">${e.observacoes || '—'}</p></div>
-      <p style="margin-top:32px;font-size:10px;color:#94a3b8">Gerado em ${new Date().toLocaleString('pt-BR')} · FiscalTrib · fiscaltrib.com.br</p>
-      <script>window.onload=()=>{window.print()}</script></body></html>
+      <p style="margin-top:32px;font-size:10px;color:#94a3b8">FiscalTrib · fiscaltrib.com.br</p>
+      <script>window.onload=()=>{window.print()}</script>
+      </body></html>
     `);
     win.document.close();
   }
 
-  const inp = (campo, placeholder, tipo='text') => (
-    <input
-      value={editando?.[campo] || ''}
-      onChange={e => setEditando({ ...editando, [campo]: e.target.value })}
-      placeholder={placeholder}
-      type={tipo}
-      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }}
-    />
+  const inp = (campo, placeholder, tipo = 'text') => (
+    <input value={editando?.[campo] || ''} onChange={e => setEditando({ ...editando, [campo]: e.target.value })}
+      placeholder={placeholder} type={tipo}
+      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }} />
   );
 
   const foneInp = (campo, placeholder) => (
-    <input
-      value={editando?.[campo] || ''}
-      onChange={e => setEditando({ ...editando, [campo]: maskFone(e.target.value) })}
+    <input value={editando?.[campo] || ''} onChange={e => setEditando({ ...editando, [campo]: maskFone(e.target.value) })}
       placeholder={placeholder}
-      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }}
-    />
+      style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box' }} />
+  );
+
+  const section = (titulo) => (
+    <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 12 }}>{titulo}</div>
   );
 
   const registrosFiltrados = registros.filter(r =>
@@ -236,18 +249,15 @@ export default function Prospeccao({ onVoltar }) {
           <h2 style={{ fontSize: 22, fontWeight: 700, color: C.textLight, margin: 0 }}>🎯 Prospecção de Clientes</h2>
           <p style={{ color: C.text, fontSize: 13, margin: '4px 0 0' }}>{registros.length} registros salvos</p>
         </div>
-        <button onClick={() => { setDoc(''); setNomeManual(''); setResultado(null); setErro(''); setTela('consulta'); }}
+        <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }}
           style={{ padding: '10px 20px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
           + Nova Consulta
         </button>
       </div>
 
-      <input
-        value={busca}
-        onChange={e => setBusca(e.target.value)}
+      <input value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar por nome, CNPJ ou cidade..."
-        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }}
-      />
+        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }} />
 
       {loadingLista && <div style={{ color: C.text, textAlign: 'center', padding: 40 }}>Carregando...</div>}
 
@@ -292,33 +302,29 @@ export default function Prospeccao({ onVoltar }) {
     <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
       <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 14 }}>← Voltar à lista</button>
       <h2 style={{ fontSize: 22, fontWeight: 700, color: C.textLight, marginBottom: 4 }}>🔍 Nova Consulta</h2>
-      <p style={{ color: C.text, fontSize: 13, marginBottom: 24 }}>Digite o CPF ou CNPJ — a máscara se ajusta automaticamente. Os dados serão salvos automaticamente.</p>
+      <p style={{ color: C.text, fontSize: 13, marginBottom: 24 }}>Digite o CPF ou CNPJ. Os dados serão salvos automaticamente.</p>
 
       <div style={{ display: 'grid', gap: 12, marginBottom: 24, maxWidth: 600 }}>
         <div>
           <div style={{ fontSize: 11, color: C.text, marginBottom: 4 }}>
-            {docLimpo.length <= 11 ? '👤 CPF — Pessoa Física' : '🏢 CNPJ — Pessoa Jurídica'}
+            {docLimpo.length > 0 && docLimpo.length <= 11 ? '👤 CPF — Pessoa Física' : '🏢 CNPJ — Pessoa Jurídica'}
           </div>
-          <input
-            value={doc}
-            onChange={e => { setDoc(formatarDoc(e.target.value)); setErro(''); }}
+          <input value={doc} onChange={e => { setDoc(formatarDoc(e.target.value)); setErro(''); }}
             onKeyDown={e => e.key === 'Enter' && buscar()}
             placeholder="CPF ou CNPJ"
-            style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }}
-          />
+            style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }} />
         </div>
+
         {docLimpo.length > 0 && docLimpo.length <= 11 && (
           <div>
             <div style={{ fontSize: 11, color: C.text, marginBottom: 4 }}>Nome completo (obrigatório para CPF)</div>
-            <input
-              value={nomeManual}
-              onChange={e => setNomeManual(e.target.value)}
+            <input value={nomeManual} onChange={e => setNomeManual(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && buscar()}
               placeholder="Ex: João Silva Santos"
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }}
-            />
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15, boxSizing: 'border-box' }} />
           </div>
         )}
+
         <button onClick={buscar} disabled={loading}
           style={{ padding: '12px 24px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 700, cursor: loading ? 'default' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1 }}>
           {loading ? '⏳ Consultando e salvando...' : '🔍 Consultar'}
@@ -333,26 +339,16 @@ export default function Prospeccao({ onVoltar }) {
   if (tela === 'editar' && editando) {
     const uf = editando.endereco_uf || '';
     const nomeConsulta = editando.razao_social || '';
-    const links = nomeConsulta ? [
-      { label: '🔍 Google', url: `https://www.google.com/search?q=${encodeURIComponent(nomeConsulta)}` },
-      { label: '📸 Instagram', url: `https://www.instagram.com/explore/search/?q=${encodeURIComponent(nomeConsulta)}` },
-      { label: '👤 Facebook', url: `https://www.facebook.com/search/top?q=${encodeURIComponent(nomeConsulta)}` },
-      { label: '💼 LinkedIn', url: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(nomeConsulta)}` },
-      { label: '⚖️ PGFN Regularize', url: `https://regularize.pgfn.gov.br` },
-      { label: '📋 Lista Devedores', url: `https://listadevedores.pgfn.gov.br/?cnpjCpf=${editando.cnpj}` },
-      { label: '🏛️ TRF1', url: `https://processual.trf1.jus.br/consultaProcessual/processo.php?secao=TRF1&termo=${encodeURIComponent(nomeConsulta)}`, ativo: ['AC','AM','AP','BA','DF','GO','MA','MG','MT','PA','PI','RO','RR','TO'].includes(uf) },
-      { label: '🏛️ TRF2', url: `https://portal.trf2.jus.br/portal/consulta/cons_procs.asp`, ativo: ['ES','RJ'].includes(uf) },
-      { label: '🏛️ TRF3', url: `https://web.trf3.jus.br/base-textual/Home/ListaColecao/9?np=${encodeURIComponent(nomeConsulta)}`, ativo: ['MS','SP'].includes(uf) },
-      { label: '🏛️ TRF4', url: `https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=consulta_processual_pesquisa&txtPalavraGerada=${encodeURIComponent(nomeConsulta)}`, ativo: ['PR','RS','SC'].includes(uf) },
-      { label: '🏛️ TRF5', url: `https://eproc.trf5.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica`, ativo: ['AL','CE','PB','PE','RN','SE'].includes(uf) },
-    ] : [];
+    const cnpjDoc = editando.cnpj || '';
 
-    const section = (titulo) => (
-      <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 12, marginTop: 4 }}>{titulo}</div>
-    );
+    const trfLinks = TRF_LINKS(cnpjDoc, nomeConsulta).map(t => ({ ...t, ativo: t.ufs.includes(uf) }));
+    const outrosLinks = OUTROS_LINKS(cnpjDoc, nomeConsulta);
+    const trfAtivo = trfLinks.find(t => t.ativo);
 
     return (
       <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
+
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <button onClick={() => setTela('lista')} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', fontSize: 14 }}>← Voltar à lista</button>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -368,7 +364,9 @@ export default function Prospeccao({ onVoltar }) {
         </div>
 
         <h2 style={{ fontSize: 20, fontWeight: 700, color: C.textLight, marginBottom: 4 }}>{editando.razao_social || 'Sem nome'}</h2>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 20 }}>{editando.cnpj} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}</div>
+        <div style={{ fontSize: 13, color: C.text, marginBottom: 20 }}>
+          {cnpjDoc.length === 11 ? maskCPF(cnpjDoc) : maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}
+        </div>
 
         {/* Status */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
@@ -379,15 +377,15 @@ export default function Prospeccao({ onVoltar }) {
           </select>
         </div>
 
-        {/* Dados cadastrais */}
+        {/* Dados Cadastrais */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('📋 Dados Cadastrais')}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Razão Social / Nome</label>{inp('razao_social', 'Razão social')}</div>
+            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Razão Social / Nome</label>{inp('razao_social', 'Razão social ou nome')}</div>
             <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Situação Cadastral</label>{inp('situacao_cadastral', 'Ex: ATIVA')}</div>
             <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Data de Abertura</label>{inp('data_abertura', 'AAAA-MM-DD')}</div>
             <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Porte</label>{inp('porte', 'Ex: MICRO EMPRESA')}</div>
-            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Natureza Jurídica</label>{inp('natureza_juridica', 'Ex: Sociedade Empresária Limitada')}</div>
+            <div><label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Natureza Jurídica</label>{inp('natureza_juridica', 'Ex: Ltda')}</div>
           </div>
         </div>
 
@@ -434,15 +432,11 @@ export default function Prospeccao({ onVoltar }) {
               ))}
             </div>
           )}
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 8 }}>
             <label style={{ fontSize: 11, color: C.text, display: 'block', marginBottom: 4 }}>Sócios / Contatos adicionais (manual)</label>
-            <textarea
-              value={editando.socios_manual || ''}
-              onChange={e => setEditando({ ...editando, socios_manual: e.target.value })}
-              placeholder="Nome — Cargo&#10;Nome — Cargo"
-              rows={4}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }}
-            />
+            <textarea value={editando.socios_manual || ''} onChange={e => setEditando({ ...editando, socios_manual: e.target.value })}
+              placeholder={'Nome — Cargo\nNome — Cargo'} rows={4}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }} />
           </div>
         </div>
 
@@ -484,11 +478,32 @@ export default function Prospeccao({ onVoltar }) {
         {/* Links */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {section('🔗 Links de Verificação')}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {links.map((l, i) => (
+
+          {trfAtivo && (
+            <div style={{ background: '#1c1917', border: `1px solid ${C.yellow}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: C.yellow }}>
+              ⚡ Tribunal da região ({uf}): <strong>{trfAtivo.label}</strong> — clique abaixo para consultar
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: C.text, marginBottom: 8 }}>TRIBUNAIS REGIONAIS FEDERAIS</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {trfLinks.map((l, i) => (
               <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', background: l.ativo ? C.accent : C.border, color: '#fff' }}>
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none',
+                  background: l.ativo ? C.accent : '#1e293b',
+                  color: l.ativo ? '#fff' : C.text,
+                  border: l.ativo ? `2px solid ${C.accent}` : `1px solid ${C.border}` }}>
                 {l.label}{l.ativo ? ' ✓' : ''}
+              </a>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, color: C.text, marginBottom: 8 }}>PGFN E REDES SOCIAIS</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {outrosLinks.map((l, i) => (
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', background: '#1e293b', color: C.textLight, border: `1px solid ${C.border}` }}>
+                {l.label}
               </a>
             ))}
           </div>
@@ -497,16 +512,12 @@ export default function Prospeccao({ onVoltar }) {
         {/* Observações */}
         <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 24 }}>
           {section('📝 Observações')}
-          <textarea
-            value={editando.observacoes || ''}
-            onChange={e => setEditando({ ...editando, observacoes: e.target.value })}
-            placeholder="Anotações sobre o lead, histórico de contato..."
-            rows={4}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }}
-          />
+          <textarea value={editando.observacoes || ''} onChange={e => setEditando({ ...editando, observacoes: e.target.value })}
+            placeholder="Anotações sobre o lead, histórico de contato..." rows={4}
+            style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#0f172a', color: C.textLight, fontSize: 13, boxSizing: 'border-box', resize: 'vertical' }} />
         </div>
 
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingBottom: 40 }}>
           <button onClick={() => setTela('lista')} style={{ padding: '10px 20px', borderRadius: 8, background: C.card, color: C.textLight, border: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
           <button onClick={imprimir} style={{ padding: '10px 20px', borderRadius: 8, background: C.card, color: C.textLight, border: `1px solid ${C.border}`, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🖨️ Imprimir</button>
           <button onClick={salvarEdicao} disabled={salvando}
