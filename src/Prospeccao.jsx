@@ -27,9 +27,10 @@ export default function Prospeccao({ onVoltar }) {
         body: { cnpj: cnpjLimpo }
       });
       if (error) throw error;
+      if (!data) throw new Error('Sem retorno da função');
       setResultado(data);
     } catch (e) {
-      setErro('Erro ao consultar: ' + e.message);
+      setErro('Erro ao consultar: ' + (e.message || JSON.stringify(e)));
     } finally {
       setLoading(false);
     }
@@ -47,29 +48,30 @@ export default function Prospeccao({ onVoltar }) {
     { label: '🏛️ TRF1', url: `https://processual.trf1.jus.br/consultaProcessual/processo.php?secao=TRF1&termo=${encodeURIComponent(razao)}`, ativo: ['AC','AM','AP','BA','DF','GO','MA','MG','MT','PA','PI','RO','RR','TO'].includes(uf) },
     { label: '🏛️ TRF2', url: `https://portal.trf2.jus.br/portal/consulta/cons_procs.asp`, ativo: ['ES','RJ'].includes(uf) },
     { label: '🏛️ TRF3', url: `https://web.trf3.jus.br/base-textual/Home/ListaColecao/9?np=${encodeURIComponent(razao)}`, ativo: ['MS','SP'].includes(uf) },
-    { label: '🏛️ TRF4', url: `https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=consulta_processual_pesquisa&acao_origem=consulta_processual_pesquisa&txtPalavraGerada=${encodeURIComponent(razao)}`, ativo: ['PR','RS','SC'].includes(uf) },
+    { label: '🏛️ TRF4', url: `https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=consulta_processual_pesquisa&txtPalavraGerada=${encodeURIComponent(razao)}`, ativo: ['PR','RS','SC'].includes(uf) },
     { label: '🏛️ TRF5', url: `https://eproc.trf5.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica`, ativo: ['AL','CE','PB','PE','RN','SE'].includes(uf) },
   ] : [];
 
   const trfAtivo = links.find(l => l.label.includes('TRF') && l.ativo);
 
   return (
-    <div style={{ padding: 24, background: C.bg, minHeight: '100vh', color: C.textLight }}>
+    <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
       <button onClick={onVoltar} style={{ background: 'none', border: 'none', color: C.text, cursor: 'pointer', marginBottom: 16, fontSize: 14 }}>← Voltar</button>
-      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>🎯 Prospecção de Clientes</h2>
+      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, color: C.textLight }}>🎯 Prospecção de Clientes</h2>
       <p style={{ color: C.text, fontSize: 13, marginBottom: 24 }}>Digite o CNPJ para consultar automaticamente Receita Federal e gerar links de verificação.</p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
         <input
           value={cnpj}
           onChange={e => setCnpj(formatarCNPJ(e.target.value))}
+          onKeyDown={e => e.key === 'Enter' && buscar()}
           placeholder="00.000.000/0000-00"
           style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.textLight, fontSize: 15 }}
         />
         <button
           onClick={buscar}
           disabled={loading}
-          style={{ padding: '10px 24px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 15 }}
+          style={{ padding: '10px 24px', borderRadius: 8, background: C.accent, color: '#fff', border: 'none', fontWeight: 600, cursor: loading ? 'default' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1 }}
         >
           {loading ? 'Consultando...' : 'Consultar'}
         </button>
@@ -77,10 +79,9 @@ export default function Prospeccao({ onVoltar }) {
 
       {erro && <div style={{ background: '#450a0a', border: `1px solid ${C.red}`, borderRadius: 8, padding: 12, color: C.red, marginBottom: 16 }}>{erro}</div>}
 
-      {resultado?.receita && (
+      {resultado?.receita && !resultado.receita.erro && (
         <div style={{ display: 'grid', gap: 16 }}>
 
-          {/* Dados da Receita */}
           <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: C.accent }}>📋 Receita Federal</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -91,14 +92,14 @@ export default function Prospeccao({ onVoltar }) {
                 ['Abertura', resultado.receita.data_abertura],
                 ['Porte', resultado.receita.porte],
                 ['Natureza Jurídica', resultado.receita.natureza_juridica],
-                ['CNAE', resultado.receita.cnae_principal + ' — ' + resultado.receita.cnae_descricao],
+                ['CNAE', (resultado.receita.cnae_principal || '') + ' — ' + (resultado.receita.cnae_descricao || '')],
                 ['Município/UF', (resultado.receita.endereco_municipio || '') + '/' + (resultado.receita.endereco_uf || '')],
                 ['Endereço', [resultado.receita.endereco_logradouro, resultado.receita.endereco_numero, resultado.receita.endereco_bairro].filter(Boolean).join(', ')],
                 ['CEP', resultado.receita.endereco_cep],
               ].map(([label, valor]) => (
                 <div key={label}>
                   <div style={{ fontSize: 11, color: C.text, marginBottom: 2 }}>{label}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{valor || '—'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.textLight }}>{valor || '—'}</div>
                 </div>
               ))}
             </div>
@@ -107,7 +108,7 @@ export default function Prospeccao({ onVoltar }) {
               <div style={{ marginTop: 16 }}>
                 <div style={{ fontSize: 12, color: C.text, marginBottom: 8 }}>QUADRO SOCIETÁRIO</div>
                 {resultado.receita.socios.map((s, i) => (
-                  <div key={i} style={{ fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div key={i} style={{ fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${C.border}`, color: C.textLight }}>
                     <span style={{ fontWeight: 600 }}>{s.nome}</span>
                     <span style={{ color: C.text, marginLeft: 8 }}>{s.qualificacao}</span>
                   </div>
@@ -116,10 +117,9 @@ export default function Prospeccao({ onVoltar }) {
             )}
           </div>
 
-          {/* Links de verificação */}
           <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: C.accent }}>🔗 Verificação Manual</h3>
-            <p style={{ fontSize: 12, color: C.text, marginBottom: 16 }}>Clique nos links abaixo para verificar presença digital e situação judicial. O TRF destacado é o da região do cliente.</p>
+            <p style={{ fontSize: 12, color: C.text, marginBottom: 16 }}>Clique nos links para verificar presença digital e situação judicial. O TRF destacado é o da região do cliente.</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {links.map((l, i) => (
                 <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
@@ -139,6 +139,12 @@ export default function Prospeccao({ onVoltar }) {
             )}
           </div>
 
+        </div>
+      )}
+
+      {resultado?.receita?.erro && (
+        <div style={{ background: '#450a0a', border: `1px solid ${C.red}`, borderRadius: 8, padding: 12, color: C.red }}>
+          Erro na consulta Receita Federal: {resultado.receita.erro}
         </div>
       )}
     </div>
