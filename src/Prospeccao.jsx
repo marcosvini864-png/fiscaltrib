@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
 const C = {
-  bg: '#0f172a', card: '#1e293b', border: '#334155',
-  text: '#94a3b8', textLight: '#f1f5f9', accent: '#6366f1',
+  bg: '#E4E7EC', card: '#FFFFFF', border: '#C8D0DC',
+  text: '#64748B', textLight: '#1E293B', accent: '#0B1F4D',
   green: '#22c55e', red: '#ef4444', yellow: '#f59e0b',
   navy: '#0B1F4D'
 };
