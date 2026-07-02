@@ -51,8 +51,6 @@ const btnPrimary = { padding:'8px 20px', borderRadius:8, background:'#0B1F4D', c
 const btnOutline = { padding:'8px 20px', borderRadius:8, background:'#fff', color:'#0B1F4D', border:'1.5px solid #0B1F4D', fontWeight:600, cursor:'pointer', fontSize:13 };
 const btnWarning = { padding:'8px 20px', borderRadius:8, background:'#F59E0B', color:'#fff', border:'none', fontWeight:600, cursor:'pointer', fontSize:13 };
 
-const NUMS = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-
 function getTemp(key) { return TEMP_LIST.find(t => t.key === key) || TEMP_LIST[2]; }
 
 function loadColunas() {
@@ -70,7 +68,7 @@ function saveColunas(colunas) {
   localStorage.setItem('fiscaltrib_kanban_colunas', JSON.stringify(colunas));
 }
 
-// ── PAINEL MENSAGENS RÁPIDAS (flutuante) ──
+// ── PAINEL MENSAGENS RÁPIDAS ──
 function PainelMensagens({ whatsapp, onFechar }) {
   const [sequencias, setSequencias] = useState([]);
   const [busca, setBusca] = useState('');
@@ -81,11 +79,8 @@ function PainelMensagens({ whatsapp, onFechar }) {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
-        .from('mensagens_rapidas')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('sequencia_id')
-        .order('sequencia_ordem');
+        .from('mensagens_rapidas').select('*').eq('user_id', user.id)
+        .order('sequencia_id').order('sequencia_ordem');
       const grupos = {};
       (data || []).forEach(m => {
         const sid = m.sequencia_id || m.id;
@@ -100,96 +95,73 @@ function PainelMensagens({ whatsapp, onFechar }) {
 
   function enviarWhatsApp(texto) {
     const num = (whatsapp || '').replace(/\D/g, '');
-    if (!num) {
-      alert('Este prospect não tem WhatsApp cadastrado. Abra o cadastro e adicione o número.');
-      return;
-    }
-    const url = `https://wa.me/55${num}?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+    if (!num) { alert('Este prospect não tem WhatsApp cadastrado.'); return; }
+    window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, '_blank');
   }
 
-  const seqFiltradas = sequencias.filter(s =>
-    s.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    s.mensagens.some(m => m.mensagem.toLowerCase().includes(busca.toLowerCase()))
+  const todasMensagens = sequencias.flatMap(s =>
+    s.mensagens.sort((a,b) => a.sequencia_ordem - b.sequencia_ordem).map(m => ({
+      ...m, nomeSeq: s.nome
+    }))
+  ).filter(m =>
+    !busca ||
+    m.mensagem.toLowerCase().includes(busca.toLowerCase()) ||
+    m.nomeSeq.toLowerCase().includes(busca.toLowerCase())
   );
 
   return (
     <div style={{
-      position: 'fixed', top: 0, right: 0, width: 380, height: '100vh',
+      position: 'fixed', top: 0, right: 0, width: 360, height: '100vh',
       background: '#fff', boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
       zIndex: 1000, display: 'flex', flexDirection: 'column',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
-      {/* Header */}
-      <div style={{ padding:'16px 20px', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#0B1F4D' }}>
-        <div style={{ fontSize:15, fontWeight:700, color:'#fff' }}>⚡ Mensagens Rápidas</div>
-        <button onClick={onFechar} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:20, lineHeight:1 }}>✕</button>
+      <div style={{ padding:'14px 16px', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:16, fontWeight:700, color:'#1E293B' }}>Mensagens rápidas</div>
+        <button onClick={onFechar} style={{ background:'none', border:'none', color:'#64748B', cursor:'pointer', fontSize:20, lineHeight:1 }}>✕</button>
       </div>
 
-      {/* WhatsApp info */}
-      {whatsapp ? (
-        <div style={{ padding:'10px 20px', background:'#F0FDF4', borderBottom:'1px solid #86EFAC', fontSize:12, color:'#16A34A', fontWeight:600 }}>
-          📱 Enviando para: {whatsapp}
-        </div>
-      ) : (
-        <div style={{ padding:'10px 20px', background:'#FEF2F2', borderBottom:'1px solid #FECACA', fontSize:12, color:'#DC2626', fontWeight:600 }}>
-          ⚠️ Sem WhatsApp cadastrado — cadastre o número no prospect
-        </div>
-      )}
-
-      {/* Busca */}
-      <div style={{ padding:'12px 16px', borderBottom:'1px solid #E2E8F0' }}>
-        <input
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-          placeholder="🔍 Pesquisar mensagens..."
-          style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid #E2E8F0', fontSize:13, background:'#F8FAFC', boxSizing:'border-box', color:'#1E293B' }}
-        />
+      <div style={{ padding:'8px 16px', background: whatsapp ? '#F0FDF4' : '#FEF2F2', borderBottom:'1px solid #E2E8F0', fontSize:12, color: whatsapp ? '#16A34A' : '#DC2626', fontWeight:600 }}>
+        {whatsapp ? `📱 Enviando para: ${whatsapp}` : '⚠️ Sem WhatsApp cadastrado'}
       </div>
 
-      {/* Lista */}
-      <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+      <div style={{ padding:'10px 12px', borderBottom:'1px solid #E2E8F0', background:'#F8FAFC' }}>
+        <input value={busca} onChange={e => setBusca(e.target.value)}
+          placeholder="Pesquisar"
+          style={{ width:'100%', padding:'7px 12px', borderRadius:6, border:'1px solid #E2E8F0', fontSize:13, background:'#fff', boxSizing:'border-box', color:'#1E293B', outline:'none' }} />
+      </div>
+
+      <div style={{ flex:1, overflowY:'auto' }}>
         {loading && <div style={{ padding:20, textAlign:'center', color:'#64748B', fontSize:13 }}>Carregando...</div>}
-
-        {!loading && seqFiltradas.length === 0 && (
+        {!loading && todasMensagens.length === 0 && (
           <div style={{ padding:32, textAlign:'center', color:'#64748B', fontSize:13 }}>
             <div style={{ fontSize:32, marginBottom:8 }}>⚡</div>
             Nenhuma mensagem encontrada.<br/>
             <span style={{ fontSize:11 }}>Crie sequências em "Mensagens Rápidas" no menu.</span>
           </div>
         )}
-
-        {seqFiltradas.map(seq => (
-          <div key={seq.id}>
-            {/* Nome da sequência */}
-            <div style={{ padding:'8px 16px 4px', fontSize:11, fontWeight:700, color:'#64748B', letterSpacing:1, textTransform:'uppercase' }}>
-              {seq.nome}
+        {todasMensagens.map((m) => (
+          <div key={m.id}
+            style={{ display:'flex', alignItems:'center', padding:'12px 16px', borderBottom:'1px solid #F1F5F9', gap:12, transition:'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background='#F8FAFC'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+            <div style={{ width:38, height:38, borderRadius:6, border:'2px solid #00A884', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <span style={{ fontSize:12, fontWeight:700, color:'#00A884' }}>Tt</span>
             </div>
-
-            {/* Mensagens da sequência */}
-            {seq.mensagens.sort((a,b) => a.sequencia_ordem - b.sequencia_ordem).map((m, i) => (
-              <div key={m.id}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', cursor:'pointer', borderBottom:'1px solid #F1F5F9', transition:'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <span style={{ fontSize:18, flexShrink:0 }}>{NUMS[i] || `${i+1}.`}</span>
-                <div style={{ flex:1, fontSize:13, color:'#1E293B', lineHeight:1.4,
-                  display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-                  {m.mensagem}
-                </div>
-                <button
-                  onClick={() => enviarWhatsApp(m.mensagem)}
-                  style={{ background:'#25D366', border:'none', borderRadius:8, padding:'8px 10px', cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}
-                  title="Enviar no WhatsApp"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                  </svg>
-                </button>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:'#1E293B', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {m.nomeSeq} — {m.sequencia_ordem}
               </div>
-            ))}
-            <div style={{ height:8 }} />
+              <div style={{ fontSize:11, color:'#64748B', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {m.mensagem}
+              </div>
+            </div>
+            <button title="Enviar no WhatsApp" onClick={() => enviarWhatsApp(m.mensagem)}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'#00A884', padding:4, flexShrink:0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
           </div>
         ))}
       </div>
@@ -431,52 +403,23 @@ export default function Prospeccao({ onVoltar }) {
     const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str;
     const ehHoje = r.data_proxima_acao === hoje_str;
     return (
-      <div
-        draggable
-        onDragStart={() => { dragItem.current = r; }}
+      <div draggable onDragStart={() => { dragItem.current = r; }}
         onClick={() => { setEditando({...r}); setTela('editar'); }}
-        style={{
-          background: atrasado ? '#FEF2F2' : '#FFFFFF',
-          border: `1px solid ${atrasado ? '#FECACA' : '#E2E8F0'}`,
-          borderRadius: 8, padding: '10px 12px', cursor: 'grab',
-          marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-        }}
+        style={{ background: atrasado ? '#FEF2F2' : '#FFFFFF', border: `1px solid ${atrasado ? '#FECACA' : '#E2E8F0'}`, borderRadius: 8, padding: '10px 12px', cursor: 'grab', marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'}
-        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}
-      >
-        <div style={{ fontSize:12, fontWeight:700, color:'#1E293B', marginBottom:4, lineHeight:1.3 }}>
-          {r.razao_social || '—'}
-        </div>
+        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}>
+        <div style={{ fontSize:12, fontWeight:700, color:'#1E293B', marginBottom:4, lineHeight:1.3 }}>{r.razao_social || '—'}</div>
         {r.contato_nome && <div style={{ fontSize:11, color:'#64748B', marginBottom:3 }}>👤 {r.contato_nome}</div>}
-        {r.telefone && (
-          <div style={{ fontSize:11, marginBottom:3 }}>
-            📞 <a href={`tel:${r.telefone}`} onClick={e => e.stopPropagation()} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>{r.telefone}</a>
-          </div>
-        )}
-        {r.whatsapp && (
-          <div style={{ fontSize:11, marginBottom:6 }}>
-            📱 <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>{r.whatsapp}</a>
-          </div>
-        )}
+        {r.telefone && <div style={{ fontSize:11, marginBottom:3 }}>📞 <a href={`tel:${r.telefone}`} onClick={e => e.stopPropagation()} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>{r.telefone}</a></div>}
+        {r.whatsapp && <div style={{ fontSize:11, marginBottom:6 }}>📱 <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>{r.whatsapp}</a></div>}
         {r.endereco_municipio && <div style={{ fontSize:11, color:'#64748B', marginBottom:4 }}>📍 {r.endereco_municipio}/{r.endereco_uf}</div>}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:6 }}>
           <span style={{ fontSize:10, color:temp.cor, fontWeight:700 }}>{temp.label}</span>
-          {r.data_proxima_acao && (
-            <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
-              {atrasado ? '⚠️ Atrasado' : ehHoje ? '🔔 Hoje' : r.data_proxima_acao}
-            </span>
-          )}
+          {r.data_proxima_acao && <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>{atrasado ? '⚠️ Atrasado' : ehHoje ? '🔔 Hoje' : r.data_proxima_acao}</span>}
         </div>
-        {r.proxima_acao && (
-          <div style={{ fontSize:10, color: atrasado ? '#DC2626' : C.text, marginTop:3, fontStyle:'italic' }}>
-            → {r.proxima_acao}
-          </div>
-        )}
-        {/* Botão mensagens rápidas */}
-        <button
-          onClick={e => { e.stopPropagation(); abrirPainelMsg(r.whatsapp); }}
-          style={{ marginTop:8, width:'100%', padding:'5px', borderRadius:6, background:'#25D366', border:'none', color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}
-        >
+        {r.proxima_acao && <div style={{ fontSize:10, color: atrasado ? '#DC2626' : C.text, marginTop:3, fontStyle:'italic' }}>→ {r.proxima_acao}</div>}
+        <button onClick={e => { e.stopPropagation(); abrirPainelMsg(r.whatsapp); }}
+          style={{ marginTop:8, width:'100%', padding:'5px', borderRadius:6, background:'#25D366', border:'none', color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           ⚡ Mensagens Rápidas
         </button>
@@ -489,51 +432,26 @@ export default function Prospeccao({ onVoltar }) {
     const cards = registrosFiltrados.filter(r => r.status_lead === col.label);
     const [over, setOver] = useState(false);
     const editandoEsta = editandoColuna === col.key;
-
     return (
-      <div
-        onDragOver={e => { e.preventDefault(); setOver(true); }}
-        onDragLeave={() => setOver(false)}
-        onDrop={async () => {
-          setOver(false);
-          if (dragItem.current && dragItem.current.status_lead !== col.label) {
-            await moverCard(dragItem.current.id, col.label);
-            dragItem.current = null;
-          }
-        }}
-        style={{
-          minWidth: 230, maxWidth: 250, flexShrink: 0,
-          background: over ? col.bg : '#F1F5F9',
-          borderRadius: 10, padding: 10,
-          border: `2px solid ${over ? col.cor : 'transparent'}`,
-          transition: 'all 0.15s',
-          display: 'flex', flexDirection: 'column',
-        }}
-      >
+      <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+        onDrop={async () => { setOver(false); if (dragItem.current && dragItem.current.status_lead !== col.label) { await moverCard(dragItem.current.id, col.label); dragItem.current = null; } }}
+        style={{ minWidth:230, maxWidth:250, flexShrink:0, background: over ? col.bg : '#F1F5F9', borderRadius:10, padding:10, border:`2px solid ${over ? col.cor : 'transparent'}`, transition:'all 0.15s', display:'flex', flexDirection:'column' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
           {editandoEsta ? (
             <input autoFocus value={labelTemp} onChange={e => setLabelTemp(e.target.value)}
               onBlur={() => renomearColuna(col.key, labelTemp || col.label)}
-              onKeyDown={e => { if (e.key==='Enter') renomearColuna(col.key, labelTemp||col.label); if(e.key==='Escape') setEditandoColuna(null); }}
+              onKeyDown={e => { if(e.key==='Enter') renomearColuna(col.key, labelTemp||col.label); if(e.key==='Escape') setEditandoColuna(null); }}
               style={{ fontSize:12, fontWeight:700, color:'#1E293B', border:'1px solid #C8D0DC', borderRadius:4, padding:'2px 6px', width:130, background:'#fff' }} />
           ) : (
-            <span title="Duplo clique para renomear"
-              onDoubleClick={() => { setEditandoColuna(col.key); setLabelTemp(col.label); }}
-              style={{ fontSize:12, fontWeight:700, color:'#1E293B', cursor:'text', userSelect:'none' }}>
-              {col.label}
-            </span>
+            <span title="Duplo clique para renomear" onDoubleClick={() => { setEditandoColuna(col.key); setLabelTemp(col.label); }}
+              style={{ fontSize:12, fontWeight:700, color:'#1E293B', cursor:'text', userSelect:'none' }}>{col.label}</span>
           )}
           <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700, border:`1px solid ${col.cor}` }}>{cards.length}</span>
         </div>
         {!editandoEsta && <div style={{ fontSize:9, color:'#94A3B8', marginBottom:6 }}>✏️ Duplo clique para renomear</div>}
-
         <div style={{ flex:1, overflowY:'auto', maxHeight:'calc(100vh - 300px)', paddingRight:2 }}>
           {cards.map(r => <KanbanCard key={r.id} r={r} />)}
-          {cards.length === 0 && (
-            <div style={{ textAlign:'center', padding:'20px 8px', fontSize:12, color:'#94A3B8', border:'2px dashed #E2E8F0', borderRadius:8, marginTop:4 }}>
-              Arraste um card aqui
-            </div>
-          )}
+          {cards.length === 0 && <div style={{ textAlign:'center', padding:'20px 8px', fontSize:12, color:'#94A3B8', border:'2px dashed #E2E8F0', borderRadius:8, marginTop:4 }}>Arraste um card aqui</div>}
         </div>
       </div>
     );
@@ -546,33 +464,20 @@ export default function Prospeccao({ onVoltar }) {
         <button onClick={() => setTela('dashboard')} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar ao Cockpit</button>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
           <div>
-            <div style={{ fontSize:20, fontWeight:700, color:C.textLight }}>
-              {viewMode === 'kanban' ? '🗂️ Kanban de Prospects' : '📋 Lista de Prospects'}
-            </div>
+            <div style={{ fontSize:20, fontWeight:700, color:C.textLight }}>{viewMode==='kanban' ? '🗂️ Kanban de Prospects' : '📋 Lista de Prospects'}</div>
             <div style={{ fontSize:13, color:C.text }}>{registrosFiltrados.length} de {registros.length} registros</div>
           </div>
           <div style={{ display:'flex', gap:10, alignItems:'center' }}>
             <div style={{ display:'flex', background:'#E2E8F0', borderRadius:8, padding:3 }}>
-              <button onClick={() => setViewMode('lista')}
-                style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-                  background: viewMode==='lista' ? C.navy : 'transparent', color: viewMode==='lista' ? '#fff' : C.text }}>
-                ☰ Lista
-              </button>
-              <button onClick={() => setViewMode('kanban')}
-                style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-                  background: viewMode==='kanban' ? C.navy : 'transparent', color: viewMode==='kanban' ? '#fff' : C.text }}>
-                🗂️ Kanban
-              </button>
+              <button onClick={() => setViewMode('lista')} style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, background: viewMode==='lista' ? C.navy : 'transparent', color: viewMode==='lista' ? '#fff' : C.text }}>☰ Lista</button>
+              <button onClick={() => setViewMode('kanban')} style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, background: viewMode==='kanban' ? C.navy : 'transparent', color: viewMode==='kanban' ? '#fff' : C.text }}>🗂️ Kanban</button>
             </div>
             <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
           </div>
         </div>
-
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-          <input value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar por nome, CNPJ, cidade, telefone ou e-mail..."
-            style={{ ...inputStyle, flex:1, minWidth:200, padding:'8px 14px' }} />
-          {viewMode === 'lista' && (
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ, cidade, telefone ou e-mail..." style={{ ...inputStyle, flex:1, minWidth:200, padding:'8px 14px' }} />
+          {viewMode==='lista' && (
             <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width:200 }}>
               <option value=''>Todos os status</option>
               {colunas.map(c => <option key={c.key}>{c.label}</option>)}
@@ -580,16 +485,13 @@ export default function Prospeccao({ onVoltar }) {
           )}
           {filtroStatus && <button onClick={() => setFiltroStatus('')} style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>✕ Limpar</button>}
         </div>
-
         {loadingLista && <div style={{ color:C.text, textAlign:'center', padding:40 }}>Carregando...</div>}
-
-        {!loadingLista && viewMode === 'kanban' && (
+        {!loadingLista && viewMode==='kanban' && (
           <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:16, alignItems:'flex-start' }}>
             {colunas.map(col => <KanbanCol key={col.key} col={col} />)}
           </div>
         )}
-
-        {!loadingLista && viewMode === 'lista' && (
+        {!loadingLista && viewMode==='lista' && (
           <>
             {registrosFiltrados.length === 0 && (
               <div style={{ background:C.card, borderRadius:12, padding:48, textAlign:'center', border:`1px solid ${C.border}` }}>
@@ -618,29 +520,20 @@ export default function Prospeccao({ onVoltar }) {
                           onMouseLeave={e => e.currentTarget.style.background = atrasado ? '#FEF2F2' : 'transparent'}>
                           <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight, whiteSpace:'nowrap' }}>{r.razao_social || '—'}</td>
                           <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.contato_nome || '—'}</td>
-                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                            {r.telefone ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a> : <span style={{ color:C.text }}>—</span>}
-                          </td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>{r.telefone ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a> : <span style={{ color:C.text }}>—</span>}</td>
                           <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
                             {r.whatsapp ? (
                               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                                 <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a>
-                                <button onClick={() => abrirPainelMsg(r.whatsapp)}
-                                  style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 6px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡</button>
+                                <button onClick={() => abrirPainelMsg(r.whatsapp)} style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 6px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡</button>
                               </div>
                             ) : <span style={{ color:C.text }}>—</span>}
                           </td>
-                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                            {r.email_contato ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a> : <span style={{ color:C.text }}>—</span>}
-                          </td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>{r.email_contato ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a> : <span style={{ color:C.text }}>—</span>}</td>
                           <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
-                          <td style={{ padding:'10px 12px' }}>
-                            <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
-                          </td>
+                          <td style={{ padding:'10px 12px' }}><span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span></td>
                           <td style={{ padding:'10px 12px', whiteSpace:'nowrap', color:temp.cor, fontWeight:600, fontSize:11 }}>{temp.label}</td>
-                          <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>
-                            {atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}
-                          </td>
+                          <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>{atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}</td>
                           <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.text, whiteSpace:'nowrap', fontWeight: atrasado ? 600 : 400 }}>{r.data_proxima_acao || '—'}</td>
                           <td style={{ padding:'10px 12px' }}>
                             <div style={{ display:'flex', gap:6 }}>
@@ -663,155 +556,135 @@ export default function Prospeccao({ onVoltar }) {
 
   // ── DASHBOARD ──
   if (tela === 'dashboard') return (
-    <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
-      <button onClick={onVoltar} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-        <div>
-          <div style={{ fontSize:22, fontWeight:700, color:C.textLight }}>🎯 Cockpit Comercial</div>
-          <div style={{ fontSize:13, color:C.text, marginTop:2 }}>Visão completa da sua operação de prospecção</div>
-        </div>
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => setTela('lista')} style={btnOutline}>📋 Lista / Kanban</button>
-          <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
-        </div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
-        {[
-          ['Total de Prospects', total, '👥', '#2563EB'],
-          ['Clientes Fechados', porStatus(colunas[6].label), '✅', '#16A34A'],
-          ['Em Negociação', porStatus(colunas[5].label)+porStatus(colunas[4].label), '🔥', '#EA580C'],
-          ['Tarefas Atrasadas', atrasados, '⚠️', '#DC2626'],
-        ].map(([lb, val, ic, cor]) => (
-          <div key={lb} style={{ background:C.card, borderRadius:12, padding:'16px 20px', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ fontSize:28 }}>{ic}</div>
-            <div>
-              <div style={{ fontSize:24, fontWeight:700, color:cor, lineHeight:1 }}>{val}</div>
-              <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{lb}</div>
-            </div>
+    <>
+      <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
+        <button onClick={() => onVoltar && onVoltar()} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div>
+            <div style={{ fontSize:22, fontWeight:700, color:C.textLight }}>🎯 Cockpit Comercial</div>
+            <div style={{ fontSize:13, color:C.text, marginTop:2 }}>Visão completa da sua operação de prospecção</div>
           </div>
-        ))}
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-        {colunas.slice(0,4).map(col => (
-          <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }}
-            style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = col.cor}
-            onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-            <div style={{ fontSize:20, fontWeight:700, color:col.cor }}>{porStatus(col.label)}</div>
-            <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{col.label}</div>
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={() => setTela('lista')} style={btnOutline}>📋 Lista / Kanban</button>
+            <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
           </div>
-        ))}
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-        <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>📅 Painel Operacional — Próximos 3 dias</div>
-          <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Hoje ({hoje_str}) até {proximos3_str}</div>
-          {paraHoje.length === 0 ? (
-            <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>✅ Nenhuma ação programada</div>
-          ) : (
-            <div style={{ display:'grid', gap:8 }}>
-              {paraHoje.map(r => {
-                const col = colunas.find(c => c.label === r.status_lead) || colunas[0];
-                const temp = getTemp(r.temperatura);
-                const ehHoje = r.data_proxima_acao === hoje_str;
-                return (
-                  <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
-                    style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${ehHoje ? '#93C5FD' : C.border}`, cursor:'pointer', background: ehHoje ? '#EFF6FF' : '#F8FAFC' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
-                    onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
-                      <span style={{ fontSize:10, color: ehHoje ? '#2563EB' : C.text, fontWeight:600 }}>{ehHoje ? '🔔 HOJE' : r.data_proxima_acao}</span>
-                    </div>
-                    <div style={{ fontSize:12, color:C.text, marginTop:2 }}>{r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}</div>
-                    {r.whatsapp && (
-                      <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
-                        <span style={{ fontSize:11, color:'#16A34A' }}>📱 {r.whatsapp}</span>
-                        <button onClick={e => { e.stopPropagation(); abrirPainelMsg(r.whatsapp); }}
-                          style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡ Msg</button>
-                      </div>
-                    )}
-                    <div style={{ marginTop:4, display:'flex', gap:6 }}>
-                      <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
-                      <span style={{ fontSize:10, color:temp.cor, fontWeight:600 }}>{temp.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
-        <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>🔥 Prioridades</div>
-          <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Atrasados, próximos 3 dias e leads quentes</div>
-          {prioridades.length === 0 ? (
-            <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>Nenhuma prioridade</div>
-          ) : (
-            <div style={{ display:'grid', gap:8 }}>
-              {prioridades.map(r => {
-                const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str;
-                const ehHoje = r.data_proxima_acao === hoje_str;
-                const temp = getTemp(r.temperatura);
-                return (
-                  <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
-                    style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${atrasado ? '#FECACA' : C.border}`, cursor:'pointer', background: atrasado ? '#FEF2F2' : '#F8FAFC' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
-                    onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
-                      <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
-                        {atrasado ? '⚠️ ATRASADO' : ehHoje ? '🔔 HOJE' : r.data_proxima_acao}
-                      </span>
-                    </div>
-                    <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2 }}>{r.proxima_acao || '—'}</div>
-                    {r.whatsapp && (
-                      <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
-                        <span style={{ fontSize:11, color:'#16A34A' }}>📱 {r.whatsapp}</span>
-                        <button onClick={e => { e.stopPropagation(); abrirPainelMsg(r.whatsapp); }}
-                          style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡ Msg</button>
-                      </div>
-                    )}
-                    <div style={{ fontSize:10, color:temp.cor, marginTop:2, fontWeight:600 }}>{temp.label}</div>
-                  </div>
-                );
-              })}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
+          {[['Total de Prospects',total,'👥','#2563EB'],['Clientes Fechados',porStatus(colunas[6].label),'✅','#16A34A'],['Em Negociação',porStatus(colunas[5].label)+porStatus(colunas[4].label),'🔥','#EA580C'],['Tarefas Atrasadas',atrasados,'⚠️','#DC2626']].map(([lb,val,ic,cor]) => (
+            <div key={lb} style={{ background:C.card, borderRadius:12, padding:'16px 20px', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ fontSize:28 }}>{ic}</div>
+              <div><div style={{ fontSize:24, fontWeight:700, color:cor, lineHeight:1 }}>{val}</div><div style={{ fontSize:11, color:C.text, marginTop:2 }}>{lb}</div></div>
             </div>
-          )}
+          ))}
         </div>
-      </div>
 
-      <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção</div>
-        <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
-          {colunas.slice(0,6).map(col => {
-            const qtd = porStatus(col.label);
-            const h = Math.max(24, total > 0 ? (qtd/total)*80 : 0);
-            return (
-              <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }}
-                style={{ flex:1, textAlign:'center', cursor:'pointer' }}>
-                <div style={{ fontSize:16, fontWeight:700, color:col.cor, marginBottom:4 }}>{qtd}</div>
-                <div style={{ background:col.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85 }}></div>
-                <div style={{ background:col.bg, borderRadius:'0 0 6px 6px', padding:'6px 4px', border:`1px solid ${col.cor}`, borderTop:'none' }}>
-                  <div style={{ fontSize:10, color:'#1E293B', fontWeight:600, lineHeight:1.2 }}>{col.label}</div>
-                </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+          {colunas.slice(0,4).map(col => (
+            <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }}
+              style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor=col.cor}
+              onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
+              <div style={{ fontSize:20, fontWeight:700, color:col.cor }}>{porStatus(col.label)}</div>
+              <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{col.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+          <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>📅 Painel Operacional — Próximos 3 dias</div>
+            <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Hoje ({hoje_str}) até {proximos3_str}</div>
+            {paraHoje.length === 0 ? (
+              <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>✅ Nenhuma ação programada</div>
+            ) : (
+              <div style={{ display:'grid', gap:8 }}>
+                {paraHoje.map(r => {
+                  const col = colunas.find(c => c.label===r.status_lead)||colunas[0];
+                  const temp = getTemp(r.temperatura);
+                  const ehHoje = r.data_proxima_acao===hoje_str;
+                  return (
+                    <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
+                      style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${ehHoje?'#93C5FD':C.border}`, cursor:'pointer', background: ehHoje?'#EFF6FF':'#F8FAFC' }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='0.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                      <div style={{ display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social||'—'}</span>
+                        <span style={{ fontSize:10, color:ehHoje?'#2563EB':C.text, fontWeight:600 }}>{ehHoje?'🔔 HOJE':r.data_proxima_acao}</span>
+                      </div>
+                      <div style={{ fontSize:12, color:C.text, marginTop:2 }}>{r.hora_proxima_acao&&`${r.hora_proxima_acao} · `}{r.proxima_acao||'—'}</div>
+                      {r.whatsapp && (
+                        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
+                          <span style={{ fontSize:11, color:'#16A34A' }}>📱 {r.whatsapp}</span>
+                          <button onClick={e=>{e.stopPropagation();abrirPainelMsg(r.whatsapp);}} style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡</button>
+                        </div>
+                      )}
+                      <div style={{ marginTop:4, display:'flex', gap:6 }}>
+                        <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
+                        <span style={{ fontSize:10, color:temp.cor, fontWeight:600 }}>{temp.label}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>🔥 Prioridades</div>
+            <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Atrasados, próximos 3 dias e leads quentes</div>
+            {prioridades.length === 0 ? (
+              <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>Nenhuma prioridade</div>
+            ) : (
+              <div style={{ display:'grid', gap:8 }}>
+                {prioridades.map(r => {
+                  const atrasado = r.data_proxima_acao&&r.data_proxima_acao<hoje_str;
+                  const ehHoje = r.data_proxima_acao===hoje_str;
+                  const temp = getTemp(r.temperatura);
+                  return (
+                    <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
+                      style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${atrasado?'#FECACA':C.border}`, cursor:'pointer', background: atrasado?'#FEF2F2':'#F8FAFC' }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='0.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                      <div style={{ display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social||'—'}</span>
+                        <span style={{ fontSize:10, fontWeight:600, color:atrasado?'#DC2626':ehHoje?'#2563EB':C.text }}>{atrasado?'⚠️ ATRASADO':ehHoje?'🔔 HOJE':r.data_proxima_acao}</span>
+                      </div>
+                      <div style={{ fontSize:12, color:atrasado?'#DC2626':C.text, marginTop:2 }}>{r.proxima_acao||'—'}</div>
+                      {r.whatsapp && (
+                        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
+                          <span style={{ fontSize:11, color:'#16A34A' }}>📱 {r.whatsapp}</span>
+                          <button onClick={e=>{e.stopPropagation();abrirPainelMsg(r.whatsapp);}} style={{ background:'#25D366', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', fontSize:10, cursor:'pointer', fontWeight:700 }}>⚡</button>
+                        </div>
+                      )}
+                      <div style={{ fontSize:10, color:temp.cor, marginTop:2, fontWeight:600 }}>{temp.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção</div>
+          <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
+            {colunas.slice(0,6).map(col => {
+              const qtd = porStatus(col.label);
+              const h = Math.max(24, total>0?(qtd/total)*80:0);
+              return (
+                <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }} style={{ flex:1, textAlign:'center', cursor:'pointer' }}>
+                  <div style={{ fontSize:16, fontWeight:700, color:col.cor, marginBottom:4 }}>{qtd}</div>
+                  <div style={{ background:col.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85 }}></div>
+                  <div style={{ background:col.bg, borderRadius:'0 0 6px 6px', padding:'6px 4px', border:`1px solid ${col.cor}`, borderTop:'none' }}>
+                    <div style={{ fontSize:10, color:'#1E293B', fontWeight:600, lineHeight:1.2 }}>{col.label}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-
-      {/* Painel flutuante */}
-      {painelMsgAberto && (
-        <PainelMensagens
-          whatsapp={whatsappAtivo}
-          onFechar={() => setPainelMsgAberto(false)}
-        />
-      )}
-    </div>
+      {painelMsgAberto && <PainelMensagens whatsapp={whatsappAtivo} onFechar={() => setPainelMsgAberto(false)} />}
+    </>
   );
 
   if (tela === 'consulta') return (
@@ -821,23 +694,17 @@ export default function Prospeccao({ onVoltar }) {
       <div style={{ color:C.text, fontSize:13, marginBottom:24 }}>Digite o CPF ou CNPJ. Os dados serão salvos automaticamente.</div>
       <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, padding:24, maxWidth:600 }}>
         <div style={{ marginBottom:16 }}>
-          <label style={labelStyle}>{docLimpo.length > 0 && docLimpo.length <= 11 ? '👤 CPF — Pessoa Física' : '🏢 CPF ou CNPJ'}</label>
-          <input value={doc} onChange={e => { setDoc(formatarDoc(e.target.value)); setErro(''); }}
-            onKeyDown={e => e.key === 'Enter' && buscar()}
-            placeholder="000.000.000-00 ou 00.000.000/0000-00"
-            style={{ ...inputStyle, fontSize:15, padding:'10px 14px' }} />
+          <label style={labelStyle}>{docLimpo.length>0&&docLimpo.length<=11?'👤 CPF — Pessoa Física':'🏢 CPF ou CNPJ'}</label>
+          <input value={doc} onChange={e=>{setDoc(formatarDoc(e.target.value));setErro('');}} onKeyDown={e=>e.key==='Enter'&&buscar()} placeholder="000.000.000-00 ou 00.000.000/0000-00" style={{ ...inputStyle, fontSize:15, padding:'10px 14px' }} />
         </div>
-        {docLimpo.length > 0 && docLimpo.length <= 11 && (
+        {docLimpo.length>0&&docLimpo.length<=11&&(
           <div style={{ marginBottom:16 }}>
             <label style={labelStyle}>Nome completo (obrigatório para CPF)</label>
-            <input value={nomeManual} onChange={e => setNomeManual(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && buscar()}
-              placeholder="Ex: João Silva Santos"
-              style={{ ...inputStyle, fontSize:15, padding:'10px 14px' }} />
+            <input value={nomeManual} onChange={e=>setNomeManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&buscar()} placeholder="Ex: João Silva Santos" style={{ ...inputStyle, fontSize:15, padding:'10px 14px' }} />
           </div>
         )}
         <button onClick={buscar} disabled={loading} style={{ ...btnPrimary, width:'100%', padding:'12px', fontSize:15, opacity:loading?0.7:1 }}>
-          {loading ? '⏳ Consultando e salvando...' : '🔍 Consultar'}
+          {loading?'⏳ Consultando e salvando...':'🔍 Consultar'}
         </button>
         {erro && <div style={{ marginTop:12, background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:12, color:'#991b1b', fontSize:13 }}>{erro}</div>}
       </div>
@@ -847,9 +714,7 @@ export default function Prospeccao({ onVoltar }) {
   if (tela === 'lista') return (
     <>
       <ListaKanbanView />
-      {painelMsgAberto && (
-        <PainelMensagens whatsapp={whatsappAtivo} onFechar={() => setPainelMsgAberto(false)} />
-      )}
+      {painelMsgAberto && <PainelMensagens whatsapp={whatsappAtivo} onFechar={() => setPainelMsgAberto(false)} />}
     </>
   );
 
@@ -882,104 +747,84 @@ export default function Prospeccao({ onVoltar }) {
               )}
               <button onClick={imprimir} style={btnOutline}>🖨️ Imprimir</button>
               <button onClick={() => excluir(editando.id)} style={btnWarning}>🗑️ Excluir</button>
-              <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity:salvando?0.7:1 }}>
-                {salvando ? 'Salvando...' : '💾 Salvar'}
-              </button>
+              <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity:salvando?0.7:1 }}>{salvando?'Salvando...':'💾 Salvar'}</button>
             </div>
           </div>
 
-          <div style={{ fontSize:20, fontWeight:700, color:C.textLight, marginBottom:2 }}>{editando.razao_social || 'Sem nome'}</div>
-          <div style={{ fontSize:13, color:C.text, marginBottom:20 }}>
-            {cnpjDoc.length === 11 ? maskCPF(cnpjDoc) : maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}
-          </div>
+          <div style={{ fontSize:20, fontWeight:700, color:C.textLight, marginBottom:2 }}>{editando.razao_social||'Sem nome'}</div>
+          <div style={{ fontSize:13, color:C.text, marginBottom:20 }}>{cnpjDoc.length===11?maskCPF(cnpjDoc):maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}</div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('🏷️ Classificação')}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-              {field('Status do Lead', (
-                <select value={editando.status_lead || colunas[0].label} onChange={e => setEditando({ ...editando, status_lead: e.target.value })} style={inputStyle}>
-                  {colunas.map(c => <option key={c.key}>{c.label}</option>)}
-                </select>
-              ))}
-              {field('Temperatura', (
-                <select value={editando.temperatura || 'frio'} onChange={e => setEditando({ ...editando, temperatura: e.target.value })} style={inputStyle}>
-                  {TEMP_LIST.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-                </select>
-              ))}
-              {field('Responsável pelo Atendimento', inp('responsavel_atendimento', 'Nome do vendedor / consultor'))}
-              {field('Último Contato Realizado', inp('ultimo_contato', '', 'date'))}
+              {field('Status do Lead', (<select value={editando.status_lead||colunas[0].label} onChange={e=>setEditando({...editando,status_lead:e.target.value})} style={inputStyle}>{colunas.map(c=><option key={c.key}>{c.label}</option>)}</select>))}
+              {field('Temperatura', (<select value={editando.temperatura||'frio'} onChange={e=>setEditando({...editando,temperatura:e.target.value})} style={inputStyle}>{TEMP_LIST.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}</select>))}
+              {field('Responsável pelo Atendimento', inp('responsavel_atendimento','Nome do vendedor / consultor'))}
+              {field('Último Contato Realizado', inp('ultimo_contato','','date'))}
             </div>
           </div>
 
           <div style={{ background:'#FFFBEB', borderRadius:12, padding:20, border:'2px solid #FCD34D', marginBottom:16 }}>
             {section('🎯 Próxima Ação (obrigatório)')}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
-              {field('Ação *', (
-                <select value={editando.proxima_acao || ''} onChange={e => setEditando({ ...editando, proxima_acao: e.target.value })} style={inputStyle}>
-                  <option value=''>Selecione...</option>
-                  {ACOES_LIST.map(a => <option key={a}>{a}</option>)}
-                </select>
-              ))}
-              {field('Data *', inp('data_proxima_acao', '', 'date'))}
-              {field('Hora (opcional)', inp('hora_proxima_acao', '', 'time'))}
+              {field('Ação *', (<select value={editando.proxima_acao||''} onChange={e=>setEditando({...editando,proxima_acao:e.target.value})} style={inputStyle}><option value=''>Selecione...</option>{ACOES_LIST.map(a=><option key={a}>{a}</option>)}</select>))}
+              {field('Data *', inp('data_proxima_acao','','date'))}
+              {field('Hora (opcional)', inp('hora_proxima_acao','','time'))}
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('📋 Dados Cadastrais')}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-              <div style={{ gridColumn:'span 2' }}>{field('Razão Social / Nome', inp('razao_social', 'Razão social ou nome'))}</div>
-              {field('Situação Cadastral', inp('situacao_cadastral', 'Ex: ATIVA'))}
-              {field('Data de Abertura', inp('data_abertura', 'AAAA-MM-DD'))}
-              {field('Porte', inp('porte', 'Ex: MICRO EMPRESA'))}
-              {field('Natureza Jurídica', inp('natureza_juridica', 'Ex: Ltda'))}
+              <div style={{ gridColumn:'span 2' }}>{field('Razão Social / Nome', inp('razao_social','Razão social ou nome'))}</div>
+              {field('Situação Cadastral', inp('situacao_cadastral','Ex: ATIVA'))}
+              {field('Data de Abertura', inp('data_abertura','AAAA-MM-DD'))}
+              {field('Porte', inp('porte','Ex: MICRO EMPRESA'))}
+              {field('Natureza Jurídica', inp('natureza_juridica','Ex: Ltda'))}
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('📍 Endereço')}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-              <div style={{ gridColumn:'span 2' }}>{field('Logradouro', inp('endereco_logradouro', 'Rua, Av...'))}</div>
-              {field('Número', inp('endereco_numero', 'Nº'))}
-              {field('Complemento', inp('endereco_complemento', 'Sala, Andar...'))}
-              {field('Bairro', inp('endereco_bairro', 'Bairro'))}
-              {field('CEP', inp('endereco_cep', '00000-000'))}
-              {field('Município', inp('endereco_municipio', 'Cidade'))}
-              {field('UF', inp('endereco_uf', 'SP'))}
+              <div style={{ gridColumn:'span 2' }}>{field('Logradouro', inp('endereco_logradouro','Rua, Av...'))}</div>
+              {field('Número', inp('endereco_numero','Nº'))}
+              {field('Complemento', inp('endereco_complemento','Sala, Andar...'))}
+              {field('Bairro', inp('endereco_bairro','Bairro'))}
+              {field('CEP', inp('endereco_cep','00000-000'))}
+              {field('Município', inp('endereco_municipio','Cidade'))}
+              {field('UF', inp('endereco_uf','SP'))}
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('📞 Contato')}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-              <div style={{ gridColumn:'span 2' }}>{field('Nome do Contato / Responsável', inp('contato_nome', 'Ex: João Silva — Diretor Financeiro'))}</div>
-              {field('Telefone', foneInp('telefone', '(11) 9999-9999'))}
-              {field('WhatsApp', foneInp('whatsapp', '(11) 9999-9999'))}
-              <div style={{ gridColumn:'span 2' }}>{field('E-mail', inp('email_contato', 'email@empresa.com.br', 'email'))}</div>
-              {field('Site', inp('site_url', 'https://www.empresa.com.br'))}
-              {field('LinkedIn', inp('linkedin_url', 'https://linkedin.com/company/...'))}
-              {field('Facebook', inp('facebook_url', 'https://facebook.com/...'))}
-              {field('Instagram', inp('instagram_url', 'https://instagram.com/...'))}
+              <div style={{ gridColumn:'span 2' }}>{field('Nome do Contato / Responsável', inp('contato_nome','Ex: João Silva — Diretor Financeiro'))}</div>
+              {field('Telefone', foneInp('telefone','(11) 9999-9999'))}
+              {field('WhatsApp', foneInp('whatsapp','(11) 9999-9999'))}
+              <div style={{ gridColumn:'span 2' }}>{field('E-mail', inp('email_contato','email@empresa.com.br','email'))}</div>
+              {field('Site', inp('site_url','https://www.empresa.com.br'))}
+              {field('LinkedIn', inp('linkedin_url','https://linkedin.com/company/...'))}
+              {field('Facebook', inp('facebook_url','https://facebook.com/...'))}
+              {field('Instagram', inp('instagram_url','https://instagram.com/...'))}
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('👥 Sócios')}
-            {editando.socios && editando.socios.length > 0 && (
+            {editando.socios&&editando.socios.length>0&&(
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:11, fontWeight:600, color:C.text, letterSpacing:1, marginBottom:8 }}>DA RECEITA FEDERAL</div>
-                {editando.socios.map((s, i) => (
+                {editando.socios.map((s,i)=>(
                   <div key={i} style={{ fontSize:13, padding:'8px 0', borderBottom:`1px solid ${C.border}`, color:C.textLight }}>
-                    <span style={{ fontWeight:600 }}>{s.nome}</span>
-                    <span style={{ color:C.text, marginLeft:8 }}>{s.qualificacao}</span>
+                    <span style={{ fontWeight:600 }}>{s.nome}</span><span style={{ color:C.text, marginLeft:8 }}>{s.qualificacao}</span>
                   </div>
                 ))}
               </div>
             )}
             <label style={labelStyle}>Sócios / Contatos adicionais (manual)</label>
-            <textarea value={editando.socios_manual || ''} onChange={e => setEditando({ ...editando, socios_manual: e.target.value })}
-              placeholder={'Nome — Cargo\nNome — Cargo'} rows={3}
-              style={{ ...inputStyle, resize:'vertical' }} />
+            <textarea value={editando.socios_manual||''} onChange={e=>setEditando({...editando,socios_manual:e.target.value})} placeholder={'Nome — Cargo\nNome — Cargo'} rows={3} style={{ ...inputStyle, resize:'vertical' }} />
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
@@ -988,83 +833,50 @@ export default function Prospeccao({ onVoltar }) {
               <div>
                 <label style={labelStyle}>Execução Fiscal Ajuizada?</label>
                 <div style={{ display:'flex', gap:8 }}>
-                  {[['Sim',true],['Não',false],['—',null]].map(([lb,val]) => (
-                    <button key={lb} onClick={() => setEditando({ ...editando, trf_tem_execucao: val })}
-                      style={{ padding:'6px 18px', borderRadius:6, border:`1.5px solid ${C.border}`, background: editando.trf_tem_execucao===val ? C.navy : '#fff', color: editando.trf_tem_execucao===val ? '#fff' : C.textLight, fontSize:13, cursor:'pointer', fontWeight:600 }}>
-                      {lb}
-                    </button>
+                  {[['Sim',true],['Não',false],['—',null]].map(([lb,val])=>(
+                    <button key={lb} onClick={()=>setEditando({...editando,trf_tem_execucao:val})}
+                      style={{ padding:'6px 18px', borderRadius:6, border:`1.5px solid ${C.border}`, background:editando.trf_tem_execucao===val?C.navy:'#fff', color:editando.trf_tem_execucao===val?'#fff':C.textLight, fontSize:13, cursor:'pointer', fontWeight:600 }}>{lb}</button>
                   ))}
                 </div>
               </div>
               <div>
                 <label style={labelStyle}>Advogado Constituído?</label>
                 <div style={{ display:'flex', gap:8 }}>
-                  {[['Sim',true],['Não',false],['—',null]].map(([lb,val]) => (
-                    <button key={lb} onClick={() => setEditando({ ...editando, trf_tem_advogado: val })}
-                      style={{ padding:'6px 18px', borderRadius:6, border:`1.5px solid ${C.border}`, background: editando.trf_tem_advogado===val ? C.navy : '#fff', color: editando.trf_tem_advogado===val ? '#fff' : C.textLight, fontSize:13, cursor:'pointer', fontWeight:600 }}>
-                      {lb}
-                    </button>
+                  {[['Sim',true],['Não',false],['—',null]].map(([lb,val])=>(
+                    <button key={lb} onClick={()=>setEditando({...editando,trf_tem_advogado:val})}
+                      style={{ padding:'6px 18px', borderRadius:6, border:`1.5px solid ${C.border}`, background:editando.trf_tem_advogado===val?C.navy:'#fff', color:editando.trf_tem_advogado===val?'#fff':C.textLight, fontSize:13, cursor:'pointer', fontWeight:600 }}>{lb}</button>
                   ))}
                 </div>
               </div>
-              <div style={{ gridColumn:'span 2' }}>
-                {field('Observação TRF', (
-                  <input value={editando.trf_observacao || ''} onChange={e => setEditando({ ...editando, trf_observacao: e.target.value })}
-                    placeholder="Nº do processo, advogado, situação..." style={inputStyle} />
-                ))}
-              </div>
+              <div style={{ gridColumn:'span 2' }}>{field('Observação TRF', (<input value={editando.trf_observacao||''} onChange={e=>setEditando({...editando,trf_observacao:e.target.value})} placeholder="Nº do processo, advogado, situação..." style={inputStyle} />))}</div>
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
             {section('🔗 Links de Verificação')}
-            {trfAtivo && (
-              <div style={{ background:'#FFFBEB', border:'1px solid #FCD34D', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12, color:'#92400E' }}>
-                ⚡ Tribunal da região ({uf}): <strong>{trfAtivo.label}</strong>
-              </div>
-            )}
+            {trfAtivo && <div style={{ background:'#FFFBEB', border:'1px solid #FCD34D', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12, color:'#92400E' }}>⚡ Tribunal da região ({uf}): <strong>{trfAtivo.label}</strong></div>}
             <div style={{ fontSize:11, fontWeight:600, color:C.text, letterSpacing:1, marginBottom:8 }}>TRIBUNAIS REGIONAIS FEDERAIS</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
-              {trfLinks.map((l, i) => (
-                <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                  style={{ padding:'7px 16px', borderRadius:8, fontSize:13, fontWeight:600, textDecoration:'none',
-                    background: l.ativo ? C.navy : '#F8FAFC', color: l.ativo ? '#fff' : C.textLight,
-                    border: l.ativo ? `2px solid ${C.navy}` : `1px solid ${C.border}` }}>
-                  {l.label}{l.ativo ? ' ✓' : ''}
-                </a>
-              ))}
+              {trfLinks.map((l,i)=>(<a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ padding:'7px 16px', borderRadius:8, fontSize:13, fontWeight:600, textDecoration:'none', background:l.ativo?C.navy:'#F8FAFC', color:l.ativo?'#fff':C.textLight, border:l.ativo?`2px solid ${C.navy}`:`1px solid ${C.border}` }}>{l.label}{l.ativo?' ✓':''}</a>))}
             </div>
             <div style={{ fontSize:11, fontWeight:600, color:C.text, letterSpacing:1, marginBottom:8 }}>PGFN E REDES SOCIAIS</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-              {outrosLinks.map((l, i) => (
-                <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                  style={{ padding:'7px 16px', borderRadius:8, fontSize:13, fontWeight:600, textDecoration:'none', background:'#F8FAFC', color:C.textLight, border:`1px solid ${C.border}` }}>
-                  {l.label}
-                </a>
-              ))}
+              {outrosLinks.map((l,i)=>(<a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ padding:'7px 16px', borderRadius:8, fontSize:13, fontWeight:600, textDecoration:'none', background:'#F8FAFC', color:C.textLight, border:`1px solid ${C.border}` }}>{l.label}</a>))}
             </div>
           </div>
 
           <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:24 }}>
             {section('📝 Observações / Histórico')}
-            <textarea value={editando.observacoes || ''} onChange={e => setEditando({ ...editando, observacoes: e.target.value })}
-              placeholder="Anotações sobre o lead, histórico de contato, resultado das ligações..." rows={5}
-              style={{ ...inputStyle, resize:'vertical' }} />
+            <textarea value={editando.observacoes||''} onChange={e=>setEditando({...editando,observacoes:e.target.value})} placeholder="Anotações sobre o lead, histórico de contato, resultado das ligações..." rows={5} style={{ ...inputStyle, resize:'vertical' }} />
           </div>
 
           <div style={{ display:'flex', gap:12, justifyContent:'flex-end', paddingBottom:40 }}>
             <button onClick={() => setTela('lista')} style={btnOutline}>Cancelar</button>
             <button onClick={imprimir} style={btnOutline}>🖨️ Imprimir</button>
-            <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity:salvando?0.7:1 }}>
-              {salvando ? 'Salvando...' : '💾 Salvar'}
-            </button>
+            <button onClick={salvarEdicao} disabled={salvando} style={{ ...btnPrimary, opacity:salvando?0.7:1 }}>{salvando?'Salvando...':'💾 Salvar'}</button>
           </div>
         </div>
-
-        {/* Painel flutuante na tela de edição */}
-        {painelMsgAberto && (
-          <PainelMensagens whatsapp={whatsappAtivo} onFechar={() => setPainelMsgAberto(false)} />
-        )}
+        {painelMsgAberto && <PainelMensagens whatsapp={whatsappAtivo} onFechar={() => setPainelMsgAberto(false)} />}
       </>
     );
   }
