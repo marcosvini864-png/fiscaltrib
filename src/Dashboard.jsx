@@ -19,6 +19,7 @@ import Admin from './Admin'
 import Laboratorio from './Laboratorio'
 import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
 import Prospeccao from './Prospeccao'
+import MensagensRapidas from './MensagensRapidas'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -53,6 +54,7 @@ const MODULES = {
   inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
   divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:[] },
   prospeccao:   { label:'Prospecção',              icon:'🎯', tabs:[] },
+  mensagens:    { label:'Mensagens Rápidas',       icon:'⚡', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -382,17 +384,17 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>🧠 Inteligência Tributária</div>
-                    <div style={{fontSize:12,color:C.muted}}>Central Tributária, Reforma, CNAE, CFOP, CST e teses.</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>🎯 Prospecção de Clientes</div>
+                    <div style={{fontSize:12,color:C.muted}}>Cockpit comercial, Kanban e mensagens rápidas.</div>
                   </div>
-                  <button onClick={()=>navigateTo('inteligencia',0)} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Abrir →</button>
+                  <button onClick={()=>navigateTo('prospeccao')} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Abrir →</button>
                 </div>
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>🎯 Prospecção de Clientes</div>
-                    <div style={{fontSize:12,color:C.muted}}>Consulte CNPJ, Receita Federal e links de verificação.</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>⚡ Mensagens Rápidas</div>
+                    <div style={{fontSize:12,color:C.muted}}>Templates de mensagem para contato comercial.</div>
                   </div>
-                  <button onClick={()=>navigateTo('prospeccao')} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Abrir →</button>
+                  <button onClick={()=>navigateTo('mensagens')} style={{...btnOutline,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>Abrir →</button>
                 </div>
               </div>
               {clientes.length===0 ? (
@@ -618,6 +620,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
             {/* ── PROSPECÇÃO ── */}
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
+
+            {/* ── MENSAGENS RÁPIDAS ── */}
+            {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
 
             {/* ── ADMIN ── */}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
