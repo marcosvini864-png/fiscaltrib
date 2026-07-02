@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 
 const C = {
@@ -56,6 +56,7 @@ function getTemp(key) { return TEMP_LIST.find(t => t.key === key) || TEMP_LIST[2
 
 export default function Prospeccao({ onVoltar }) {
   const [tela, setTela] = useState('dashboard');
+  const [viewMode, setViewMode] = useState('lista'); // 'lista' | 'kanban'
   const [registros, setRegistros] = useState([]);
   const [loadingLista, setLoadingLista] = useState(true);
   const [busca, setBusca] = useState('');
@@ -66,6 +67,8 @@ export default function Prospeccao({ onVoltar }) {
   const [erro, setErro] = useState('');
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const dragItem = useRef(null);
+  const dragOverCol = useRef(null);
 
   const docLimpo = doc.replace(/\D/g, '');
 
@@ -167,11 +170,16 @@ export default function Prospeccao({ onVoltar }) {
     else alert('Erro ao salvar: ' + error.message);
   }
 
+  async function moverCard(id, novoStatus) {
+    await supabase.from('prospeccao_clientes').update({ status_lead: novoStatus }).eq('id', id);
+    setRegistros(prev => prev.map(r => r.id === id ? { ...r, status_lead: novoStatus } : r));
+  }
+
   async function excluir(id) {
     if (!window.confirm('Excluir este registro?')) return;
     await supabase.from('prospeccao_clientes').delete().eq('id', id);
     await carregarLista();
-    if (tela === 'editar') setTela('dashboard');
+    if (tela === 'editar') setTela('lista');
   }
 
   function imprimir() {
@@ -208,7 +216,6 @@ export default function Prospeccao({ onVoltar }) {
       <div class="field"><label>Telefone</label><span>${e.telefone||'—'}</span></div>
       <div class="field"><label>WhatsApp</label><span>${e.whatsapp||'—'}</span></div>
       <div class="field"><label>E-mail</label><span>${e.email_contato||'—'}</span></div>
-      <div class="field"><label>Responsável Atendimento</label><span>${e.responsavel_atendimento||'—'}</span></div>
     </div></div>
     <div class="section"><h3>🎯 Próxima Ação</h3><div class="grid">
       <div class="field"><label>Ação</label><span>${e.proxima_acao||'—'}</span></div>
@@ -219,7 +226,6 @@ export default function Prospeccao({ onVoltar }) {
     <div class="section"><h3>⚖️ Situação Judicial</h3><div class="grid">
       <div class="field"><label>Execução Fiscal</label><span>${e.trf_tem_execucao===true?'✅ Sim':e.trf_tem_execucao===false?'❌ Não':'—'}</span></div>
       <div class="field"><label>Advogado Constituído</label><span>${e.trf_tem_advogado===true?'✅ Sim':e.trf_tem_advogado===false?'❌ Não':'—'}</span></div>
-      <div class="field" style="grid-column:span 2"><label>Observação TRF</label><span>${e.trf_observacao||'—'}</span></div>
     </div></div>
     <div class="section"><h3>📝 Observações</h3><p style="font-size:13px">${e.observacoes||'—'}</p></div>
     <p style="margin-top:32px;font-size:10px;color:#94a3b8">FiscalTrib · fiscaltrib.com.br</p>
@@ -238,26 +244,18 @@ export default function Prospeccao({ onVoltar }) {
   const section = (titulo) => <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:14 }}>{titulo}</div>;
   const field = (label, conteudo) => <div><label style={labelStyle}>{label}</label>{conteudo}</div>;
 
-  // ── CÁLCULOS ──
   const hoje_str = hoje();
   const proximos3_str = daqui(3);
   const total = registros.length;
   const porStatus = (s) => registros.filter(r => r.status_lead === s).length;
   const atrasados = registros.filter(r => r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido').length;
-
-  // Painel operacional: hoje + próximos 3 dias
   const paraHoje = registros.filter(r =>
     r.data_proxima_acao && r.data_proxima_acao >= hoje_str && r.data_proxima_acao <= proximos3_str &&
     r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido'
   );
-
-  // Prioridades: atrasados + próximos 3 dias + quentes
   const prioridades = registros.filter(r =>
     r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido' &&
-    (
-      (r.data_proxima_acao && r.data_proxima_acao <= proximos3_str) ||
-      r.temperatura === 'quente'
-    )
+    ((r.data_proxima_acao && r.data_proxima_acao <= proximos3_str) || r.temperatura === 'quente')
   ).sort((a, b) => (a.data_proxima_acao || '9999') > (b.data_proxima_acao || '9999') ? 1 : -1).slice(0, 6);
 
   const FUNIL = STATUS_LIST.slice(0, 6);
@@ -271,6 +269,216 @@ export default function Prospeccao({ onVoltar }) {
     return matchBusca && matchStatus;
   });
 
+  // ── KANBAN CARD ──
+  function KanbanCard({ r }) {
+    const temp = getTemp(r.temperatura);
+    const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str;
+    const ehHoje = r.data_proxima_acao === hoje_str;
+    return (
+      <div
+        draggable
+        onDragStart={() => { dragItem.current = r; }}
+        onClick={() => { setEditando({...r}); setTela('editar'); }}
+        style={{
+          background: atrasado ? '#FEF2F2' : '#FFFFFF',
+          border: `1px solid ${atrasado ? '#FECACA' : C.border}`,
+          borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
+          marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          transition: 'box-shadow 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}
+      >
+        <div style={{ fontSize:12, fontWeight:700, color:C.textLight, marginBottom:4, lineHeight:1.3 }}>
+          {r.razao_social || '—'}
+        </div>
+        {r.contato_nome && <div style={{ fontSize:11, color:C.text, marginBottom:3 }}>👤 {r.contato_nome}</div>}
+        {r.telefone && (
+          <div style={{ fontSize:11, color:C.navy, marginBottom:3 }}>
+            📞 <a href={`tel:${r.telefone}`} onClick={e => e.stopPropagation()} style={{ color:C.navy, textDecoration:'none' }}>{r.telefone}</a>
+            {r.whatsapp && <> · <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color:'#16A34A', textDecoration:'none' }}>📱 {r.whatsapp}</a></>}
+          </div>
+        )}
+        {r.endereco_municipio && <div style={{ fontSize:11, color:C.text, marginBottom:4 }}>📍 {r.endereco_municipio}/{r.endereco_uf}</div>}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:6 }}>
+          <span style={{ fontSize:10, color:temp.cor, fontWeight:700 }}>{temp.label}</span>
+          {r.data_proxima_acao && (
+            <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
+              {atrasado ? '⚠️ Atrasado' : ehHoje ? '🔔 Hoje' : r.data_proxima_acao}
+            </span>
+          )}
+        </div>
+        {r.proxima_acao && (
+          <div style={{ fontSize:10, color: atrasado ? '#DC2626' : C.text, marginTop:3, fontStyle:'italic' }}>
+            → {r.proxima_acao}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── KANBAN COLUMN ──
+  function KanbanCol({ status }) {
+    const st = getStatus(status.key);
+    const cards = registrosFiltrados.filter(r => r.status_lead === status.key);
+    const [over, setOver] = useState(false);
+    return (
+      <div
+        onDragOver={e => { e.preventDefault(); dragOverCol.current = status.key; setOver(true); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={async () => {
+          setOver(false);
+          if (dragItem.current && dragItem.current.status_lead !== status.key) {
+            await moverCard(dragItem.current.id, status.key);
+            dragItem.current = null;
+          }
+        }}
+        style={{
+          minWidth: 220, maxWidth: 240, flexShrink: 0,
+          background: over ? st.bg : '#F1F5F9',
+          borderRadius: 10, padding: 10,
+          border: `2px solid ${over ? st.cor : 'transparent'}`,
+          transition: 'all 0.15s',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:st.cor }}>{status.key}</span>
+          <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700 }}>{cards.length}</span>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', maxHeight:'calc(100vh - 280px)', paddingRight:2 }}>
+          {cards.map(r => <KanbanCard key={r.id} r={r} />)}
+          {cards.length === 0 && (
+            <div style={{ textAlign:'center', padding:'20px 8px', fontSize:12, color:C.text, opacity:0.6 }}>
+              Arraste um card aqui
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── HEADER LISTA/KANBAN COMPARTILHADO ──
+  function ListaKanbanHeader() {
+    return (
+      <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
+        <button onClick={() => setTela('dashboard')} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar ao Cockpit</button>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <div>
+            <div style={{ fontSize:20, fontWeight:700, color:C.textLight }}>
+              {viewMode === 'kanban' ? '🗂️ Kanban de Prospects' : '📋 Lista de Prospects'}
+            </div>
+            <div style={{ fontSize:13, color:C.text }}>{registrosFiltrados.length} de {registros.length} registros</div>
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            {/* Toggle Lista/Kanban */}
+            <div style={{ display:'flex', background:'#E2E8F0', borderRadius:8, padding:3 }}>
+              <button onClick={() => setViewMode('lista')}
+                style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+                  background: viewMode === 'lista' ? C.navy : 'transparent',
+                  color: viewMode === 'lista' ? '#fff' : C.text }}>
+                ☰ Lista
+              </button>
+              <button onClick={() => setViewMode('kanban')}
+                style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+                  background: viewMode === 'kanban' ? C.navy : 'transparent',
+                  color: viewMode === 'kanban' ? '#fff' : C.text }}>
+                🗂️ Kanban
+              </button>
+            </div>
+            <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+          <input value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por nome, CNPJ, cidade, telefone ou e-mail..."
+            style={{ ...inputStyle, flex:1, minWidth:200, padding:'8px 14px' }} />
+          {viewMode === 'lista' && (
+            <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width:200 }}>
+              <option value=''>Todos os status</option>
+              {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
+            </select>
+          )}
+          {filtroStatus && <button onClick={() => setFiltroStatus('')} style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>✕ Limpar filtro</button>}
+        </div>
+
+        {loadingLista && <div style={{ color:C.text, textAlign:'center', padding:40 }}>Carregando...</div>}
+
+        {/* ── KANBAN VIEW ── */}
+        {!loadingLista && viewMode === 'kanban' && (
+          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:16, alignItems:'flex-start' }}>
+            {STATUS_LIST.map(s => <KanbanCol key={s.key} status={s} />)}
+          </div>
+        )}
+
+        {/* ── LISTA VIEW ── */}
+        {!loadingLista && viewMode === 'lista' && (
+          <>
+            {registrosFiltrados.length === 0 && (
+              <div style={{ background:C.card, borderRadius:12, padding:48, textAlign:'center', border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>🎯</div>
+                <div style={{ fontSize:16, fontWeight:600, color:C.textLight }}>Nenhum registro encontrado</div>
+              </div>
+            )}
+            <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'auto' }}>
+              {registrosFiltrados.length > 0 && (
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:'#F8FAFC' }}>
+                      {['Empresa','Responsável','Telefone','WhatsApp','E-mail','Cidade','Status','Temp.','Próxima Ação','Data',''].map(h => (
+                        <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:C.text, borderBottom:`1px solid ${C.border}`, textTransform:'uppercase', letterSpacing:0.5, whiteSpace:'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrosFiltrados.map(r => {
+                      const st = getStatus(r.status_lead);
+                      const temp = getTemp(r.temperatura);
+                      const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido';
+                      return (
+                        <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, background: atrasado ? '#FEF2F2' : 'transparent' }}
+                          onMouseEnter={e => e.currentTarget.style.background = atrasado ? '#FEE2E2' : '#F8FAFC'}
+                          onMouseLeave={e => e.currentTarget.style.background = atrasado ? '#FEF2F2' : 'transparent'}>
+                          <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight, whiteSpace:'nowrap' }}>{r.razao_social || '—'}</td>
+                          <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.contato_nome || '—'}</td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                            {r.telefone ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a> : <span style={{ color:C.text }}>—</span>}
+                          </td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                            {r.whatsapp ? <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a> : <span style={{ color:C.text }}>—</span>}
+                          </td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                            {r.email_contato ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a> : <span style={{ color:C.text }}>—</span>}
+                          </td>
+                          <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
+                          <td style={{ padding:'10px 12px' }}>
+                            <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
+                          </td>
+                          <td style={{ padding:'10px 12px', whiteSpace:'nowrap', color:temp.cor, fontWeight:600, fontSize:11 }}>{temp.label}</td>
+                          <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>
+                            {atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}
+                          </td>
+                          <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.text, whiteSpace:'nowrap', fontWeight: atrasado ? 600 : 400 }}>{r.data_proxima_acao || '—'}</td>
+                          <td style={{ padding:'10px 12px' }}>
+                            <div style={{ display:'flex', gap:6 }}>
+                              <button onClick={() => { setEditando({...r}); setTela('editar'); }} style={{ ...btnOutline, padding:'4px 12px', fontSize:11 }}>Abrir</button>
+                              <button onClick={() => excluir(r.id)} style={{ ...btnWarning, padding:'4px 10px', fontSize:11 }}>🗑️</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   // ── DASHBOARD ──
   if (tela === 'dashboard') return (
     <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
@@ -281,12 +489,11 @@ export default function Prospeccao({ onVoltar }) {
           <div style={{ fontSize:13, color:C.text, marginTop:2 }}>Visão completa da sua operação de prospecção</div>
         </div>
         <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => setTela('lista')} style={btnOutline}>📋 Lista Completa</button>
+          <button onClick={() => setTela('lista')} style={btnOutline}>📋 Lista / Kanban</button>
           <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
         </div>
       </div>
 
-      {/* KPIs principais */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
         {[
           ['Total de Prospects', total, '👥', '#2563EB'],
@@ -304,7 +511,6 @@ export default function Prospeccao({ onVoltar }) {
         ))}
       </div>
 
-      {/* KPIs por status */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
         {[
           ['Novos', 'Novo', '#3B82F6'],
@@ -313,7 +519,7 @@ export default function Prospeccao({ onVoltar }) {
           ['Visita Agendada', 'Visita Agendada', '#06B6D4'],
         ].map(([lb, statusKey, cor]) => (
           <div key={lb} onClick={() => { setFiltroStatus(statusKey); setTela('lista'); }}
-            style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center', transition:'border-color 0.2s' }}
+            style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = cor}
             onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
             <div style={{ fontSize:20, fontWeight:700, color:cor }}>{porStatus(statusKey)}</div>
@@ -323,8 +529,6 @@ export default function Prospeccao({ onVoltar }) {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-
-        {/* Painel dos próximos 3 dias */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
           <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>📅 Painel Operacional — Próximos 3 dias</div>
           <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Hoje ({hoje_str}) até {proximos3_str}</div>
@@ -345,11 +549,9 @@ export default function Prospeccao({ onVoltar }) {
                       <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
                       <span style={{ fontSize:10, color: ehHoje ? '#2563EB' : C.text, fontWeight:600 }}>{ehHoje ? '🔔 HOJE' : r.data_proxima_acao}</span>
                     </div>
-                    <div style={{ fontSize:12, color:C.text, marginTop:2 }}>
-                      {r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}
-                    </div>
+                    <div style={{ fontSize:12, color:C.text, marginTop:2 }}>{r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}</div>
                     {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
-                    <div style={{ marginTop:4, display:'flex', gap:6, alignItems:'center' }}>
+                    <div style={{ marginTop:4, display:'flex', gap:6 }}>
                       <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
                       <span style={{ fontSize:10, color:temp.cor, fontWeight:600 }}>{temp.label}</span>
                     </div>
@@ -360,7 +562,6 @@ export default function Prospeccao({ onVoltar }) {
           )}
         </div>
 
-        {/* Prioridades */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
           <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>🔥 Prioridades</div>
           <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Atrasados, próximos 3 dias e leads quentes</div>
@@ -383,9 +584,7 @@ export default function Prospeccao({ onVoltar }) {
                         {atrasado ? '⚠️ ATRASADO' : ehHoje ? '🔔 HOJE' : r.data_proxima_acao}
                       </span>
                     </div>
-                    <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2 }}>
-                      {r.proxima_acao || '—'}
-                    </div>
+                    <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2 }}>{r.proxima_acao || '—'}</div>
                     {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
                     <div style={{ fontSize:10, color:temp.cor, marginTop:2, fontWeight:600 }}>{temp.label}</div>
                   </div>
@@ -396,9 +595,8 @@ export default function Prospeccao({ onVoltar }) {
         </div>
       </div>
 
-      {/* Funil */}
       <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção</div>
+        <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção — clique para filtrar</div>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
           {FUNIL.map((s) => {
             const qtd = porStatus(s.key);
@@ -419,7 +617,6 @@ export default function Prospeccao({ onVoltar }) {
     </div>
   );
 
-  // ── TELA CONSULTA ──
   if (tela === 'consulta') return (
     <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
       <button onClick={() => setTela('dashboard')} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
@@ -450,94 +647,8 @@ export default function Prospeccao({ onVoltar }) {
     </div>
   );
 
-  // ── TELA LISTA ──
-  if (tela === 'lista') return (
-    <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
-      <button onClick={() => setTela('dashboard')} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar ao Cockpit</button>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-        <div>
-          <div style={{ fontSize:20, fontWeight:700, color:C.textLight }}>📋 Lista de Prospects</div>
-          <div style={{ fontSize:13, color:C.text }}>{registrosFiltrados.length} de {registros.length} registros</div>
-        </div>
-        <button onClick={() => { setDoc(''); setNomeManual(''); setErro(''); setTela('consulta'); }} style={btnPrimary}>+ Nova Consulta</button>
-      </div>
+  if (tela === 'lista') return <ListaKanbanHeader />;
 
-      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-        <input value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar por nome, CNPJ, cidade, telefone ou e-mail..."
-          style={{ ...inputStyle, flex:1, minWidth:200, padding:'8px 14px' }} />
-        <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width:200 }}>
-          <option value=''>Todos os status</option>
-          {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
-        </select>
-        {filtroStatus && <button onClick={() => setFiltroStatus('')} style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>✕ Limpar filtro</button>}
-      </div>
-
-      {loadingLista && <div style={{ color:C.text, textAlign:'center', padding:40 }}>Carregando...</div>}
-
-      {!loadingLista && registrosFiltrados.length === 0 && (
-        <div style={{ background:C.card, borderRadius:12, padding:48, textAlign:'center', border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>🎯</div>
-          <div style={{ fontSize:16, fontWeight:600, color:C.textLight }}>Nenhum registro encontrado</div>
-        </div>
-      )}
-
-      <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'auto' }}>
-        {registrosFiltrados.length > 0 && (
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-            <thead>
-              <tr style={{ background:'#F8FAFC' }}>
-                {['Empresa','Responsável','Telefone','WhatsApp','E-mail','Cidade','Status','Temp.','Próxima Ação','Data',''].map(h => (
-                  <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:C.text, borderBottom:`1px solid ${C.border}`, textTransform:'uppercase', letterSpacing:0.5, whiteSpace:'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {registrosFiltrados.map(r => {
-                const st = getStatus(r.status_lead);
-                const temp = getTemp(r.temperatura);
-                const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido';
-                return (
-                  <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, background: atrasado ? '#FEF2F2' : 'transparent' }}
-                    onMouseEnter={e => e.currentTarget.style.background = atrasado ? '#FEE2E2' : '#F8FAFC'}
-                    onMouseLeave={e => e.currentTarget.style.background = atrasado ? '#FEF2F2' : 'transparent'}>
-                    <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight, whiteSpace:'nowrap' }}>{r.razao_social || '—'}</td>
-                    <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.contato_nome || '—'}</td>
-                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.telefone ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a> : <span style={{ color:C.text }}>—</span>}
-                    </td>
-                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.whatsapp ? <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a> : <span style={{ color:C.text }}>—</span>}
-                    </td>
-                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.email_contato ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a> : <span style={{ color:C.text }}>—</span>}
-                    </td>
-                    <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
-                    <td style={{ padding:'10px 12px' }}>
-                      <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
-                    </td>
-                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap', color:temp.cor, fontWeight:600, fontSize:11 }}>{temp.label}</td>
-                    <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>
-                      {atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}
-                    </td>
-                    <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.text, whiteSpace:'nowrap', fontWeight: atrasado ? 600 : 400 }}>{r.data_proxima_acao || '—'}</td>
-                    <td style={{ padding:'10px 12px' }}>
-                      <div style={{ display:'flex', gap:6 }}>
-                        <button onClick={() => { setEditando({...r}); setTela('editar'); }} style={{ ...btnOutline, padding:'4px 12px', fontSize:11 }}>Abrir</button>
-                        <button onClick={() => excluir(r.id)} style={{ ...btnWarning, padding:'4px 10px', fontSize:11 }}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-
-  // ── TELA EDITAR ──
   if (tela === 'editar' && editando) {
     const uf = editando.endereco_uf || '';
     const nomeConsulta = editando.razao_social || '';
@@ -571,7 +682,6 @@ export default function Prospeccao({ onVoltar }) {
           {cnpjDoc.length === 11 ? maskCPF(cnpjDoc) : maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}
         </div>
 
-        {/* Classificação */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('🏷️ Classificação')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
@@ -590,7 +700,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Próxima Ação */}
         <div style={{ background:'#FFFBEB', borderRadius:12, padding:20, border:'2px solid #FCD34D', marginBottom:16 }}>
           {section('🎯 Próxima Ação (obrigatório)')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
@@ -605,7 +714,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Dados Cadastrais */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('📋 Dados Cadastrais')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
@@ -617,7 +725,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Endereço */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('📍 Endereço')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
@@ -631,7 +738,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Contato */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('📞 Contato')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
@@ -646,7 +752,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Sócios */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('👥 Sócios')}
           {editando.socios && editando.socios.length > 0 && (
@@ -666,7 +771,6 @@ export default function Prospeccao({ onVoltar }) {
             style={{ ...inputStyle, resize:'vertical' }} />
         </div>
 
-        {/* TRF */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('⚖️ Situação Judicial (TRF)')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
@@ -701,7 +805,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Links */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('🔗 Links de Verificação')}
           {trfAtivo && (
@@ -731,7 +834,6 @@ export default function Prospeccao({ onVoltar }) {
           </div>
         </div>
 
-        {/* Observações */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:24 }}>
           {section('📝 Observações / Histórico')}
           <textarea value={editando.observacoes || ''} onChange={e => setEditando({ ...editando, observacoes: e.target.value })}
