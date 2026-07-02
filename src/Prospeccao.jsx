@@ -13,14 +13,14 @@ const maskFone = v => { const n=v.replace(/\D/g,'').slice(0,11); if(n.length<=10
 const hoje = () => new Date().toISOString().split('T')[0];
 
 const STATUS_LIST = [
-  { key: 'Novo',              cor: '#3B82F6', bg: '#EFF6FF' },
-  { key: 'Primeiro Contato',  cor: '#8B5CF6', bg: '#F5F3FF' },
-  { key: 'Aguardando Retorno',cor: '#F59E0B', bg: '#FFFBEB' },
-  { key: 'Visita Agendada',   cor: '#06B6D4', bg: '#ECFEFF' },
-  { key: 'Proposta Enviada',  cor: '#F97316', bg: '#FFF7ED' },
-  { key: 'Negociação',        cor: '#EF4444', bg: '#FEF2F2' },
-  { key: 'Cliente Fechado',   cor: '#16A34A', bg: '#F0FDF4' },
-  { key: 'Perdido',           cor: '#6B7280', bg: '#F9FAFB' },
+  { key: 'Novo',               cor: '#3B82F6', bg: '#EFF6FF' },
+  { key: 'Primeiro Contato',   cor: '#8B5CF6', bg: '#F5F3FF' },
+  { key: 'Aguardando Retorno', cor: '#F59E0B', bg: '#FFFBEB' },
+  { key: 'Visita Agendada',    cor: '#06B6D4', bg: '#ECFEFF' },
+  { key: 'Proposta Enviada',   cor: '#F97316', bg: '#FFF7ED' },
+  { key: 'Negociação',         cor: '#EF4444', bg: '#FEF2F2' },
+  { key: 'Cliente Fechado',    cor: '#16A34A', bg: '#F0FDF4' },
+  { key: 'Perdido',            cor: '#6B7280', bg: '#F9FAFB' },
 ];
 
 const TEMP_LIST = [
@@ -117,8 +117,7 @@ export default function Prospeccao({ onVoltar }) {
         endereco_uf: rec?.endereco_uf || null,
         endereco_cep: rec?.endereco_cep || null,
         socios: rec?.socios || [],
-        status_lead: 'Novo', status_prospeccao: 'PENDENTE',
-        temperatura: 'frio',
+        status_lead: 'Novo', status_prospeccao: 'PENDENTE', temperatura: 'frio',
       };
       const { data: saved, error: saveErr } = await supabase.from('prospeccao_clientes').insert([payload]).select().single();
       if (saveErr) throw saveErr;
@@ -198,7 +197,6 @@ export default function Prospeccao({ onVoltar }) {
       <div class="field"><label>Abertura</label><span>${e.data_abertura||'—'}</span></div>
       <div class="field"><label>Porte</label><span>${e.porte||'—'}</span></div>
       <div class="field"><label>Natureza Jurídica</label><span>${e.natureza_juridica||'—'}</span></div>
-      <div class="field"><label>CNAE</label><span>${e.cnae_principal||'—'} — ${e.cnae_descricao||'—'}</span></div>
     </div></div>
     <div class="section"><h3>📍 Endereço</h3><div class="grid">
       <div class="field"><label>Logradouro</label><span>${[e.endereco_logradouro,e.endereco_numero,e.endereco_complemento].filter(Boolean).join(', ')||'—'}</span></div>
@@ -211,12 +209,11 @@ export default function Prospeccao({ onVoltar }) {
       <div class="field"><label>Telefone</label><span>${e.telefone||'—'}</span></div>
       <div class="field"><label>WhatsApp</label><span>${e.whatsapp||'—'}</span></div>
       <div class="field"><label>E-mail</label><span>${e.email_contato||'—'}</span></div>
-      <div class="field"><label>Site</label><span>${e.site_url||'—'}</span></div>
       <div class="field"><label>Responsável Atendimento</label><span>${e.responsavel_atendimento||'—'}</span></div>
     </div></div>
     <div class="section"><h3>🎯 Próxima Ação</h3><div class="grid">
       <div class="field"><label>Ação</label><span>${e.proxima_acao||'—'}</span></div>
-      <div class="field"><label>Data</label><span>${e.data_proxima_acao||'—'} ${e.hora_proxima_acao||''}</span></div>
+      <div class="field"><label>Data/Hora</label><span>${e.data_proxima_acao||'—'} ${e.hora_proxima_acao||''}</span></div>
       <div class="field"><label>Último Contato</label><span>${e.ultimo_contato||'—'}</span></div>
     </div></div>
     <div class="section"><h3>👥 Sócios</h3><p style="white-space:pre-line;font-size:13px">${socios}</p></div>
@@ -242,7 +239,6 @@ export default function Prospeccao({ onVoltar }) {
   const section = (titulo) => <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:14 }}>{titulo}</div>;
   const field = (label, conteudo) => <div><label style={labelStyle}>{label}</label>{conteudo}</div>;
 
-  // ── CÁLCULOS DASHBOARD ──
   const hoje_str = hoje();
   const total = registros.length;
   const porStatus = (s) => registros.filter(r => r.status_lead === s).length;
@@ -258,7 +254,8 @@ export default function Prospeccao({ onVoltar }) {
   const registrosFiltrados = registros.filter(r => {
     const matchBusca = (r.razao_social||'').toLowerCase().includes(busca.toLowerCase()) ||
       (r.cnpj||'').includes(busca) || (r.endereco_municipio||'').toLowerCase().includes(busca.toLowerCase()) ||
-      (r.contato_nome||'').toLowerCase().includes(busca.toLowerCase());
+      (r.contato_nome||'').toLowerCase().includes(busca.toLowerCase()) ||
+      (r.telefone||'').includes(busca) || (r.email_contato||'').toLowerCase().includes(busca.toLowerCase());
     const matchStatus = !filtroStatus || r.status_lead === filtroStatus;
     return matchBusca && matchStatus;
   });
@@ -267,7 +264,6 @@ export default function Prospeccao({ onVoltar }) {
   if (tela === 'dashboard') return (
     <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
       <button onClick={onVoltar} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
-
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
           <div style={{ fontSize:22, fontWeight:700, color:C.textLight }}>🎯 Cockpit Comercial</div>
@@ -279,7 +275,7 @@ export default function Prospeccao({ onVoltar }) {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs principais */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
         {[
           ['Total de Prospects', total, '👥', '#2563EB'],
@@ -297,18 +293,19 @@ export default function Prospeccao({ onVoltar }) {
         ))}
       </div>
 
+      {/* KPIs por status */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
         {[
-          ['Novos', porStatus('Novo'), '#3B82F6'],
-          ['1º Contato', porStatus('Primeiro Contato'), '#8B5CF6'],
-          ['Aguard. Retorno', porStatus('Aguardando Retorno'), '#F59E0B'],
-          ['Visita Agendada', porStatus('Visita Agendada'), '#06B6D4'],
-        ].map(([lb, val, cor]) => (
-          <div key={lb} onClick={() => { setFiltroStatus(lb === 'Aguard. Retorno' ? 'Aguardando Retorno' : lb === '1º Contato' ? 'Primeiro Contato' : lb); setTela('lista'); }}
-            style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center' }}
+          ['Novos', 'Novo', '#3B82F6'],
+          ['Primeiro Contato', 'Primeiro Contato', '#8B5CF6'],
+          ['Aguard. Retorno', 'Aguardando Retorno', '#F59E0B'],
+          ['Visita Agendada', 'Visita Agendada', '#06B6D4'],
+        ].map(([lb, statusKey, cor]) => (
+          <div key={lb} onClick={() => { setFiltroStatus(statusKey); setTela('lista'); }}
+            style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center', transition:'border-color 0.2s' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = cor}
             onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-            <div style={{ fontSize:20, fontWeight:700, color:cor }}>{val}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:cor }}>{porStatus(statusKey)}</div>
             <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{lb}</div>
           </div>
         ))}
@@ -338,6 +335,7 @@ export default function Prospeccao({ onVoltar }) {
                     <div style={{ fontSize:12, color:C.text, marginTop:2 }}>
                       {r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}
                     </div>
+                    {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
                     <div style={{ marginTop:4 }}>
                       <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
                     </div>
@@ -370,6 +368,7 @@ export default function Prospeccao({ onVoltar }) {
                     <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2, fontWeight: atrasado ? 600 : 400 }}>
                       {atrasado ? '⚠️ Atrasado — ' : ''}{r.proxima_acao || '—'} · {r.data_proxima_acao || '—'}
                     </div>
+                    {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
                   </div>
                 );
               })}
@@ -382,15 +381,14 @@ export default function Prospeccao({ onVoltar }) {
       <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
         <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção</div>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
-          {FUNIL.map((s, i) => {
+          {FUNIL.map((s) => {
             const qtd = porStatus(s.key);
-            const maxH = 80;
-            const h = Math.max(24, total > 0 ? (qtd / total) * maxH : 0);
+            const h = Math.max(24, total > 0 ? (qtd / total) * 80 : 0);
             return (
               <div key={s.key} onClick={() => { setFiltroStatus(s.key); setTela('lista'); }}
                 style={{ flex:1, textAlign:'center', cursor:'pointer' }}>
                 <div style={{ fontSize:16, fontWeight:700, color:s.cor, marginBottom:4 }}>{qtd}</div>
-                <div style={{ background:s.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85, transition:'height 0.3s' }}></div>
+                <div style={{ background:s.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85 }}></div>
                 <div style={{ background:s.bg, borderRadius:'0 0 6px 6px', padding:'6px 4px', border:`1px solid ${s.cor}`, borderTop:'none' }}>
                   <div style={{ fontSize:10, color:s.cor, fontWeight:600, lineHeight:1.2 }}>{s.key}</div>
                 </div>
@@ -447,10 +445,9 @@ export default function Prospeccao({ onVoltar }) {
 
       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
         <input value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar por nome, CNPJ, cidade ou contato..."
+          placeholder="Buscar por nome, CNPJ, cidade, telefone ou e-mail..."
           style={{ ...inputStyle, flex:1, minWidth:200, padding:'8px 14px' }} />
-        <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
-          style={{ ...inputStyle, width:200 }}>
+        <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width:200 }}>
           <option value=''>Todos os status</option>
           {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
         </select>
@@ -462,16 +459,16 @@ export default function Prospeccao({ onVoltar }) {
       {!loadingLista && registrosFiltrados.length === 0 && (
         <div style={{ background:C.card, borderRadius:12, padding:48, textAlign:'center', border:`1px solid ${C.border}` }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🎯</div>
-          <div style={{ fontSize:16, fontWeight:600, color:C.textLight, marginBottom:8 }}>Nenhum registro encontrado</div>
+          <div style={{ fontSize:16, fontWeight:600, color:C.textLight }}>Nenhum registro encontrado</div>
         </div>
       )}
 
-      <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+      <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'auto' }}>
         {registrosFiltrados.length > 0 && (
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
             <thead>
               <tr style={{ background:'#F8FAFC' }}>
-                {['Empresa','Responsável','Cidade','Status','Temperatura','Último Contato','Próxima Ação','Data',''].map(h => (
+                {['Empresa','Responsável','Telefone','WhatsApp','E-mail','Cidade','Status','Temp.','Próxima Ação','Data',''].map(h => (
                   <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:C.text, borderBottom:`1px solid ${C.border}`, textTransform:'uppercase', letterSpacing:0.5, whiteSpace:'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -485,15 +482,31 @@ export default function Prospeccao({ onVoltar }) {
                   <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, background: atrasado ? '#FEF2F2' : 'transparent' }}
                     onMouseEnter={e => e.currentTarget.style.background = atrasado ? '#FEE2E2' : '#F8FAFC'}
                     onMouseLeave={e => e.currentTarget.style.background = atrasado ? '#FEF2F2' : 'transparent'}>
-                    <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</td>
-                    <td style={{ padding:'10px 12px', color:C.text }}>{r.contato_nome || '—'}</td>
+                    <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight, whiteSpace:'nowrap' }}>{r.razao_social || '—'}</td>
+                    <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.contato_nome || '—'}</td>
+                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                      {r.telefone
+                        ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a>
+                        : <span style={{ color:C.text }}>—</span>}
+                    </td>
+                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                      {r.whatsapp
+                        ? <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a>
+                        : <span style={{ color:C.text }}>—</span>}
+                    </td>
+                    <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
+                      {r.email_contato
+                        ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a>
+                        : <span style={{ color:C.text }}>—</span>}
+                    </td>
                     <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
                     <td style={{ padding:'10px 12px' }}>
                       <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
                     </td>
                     <td style={{ padding:'10px 12px', whiteSpace:'nowrap', color:temp.cor, fontWeight:600, fontSize:11 }}>{temp.label}</td>
-                    <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.ultimo_contato || '—'}</td>
-                    <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400 }}>{atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}</td>
+                    <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>
+                      {atrasado ? '⚠️ ' : ''}{r.proxima_acao || '—'}
+                    </td>
                     <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.text, whiteSpace:'nowrap', fontWeight: atrasado ? 600 : 400 }}>{r.data_proxima_acao || '—'}</td>
                     <td style={{ padding:'10px 12px' }}>
                       <div style={{ display:'flex', gap:6 }}>
@@ -545,44 +558,35 @@ export default function Prospeccao({ onVoltar }) {
           {cnpjDoc.length === 11 ? maskCPF(cnpjDoc) : maskCNPJ(cnpjDoc)} · Criado em {new Date(editando.created_at).toLocaleDateString('pt-BR')}
         </div>
 
-        {/* Status + Temperatura */}
+        {/* Classificação */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}`, marginBottom:16 }}>
           {section('🏷️ Classificação')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-            <div>
-              {field('Status do Lead', (
-                <select value={editando.status_lead || 'Novo'} onChange={e => setEditando({ ...editando, status_lead: e.target.value })}
-                  style={inputStyle}>
-                  {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
-                </select>
-              ))}
-            </div>
-            <div>
-              {field('Temperatura', (
-                <select value={editando.temperatura || 'frio'} onChange={e => setEditando({ ...editando, temperatura: e.target.value })}
-                  style={inputStyle}>
-                  {TEMP_LIST.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-                </select>
-              ))}
-            </div>
+            {field('Status do Lead', (
+              <select value={editando.status_lead || 'Novo'} onChange={e => setEditando({ ...editando, status_lead: e.target.value })} style={inputStyle}>
+                {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
+              </select>
+            ))}
+            {field('Temperatura', (
+              <select value={editando.temperatura || 'frio'} onChange={e => setEditando({ ...editando, temperatura: e.target.value })} style={inputStyle}>
+                {TEMP_LIST.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            ))}
             {field('Responsável pelo Atendimento', inp('responsavel_atendimento', 'Nome do vendedor / consultor'))}
             {field('Último Contato Realizado', inp('ultimo_contato', '', 'date'))}
           </div>
         </div>
 
-        {/* Próxima Ação — OBRIGATÓRIO */}
+        {/* Próxima Ação */}
         <div style={{ background:'#FFFBEB', borderRadius:12, padding:20, border:'2px solid #FCD34D', marginBottom:16 }}>
           {section('🎯 Próxima Ação (obrigatório)')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
-            <div>
-              {field('Ação *', (
-                <select value={editando.proxima_acao || ''} onChange={e => setEditando({ ...editando, proxima_acao: e.target.value })}
-                  style={inputStyle}>
-                  <option value=''>Selecione...</option>
-                  {ACOES_LIST.map(a => <option key={a}>{a}</option>)}
-                </select>
-              ))}
-            </div>
+            {field('Ação *', (
+              <select value={editando.proxima_acao || ''} onChange={e => setEditando({ ...editando, proxima_acao: e.target.value })} style={inputStyle}>
+                <option value=''>Selecione...</option>
+                {ACOES_LIST.map(a => <option key={a}>{a}</option>)}
+              </select>
+            ))}
             {field('Data *', inp('data_proxima_acao', '', 'date'))}
             {field('Hora (opcional)', inp('hora_proxima_acao', '', 'time'))}
           </div>
