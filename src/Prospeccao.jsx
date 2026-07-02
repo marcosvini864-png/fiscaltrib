@@ -11,6 +11,7 @@ const maskCPF  = v => v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.
 const maskCNPJ = v => v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d)/,'$1-$2');
 const maskFone = v => { const n=v.replace(/\D/g,'').slice(0,11); if(n.length<=10) return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2'); return n.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2'); };
 const hoje = () => new Date().toISOString().split('T')[0];
+const daqui = (dias) => { const d = new Date(); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0]; };
 
 const STATUS_LIST = [
   { key: 'Novo',               cor: '#3B82F6', bg: '#EFF6FF' },
@@ -59,12 +60,10 @@ export default function Prospeccao({ onVoltar }) {
   const [loadingLista, setLoadingLista] = useState(true);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-
   const [doc, setDoc] = useState('');
   const [nomeManual, setNomeManual] = useState('');
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
-
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -239,15 +238,27 @@ export default function Prospeccao({ onVoltar }) {
   const section = (titulo) => <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:14 }}>{titulo}</div>;
   const field = (label, conteudo) => <div><label style={labelStyle}>{label}</label>{conteudo}</div>;
 
+  // ── CÁLCULOS ──
   const hoje_str = hoje();
+  const proximos3_str = daqui(3);
   const total = registros.length;
   const porStatus = (s) => registros.filter(r => r.status_lead === s).length;
   const atrasados = registros.filter(r => r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido').length;
-  const paraHoje = registros.filter(r => r.data_proxima_acao === hoje_str);
+
+  // Painel operacional: hoje + próximos 3 dias
+  const paraHoje = registros.filter(r =>
+    r.data_proxima_acao && r.data_proxima_acao >= hoje_str && r.data_proxima_acao <= proximos3_str &&
+    r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido'
+  );
+
+  // Prioridades: atrasados + próximos 3 dias + quentes
   const prioridades = registros.filter(r =>
     r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido' &&
-    (r.data_proxima_acao <= hoje_str || r.temperatura === 'quente')
-  ).sort((a, b) => (a.data_proxima_acao || '9999') > (b.data_proxima_acao || '9999') ? 1 : -1).slice(0, 5);
+    (
+      (r.data_proxima_acao && r.data_proxima_acao <= proximos3_str) ||
+      r.temperatura === 'quente'
+    )
+  ).sort((a, b) => (a.data_proxima_acao || '9999') > (b.data_proxima_acao || '9999') ? 1 : -1).slice(0, 6);
 
   const FUNIL = STATUS_LIST.slice(0, 6);
 
@@ -313,31 +324,34 @@ export default function Prospeccao({ onVoltar }) {
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
 
-        {/* Painel do Dia */}
+        {/* Painel dos próximos 3 dias */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:14 }}>📅 Painel Operacional de Hoje</div>
+          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>📅 Painel Operacional — Próximos 3 dias</div>
+          <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Hoje ({hoje_str}) até {proximos3_str}</div>
           {paraHoje.length === 0 ? (
-            <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>✅ Nenhuma ação programada para hoje</div>
+            <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>✅ Nenhuma ação programada para os próximos 3 dias</div>
           ) : (
             <div style={{ display:'grid', gap:8 }}>
               {paraHoje.map(r => {
                 const st = getStatus(r.status_lead);
                 const temp = getTemp(r.temperatura);
+                const ehHoje = r.data_proxima_acao === hoje_str;
                 return (
                   <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
-                    style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${C.border}`, cursor:'pointer', background:'#F8FAFC' }}
-                    onMouseEnter={e => e.currentTarget.style.background='#EFF6FF'}
-                    onMouseLeave={e => e.currentTarget.style.background='#F8FAFC'}>
+                    style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${ehHoje ? '#93C5FD' : C.border}`, cursor:'pointer', background: ehHoje ? '#EFF6FF' : '#F8FAFC' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
+                    onMouseLeave={e => e.currentTarget.style.opacity='1'}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
-                      <span style={{ fontSize:11 }}>{temp.label}</span>
+                      <span style={{ fontSize:10, color: ehHoje ? '#2563EB' : C.text, fontWeight:600 }}>{ehHoje ? '🔔 HOJE' : r.data_proxima_acao}</span>
                     </div>
                     <div style={{ fontSize:12, color:C.text, marginTop:2 }}>
                       {r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}
                     </div>
                     {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
-                    <div style={{ marginTop:4 }}>
+                    <div style={{ marginTop:4, display:'flex', gap:6, alignItems:'center' }}>
                       <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
+                      <span style={{ fontSize:10, color:temp.cor, fontWeight:600 }}>{temp.label}</span>
                     </div>
                   </div>
                 );
@@ -348,13 +362,15 @@ export default function Prospeccao({ onVoltar }) {
 
         {/* Prioridades */}
         <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:14 }}>🔥 Prioridades</div>
+          <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:4 }}>🔥 Prioridades</div>
+          <div style={{ fontSize:11, color:C.text, marginBottom:12 }}>Atrasados, próximos 3 dias e leads quentes</div>
           {prioridades.length === 0 ? (
             <div style={{ fontSize:13, color:C.text, textAlign:'center', padding:20 }}>Nenhuma prioridade no momento</div>
           ) : (
             <div style={{ display:'grid', gap:8 }}>
               {prioridades.map(r => {
                 const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str;
+                const ehHoje = r.data_proxima_acao === hoje_str;
                 const temp = getTemp(r.temperatura);
                 return (
                   <div key={r.id} onClick={() => { setEditando({...r}); setTela('editar'); }}
@@ -363,12 +379,15 @@ export default function Prospeccao({ onVoltar }) {
                     onMouseLeave={e => e.currentTarget.style.opacity='1'}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
-                      <span style={{ fontSize:11 }}>{temp.label}</span>
+                      <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
+                        {atrasado ? '⚠️ ATRASADO' : ehHoje ? '🔔 HOJE' : r.data_proxima_acao}
+                      </span>
                     </div>
-                    <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2, fontWeight: atrasado ? 600 : 400 }}>
-                      {atrasado ? '⚠️ Atrasado — ' : ''}{r.proxima_acao || '—'} · {r.data_proxima_acao || '—'}
+                    <div style={{ fontSize:12, color: atrasado ? '#DC2626' : C.text, marginTop:2 }}>
+                      {r.proxima_acao || '—'}
                     </div>
                     {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
+                    <div style={{ fontSize:10, color:temp.cor, marginTop:2, fontWeight:600 }}>{temp.label}</div>
                   </div>
                 );
               })}
@@ -485,19 +504,13 @@ export default function Prospeccao({ onVoltar }) {
                     <td style={{ padding:'10px 12px', fontWeight:600, color:C.textLight, whiteSpace:'nowrap' }}>{r.razao_social || '—'}</td>
                     <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.contato_nome || '—'}</td>
                     <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.telefone
-                        ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a>
-                        : <span style={{ color:C.text }}>—</span>}
+                      {r.telefone ? <a href={`tel:${r.telefone}`} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>📞 {r.telefone}</a> : <span style={{ color:C.text }}>—</span>}
                     </td>
                     <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.whatsapp
-                        ? <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a>
-                        : <span style={{ color:C.text }}>—</span>}
+                      {r.whatsapp ? <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a> : <span style={{ color:C.text }}>—</span>}
                     </td>
                     <td style={{ padding:'10px 12px', whiteSpace:'nowrap' }}>
-                      {r.email_contato
-                        ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a>
-                        : <span style={{ color:C.text }}>—</span>}
+                      {r.email_contato ? <a href={`mailto:${r.email_contato}`} style={{ color:C.navy, textDecoration:'none' }}>{r.email_contato}</a> : <span style={{ color:C.text }}>—</span>}
                     </td>
                     <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
                     <td style={{ padding:'10px 12px' }}>
