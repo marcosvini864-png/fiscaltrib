@@ -13,15 +13,15 @@ const maskFone = v => { const n=v.replace(/\D/g,'').slice(0,11); if(n.length<=10
 const hoje = () => new Date().toISOString().split('T')[0];
 const daqui = (dias) => { const d = new Date(); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0]; };
 
-const STATUS_LIST = [
-  { key: 'Novo',               cor: '#3B82F6', bg: '#EFF6FF' },
-  { key: 'Primeiro Contato',   cor: '#8B5CF6', bg: '#F5F3FF' },
-  { key: 'Aguardando Retorno', cor: '#F59E0B', bg: '#FFFBEB' },
-  { key: 'Visita Agendada',    cor: '#06B6D4', bg: '#ECFEFF' },
-  { key: 'Proposta Enviada',   cor: '#F97316', bg: '#FFF7ED' },
-  { key: 'Negociação',         cor: '#EF4444', bg: '#FEF2F2' },
-  { key: 'Cliente Fechado',    cor: '#16A34A', bg: '#F0FDF4' },
-  { key: 'Perdido',            cor: '#6B7280', bg: '#F9FAFB' },
+const DEFAULT_COLUNAS = [
+  { key: 'col1', label: 'Novo',               cor: '#3B82F6', bg: '#EFF6FF' },
+  { key: 'col2', label: 'Primeiro Contato',   cor: '#8B5CF6', bg: '#F5F3FF' },
+  { key: 'col3', label: 'Aguardando Retorno', cor: '#F59E0B', bg: '#FFFBEB' },
+  { key: 'col4', label: 'Visita Agendada',    cor: '#06B6D4', bg: '#ECFEFF' },
+  { key: 'col5', label: 'Proposta Enviada',   cor: '#F97316', bg: '#FFF7ED' },
+  { key: 'col6', label: 'Negociação',         cor: '#EF4444', bg: '#FEF2F2' },
+  { key: 'col7', label: 'Cliente Fechado',    cor: '#16A34A', bg: '#F0FDF4' },
+  { key: 'col8', label: 'Perdido',            cor: '#6B7280', bg: '#F9FAFB' },
 ];
 
 const TEMP_LIST = [
@@ -51,12 +51,28 @@ const btnPrimary = { padding:'8px 20px', borderRadius:8, background:'#0B1F4D', c
 const btnOutline = { padding:'8px 20px', borderRadius:8, background:'#fff', color:'#0B1F4D', border:'1.5px solid #0B1F4D', fontWeight:600, cursor:'pointer', fontSize:13 };
 const btnWarning = { padding:'8px 20px', borderRadius:8, background:'#F59E0B', color:'#fff', border:'none', fontWeight:600, cursor:'pointer', fontSize:13 };
 
-function getStatus(key) { return STATUS_LIST.find(s => s.key === key) || STATUS_LIST[0]; }
 function getTemp(key) { return TEMP_LIST.find(t => t.key === key) || TEMP_LIST[2]; }
+
+function loadColunas() {
+  try {
+    const saved = localStorage.getItem('fiscaltrib_kanban_colunas');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Mantém cores originais mas usa labels salvos
+      return DEFAULT_COLUNAS.map((d, i) => ({ ...d, label: parsed[i]?.label || d.label }));
+    }
+  } catch(e) {}
+  return DEFAULT_COLUNAS;
+}
+
+function saveColunas(colunas) {
+  localStorage.setItem('fiscaltrib_kanban_colunas', JSON.stringify(colunas));
+}
 
 export default function Prospeccao({ onVoltar }) {
   const [tela, setTela] = useState('dashboard');
-  const [viewMode, setViewMode] = useState('lista'); // 'lista' | 'kanban'
+  const [viewMode, setViewMode] = useState('lista');
+  const [colunas, setColunas] = useState(loadColunas);
   const [registros, setRegistros] = useState([]);
   const [loadingLista, setLoadingLista] = useState(true);
   const [busca, setBusca] = useState('');
@@ -67,8 +83,9 @@ export default function Prospeccao({ onVoltar }) {
   const [erro, setErro] = useState('');
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [editandoColuna, setEditandoColuna] = useState(null);
+  const [labelTemp, setLabelTemp] = useState('');
   const dragItem = useRef(null);
-  const dragOverCol = useRef(null);
 
   const docLimpo = doc.replace(/\D/g, '');
 
@@ -82,6 +99,13 @@ export default function Prospeccao({ onVoltar }) {
       .order('data_proxima_acao', { ascending: true, nullsFirst: false });
     setRegistros(data || []);
     setLoadingLista(false);
+  }
+
+  function renomearColuna(key, novoLabel) {
+    const novas = colunas.map(c => c.key === key ? { ...c, label: novoLabel } : c);
+    setColunas(novas);
+    saveColunas(novas);
+    setEditandoColuna(null);
   }
 
   const formatarDoc = (v) => {
@@ -119,7 +143,8 @@ export default function Prospeccao({ onVoltar }) {
         endereco_uf: rec?.endereco_uf || null,
         endereco_cep: rec?.endereco_cep || null,
         socios: rec?.socios || [],
-        status_lead: 'Novo', status_prospeccao: 'PENDENTE', temperatura: 'frio',
+        status_lead: colunas[0].label,
+        status_prospeccao: 'PENDENTE', temperatura: 'frio',
       };
       const { data: saved, error: saveErr } = await supabase.from('prospeccao_clientes').insert([payload]).select().single();
       if (saveErr) throw saveErr;
@@ -220,7 +245,6 @@ export default function Prospeccao({ onVoltar }) {
     <div class="section"><h3>🎯 Próxima Ação</h3><div class="grid">
       <div class="field"><label>Ação</label><span>${e.proxima_acao||'—'}</span></div>
       <div class="field"><label>Data/Hora</label><span>${e.data_proxima_acao||'—'} ${e.hora_proxima_acao||''}</span></div>
-      <div class="field"><label>Último Contato</label><span>${e.ultimo_contato||'—'}</span></div>
     </div></div>
     <div class="section"><h3>👥 Sócios</h3><p style="white-space:pre-line;font-size:13px">${socios}</p></div>
     <div class="section"><h3>⚖️ Situação Judicial</h3><div class="grid">
@@ -247,18 +271,16 @@ export default function Prospeccao({ onVoltar }) {
   const hoje_str = hoje();
   const proximos3_str = daqui(3);
   const total = registros.length;
-  const porStatus = (s) => registros.filter(r => r.status_lead === s).length;
-  const atrasados = registros.filter(r => r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido').length;
+  const porStatus = (label) => registros.filter(r => r.status_lead === label).length;
+  const atrasados = registros.filter(r => r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== colunas[6].label && r.status_lead !== colunas[7].label).length;
   const paraHoje = registros.filter(r =>
     r.data_proxima_acao && r.data_proxima_acao >= hoje_str && r.data_proxima_acao <= proximos3_str &&
-    r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido'
+    r.status_lead !== colunas[6].label && r.status_lead !== colunas[7].label
   );
   const prioridades = registros.filter(r =>
-    r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido' &&
+    r.status_lead !== colunas[6].label && r.status_lead !== colunas[7].label &&
     ((r.data_proxima_acao && r.data_proxima_acao <= proximos3_str) || r.temperatura === 'quente')
   ).sort((a, b) => (a.data_proxima_acao || '9999') > (b.data_proxima_acao || '9999') ? 1 : -1).slice(0, 6);
-
-  const FUNIL = STATUS_LIST.slice(0, 6);
 
   const registrosFiltrados = registros.filter(r => {
     const matchBusca = (r.razao_social||'').toLowerCase().includes(busca.toLowerCase()) ||
@@ -281,35 +303,35 @@ export default function Prospeccao({ onVoltar }) {
         onClick={() => { setEditando({...r}); setTela('editar'); }}
         style={{
           background: atrasado ? '#FEF2F2' : '#FFFFFF',
-          border: `1px solid ${atrasado ? '#FECACA' : C.border}`,
-          borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
+          border: `1px solid ${atrasado ? '#FECACA' : '#E2E8F0'}`,
+          borderRadius: 8, padding: '10px 12px', cursor: 'grab',
           marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-          transition: 'box-shadow 0.15s',
         }}
-        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'}
         onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}
       >
-        <div style={{ fontSize:12, fontWeight:700, color:C.textLight, marginBottom:4, lineHeight:1.3 }}>
+        <div style={{ fontSize:12, fontWeight:700, color:'#1E293B', marginBottom:4, lineHeight:1.3 }}>
           {r.razao_social || '—'}
         </div>
-        {r.contato_nome && <div style={{ fontSize:11, color:C.text, marginBottom:3 }}>👤 {r.contato_nome}</div>}
+        {r.contato_nome && <div style={{ fontSize:11, color:'#64748B', marginBottom:3 }}>👤 {r.contato_nome}</div>}
         {r.telefone && (
-          <div style={{ fontSize:11, color:C.navy, marginBottom:3 }}>
-            📞 <a href={`tel:${r.telefone}`} onClick={e => e.stopPropagation()} style={{ color:C.navy, textDecoration:'none' }}>{r.telefone}</a>
-            {r.whatsapp && <> · <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color:'#16A34A', textDecoration:'none' }}>📱 {r.whatsapp}</a></>}
+          <div style={{ fontSize:11, marginBottom:3 }}>
+            📞 <a href={`tel:${r.telefone}`} onClick={e => e.stopPropagation()} style={{ color:C.navy, textDecoration:'none', fontWeight:600 }}>{r.telefone}</a>
+            {r.whatsapp && <> · <a href={`https://wa.me/55${r.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color:'#16A34A', textDecoration:'none', fontWeight:600 }}>📱 {r.whatsapp}</a></>}
           </div>
         )}
-        {r.endereco_municipio && <div style={{ fontSize:11, color:C.text, marginBottom:4 }}>📍 {r.endereco_municipio}/{r.endereco_uf}</div>}
+        {r.email_contato && <div style={{ fontSize:11, color:C.navy, marginBottom:3 }}>✉️ {r.email_contato}</div>}
+        {r.endereco_municipio && <div style={{ fontSize:11, color:'#64748B', marginBottom:4 }}>📍 {r.endereco_municipio}/{r.endereco_uf}</div>}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:6 }}>
           <span style={{ fontSize:10, color:temp.cor, fontWeight:700 }}>{temp.label}</span>
           {r.data_proxima_acao && (
-            <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
+            <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : '#64748B' }}>
               {atrasado ? '⚠️ Atrasado' : ehHoje ? '🔔 Hoje' : r.data_proxima_acao}
             </span>
           )}
         </div>
         {r.proxima_acao && (
-          <div style={{ fontSize:10, color: atrasado ? '#DC2626' : C.text, marginTop:3, fontStyle:'italic' }}>
+          <div style={{ fontSize:10, color: atrasado ? '#DC2626' : '#64748B', marginTop:3, fontStyle:'italic' }}>
             → {r.proxima_acao}
           </div>
         )}
@@ -318,38 +340,66 @@ export default function Prospeccao({ onVoltar }) {
   }
 
   // ── KANBAN COLUMN ──
-  function KanbanCol({ status }) {
-    const st = getStatus(status.key);
-    const cards = registrosFiltrados.filter(r => r.status_lead === status.key);
+  function KanbanCol({ col }) {
+    const cards = registrosFiltrados.filter(r => r.status_lead === col.label);
     const [over, setOver] = useState(false);
+    const editandoEsta = editandoColuna === col.key;
+
     return (
       <div
-        onDragOver={e => { e.preventDefault(); dragOverCol.current = status.key; setOver(true); }}
+        onDragOver={e => { e.preventDefault(); setOver(true); }}
         onDragLeave={() => setOver(false)}
         onDrop={async () => {
           setOver(false);
-          if (dragItem.current && dragItem.current.status_lead !== status.key) {
-            await moverCard(dragItem.current.id, status.key);
+          if (dragItem.current && dragItem.current.status_lead !== col.label) {
+            await moverCard(dragItem.current.id, col.label);
             dragItem.current = null;
           }
         }}
         style={{
           minWidth: 220, maxWidth: 240, flexShrink: 0,
-          background: over ? st.bg : '#F1F5F9',
+          background: over ? col.bg : '#F1F5F9',
           borderRadius: 10, padding: 10,
-          border: `2px solid ${over ? st.cor : 'transparent'}`,
+          border: `2px solid ${over ? col.cor : 'transparent'}`,
           transition: 'all 0.15s',
           display: 'flex', flexDirection: 'column',
         }}
       >
+        {/* Header da coluna */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-          <span style={{ fontSize:12, fontWeight:700, color:st.cor }}>{status.key}</span>
-          <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700 }}>{cards.length}</span>
+          {editandoEsta ? (
+            <input
+              autoFocus
+              value={labelTemp}
+              onChange={e => setLabelTemp(e.target.value)}
+              onBlur={() => renomearColuna(col.key, labelTemp || col.label)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') renomearColuna(col.key, labelTemp || col.label);
+                if (e.key === 'Escape') setEditandoColuna(null);
+              }}
+              style={{ fontSize:12, fontWeight:700, color:'#1E293B', border:'1px solid #C8D0DC', borderRadius:4, padding:'2px 6px', width:130, background:'#fff' }}
+            />
+          ) : (
+            <span
+              title="Duplo clique para renomear"
+              onDoubleClick={() => { setEditandoColuna(col.key); setLabelTemp(col.label); }}
+              style={{ fontSize:12, fontWeight:700, color:'#1E293B', cursor:'text', borderBottom:'1px dashed transparent', userSelect:'none' }}
+              onMouseEnter={e => e.currentTarget.style.borderBottomColor='#94A3B8'}
+              onMouseLeave={e => e.currentTarget.style.borderBottomColor='transparent'}
+            >
+              {col.label}
+            </span>
+          )}
+          <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700, border:`1px solid ${col.cor}` }}>{cards.length}</span>
         </div>
-        <div style={{ flex:1, overflowY:'auto', maxHeight:'calc(100vh - 280px)', paddingRight:2 }}>
+        {!editandoEsta && (
+          <div style={{ fontSize:9, color:'#94A3B8', marginBottom:6, marginTop:-6 }}>✏️ Duplo clique para renomear</div>
+        )}
+
+        <div style={{ flex:1, overflowY:'auto', maxHeight:'calc(100vh - 300px)', paddingRight:2 }}>
           {cards.map(r => <KanbanCard key={r.id} r={r} />)}
           {cards.length === 0 && (
-            <div style={{ textAlign:'center', padding:'20px 8px', fontSize:12, color:C.text, opacity:0.6 }}>
+            <div style={{ textAlign:'center', padding:'20px 8px', fontSize:12, color:'#94A3B8', border:'2px dashed #E2E8F0', borderRadius:8, marginTop:4 }}>
               Arraste um card aqui
             </div>
           )}
@@ -358,8 +408,8 @@ export default function Prospeccao({ onVoltar }) {
     );
   }
 
-  // ── HEADER LISTA/KANBAN COMPARTILHADO ──
-  function ListaKanbanHeader() {
+  // ── LISTA/KANBAN COMPARTILHADO ──
+  function ListaKanbanView() {
     return (
       <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
         <button onClick={() => setTela('dashboard')} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar ao Cockpit</button>
@@ -370,8 +420,7 @@ export default function Prospeccao({ onVoltar }) {
             </div>
             <div style={{ fontSize:13, color:C.text }}>{registrosFiltrados.length} de {registros.length} registros</div>
           </div>
-          <div style={{ display:'flex', gap:10 }}>
-            {/* Toggle Lista/Kanban */}
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
             <div style={{ display:'flex', background:'#E2E8F0', borderRadius:8, padding:3 }}>
               <button onClick={() => setViewMode('lista')}
                 style={{ padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
@@ -397,22 +446,22 @@ export default function Prospeccao({ onVoltar }) {
           {viewMode === 'lista' && (
             <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width:200 }}>
               <option value=''>Todos os status</option>
-              {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
+              {colunas.map(c => <option key={c.key}>{c.label}</option>)}
             </select>
           )}
-          {filtroStatus && <button onClick={() => setFiltroStatus('')} style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>✕ Limpar filtro</button>}
+          {filtroStatus && <button onClick={() => setFiltroStatus('')} style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>✕ Limpar</button>}
         </div>
 
         {loadingLista && <div style={{ color:C.text, textAlign:'center', padding:40 }}>Carregando...</div>}
 
-        {/* ── KANBAN VIEW ── */}
+        {/* KANBAN */}
         {!loadingLista && viewMode === 'kanban' && (
           <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:16, alignItems:'flex-start' }}>
-            {STATUS_LIST.map(s => <KanbanCol key={s.key} status={s} />)}
+            {colunas.map(col => <KanbanCol key={col.key} col={col} />)}
           </div>
         )}
 
-        {/* ── LISTA VIEW ── */}
+        {/* LISTA */}
         {!loadingLista && viewMode === 'lista' && (
           <>
             {registrosFiltrados.length === 0 && (
@@ -421,8 +470,8 @@ export default function Prospeccao({ onVoltar }) {
                 <div style={{ fontSize:16, fontWeight:600, color:C.textLight }}>Nenhum registro encontrado</div>
               </div>
             )}
-            <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'auto' }}>
-              {registrosFiltrados.length > 0 && (
+            {registrosFiltrados.length > 0 && (
+              <div style={{ background:C.card, borderRadius:12, border:`1px solid ${C.border}`, overflow:'auto' }}>
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                   <thead>
                     <tr style={{ background:'#F8FAFC' }}>
@@ -433,9 +482,9 @@ export default function Prospeccao({ onVoltar }) {
                   </thead>
                   <tbody>
                     {registrosFiltrados.map(r => {
-                      const st = getStatus(r.status_lead);
+                      const col = colunas.find(c => c.label === r.status_lead) || colunas[0];
                       const temp = getTemp(r.temperatura);
-                      const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== 'Cliente Fechado' && r.status_lead !== 'Perdido';
+                      const atrasado = r.data_proxima_acao && r.data_proxima_acao < hoje_str && r.status_lead !== colunas[6].label && r.status_lead !== colunas[7].label;
                       return (
                         <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, background: atrasado ? '#FEF2F2' : 'transparent' }}
                           onMouseEnter={e => e.currentTarget.style.background = atrasado ? '#FEE2E2' : '#F8FAFC'}
@@ -453,7 +502,7 @@ export default function Prospeccao({ onVoltar }) {
                           </td>
                           <td style={{ padding:'10px 12px', color:C.text, whiteSpace:'nowrap' }}>{r.endereco_municipio || '—'}/{r.endereco_uf || '—'}</td>
                           <td style={{ padding:'10px 12px' }}>
-                            <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
+                            <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, whiteSpace:'nowrap' }}>• {r.status_lead}</span>
                           </td>
                           <td style={{ padding:'10px 12px', whiteSpace:'nowrap', color:temp.cor, fontWeight:600, fontSize:11 }}>{temp.label}</td>
                           <td style={{ padding:'10px 12px', color: atrasado ? '#DC2626' : C.textLight, fontWeight: atrasado ? 600 : 400, whiteSpace:'nowrap' }}>
@@ -471,8 +520,8 @@ export default function Prospeccao({ onVoltar }) {
                     })}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -497,8 +546,8 @@ export default function Prospeccao({ onVoltar }) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
         {[
           ['Total de Prospects', total, '👥', '#2563EB'],
-          ['Clientes Fechados', porStatus('Cliente Fechado'), '✅', '#16A34A'],
-          ['Em Negociação', porStatus('Negociação') + porStatus('Proposta Enviada'), '🔥', '#EA580C'],
+          ['Clientes Fechados', porStatus(colunas[6].label), '✅', '#16A34A'],
+          ['Em Negociação', porStatus(colunas[5].label) + porStatus(colunas[4].label), '🔥', '#EA580C'],
           ['Tarefas Atrasadas', atrasados, '⚠️', '#DC2626'],
         ].map(([lb, val, ic, cor]) => (
           <div key={lb} style={{ background:C.card, borderRadius:12, padding:'16px 20px', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:12 }}>
@@ -512,18 +561,13 @@ export default function Prospeccao({ onVoltar }) {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-        {[
-          ['Novos', 'Novo', '#3B82F6'],
-          ['Primeiro Contato', 'Primeiro Contato', '#8B5CF6'],
-          ['Aguard. Retorno', 'Aguardando Retorno', '#F59E0B'],
-          ['Visita Agendada', 'Visita Agendada', '#06B6D4'],
-        ].map(([lb, statusKey, cor]) => (
-          <div key={lb} onClick={() => { setFiltroStatus(statusKey); setTela('lista'); }}
+        {colunas.slice(0,4).map(col => (
+          <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }}
             style={{ background:C.card, borderRadius:10, padding:'12px 16px', border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'center' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = cor}
+            onMouseEnter={e => e.currentTarget.style.borderColor = col.cor}
             onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-            <div style={{ fontSize:20, fontWeight:700, color:cor }}>{porStatus(statusKey)}</div>
-            <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{lb}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:col.cor }}>{porStatus(col.label)}</div>
+            <div style={{ fontSize:11, color:C.text, marginTop:2 }}>{col.label}</div>
           </div>
         ))}
       </div>
@@ -537,7 +581,7 @@ export default function Prospeccao({ onVoltar }) {
           ) : (
             <div style={{ display:'grid', gap:8 }}>
               {paraHoje.map(r => {
-                const st = getStatus(r.status_lead);
+                const col = colunas.find(c => c.label === r.status_lead) || colunas[0];
                 const temp = getTemp(r.temperatura);
                 const ehHoje = r.data_proxima_acao === hoje_str;
                 return (
@@ -545,14 +589,14 @@ export default function Prospeccao({ onVoltar }) {
                     style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${ehHoje ? '#93C5FD' : C.border}`, cursor:'pointer', background: ehHoje ? '#EFF6FF' : '#F8FAFC' }}
                     onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
                     onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
                       <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
                       <span style={{ fontSize:10, color: ehHoje ? '#2563EB' : C.text, fontWeight:600 }}>{ehHoje ? '🔔 HOJE' : r.data_proxima_acao}</span>
                     </div>
                     <div style={{ fontSize:12, color:C.text, marginTop:2 }}>{r.hora_proxima_acao && `${r.hora_proxima_acao} · `}{r.proxima_acao || '—'}</div>
                     {r.telefone && <div style={{ fontSize:11, color:C.navy, marginTop:2 }}>📞 {r.telefone}{r.whatsapp && ` · 📱 ${r.whatsapp}`}</div>}
                     <div style={{ marginTop:4, display:'flex', gap:6 }}>
-                      <span style={{ background:st.bg, color:st.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
+                      <span style={{ background:col.bg, color:col.cor, padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600 }}>• {r.status_lead}</span>
                       <span style={{ fontSize:10, color:temp.cor, fontWeight:600 }}>{temp.label}</span>
                     </div>
                   </div>
@@ -578,7 +622,7 @@ export default function Prospeccao({ onVoltar }) {
                     style={{ padding:'10px 14px', borderRadius:8, border:`1px solid ${atrasado ? '#FECACA' : C.border}`, cursor:'pointer', background: atrasado ? '#FEF2F2' : '#F8FAFC' }}
                     onMouseEnter={e => e.currentTarget.style.opacity='0.85'}
                     onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
                       <span style={{ fontSize:13, fontWeight:600, color:C.textLight }}>{r.razao_social || '—'}</span>
                       <span style={{ fontSize:10, fontWeight:600, color: atrasado ? '#DC2626' : ehHoje ? '#2563EB' : C.text }}>
                         {atrasado ? '⚠️ ATRASADO' : ehHoje ? '🔔 HOJE' : r.data_proxima_acao}
@@ -598,16 +642,16 @@ export default function Prospeccao({ onVoltar }) {
       <div style={{ background:C.card, borderRadius:12, padding:20, border:`1px solid ${C.border}` }}>
         <div style={{ fontSize:14, fontWeight:700, color:C.navy, marginBottom:16 }}>🔻 Funil de Prospecção — clique para filtrar</div>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
-          {FUNIL.map((s) => {
-            const qtd = porStatus(s.key);
+          {colunas.slice(0,6).map(col => {
+            const qtd = porStatus(col.label);
             const h = Math.max(24, total > 0 ? (qtd / total) * 80 : 0);
             return (
-              <div key={s.key} onClick={() => { setFiltroStatus(s.key); setTela('lista'); }}
+              <div key={col.key} onClick={() => { setFiltroStatus(col.label); setTela('lista'); }}
                 style={{ flex:1, textAlign:'center', cursor:'pointer' }}>
-                <div style={{ fontSize:16, fontWeight:700, color:s.cor, marginBottom:4 }}>{qtd}</div>
-                <div style={{ background:s.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85 }}></div>
-                <div style={{ background:s.bg, borderRadius:'0 0 6px 6px', padding:'6px 4px', border:`1px solid ${s.cor}`, borderTop:'none' }}>
-                  <div style={{ fontSize:10, color:s.cor, fontWeight:600, lineHeight:1.2 }}>{s.key}</div>
+                <div style={{ fontSize:16, fontWeight:700, color:col.cor, marginBottom:4 }}>{qtd}</div>
+                <div style={{ background:col.cor, borderRadius:'6px 6px 0 0', height:h, opacity:0.85 }}></div>
+                <div style={{ background:col.bg, borderRadius:'0 0 6px 6px', padding:'6px 4px', border:`1px solid ${col.cor}`, borderTop:'none' }}>
+                  <div style={{ fontSize:10, color:'#1E293B', fontWeight:600, lineHeight:1.2 }}>{col.label}</div>
                 </div>
               </div>
             );
@@ -647,7 +691,7 @@ export default function Prospeccao({ onVoltar }) {
     </div>
   );
 
-  if (tela === 'lista') return <ListaKanbanHeader />;
+  if (tela === 'lista') return <ListaKanbanView />;
 
   if (tela === 'editar' && editando) {
     const uf = editando.endereco_uf || '';
@@ -686,8 +730,8 @@ export default function Prospeccao({ onVoltar }) {
           {section('🏷️ Classificação')}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             {field('Status do Lead', (
-              <select value={editando.status_lead || 'Novo'} onChange={e => setEditando({ ...editando, status_lead: e.target.value })} style={inputStyle}>
-                {STATUS_LIST.map(s => <option key={s.key}>{s.key}</option>)}
+              <select value={editando.status_lead || colunas[0].label} onChange={e => setEditando({ ...editando, status_lead: e.target.value })} style={inputStyle}>
+                {colunas.map(c => <option key={c.key}>{c.label}</option>)}
               </select>
             ))}
             {field('Temperatura', (
