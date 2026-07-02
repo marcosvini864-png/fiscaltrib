@@ -352,7 +352,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
     setSalvandoNovo(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:novoNome, cnpj:novoCnpj }]).select()
+      const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:'', cnpj:novoCnpj, regime:'Simples Nacional', municipio:'', uf:'', cnae_principal:'', competencia_inicio:'', competencia_fim:'', responsavel_contabil:'', observacoes:'' }]).select()
       if(error) throw error
       if(data?.[0]) {
         onCadastrarNovo({ razao_social:data[0].razao_social, cnpj:data[0].cnpj })
