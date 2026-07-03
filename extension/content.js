@@ -364,7 +364,7 @@ function renderMensagens(busca) {
 
     const btnEnviar = document.createElement('button');
     btnEnviar.style.cssText = 'background:none;border:none;cursor:pointer;color:#00A884;padding:4px;flex-shrink:0;';
-    btnEnviar.title = tipo === 'audio' ? 'Baixar áudio' : 'Enviar no WhatsApp';
+    btnEnviar.title = 'Enviar no WhatsApp';
     btnEnviar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
     btnEnviar.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -424,44 +424,6 @@ function dispararEventoDrop(alvo, dataTransfer, tipoEvento) {
   alvo.dispatchEvent(evento);
 }
 
-function mostrarAvisoDownload() {
-  const aviso = document.createElement('div');
-  aviso.style.cssText = `
-    position: fixed;
-    bottom: 24px;
-    left: ${LARGURA_BARRA + 20}px;
-    background: #0B1F4D;
-    color: #fff;
-    padding: 16px 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
-    font-size: 13px;
-    max-width: 320px;
-    line-height: 1.6;
-  `;
-  aviso.innerHTML = `
-    <div style="font-weight:700;margin-bottom:6px;">🎤 Áudio baixado!</div>
-    <div>Agora clica no <b>clipe 📎</b> do WhatsApp → <b>Áudio</b> → escolhe o arquivo (vai estar no topo, é o mais recente).</div>
-    <button id="ft-fechar-aviso" style="margin-top:10px;background:rgba(255,255,255,0.15);border:none;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Entendi</button>
-  `;
-  document.body.appendChild(aviso);
-  aviso.querySelector('#ft-fechar-aviso').addEventListener('click', () => aviso.remove());
-  setTimeout(() => { if (aviso.parentElement) aviso.remove(); }, 10000);
-}
-
-async function baixarAudio(file) {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
 async function enviarMensagem(m, btnEl) {
   if (enviandoAgora) return;
   const tipo = m.tipo_conteudo || 'texto';
@@ -473,6 +435,9 @@ async function enviarMensagem(m, btnEl) {
 
   if (!m.midia_url) { alert('Esta mensagem não tem arquivo anexado.'); return; }
 
+  const areaDrop = encontrarAreaDrop();
+  if (!areaDrop) { alert('Abra uma conversa primeiro!'); return; }
+
   enviandoAgora = true;
   const textoOriginalBtn = btnEl ? btnEl.innerHTML : null;
   if (btnEl) btnEl.innerHTML = '⏳';
@@ -481,30 +446,21 @@ async function enviarMensagem(m, btnEl) {
     const res = await fetch(m.midia_url);
     if (!res.ok) throw new Error('Falha ao baixar arquivo: status ' + res.status);
     const blob = await res.blob();
+    console.log('[FiscalTrib] Arquivo baixado:', { tipo, tamanho: blob.size, mimeOriginal: blob.type });
 
     let mime = blob.type;
     let ext = 'bin';
     if (mime) {
-      if (mime.includes('webm')) ext = 'webm';
+      if (mime.includes('mpeg') || mime.includes('mp3')) ext = 'mp3';
+      else if (mime.includes('webm')) ext = 'webm';
       else if (mime.includes('wav')) ext = 'wav';
       else if (mime.includes('ogg')) ext = 'ogg';
-      else if (mime.includes('mp4') || mime.includes('mpeg')) ext = 'mp4';
-      else if (mime.includes('mp3')) ext = 'mp3';
+      else if (mime.includes('mp4')) ext = 'mp4';
       else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
       else if (mime.includes('png')) ext = 'png';
     }
-    const file = new File([blob], `fiscaltrib-audio-${Date.now()}.${ext}`, { type: mime });
-
-    if (tipo === 'audio') {
-      await baixarAudio(file);
-      mostrarAvisoDownload();
-      enviandoAgora = false;
-      if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
-      return;
-    }
-
-    const areaDrop = encontrarAreaDrop();
-    if (!areaDrop) { alert('Abra uma conversa primeiro!'); enviandoAgora = false; if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn; return; }
+    const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
+    console.log('[FiscalTrib] Arquivo final que sera enviado (drag-and-drop):', { nome: file.name, tipo: file.type, tamanho: file.size });
 
     const dt = new DataTransfer();
     dt.items.add(file);
@@ -514,17 +470,18 @@ async function enviarMensagem(m, btnEl) {
 
     setTimeout(() => {
       const clicou = clicarBotaoEnviar();
+      console.log('[FiscalTrib] Tentativa de clicar em enviar. Sucesso:', clicou);
       if (!clicou) {
         const campo = encontrarCampoDigitacao();
         if (campo) campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
       }
       enviandoAgora = false;
       if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
-    }, 1000);
+    }, 1200);
 
   } catch (e) {
-    console.error('[FiscalTrib] Erro ao processar mídia:', e);
-    alert('Erro ao processar arquivo. Tente novamente.');
+    console.error('[FiscalTrib] Erro ao enviar mídia:', e);
+    alert('Erro ao enviar arquivo. Tente novamente.');
     enviandoAgora = false;
     if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
   }
