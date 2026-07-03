@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
+import { Mp3Encoder } from '@breezystack/lamejs';
 
 const C = {
   bg: '#E4E7EC', card: '#FFFFFF', border: '#C8D0DC',
@@ -29,55 +30,50 @@ function formatarTempo(segundos) {
   return `${m}:${s}`;
 }
 
-function bufferParaWav(abuffer) {
-  const numOfChan = abuffer.numberOfChannels;
-  const length = abuffer.length * numOfChan * 2 + 44;
-  const bufferArr = new ArrayBuffer(length);
-  const view = new DataView(bufferArr);
-  const channels = [];
-  let offset = 0;
-  let pos = 0;
-
-  function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-  function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-
-  setUint32(0x46464952);
-  setUint32(length - 8);
-  setUint32(0x45564157);
-  setUint32(0x20746d66);
-  setUint32(16);
-  setUint16(1);
-  setUint16(numOfChan);
-  setUint32(abuffer.sampleRate);
-  setUint32(abuffer.sampleRate * 2 * numOfChan);
-  setUint16(numOfChan * 2);
-  setUint16(16);
-  setUint32(0x61746164);
-  setUint32(length - pos - 4);
-
-  for (let i = 0; i < numOfChan; i++) channels.push(abuffer.getChannelData(i));
-
-  while (pos < length) {
-    for (let i = 0; i < numOfChan; i++) {
-      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-      view.setInt16(pos, sample | 0, true);
-      pos += 2;
-    }
-    offset++;
+function floatParaInt16(floatData) {
+  const int16 = new Int16Array(floatData.length);
+  for (let i = 0; i < floatData.length; i++) {
+    const s = Math.max(-1, Math.min(1, floatData[i]));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
   }
-
-  return new Blob([bufferArr], { type: 'audio/wav' });
+  return int16;
 }
 
-async function converterParaWav(blob) {
+function bufferParaMp3(audioBuffer) {
+  const canais = Math.min(audioBuffer.numberOfChannels, 2);
+  const sampleRate = audioBuffer.sampleRate;
+  const encoder = new Mp3Encoder(canais, sampleRate, 128);
+  const blockSize = 1152;
+  const mp3Data = [];
+
+  const canal0 = floatParaInt16(audioBuffer.getChannelData(0));
+  const canal1 = canais > 1 ? floatParaInt16(audioBuffer.getChannelData(1)) : null;
+
+  for (let i = 0; i < canal0.length; i += blockSize) {
+    const chunk0 = canal0.subarray(i, i + blockSize);
+    let mp3buf;
+    if (canal1) {
+      const chunk1 = canal1.subarray(i, i + blockSize);
+      mp3buf = encoder.encodeBuffer(chunk0, chunk1);
+    } else {
+      mp3buf = encoder.encodeBuffer(chunk0);
+    }
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+  }
+  const final = encoder.flush();
+  if (final.length > 0) mp3Data.push(final);
+
+  return new Blob(mp3Data, { type: 'audio/mpeg' });
+}
+
+async function converterParaMp3(blob) {
   const arrayBuffer = await blob.arrayBuffer();
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const audioCtx = new AudioContextClass();
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  const wavBlob = bufferParaWav(audioBuffer);
+  const mp3Blob = bufferParaMp3(audioBuffer);
   audioCtx.close();
-  return wavBlob;
+  return mp3Blob;
 }
 
 function PreviewMidia({ tipo, url }) {
@@ -209,11 +205,11 @@ export default function MensagensRapidas({ onVoltar }) {
   async function uploadAudioComConversao(idx, file) {
     setConvertendoIdx(idx);
     try {
-      const wavBlob = await converterParaWav(file);
-      const wavFile = new File([wavBlob], `audio-${gerarId()}.wav`, { type: 'audio/wav' });
-      await uploadArquivo(idx, wavFile);
+      const mp3Blob = await converterParaMp3(file);
+      const mp3File = new File([mp3Blob], `audio-${gerarId()}.mp3`, { type: 'audio/mpeg' });
+      await uploadArquivo(idx, mp3File);
     } catch (e) {
-      alert('Erro ao converter áudio para formato compatível: ' + e.message);
+      alert('Erro ao converter áudio para MP3: ' + e.message);
     } finally {
       setConvertendoIdx(null);
     }
@@ -389,11 +385,11 @@ export default function MensagensRapidas({ onVoltar }) {
                     </div>
                   )}
 
-                  {convertendoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Convertendo áudio para formato compatível...</div>}
+                  {convertendoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Convertendo para MP3...</div>}
                   {enviandoIdx === i && convertendoIdx !== i && <div style={{ fontSize:11, color:C.navy }}>Enviando áudio...</div>}
                   {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && convertendoIdx !== i && (
                     <>
-                      <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>
+                      <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado (MP3)</div>
                       <PreviewMidia tipo="audio" url={m.midia_url} />
                     </>
                   )}
