@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 280px;
+      padding: 16px;
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 13px;
+      color: #1E293B;
+      margin: 0;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .logo h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0B1F4D;
+      margin: 0;
+    }
+    .logo p {
+      font-size: 11px;
+      color: #64748B;
+      margin: 4px 0 0;
+    }
+    input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #C8D0DC;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #0B1F4D;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    button:hover { background: #163B8C; }
+    .error { color: #DC2626; font-size: 12px; text-align: center; margin-bottom: 8px; }
+    .success { color: #16A34A; font-size: 12px; text-align: center; margin-bottom: 8px; }
+    .status-box {
+      background: #F0FDF4;
+      border: 1px solid #86EFAC;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .status-box .name { font-weight: 700; color: #0B1F4D; margin-bottom: 4px; }
+    .status-box .plan { font-size: 11px; color: #16A34A; }
+    .btn-logout {
+      background: #F59E0B;
+      margin-top: 8px;
+    }
+    .btn-open {
+      background: #16A34A;
+      margin-top: 4px;
+    }
+    #login-form, #status-form { display: none; }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <h1>🎯 FiscalTrib CRM</h1>
+    <p>Integração WhatsApp Web</p>
+  </div>
+
+  <div id="login-form">
+    <input type="email" id="email" placeholder="Seu e-mail do FiscalTrib" />
+    <input type="password" id="password" placeholder="Sua senha" />
+    <div id="error-msg" class="error" style="display:none"></div>
+    <button id="btn-login">Entrar</button>
+  </div>
+
+  <div id="status-form">
+    <div class="status-box">
+      <div class="name" id="user-name">Carregando...</div>
+      <div class="plan" id="user-plan">✅ Assinatura ativa</div>
+    </div>
+    <button class="btn-open" id="btn-open">Abrir painel no WhatsApp</button>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
