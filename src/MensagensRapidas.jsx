@@ -29,6 +29,57 @@ function formatarTempo(segundos) {
   return `${m}:${s}`;
 }
 
+function bufferParaWav(abuffer) {
+  const numOfChan = abuffer.numberOfChannels;
+  const length = abuffer.length * numOfChan * 2 + 44;
+  const bufferArr = new ArrayBuffer(length);
+  const view = new DataView(bufferArr);
+  const channels = [];
+  let offset = 0;
+  let pos = 0;
+
+  function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+  function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+  setUint32(0x46464952);
+  setUint32(length - 8);
+  setUint32(0x45564157);
+  setUint32(0x20746d66);
+  setUint32(16);
+  setUint16(1);
+  setUint16(numOfChan);
+  setUint32(abuffer.sampleRate);
+  setUint32(abuffer.sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16);
+  setUint32(0x61746164);
+  setUint32(length - pos - 4);
+
+  for (let i = 0; i < numOfChan; i++) channels.push(abuffer.getChannelData(i));
+
+  while (pos < length) {
+    for (let i = 0; i < numOfChan; i++) {
+      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(pos, sample | 0, true);
+      pos += 2;
+    }
+    offset++;
+  }
+
+  return new Blob([bufferArr], { type: 'audio/wav' });
+}
+
+async function converterParaWav(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContextClass();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const wavBlob = bufferParaWav(audioBuffer);
+  audioCtx.close();
+  return wavBlob;
+}
+
 function PreviewMidia({ tipo, url }) {
   if (!url) return null;
   if (tipo === 'audio') {
@@ -54,6 +105,7 @@ export default function MensagensRapidas({ onVoltar }) {
   const [enviandoIdx, setEnviandoIdx] = useState(null);
   const [gravandoIdx, setGravandoIdx] = useState(null);
   const [tempoGravacao, setTempoGravacao] = useState(0);
+  const [convertendoIdx, setConvertendoIdx] = useState(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
@@ -150,6 +202,19 @@ export default function MensagensRapidas({ onVoltar }) {
     }
   }
 
+  async function uploadAudioComConversao(idx, file) {
+    setConvertendoIdx(idx);
+    try {
+      const wavBlob = await converterParaWav(file);
+      const wavFile = new File([wavBlob], `audio-${gerarId()}.wav`, { type: 'audio/wav' });
+      await uploadArquivo(idx, wavFile);
+    } catch (e) {
+      alert('Erro ao converter áudio para formato compatível: ' + e.message);
+    } finally {
+      setConvertendoIdx(null);
+    }
+  }
+
   async function iniciarGravacao(idx) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -158,9 +223,8 @@ export default function MensagensRapidas({ onVoltar }) {
       recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
       recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `gravacao-${gerarId()}.webm`, { type: 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
-        await uploadArquivo(idx, file);
+        await uploadAudioComConversao(idx, blob);
       };
       mediaRecorderRef.current = recorder;
       recorder.start();
@@ -298,12 +362,12 @@ export default function MensagensRapidas({ onVoltar }) {
                         style={{ ...btnWarning, padding:'6px 14px', fontSize:12 }}>⏹ Parar gravação</button>
                     ) : (
                       <button type="button" onClick={() => iniciarGravacao(i)}
-                        disabled={gravandoIdx !== null}
+                        disabled={gravandoIdx !== null || convertendoIdx === i}
                         style={{ ...btnOutline, padding:'6px 14px', fontSize:12 }}>🎙 Gravar</button>
                     )}
                     <span style={{ fontSize:11, color:C.text }}>ou envie um áudio pronto:</span>
-                    <input type="file" accept="audio/*" onChange={e => uploadArquivo(i, e.target.files[0])}
-                      disabled={enviandoIdx === i} style={{ fontSize:12 }} />
+                    <input type="file" accept="audio/*" onChange={e => uploadAudioComConversao(i, e.target.files[0])}
+                      disabled={enviandoIdx === i || convertendoIdx === i} style={{ fontSize:12 }} />
                   </div>
 
                   {gravandoIdx === i && (
@@ -313,8 +377,9 @@ export default function MensagensRapidas({ onVoltar }) {
                     </div>
                   )}
 
-                  {enviandoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Enviando áudio...</div>}
-                  {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && (
+                  {convertendoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Convertendo áudio para formato compatível...</div>}
+                  {enviandoIdx === i && convertendoIdx !== i && <div style={{ fontSize:11, color:C.navy }}>Enviando áudio...</div>}
+                  {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && convertendoIdx !== i && (
                     <>
                       <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>
                       <PreviewMidia tipo="audio" url={m.midia_url} />
