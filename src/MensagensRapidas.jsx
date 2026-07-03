@@ -23,6 +23,12 @@ const BUCKET = 'midias-mensagens';
 
 function gerarId() { return Math.random().toString(36).slice(2,10); }
 
+function formatarTempo(segundos) {
+  const m = Math.floor(segundos / 60).toString().padStart(2, '0');
+  const s = (segundos % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 export default function MensagensRapidas({ onVoltar }) {
   const [sequencias, setSequencias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,10 +39,16 @@ export default function MensagensRapidas({ onVoltar }) {
   const [mensagens, setMensagens] = useState([{ texto: '', tipo_conteudo: 'texto', midia_url: '', ordem: 1 }]);
   const [enviandoIdx, setEnviandoIdx] = useState(null);
   const [gravandoIdx, setGravandoIdx] = useState(null);
+  const [tempoGravacao, setTempoGravacao] = useState(0);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const timerRef = useRef(null);
 
   useEffect(() => { carregarSequencias(); }, []);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   async function carregarSequencias() {
     setLoading(true);
@@ -139,6 +151,10 @@ export default function MensagensRapidas({ onVoltar }) {
       mediaRecorderRef.current = recorder;
       recorder.start();
       setGravandoIdx(idx);
+      setTempoGravacao(0);
+      timerRef.current = setInterval(() => {
+        setTempoGravacao(prev => prev + 1);
+      }, 1000);
     } catch (e) {
       alert('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
     }
@@ -146,7 +162,9 @@ export default function MensagensRapidas({ onVoltar }) {
 
   function pararGravacao() {
     if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     setGravandoIdx(null);
+    setTempoGravacao(0);
   }
 
   async function salvar() {
@@ -199,6 +217,13 @@ export default function MensagensRapidas({ onVoltar }) {
   // — FORMULÁRIO —
   if (tela === 'nova' || tela === 'editar') return (
     <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
+      <style>{`
+        @keyframes ft-pulse {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.3); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
       <button onClick={voltarLista} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div style={{ fontSize:20, fontWeight:700, color:C.textLight, marginBottom:12 }}>
@@ -261,8 +286,16 @@ export default function MensagensRapidas({ onVoltar }) {
                     <input type="file" accept="audio/*" onChange={e => uploadArquivo(i, e.target.files[0])}
                       disabled={enviandoIdx === i} style={{ fontSize:12 }} />
                   </div>
+
+                  {gravandoIdx === i && (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'8px 14px' }}>
+                      <div style={{ width:10, height:10, borderRadius:'50%', background:'#DC2626', animation:'ft-pulse 1.2s ease-in-out infinite' }} />
+                      <span style={{ fontSize:13, fontWeight:700, color:'#DC2626' }}>Gravando... {formatarTempo(tempoGravacao)}</span>
+                    </div>
+                  )}
+
                   {enviandoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Enviando áudio...</div>}
-                  {m.midia_url && enviandoIdx !== i && <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>}
+                  {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>}
                 </div>
               )}
 

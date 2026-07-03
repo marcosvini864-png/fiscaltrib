@@ -4,6 +4,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 let token = null;
 let sequencias = [];
 let painelAtivo = null;
+let enviandoAgora = false;
+let atualizandoLista = false;
 
 const MODULOS = [
   { id: 'dashboard',   icone: '📊', label: 'Dashboard',              pronto: false },
@@ -222,12 +224,24 @@ function montarIdioma(container) {
 
 function montarMensagens(container) {
   container.innerHTML = `
-    <div style="padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;">
-      <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="width:100%;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
+    <div style="padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;display:flex;gap:8px;align-items:center;">
+      <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
+      <button id="ft-atualizar" title="Atualizar mensagens" style="flex-shrink:0;width:34px;height:34px;border-radius:6px;border:1px solid #E2E8F0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#0B1F4D;">🔄</button>
     </div>
     <div id="ft-lista" style="flex:1;overflow-y:auto;"></div>
   `;
   container.querySelector('#ft-busca').addEventListener('input', (e) => renderMensagens(e.target.value));
+  container.querySelector('#ft-atualizar').addEventListener('click', async (e) => {
+    if (atualizandoLista) return;
+    atualizandoLista = true;
+    const btn = e.currentTarget;
+    btn.style.transform = 'rotate(360deg)';
+    btn.style.transition = 'transform 0.5s ease';
+    await carregarSequencias();
+    const busca = container.querySelector('#ft-busca').value;
+    renderMensagens(busca);
+    setTimeout(() => { btn.style.transform = 'rotate(0deg)'; atualizandoLista = false; }, 500);
+  });
   renderMensagens('');
 }
 
@@ -239,6 +253,8 @@ function abrirModulo(id) {
   if (!painel) return;
   painel.style.left = `${LARGURA_BARRA}px`;
   painelAtivo = id;
+
+  if (id === 'mensagens') carregarSequencias().then(() => renderMensagens(''));
 
   document.querySelectorAll('.ft-icone').forEach(b => {
     if (b.dataset.modulo === id) {
@@ -273,17 +289,24 @@ async function carregarSequencias() {
   } catch(e) {}
 }
 
+function iconeTipoMsg(tipo) {
+  if (tipo === 'audio') return '🎤';
+  if (tipo === 'foto') return '📷';
+  if (tipo === 'video') return '🎬';
+  return '📝';
+}
+
 function renderMensagens(busca) {
   const lista = document.getElementById('ft-lista');
   if (!lista) return;
 
   const msgs = sequencias.flatMap(s =>
     s.msgs.map(m => ({ ...m, nomeSeq: s.nome }))
-  ).filter(m =>
-    !busca ||
-    m.mensagem.toLowerCase().includes(busca.toLowerCase()) ||
-    m.nomeSeq.toLowerCase().includes(busca.toLowerCase())
-  );
+  ).filter(m => {
+    if (!busca) return true;
+    const alvo = (m.mensagem || '') + ' ' + m.nomeSeq;
+    return alvo.toLowerCase().includes(busca.toLowerCase());
+  });
 
   if (msgs.length === 0) {
     lista.innerHTML = '<div style="padding:20px;text-align:center;color:#64748B;font-size:12px;">Nenhuma mensagem encontrada</div>';
@@ -293,7 +316,7 @@ function renderMensagens(busca) {
   lista.innerHTML = '';
   let seqAtual = '';
 
-  msgs.forEach(m => {
+  msgs.forEach((m) => {
     if (m.nomeSeq !== seqAtual) {
       seqAtual = m.nomeSeq;
       const titulo = document.createElement('div');
@@ -302,20 +325,23 @@ function renderMensagens(busca) {
       lista.appendChild(titulo);
     }
 
+    const tipo = m.tipo_conteudo || 'texto';
+    const descricao = tipo === 'texto' ? (m.mensagem || '') : `Arquivo de ${tipo}`;
+
     const item = document.createElement('div');
     item.style.cssText = 'display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #F1F5F9;gap:10px;cursor:pointer;';
     item.addEventListener('mouseover', () => item.style.background = '#F8FAFC');
     item.addEventListener('mouseout', () => item.style.background = 'transparent');
 
     const avatar = document.createElement('div');
-    avatar.style.cssText = 'width:36px;height:36px;border:2px solid #00A884;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#00A884;flex-shrink:0;';
-    avatar.textContent = 'Tt';
+    avatar.style.cssText = 'width:36px;height:36px;border:2px solid #00A884;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;';
+    avatar.textContent = iconeTipoMsg(tipo);
 
     const meio = document.createElement('div');
     meio.style.cssText = 'flex:1;min-width:0;';
     meio.innerHTML = `
       <div style="font-size:12px;font-weight:600;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.nomeSeq} — ${m.sequencia_ordem}</div>
-      <div style="font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.mensagem}</div>
+      <div style="font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${descricao}</div>
     `;
 
     const btnEnviar = document.createElement('button');
@@ -324,7 +350,7 @@ function renderMensagens(busca) {
     btnEnviar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
     btnEnviar.addEventListener('click', (e) => {
       e.stopPropagation();
-      enviarMsg(m.mensagem);
+      enviarMensagem(m, btnEnviar);
     });
 
     item.appendChild(avatar);
@@ -334,7 +360,7 @@ function renderMensagens(busca) {
   });
 }
 
-function enviarMsg(texto) {
+function encontrarCampoDigitacao() {
   const seletores = [
     'div[contenteditable="true"][data-tab="10"]',
     'div[contenteditable="true"][data-tab="1"]',
@@ -342,20 +368,88 @@ function enviarMsg(texto) {
     'div[contenteditable="true"][title="Digite uma mensagem"]',
     'div[contenteditable="true"][aria-label="Digite uma mensagem"]',
   ];
-  let campo = null;
   for (const sel of seletores) {
-    campo = document.querySelector(sel);
-    if (campo) break;
+    const campo = document.querySelector(sel);
+    if (campo) return campo;
   }
+  return null;
+}
+
+function clicarBotaoEnviar() {
+  const btnSels = ['button[data-testid="send"]','button[aria-label="Enviar"]','span[data-testid="send"]'];
+  for (const sel of btnSels) {
+    const btn = document.querySelector(sel);
+    if (btn) { btn.click(); return true; }
+  }
+  return false;
+}
+
+async function enviarMensagem(m, btnEl) {
+  if (enviandoAgora) return;
+  const tipo = m.tipo_conteudo || 'texto';
+
+  if (tipo === 'texto') {
+    enviarTexto(m.mensagem || '');
+    return;
+  }
+
+  if (!m.midia_url) { alert('Esta mensagem não tem arquivo anexado.'); return; }
+
+  const campo = encontrarCampoDigitacao();
+  if (!campo) { alert('Abra uma conversa primeiro!'); return; }
+
+  enviandoAgora = true;
+  const textoOriginalBtn = btnEl ? btnEl.innerHTML : null;
+  if (btnEl) btnEl.innerHTML = '⏳';
+
+  try {
+    const res = await fetch(m.midia_url);
+    if (!res.ok) throw new Error('Falha ao baixar arquivo');
+    const blob = await res.blob();
+
+    const extPorTipo = { foto: 'jpg', video: 'mp4', audio: 'ogg' };
+    const mimePorTipo = { foto: 'image/jpeg', video: 'video/mp4', audio: 'audio/ogg' };
+    const ext = extPorTipo[tipo] || 'bin';
+    const mime = blob.type || mimePorTipo[tipo] || 'application/octet-stream';
+    const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
+
+    campo.focus();
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dt,
+      bubbles: true,
+      cancelable: true,
+    });
+    campo.dispatchEvent(pasteEvent);
+
+    setTimeout(() => {
+      const clicou = clicarBotaoEnviar();
+      if (!clicou) {
+        campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+      }
+      enviandoAgora = false;
+      if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
+    }, 1200);
+
+  } catch (e) {
+    alert('Erro ao enviar arquivo. Tente novamente.');
+    enviandoAgora = false;
+    if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
+  }
+}
+
+function enviarTexto(texto) {
+  const campo = encontrarCampoDigitacao();
   if (!campo) { alert('Abra uma conversa primeiro!'); return; }
   campo.focus();
   document.execCommand('insertText', false, texto);
   setTimeout(() => {
-    const btnSels = ['button[data-testid="send"]','button[aria-label="Enviar"]','span[data-testid="send"]'];
-    let btn = null;
-    for (const sel of btnSels) { btn = document.querySelector(sel); if (btn) break; }
-    if (btn) btn.click();
-    else campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+    const clicou = clicarBotaoEnviar();
+    if (!clicou) {
+      campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+    }
   }, 300);
 }
 
