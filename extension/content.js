@@ -424,14 +424,27 @@ function dispararEventoDrop(alvo, dataTransfer, tipoEvento) {
   alvo.dispatchEvent(evento);
 }
 
-function encontrarInputArquivoDocumento() {
-  const inputs = document.querySelectorAll('input[type="file"]');
-  console.log('[FiscalTrib] Inputs de arquivo encontrados na pagina:', inputs.length);
-  inputs.forEach(inp => console.log('[FiscalTrib]  - input accept:', inp.accept, '| multiple:', inp.multiple));
-  return inputs;
+function clicarItemMenuPorTexto(texto) {
+  const candidatos = document.querySelectorAll('li, div[role="button"], span, div, button');
+  for (const el of candidatos) {
+    const t = el.textContent ? el.textContent.trim() : '';
+    if (t === texto && el.children.length <= 2) {
+      let alvo = el;
+      for (let i = 0; i < 5 && alvo; i++) {
+        if (alvo.tagName === 'LI' || (alvo.getAttribute && alvo.getAttribute('role') === 'button')) {
+          alvo.click();
+          return true;
+        }
+        alvo = alvo.parentElement;
+      }
+      el.click();
+      return true;
+    }
+  }
+  return false;
 }
 
-async function tentarViaInputArquivo(file) {
+function abrirBotaoAnexar() {
   const attachSels = [
     'span[data-icon="plus-rounded"]',
     'span[data-icon="attach-menu-plus"]',
@@ -440,40 +453,49 @@ async function tentarViaInputArquivo(file) {
     'div[title="Anexar"]',
     'span[data-testid="clip"]',
   ];
-  let botaoAnexar = null;
   for (const sel of attachSels) {
-    botaoAnexar = document.querySelector(sel);
-    if (botaoAnexar) break;
-  }
-  if (botaoAnexar) {
-    console.log('[FiscalTrib] Botao de anexar encontrado, clicando...');
-    botaoAnexar.click();
-    await new Promise(r => setTimeout(r, 600));
-  } else {
-    console.log('[FiscalTrib] Botao de anexar NAO encontrado, tentando inputs diretamente.');
-  }
-
-  const inputs = encontrarInputArquivoDocumento();
-  if (inputs.length === 0) return false;
-
-  for (const input of inputs) {
-    try {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      Object.defineProperty(input, 'files', { value: dt.files, writable: true });
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      console.log('[FiscalTrib] Arquivo setado no input:', input.accept || '(sem accept)');
-      await new Promise(r => setTimeout(r, 1000));
-      const preview = document.querySelector('div[data-testid="media-canvas"], div[aria-label="Legenda"], span[data-testid="send"]');
-      if (preview) {
-        console.log('[FiscalTrib] Pre-visualizacao detectada apos setar input. Provavel sucesso.');
-        return true;
-      }
-    } catch (e) {
-      console.log('[FiscalTrib] Falha ao tentar input:', e.message);
-    }
+    const botao = document.querySelector(sel);
+    if (botao) { botao.click(); return true; }
   }
   return false;
+}
+
+async function tentarViaMenuAudio(file) {
+  console.log('[FiscalTrib] Abrindo menu de anexar...');
+  const abriu = abrirBotaoAnexar();
+  console.log('[FiscalTrib] Botao de anexar clicado:', abriu);
+  await new Promise(r => setTimeout(r, 600));
+
+  console.log('[FiscalTrib] Procurando item "Áudio" no menu...');
+  const clicouAudio = clicarItemMenuPorTexto('Áudio');
+  console.log('[FiscalTrib] Item "Áudio" clicado:', clicouAudio);
+  if (!clicouAudio) return false;
+
+  await new Promise(r => setTimeout(r, 600));
+
+  const inputs = document.querySelectorAll('input[type="file"]');
+  console.log('[FiscalTrib] Inputs de arquivo apos clicar em Audio:', inputs.length);
+  inputs.forEach(inp => console.log('[FiscalTrib]  - input accept:', inp.accept, '| multiple:', inp.multiple));
+
+  let inputAlvo = null;
+  inputs.forEach(inp => {
+    if (inp.accept && inp.accept.includes('audio')) inputAlvo = inp;
+  });
+  if (!inputAlvo && inputs.length > 0) inputAlvo = inputs[inputs.length - 1];
+  if (!inputAlvo) return false;
+
+  try {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    Object.defineProperty(inputAlvo, 'files', { value: dt.files, writable: true });
+    inputAlvo.dispatchEvent(new Event('change', { bubbles: true }));
+    console.log('[FiscalTrib] Arquivo setado no input de audio.');
+    await new Promise(r => setTimeout(r, 1200));
+    return true;
+  } catch (e) {
+    console.log('[FiscalTrib] Falha ao setar arquivo no input de audio:', e.message);
+    return false;
+  }
 }
 
 async function enviarMensagem(m, btnEl) {
@@ -517,9 +539,9 @@ async function enviarMensagem(m, btnEl) {
     let sucesso = false;
 
     if (tipo === 'audio') {
-      console.log('[FiscalTrib] Tentando metodo de INPUT DE ARQUIVO para audio...');
-      sucesso = await tentarViaInputArquivo(file);
-      console.log('[FiscalTrib] Resultado tentativa via input:', sucesso);
+      console.log('[FiscalTrib] Tentando metodo de MENU AUDIO...');
+      sucesso = await tentarViaMenuAudio(file);
+      console.log('[FiscalTrib] Resultado tentativa via menu audio:', sucesso);
     }
 
     if (!sucesso) {
