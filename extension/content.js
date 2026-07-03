@@ -424,6 +424,58 @@ function dispararEventoDrop(alvo, dataTransfer, tipoEvento) {
   alvo.dispatchEvent(evento);
 }
 
+function encontrarInputArquivoDocumento() {
+  const inputs = document.querySelectorAll('input[type="file"]');
+  console.log('[FiscalTrib] Inputs de arquivo encontrados na pagina:', inputs.length);
+  inputs.forEach(inp => console.log('[FiscalTrib]  - input accept:', inp.accept, '| multiple:', inp.multiple));
+  return inputs;
+}
+
+async function tentarViaInputArquivo(file) {
+  const attachSels = [
+    'span[data-icon="plus-rounded"]',
+    'span[data-icon="attach-menu-plus"]',
+    'span[data-icon="clip"]',
+    'button[title="Anexar"]',
+    'div[title="Anexar"]',
+    'span[data-testid="clip"]',
+  ];
+  let botaoAnexar = null;
+  for (const sel of attachSels) {
+    botaoAnexar = document.querySelector(sel);
+    if (botaoAnexar) break;
+  }
+  if (botaoAnexar) {
+    console.log('[FiscalTrib] Botao de anexar encontrado, clicando...');
+    botaoAnexar.click();
+    await new Promise(r => setTimeout(r, 600));
+  } else {
+    console.log('[FiscalTrib] Botao de anexar NAO encontrado, tentando inputs diretamente.');
+  }
+
+  const inputs = encontrarInputArquivoDocumento();
+  if (inputs.length === 0) return false;
+
+  for (const input of inputs) {
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      Object.defineProperty(input, 'files', { value: dt.files, writable: true });
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log('[FiscalTrib] Arquivo setado no input:', input.accept || '(sem accept)');
+      await new Promise(r => setTimeout(r, 1000));
+      const preview = document.querySelector('div[data-testid="media-canvas"], div[aria-label="Legenda"], span[data-testid="send"]');
+      if (preview) {
+        console.log('[FiscalTrib] Pre-visualizacao detectada apos setar input. Provavel sucesso.');
+        return true;
+      }
+    } catch (e) {
+      console.log('[FiscalTrib] Falha ao tentar input:', e.message);
+    }
+  }
+  return false;
+}
+
 async function enviarMensagem(m, btnEl) {
   if (enviandoAgora) return;
   const tipo = m.tipo_conteudo || 'texto';
@@ -448,34 +500,37 @@ async function enviarMensagem(m, btnEl) {
     const blob = await res.blob();
     console.log('[FiscalTrib] Arquivo baixado:', { tipo, tamanho: blob.size, mimeOriginal: blob.type });
 
-    // Usa o tipo REAL do arquivo (nunca inventa um formato diferente do que foi baixado)
     let mime = blob.type;
     let ext = 'bin';
     if (mime) {
       if (mime.includes('webm')) ext = 'webm';
+      else if (mime.includes('wav')) ext = 'wav';
       else if (mime.includes('ogg')) ext = 'ogg';
       else if (mime.includes('mp4') || mime.includes('mpeg')) ext = 'mp4';
       else if (mime.includes('mp3')) ext = 'mp3';
-      else if (mime.includes('wav')) ext = 'wav';
       else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
       else if (mime.includes('png')) ext = 'png';
-    }
-    if (!mime) {
-      const mimePorTipo = { foto: 'image/jpeg', video: 'video/mp4', audio: 'audio/webm' };
-      mime = mimePorTipo[tipo] || 'application/octet-stream';
-      const extPorTipo = { foto: 'jpg', video: 'mp4', audio: 'webm' };
-      ext = extPorTipo[tipo] || 'bin';
     }
     const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
     console.log('[FiscalTrib] Arquivo final que sera enviado:', { nome: file.name, tipo: file.type, tamanho: file.size });
 
-    const dt = new DataTransfer();
-    dt.items.add(file);
+    let sucesso = false;
 
-    console.log('[FiscalTrib] Disparando sequência de drag-and-drop com arquivo:', file);
-    dispararEventoDrop(areaDrop, dt, 'dragenter');
-    dispararEventoDrop(areaDrop, dt, 'dragover');
-    dispararEventoDrop(areaDrop, dt, 'drop');
+    if (tipo === 'audio') {
+      console.log('[FiscalTrib] Tentando metodo de INPUT DE ARQUIVO para audio...');
+      sucesso = await tentarViaInputArquivo(file);
+      console.log('[FiscalTrib] Resultado tentativa via input:', sucesso);
+    }
+
+    if (!sucesso) {
+      console.log('[FiscalTrib] Tentando metodo de DRAG AND DROP...');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      dispararEventoDrop(areaDrop, dt, 'dragenter');
+      dispararEventoDrop(areaDrop, dt, 'dragover');
+      dispararEventoDrop(areaDrop, dt, 'drop');
+      await new Promise(r => setTimeout(r, 1000));
+    }
 
     setTimeout(() => {
       const clicou = clicarBotaoEnviar();
@@ -486,7 +541,7 @@ async function enviarMensagem(m, btnEl) {
       }
       enviandoAgora = false;
       if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
-    }, 1500);
+    }, 1000);
 
   } catch (e) {
     console.error('[FiscalTrib] Erro ao enviar mídia:', e);
