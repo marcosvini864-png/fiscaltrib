@@ -448,11 +448,26 @@ async function enviarMensagem(m, btnEl) {
     const blob = await res.blob();
     console.log('[FiscalTrib] Arquivo baixado:', { tipo, tamanho: blob.size, mimeOriginal: blob.type });
 
-    const extPorTipo = { foto: 'jpg', video: 'mp4', audio: 'ogg' };
-    const mimePorTipo = { foto: 'image/jpeg', video: 'video/mp4', audio: 'audio/ogg' };
-    const ext = extPorTipo[tipo] || 'bin';
-    const mime = blob.type || mimePorTipo[tipo] || 'application/octet-stream';
+    // Usa o tipo REAL do arquivo (nunca inventa um formato diferente do que foi baixado)
+    let mime = blob.type;
+    let ext = 'bin';
+    if (mime) {
+      if (mime.includes('webm')) ext = 'webm';
+      else if (mime.includes('ogg')) ext = 'ogg';
+      else if (mime.includes('mp4') || mime.includes('mpeg')) ext = 'mp4';
+      else if (mime.includes('mp3')) ext = 'mp3';
+      else if (mime.includes('wav')) ext = 'wav';
+      else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+      else if (mime.includes('png')) ext = 'png';
+    }
+    if (!mime) {
+      const mimePorTipo = { foto: 'image/jpeg', video: 'video/mp4', audio: 'audio/webm' };
+      mime = mimePorTipo[tipo] || 'application/octet-stream';
+      const extPorTipo = { foto: 'jpg', video: 'mp4', audio: 'webm' };
+      ext = extPorTipo[tipo] || 'bin';
+    }
     const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
+    console.log('[FiscalTrib] Arquivo final que sera enviado:', { nome: file.name, tipo: file.type, tamanho: file.size });
 
     const dt = new DataTransfer();
     dt.items.add(file);
