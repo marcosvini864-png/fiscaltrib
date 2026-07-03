@@ -29,6 +29,20 @@ function formatarTempo(segundos) {
   return `${m}:${s}`;
 }
 
+function PreviewMidia({ tipo, url }) {
+  if (!url) return null;
+  if (tipo === 'audio') {
+    return <audio controls src={url} style={{ width:'100%', height:36, marginTop:6 }} />;
+  }
+  if (tipo === 'foto') {
+    return <img src={url} alt="Preview" style={{ maxWidth:'100%', maxHeight:180, borderRadius:8, marginTop:6, display:'block' }} />;
+  }
+  if (tipo === 'video') {
+    return <video controls src={url} style={{ maxWidth:'100%', maxHeight:200, borderRadius:8, marginTop:6, display:'block' }} />;
+  }
+  return null;
+}
+
 export default function MensagensRapidas({ onVoltar }) {
   const [sequencias, setSequencias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -267,7 +281,12 @@ export default function MensagensRapidas({ onVoltar }) {
                     onChange={e => updateCampo(i, 'midia_url', e.target.value)}
                     placeholder="https://..." style={inputStyle} />
                   {enviandoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Enviando arquivo...</div>}
-                  {m.midia_url && enviandoIdx !== i && <div style={{ fontSize:11, color:'#16A34A' }}>✓ Arquivo anexado</div>}
+                  {m.midia_url && enviandoIdx !== i && (
+                    <>
+                      <div style={{ fontSize:11, color:'#16A34A' }}>✓ Arquivo anexado</div>
+                      <PreviewMidia tipo={m.tipo_conteudo} url={m.midia_url} />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -295,7 +314,12 @@ export default function MensagensRapidas({ onVoltar }) {
                   )}
 
                   {enviandoIdx === i && <div style={{ fontSize:11, color:C.navy }}>Enviando áudio...</div>}
-                  {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>}
+                  {m.midia_url && enviandoIdx !== i && gravandoIdx !== i && (
+                    <>
+                      <div style={{ fontSize:11, color:'#16A34A' }}>✓ Áudio anexado</div>
+                      <PreviewMidia tipo="audio" url={m.midia_url} />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -321,7 +345,8 @@ export default function MensagensRapidas({ onVoltar }) {
                 <div key={i} style={{ display:'flex', gap:12, marginBottom:10, alignItems:'flex-start' }}>
                   <span style={{ fontSize:18, flexShrink:0 }}>{NUMS[i] || `${i+1}.`}</span>
                   <div style={{ background:'#F8FAFC', borderRadius:'8px 8px 8px 0', padding:'10px 14px', fontSize:13, color:C.textLight, lineHeight:1.6, flex:1 }}>
-                    {iconeTipo(m.tipo_conteudo)} {m.tipo_conteudo === 'texto' ? m.texto : `Arquivo anexado (${m.tipo_conteudo})`}
+                    <div>{iconeTipo(m.tipo_conteudo)} {m.tipo_conteudo === 'texto' ? m.texto : `Arquivo anexado (${m.tipo_conteudo})`}</div>
+                    {m.tipo_conteudo !== 'texto' && <PreviewMidia tipo={m.tipo_conteudo} url={m.midia_url} />}
                   </div>
                 </div>
               )
@@ -380,7 +405,8 @@ export default function MensagensRapidas({ onVoltar }) {
                 <div key={m.id} style={{ display:'flex', gap:12, marginBottom:10, alignItems:'flex-start' }}>
                   <span style={{ fontSize:18, flexShrink:0 }}>{NUMS[i] || `${i+1}.`}</span>
                   <div style={{ background:'#F8FAFC', borderRadius:'8px 8px 8px 0', padding:'10px 14px', fontSize:13, color:C.textLight, lineHeight:1.6, flex:1 }}>
-                    {iconeTipo(m.tipo_conteudo)} {m.tipo_conteudo === 'texto' ? m.mensagem : `Arquivo (${m.tipo_conteudo})`}
+                    <div>{iconeTipo(m.tipo_conteudo)} {m.tipo_conteudo === 'texto' ? m.mensagem : `Arquivo (${m.tipo_conteudo})`}</div>
+                    {m.tipo_conteudo !== 'texto' && <PreviewMidia tipo={m.tipo_conteudo} url={m.midia_url} />}
                   </div>
                 </div>
               ))}
