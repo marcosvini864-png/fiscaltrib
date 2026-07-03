@@ -99,9 +99,11 @@ export default function MensagensRapidas({ onVoltar }) {
   const [loading, setLoading] = useState(true);
   const [tela, setTela] = useState('lista');
   const [salvando, setSalvando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState(null);
   const [nomeSeq, setNomeSeq] = useState('');
   const [seqId, setSeqId] = useState('');
   const [mensagens, setMensagens] = useState([{ texto: '', tipo_conteudo: 'texto', midia_url: '', ordem: 1 }]);
+  const [idsOriginais, setIdsOriginais] = useState([]);
   const [enviandoIdx, setEnviandoIdx] = useState(null);
   const [gravandoIdx, setGravandoIdx] = useState(null);
   const [tempoGravacao, setTempoGravacao] = useState(0);
@@ -136,6 +138,7 @@ export default function MensagensRapidas({ onVoltar }) {
     setSeqId(gerarId());
     setNomeSeq('');
     setMensagens([{ texto: '', tipo_conteudo: 'texto', midia_url: '', ordem: 1 }]);
+    setIdsOriginais([]);
     setTela('nova');
   }
 
@@ -149,6 +152,7 @@ export default function MensagensRapidas({ onVoltar }) {
       midia_url: m.midia_url || '',
       ordem: m.sequencia_ordem,
     })));
+    setIdsOriginais(seq.mensagens.map(m => m.id));
     setTela('editar');
   }
 
@@ -254,8 +258,8 @@ export default function MensagensRapidas({ onVoltar }) {
 
     setSalvando(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (tela === 'editar') {
-      await supabase.from('mensagens_rapidas').delete().eq('sequencia_id', seqId);
+    if (tela === 'editar' && idsOriginais.length > 0) {
+      await supabase.from('mensagens_rapidas').delete().in('id', idsOriginais);
     }
     const inserts = mensagens.map((m, i) => ({
       user_id: user.id,
@@ -274,10 +278,18 @@ export default function MensagensRapidas({ onVoltar }) {
     setTela('lista');
   }
 
-  async function excluirSequencia(sid) {
+  async function excluirSequencia(seq) {
     if (!window.confirm('Excluir esta sequência?')) return;
-    await supabase.from('mensagens_rapidas').delete().eq('sequencia_id', sid);
+    setExcluindoId(seq.id);
+    const ids = seq.mensagens.map(m => m.id);
+    const { error } = await supabase.from('mensagens_rapidas').delete().in('id', ids);
+    if (error) {
+      alert('Erro ao excluir: ' + error.message);
+      setExcluindoId(null);
+      return;
+    }
     await carregarSequencias();
+    setExcluindoId(null);
   }
 
   const NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
@@ -462,7 +474,10 @@ export default function MensagensRapidas({ onVoltar }) {
                   {seq.mensagens.length} mensage{seq.mensagens.length !== 1 ? 'ns' : 'm'}
                 </span>
                 <button onClick={() => editarSequencia(seq)} style={{ ...btnOutline, padding:'4px 14px', fontSize:12 }}>✎ Editar</button>
-                <button onClick={() => excluirSequencia(seq.id)} style={{ ...btnWarning, padding:'4px 12px', fontSize:12 }}>🗑</button>
+                <button onClick={() => excluirSequencia(seq)} disabled={excluindoId === seq.id}
+                  style={{ ...btnWarning, padding:'4px 12px', fontSize:12, opacity: excluindoId === seq.id ? 0.6 : 1 }}>
+                  {excluindoId === seq.id ? '...' : '🗑'}
+                </button>
               </div>
             </div>
             <div style={{ padding:'16px 20px' }}>
