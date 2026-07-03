@@ -224,9 +224,14 @@ function montarIdioma(container) {
 
 function montarMensagens(container) {
   container.innerHTML = `
-    <div style="padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;display:flex;gap:8px;align-items:center;">
-      <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
-      <button id="ft-atualizar" title="Atualizar mensagens" style="flex-shrink:0;width:34px;height:34px;border-radius:6px;border:1px solid #E2E8F0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#0B1F4D;">🔄</button>
+    <div style="padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
+      </div>
+      <button id="ft-atualizar" style="width:100%;padding:8px;border-radius:6px;border:1px solid #0B1F4D;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:#0B1F4D;">
+        <span id="ft-atualizar-icone" style="display:inline-block;">🔄</span> Atualizar mensagens
+      </button>
+      <div id="ft-status-atualizacao" style="font-size:10px;color:#94A3B8;text-align:center;"></div>
     </div>
     <div id="ft-lista" style="flex:1;overflow-y:auto;"></div>
   `;
@@ -234,13 +239,26 @@ function montarMensagens(container) {
   container.querySelector('#ft-atualizar').addEventListener('click', async (e) => {
     if (atualizandoLista) return;
     atualizandoLista = true;
+    const iconeEl = container.querySelector('#ft-atualizar-icone');
+    const statusEl = container.querySelector('#ft-status-atualizacao');
     const btn = e.currentTarget;
-    btn.style.transform = 'rotate(360deg)';
-    btn.style.transition = 'transform 0.5s ease';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    iconeEl.style.transition = 'transform 0.6s ease';
+    iconeEl.style.transform = 'rotate(360deg)';
     await carregarSequencias();
     const busca = container.querySelector('#ft-busca').value;
     renderMensagens(busca);
-    setTimeout(() => { btn.style.transform = 'rotate(0deg)'; atualizandoLista = false; }, 500);
+    const agora = new Date();
+    const hh = agora.getHours().toString().padStart(2, '0');
+    const mm = agora.getMinutes().toString().padStart(2, '0');
+    statusEl.textContent = `Atualizado às ${hh}:${mm}`;
+    setTimeout(() => {
+      iconeEl.style.transform = 'rotate(0deg)';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      atualizandoLista = false;
+    }, 600);
   });
   renderMensagens('');
 }
@@ -375,6 +393,19 @@ function encontrarCampoDigitacao() {
   return null;
 }
 
+function encontrarAreaDrop() {
+  const seletores = [
+    '#main',
+    'div[data-testid="conversation-panel-wrapper"]',
+    'div[data-testid="conversation-panel-messages"]',
+  ];
+  for (const sel of seletores) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  return null;
+}
+
 function clicarBotaoEnviar() {
   const btnSels = ['button[data-testid="send"]','button[aria-label="Enviar"]','span[data-testid="send"]'];
   for (const sel of btnSels) {
@@ -382,6 +413,15 @@ function clicarBotaoEnviar() {
     if (btn) { btn.click(); return true; }
   }
   return false;
+}
+
+function dispararEventoDrop(alvo, dataTransfer, tipoEvento) {
+  const evento = new DragEvent(tipoEvento, {
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(evento, 'dataTransfer', { value: dataTransfer });
+  alvo.dispatchEvent(evento);
 }
 
 async function enviarMensagem(m, btnEl) {
@@ -395,8 +435,8 @@ async function enviarMensagem(m, btnEl) {
 
   if (!m.midia_url) { alert('Esta mensagem não tem arquivo anexado.'); return; }
 
-  const campo = encontrarCampoDigitacao();
-  if (!campo) { alert('Abra uma conversa primeiro!'); return; }
+  const areaDrop = encontrarAreaDrop();
+  if (!areaDrop) { alert('Abra uma conversa primeiro!'); return; }
 
   enviandoAgora = true;
   const textoOriginalBtn = btnEl ? btnEl.innerHTML : null;
@@ -404,8 +444,9 @@ async function enviarMensagem(m, btnEl) {
 
   try {
     const res = await fetch(m.midia_url);
-    if (!res.ok) throw new Error('Falha ao baixar arquivo');
+    if (!res.ok) throw new Error('Falha ao baixar arquivo: status ' + res.status);
     const blob = await res.blob();
+    console.log('[FiscalTrib] Arquivo baixado:', { tipo, tamanho: blob.size, mimeOriginal: blob.type });
 
     const extPorTipo = { foto: 'jpg', video: 'mp4', audio: 'ogg' };
     const mimePorTipo = { foto: 'image/jpeg', video: 'video/mp4', audio: 'audio/ogg' };
@@ -413,27 +454,27 @@ async function enviarMensagem(m, btnEl) {
     const mime = blob.type || mimePorTipo[tipo] || 'application/octet-stream';
     const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
 
-    campo.focus();
-
     const dt = new DataTransfer();
     dt.items.add(file);
-    const pasteEvent = new ClipboardEvent('paste', {
-      clipboardData: dt,
-      bubbles: true,
-      cancelable: true,
-    });
-    campo.dispatchEvent(pasteEvent);
+
+    console.log('[FiscalTrib] Disparando sequência de drag-and-drop com arquivo:', file);
+    dispararEventoDrop(areaDrop, dt, 'dragenter');
+    dispararEventoDrop(areaDrop, dt, 'dragover');
+    dispararEventoDrop(areaDrop, dt, 'drop');
 
     setTimeout(() => {
       const clicou = clicarBotaoEnviar();
+      console.log('[FiscalTrib] Tentativa de clicar em enviar. Sucesso:', clicou);
       if (!clicou) {
-        campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+        const campo = encontrarCampoDigitacao();
+        if (campo) campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
       }
       enviandoAgora = false;
       if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
-    }, 1200);
+    }, 1500);
 
   } catch (e) {
+    console.error('[FiscalTrib] Erro ao enviar mídia:', e);
     alert('Erro ao enviar arquivo. Tente novamente.');
     enviandoAgora = false;
     if (btnEl && textoOriginalBtn) btnEl.innerHTML = textoOriginalBtn;
