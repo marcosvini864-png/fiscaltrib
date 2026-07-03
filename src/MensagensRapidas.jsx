@@ -160,7 +160,7 @@ export default function MensagensRapidas({ onVoltar }) {
   // ── LISTA ──
   return (
     <div style={{ padding:24, background:C.bg, minHeight:'100vh' }}>
-      <button onClick={onVoltar} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
+      <button onClick={() => { if(onVoltar) onVoltar(); }} style={{ background:'none', border:'none', color:C.text, cursor:'pointer', marginBottom:16, fontSize:13 }}>← Voltar</button>
 
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
         <div>
