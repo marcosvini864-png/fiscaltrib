@@ -11,7 +11,7 @@ const MODULOS = [
   { id: 'dashboard',   icone: '📊', label: 'Dashboard',              pronto: false },
   { id: 'kanban',      icone: '🗂️', label: 'Modo CRM (Kanban)',      pronto: false },
   { id: 'mensagens',   icone: '💬', label: 'Mensagens rápidas',      pronto: true  },
-  { id: 'chatbot',     icone: '🤖', label: 'Chat Bot',                pronto: false },
+  { id: 'chatbot',     tipo: 'atendente', label: 'Chat Bot',          pronto: false },
   { id: 'campanhas',   icone: '📣', label: 'Campanhas',               pronto: false },
   { id: 'importar',    icone: '🔀', label: 'Importar/Exportar dados', pronto: false },
   { id: 'link_qr',     icone: '🔗', label: 'Gerar link e QR',         pronto: false },
@@ -67,6 +67,18 @@ function svgIconeBranco(tipo) {
       </svg>
     `;
   }
+  if (tipo === 'atendente') {
+    return `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+        <path d="M4.5 8.5a7.5 7.5 0 0 1 15 0"/>
+        <path d="M4.5 8.5v2.2a1.3 1.3 0 0 0 1.3 1.3h.2a1 1 0 0 0 1-1v-1.5a1 1 0 0 0-1-1h-1.5z"/>
+        <path d="M19.5 8.5v2.2a1.3 1.3 0 0 1-1.3 1.3h-.2a1 1 0 0 1-1-1v-1.5a1 1 0 0 1 1-1h1.5z"/>
+        <path d="M15.5 12.2v.6a2 2 0 0 1-2 2h-1"/>
+      </svg>
+    `;
+  }
   return '';
 }
 
@@ -96,9 +108,9 @@ function criarIcone(m, barra) {
         </svg>
       </div>
     `;
-  } else if (m.tipo === 'ajuda' || m.tipo === 'conta') {
+  } else if (m.tipo === 'ajuda' || m.tipo === 'conta' || m.tipo === 'atendente') {
     btn.innerHTML = svgIconeBranco(m.tipo);
-    btn.style.opacity = '0.7';
+    btn.style.opacity = m.tipo === 'atendente' ? (m.pronto ? '1' : '0.55') : '0.7';
   } else if (m.tipo === 'idioma') {
     btn.innerHTML = `
       <div style="width:32px;height:22px;border-radius:4px;background:linear-gradient(135deg, #009C3B 0%, #009C3B 33%, #FFDF00 33%, #FFDF00 66%, #002776 66%);"></div>
@@ -181,9 +193,11 @@ function criarPaineis() {
       transition: left 0.25s ease;
     `;
 
+    const rotuloIcone = m.tipo === 'atendente' ? '🎧' : (m.icone || '');
+
     painel.innerHTML = `
       <div style="background:#0B1F4D;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-        <span style="font-size:14px;font-weight:700;">${m.icone || ''} ${m.label}</span>
+        <span style="font-size:14px;font-weight:700;">${rotuloIcone} ${m.label}</span>
         <button class="ft-fechar" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:18px;line-height:1;">✕</button>
       </div>
       <div class="ft-corpo" style="flex:1;overflow-y:auto;"></div>
@@ -228,8 +242,8 @@ function montarMensagens(container) {
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
       </div>
-      <button id="ft-atualizar" style="width:100%;padding:8px;border-radius:6px;border:1px solid #0B1F4D;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:#0B1F4D;">
-        <span id="ft-atualizar-icone" style="display:inline-block;">🔄</span> Atualizar mensagens
+      <button id="ft-atualizar" style="width:100%;padding:11px;border-radius:8px;border:1.5px solid #0B1F4D;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:600;color:#0B1F4D;">
+        <span id="ft-atualizar-icone" style="display:inline-block;font-size:18px;">🔄</span> Atualizar mensagens
       </button>
       <div id="ft-status-atualizacao" style="font-size:10px;color:#94A3B8;text-align:center;"></div>
     </div>
@@ -446,7 +460,6 @@ async function enviarMensagem(m, btnEl) {
     const res = await fetch(m.midia_url);
     if (!res.ok) throw new Error('Falha ao baixar arquivo: status ' + res.status);
     const blob = await res.blob();
-    console.log('[FiscalTrib] Arquivo baixado:', { tipo, tamanho: blob.size, mimeOriginal: blob.type });
 
     let mime = blob.type;
     let ext = 'bin';
@@ -460,7 +473,6 @@ async function enviarMensagem(m, btnEl) {
       else if (mime.includes('png')) ext = 'png';
     }
     const file = new File([blob], `arquivo-${Date.now()}.${ext}`, { type: mime });
-    console.log('[FiscalTrib] Arquivo final que sera enviado (drag-and-drop):', { nome: file.name, tipo: file.type, tamanho: file.size });
 
     const dt = new DataTransfer();
     dt.items.add(file);
@@ -470,7 +482,6 @@ async function enviarMensagem(m, btnEl) {
 
     setTimeout(() => {
       const clicou = clicarBotaoEnviar();
-      console.log('[FiscalTrib] Tentativa de clicar em enviar. Sucesso:', clicou);
       if (!clicou) {
         const campo = encontrarCampoDigitacao();
         if (campo) campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
