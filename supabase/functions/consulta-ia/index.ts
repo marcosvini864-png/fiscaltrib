@@ -13,14 +13,23 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { system, messages } = await req.json();
 
-    if (!prompt) {
+    if (!messages || messages.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Prompt não informado" }),
+        JSON.stringify({ error: "Mensagens não informadas" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Monta array de mensagens para o Groq
+    const groqMessages = [
+      {
+        role: "system",
+        content: system || "Você é um especialista tributário brasileiro do FiscalTrib. Responda sempre em português, de forma direta e prática.",
+      },
+      ...messages,
+    ]
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -31,24 +40,15 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         max_tokens: 1500,
-        messages: [
-          {
-            role: "system",
-            content: "Você é um especialista tributário brasileiro do FiscalTrib. Responda sempre em português, de forma direta e prática."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
+        messages: groqMessages,
       }),
     });
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "Sem resposta.";
+    const resposta = data.choices?.[0]?.message?.content || "Sem resposta.";
 
     return new Response(
-      JSON.stringify({ resultado: text }),
+      JSON.stringify({ resposta }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

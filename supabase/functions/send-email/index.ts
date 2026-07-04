@@ -1,46 +1,91 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
+Deno.serve(async (req) => {
+  try {
+    const body = await req.json();
+    console.log("BODY:", JSON.stringify(body));
 
-console.log("Hello from Functions!");
+    const user = body.user || {};
+    const email_data = body.email_data || {};
+    const userEmail = user?.email || body?.email;
+    const emailType = email_data?.email_action_type || body?.type;
+    
+    // Constrói a URL correta
+    const tokenHash = email_data?.token_hash || email_data?.hashed_token || "";
+    const confirmationUrl = email_data?.confirmation_url || 
+      (tokenHash ? `https://fiscaltrib.com.br/#/reset-password?token_hash=${tokenHash}&type=recovery` : "#");
 
-// This endpoint uses 'publishable' | 'secret' access, apiKey is required.
-// Use publishable for Client-facing, key-validated endpoints
-// Use secret for Server-to-server, internal calls
-export default {
-  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
-    // Called by another service with a secret key
-    // ctx.supabaseAdmin bypasses RLS — use for privileged operations
-    /*
-    if (ctx.authMode === "secret") {
-      const { user_id } = await req.json();
-      const { data } = await ctx.supabaseAdmin.auth.admin.getUserById(user_id);
+    console.log("Email:", userEmail, "| Tipo:", emailType);
+    console.log("URL:", confirmationUrl);
 
-      return Response.json({
-        email: data?.user?.email,
-      });
+    if (!userEmail) {
+      return new Response(JSON.stringify({ error: "Email não encontrado" }), { status: 200 });
     }
-    */
 
-    const { name } = await req.json();
+    let subject = "FiscalTrib — Notificação";
+    let htmlBody = `<p>Tipo: ${emailType}</p><p><a href="${confirmationUrl}">Clique aqui</a></p>`;
 
-    return Response.json({
-      message: `Hello ${name}!`,
+    if (emailType === "recovery") {
+      subject = "FiscalTrib — Redefinição de senha";
+      htmlBody = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f4f7fb;padding:20px;">
+          <div style="background:#0f2d5e;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+            <h1 style="color:white;margin:0;font-size:24px;">🔐 e-FiscalTrib®</h1>
+            <p style="color:#a0c4ff;margin:4px 0 0;">Inteligência Tributária</p>
+          </div>
+          <div style="background:white;padding:32px;border-radius:0 0 8px 8px;">
+            <h2 style="color:#0f2d5e;">Redefinição de senha</h2>
+            <p style="color:#444;">Clique no botão abaixo para criar uma nova senha:</p>
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${confirmationUrl}" style="background:#0f2d5e;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:bold;">
+                🔑 Redefinir minha senha
+              </a>
+            </div>
+            <p style="color:#888;font-size:13px;">Este link expira em 1 hora.</p>
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+            <p style="color:#aaa;font-size:12px;text-align:center;">© 2026 e-FiscalTrib® | contato@fiscaltrib.com.br</p>
+          </div>
+        </div>`;
+    } else if (emailType === "signup") {
+      subject = "FiscalTrib — Confirme seu cadastro";
+      htmlBody = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f4f7fb;padding:20px;">
+          <div style="background:#0f2d5e;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+            <h1 style="color:white;margin:0;font-size:24px;">🔐 e-FiscalTrib®</h1>
+          </div>
+          <div style="background:white;padding:32px;border-radius:0 0 8px 8px;">
+            <h2 style="color:#0f2d5e;">Bem-vindo ao FiscalTrib!</h2>
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${confirmationUrl}" style="background:#0f2d5e;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:bold;">
+                ✅ Confirmar meu e-mail
+              </a>
+            </div>
+            <p style="color:#aaa;font-size:12px;text-align:center;">© 2026 e-FiscalTrib® | contato@fiscaltrib.com.br</p>
+          </div>
+        </div>`;
+    }
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "FiscalTrib <noreply@fiscaltrib.com.br>",
+        to: [userEmail],
+        subject,
+        html: htmlBody,
+      }),
     });
-  }),
-};
 
-/* To invoke locally:
+    const resendData = await resendResponse.json();
+    console.log("Resend:", JSON.stringify(resendData));
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/send-email' \
-    --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"name":"Functions"}'
-
-*/
+  } catch (err) {
+    console.error("Erro:", err.message);
+    return new Response(JSON.stringify({ error: err.message }), { status: 200 });
+  }
+});
