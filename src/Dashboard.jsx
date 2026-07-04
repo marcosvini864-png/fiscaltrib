@@ -86,8 +86,10 @@ function TabBar({ tabs, activeTab, onTab }) {
   )
 }
 
-function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto }) {
+function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   if (isMobile && !menuAberto) return null
+
+  const modulosVisiveis = Object.entries(MODULES).filter(([key]) => isAdmin || moduloPermitido(key))
 
   return (
     <>
@@ -120,7 +122,10 @@ function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAd
           </select>
         </div>
         <nav style={{flex:1,padding:'6px 0'}}>
-          {Object.entries(MODULES).map(([key, mod]) => {
+          {modulosVisiveis.length === 0 && (
+            <div style={{padding:'16px 16px',fontSize:12,color:C.muted}}>Nenhum módulo liberado. Contate o suporte.</div>
+          )}
+          {modulosVisiveis.map(([key, mod]) => {
             const act = module === key
             return (
               <button key={key} onClick={() => { onNavigate(key); if(isMobile) setMenuAberto(false); }}
@@ -238,13 +243,40 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
   const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8'); const [cDtpag,setCDtpag]=useState('')
 
-  useEffect(()=>{ carregarClientes() },[])
+  const [permissoesModulos, setPermissoesModulos] = useState(null)
+
+  useEffect(()=>{ carregarClientes(); if(!onAdmin) carregarPermissoesModulos() },[])
 
   useEffect(()=>{
     registrarPresenca()
     const interval = setInterval(registrarPresenca, 60000)
     return ()=>clearInterval(interval)
   },[module, nomeUsuario])
+
+  // Se o módulo atual for bloqueado pelas permissões, redireciona para o primeiro módulo liberado
+  useEffect(() => {
+    if (onAdmin) return
+    if (!permissoesModulos) return
+    if (module === 'admin' || module === 'dev') return
+    if (permissoesModulos[module] === false) {
+      const primeiroPermitido = Object.keys(MODULES).find(k => permissoesModulos[k] !== false)
+      setModule(primeiroPermitido || 'painel')
+      setActiveTab(0)
+    }
+  }, [permissoesModulos, module])
+
+  async function carregarPermissoesModulos() {
+    const { data:{ user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('modulos_permissoes').select('*').eq('usuario_id', user.id).single()
+    setPermissoesModulos(data || {})
+  }
+
+  function moduloPermitido(key) {
+    if (onAdmin) return true
+    if (!permissoesModulos) return true
+    return permissoesModulos[key] !== false
+  }
 
   async function registrarPresenca() {
     try {
@@ -382,7 +414,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
       </div>
 
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        <Sidebar module={module} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} isAdmin={!!onAdmin} isMobile={isMobile} menuAberto={menuAberto} setMenuAberto={setMenuAberto} />
+        <Sidebar module={module} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} isAdmin={!!onAdmin} isMobile={isMobile} menuAberto={menuAberto} setMenuAberto={setMenuAberto} moduloPermitido={moduloPermitido} />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />

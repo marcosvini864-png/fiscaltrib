@@ -20,6 +20,19 @@ const MODULOS_EXT = [
   { id: 'webhooks',   label: '⚙️ Webhooks' },
 ]
 
+const MODULOS_SITE = [
+  { id: 'painel',       label: '📊 Painel' },
+  { id: 'clientes',     label: '👥 Clientes' },
+  { id: 'analise',      label: '🔍 Análise Fiscal' },
+  { id: 'recuperacao',  label: '💰 Recuperação' },
+  { id: 'prazos',       label: '📅 Prazos' },
+  { id: 'relatorios',   label: '📄 Relatórios' },
+  { id: 'inteligencia', label: '🧠 Inteligência Tributária' },
+  { id: 'divida',       label: '⚖️ Dívida Ativa' },
+  { id: 'prospeccao',   label: '🎯 Prospecção' },
+  { id: 'mensagens',    label: '⚡ Mensagens Rápidas' },
+]
+
 const C = {
   navy: '#0B1F4D', bg: '#E4E7EC', white: '#FFFFFF',
   border: '#C8D0DC', text: '#1E293B', muted: '#64748B',
@@ -70,7 +83,12 @@ export default function Admin({ onVoltar }) {
   const [buscaPerm,     setBuscaPerm]     = useState('')
   const [salvandoPerm,  setSalvandoPerm]  = useState(null)
 
-  useEffect(() => { carregarUsuarios(); carregarPermissoes() }, [])
+  const [permissoesSite,   setPermissoesSite]   = useState({})
+  const [loadPermSite,     setLoadPermSite]     = useState(true)
+  const [buscaPermSite,    setBuscaPermSite]    = useState('')
+  const [salvandoPermSite, setSalvandoPermSite] = useState(null)
+
+  useEffect(() => { carregarUsuarios(); carregarPermissoes(); carregarPermissoesSite() }, [])
 
   useEffect(() => {
     if (abaAtiva === 'monitor') {
@@ -116,6 +134,33 @@ export default function Admin({ onVoltar }) {
     setSalvandoPerm(null)
   }
 
+  async function carregarPermissoesSite() {
+    setLoadPermSite(true)
+    const { data } = await supabase.from('modulos_permissoes').select('*')
+    const mapa = {}
+    ;(data || []).forEach(p => { mapa[p.usuario_id] = p })
+    setPermissoesSite(mapa)
+    setLoadPermSite(false)
+  }
+
+  function permissaoSiteDe(usuarioId, campo) {
+    const linha = permissoesSite[usuarioId]
+    if (!linha) return true
+    return linha[campo] !== false
+  }
+
+  async function togglePermissaoSite(usuarioId, campo) {
+    const atual = permissoesSite[usuarioId] || {
+      painel: true, clientes: true, analise: true, recuperacao: true, prazos: true,
+      relatorios: true, inteligencia: true, divida: true, prospeccao: true, mensagens: true,
+    }
+    const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
+    setSalvandoPermSite(usuarioId + campo)
+    setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
+    await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
+    setSalvandoPermSite(null)
+  }
+
   async function carregarSessoes() {
     setLoadSessoes(true)
     const limite = new Date(Date.now() - 5 * 60 * 1000).toISOString()
@@ -147,6 +192,7 @@ export default function Admin({ onVoltar }) {
     await supabase.from('clientes').delete().eq('usuario_id', u.id)
     await supabase.from('sessoes_ativas').delete().eq('usuario_id', u.id)
     await supabase.from('extensao_permissoes').delete().eq('usuario_id', u.id)
+    await supabase.from('modulos_permissoes').delete().eq('usuario_id', u.id)
     await supabase.from('usuarios').delete().eq('id', u.id)
     await supabase.rpc('deletar_usuario', { uid: u.id })
     setUsuarios(prev => prev.filter(x => x.id !== u.id))
@@ -203,6 +249,11 @@ export default function Admin({ onVoltar }) {
     return !buscaPerm || (u.nome_completo||'').toLowerCase().includes(termo) || (u.email||'').toLowerCase().includes(termo)
   })
 
+  const listaPermSite = usuarios.filter(u => {
+    const termo = buscaPermSite.toLowerCase()
+    return !buscaPermSite || (u.nome_completo||'').toLowerCase().includes(termo) || (u.email||'').toLowerCase().includes(termo)
+  })
+
   const total=usuarios.length, ativos=usuarios.filter(u=>u.ativo).length, bloqueados=usuarios.filter(u=>!u.ativo).length
   const essencial=usuarios.filter(u=>u.plano==='essencial').length, avancado=usuarios.filter(u=>u.plano==='avancado').length, premium=usuarios.filter(u=>u.plano==='premium').length
 
@@ -256,6 +307,7 @@ export default function Admin({ onVoltar }) {
         {[
           {key:'usuarios',    label:'👥 Usuários'},
           {key:'bonificacao', label:'🎁 Liberar Acesso Bonificado'},
+          {key:'permissoessite', label:'🖥️ Permissões do Sistema'},
           {key:'permissoes',  label:'🧩 Permissões da Extensão'},
           {key:'monitor',     label:'👁️ Monitoramento em Tempo Real'},
           {key:'desenvolvimento', label:'🔬 Centro de Desenvolvimento'},
@@ -266,6 +318,57 @@ export default function Admin({ onVoltar }) {
           </button>
         ))}
       </div>
+
+      {/* ── ABA PERMISSÕES DO SISTEMA (SITE) ── */}
+      {abaAtiva === 'permissoessite' && (
+        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🖥️ Permissões do Sistema (fiscaltrib.com.br)</div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
+            Controle quais módulos do site cada cliente enxerga. Ex: deixe só "Prospecção" ligado para vender apenas o CRM/Kanban, sem nenhum módulo tributário. Todos os módulos vêm habilitados por padrão.
+          </div>
+          <input
+            style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
+            placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPermSite} onChange={e=>setBuscaPermSite(e.target.value)} />
+
+          {(load || loadPermSite) ? (
+            <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
+          ) : listaPermSite.length === 0 ? (
+            <p style={{color:C.muted,textAlign:'center',padding:40}}>Nenhum cliente encontrado.</p>
+          ) : (
+            <div style={{overflowX:'auto',borderRadius:10,border:`1px solid ${C.border}`}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead>
+                  <tr style={{background:'#F8FAFC'}}>
+                    <th style={{padding:'10px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>Cliente</th>
+                    {MODULOS_SITE.map(m => (
+                      <th key={m.id} style={{padding:'10px 10px',textAlign:'center',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>{m.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaPermSite.map(u => (
+                    <tr key={u.id} style={{borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'10px 14px',whiteSpace:'nowrap'}}>
+                        <div style={{fontWeight:600,color:C.text}}>{u.nome_completo || <em style={{color:C.muted}}>—</em>}</div>
+                        <div style={{color:C.muted,fontSize:11}}>{u.email}</div>
+                      </td>
+                      {MODULOS_SITE.map(m => (
+                        <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
+                          <Toggle
+                            ativo={permissaoSiteDe(u.id, m.id)}
+                            desabilitado={salvandoPermSite === u.id + m.id}
+                            onClick={() => togglePermissaoSite(u.id, m.id)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── ABA PERMISSÕES DA EXTENSÃO ── */}
       {abaAtiva === 'permissoes' && (
