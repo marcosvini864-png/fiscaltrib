@@ -53,21 +53,6 @@ const btnWarning = { padding:'8px 20px', borderRadius:8, background:'#F59E0B', c
 
 function getTemp(key) { return TEMP_LIST.find(t => t.key === key) || TEMP_LIST[2]; }
 
-function loadColunas() {
-  try {
-    const saved = localStorage.getItem('fiscaltrib_kanban_colunas');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return DEFAULT_COLUNAS.map((d, i) => ({ ...d, label: parsed[i]?.label || d.label }));
-    }
-  } catch(e) {}
-  return DEFAULT_COLUNAS;
-}
-
-function saveColunas(colunas) {
-  localStorage.setItem('fiscaltrib_kanban_colunas', JSON.stringify(colunas));
-}
-
 // ── PAINEL MENSAGENS RÁPIDAS ──
 function PainelMensagens({ whatsapp, onFechar }) {
   const [sequencias, setSequencias] = useState([]);
@@ -172,7 +157,7 @@ function PainelMensagens({ whatsapp, onFechar }) {
 export default function Prospeccao({ onVoltar }) {
   const [tela, setTela] = useState('dashboard');
   const [viewMode, setViewMode] = useState('lista');
-  const [colunas, setColunas] = useState(loadColunas);
+  const [colunas, setColunas] = useState(DEFAULT_COLUNAS);
   const [registros, setRegistros] = useState([]);
   const [loadingLista, setLoadingLista] = useState(true);
   const [busca, setBusca] = useState('');
@@ -191,7 +176,18 @@ export default function Prospeccao({ onVoltar }) {
 
   const docLimpo = doc.replace(/\D/g, '');
 
-  useEffect(() => { carregarLista(); }, []);
+  useEffect(() => { carregarLista(); carregarColunas(); }, []);
+
+  async function carregarColunas() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('kanban_colunas').select('*').eq('usuario_id', user.id).single();
+    if (data) {
+      setColunas(DEFAULT_COLUNAS.map((d, i) => ({ ...d, label: data[`col${i + 1}`] || d.label })));
+    } else {
+      await supabase.from('kanban_colunas').insert([{ usuario_id: user.id }]);
+    }
+  }
 
   async function carregarLista() {
     setLoadingLista(true);
@@ -203,11 +199,15 @@ export default function Prospeccao({ onVoltar }) {
     setLoadingLista(false);
   }
 
-  function renomearColuna(key, novoLabel) {
+  async function renomearColuna(key, novoLabel) {
     const novas = colunas.map(c => c.key === key ? { ...c, label: novoLabel } : c);
     setColunas(novas);
-    saveColunas(novas);
     setEditandoColuna(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const colIndex = colunas.findIndex(c => c.key === key) + 1;
+    const campo = `col${colIndex}`;
+    await supabase.from('kanban_colunas').upsert({ usuario_id: user.id, [campo]: novoLabel }, { onConflict: 'usuario_id' });
   }
 
   const formatarDoc = (v) => {
