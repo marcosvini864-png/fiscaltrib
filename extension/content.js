@@ -9,6 +9,10 @@ let painelAtivo = null;
 let enviandoAgora = false;
 let atualizandoLista = false;
 
+let mensagensContainerEl = null;
+let viewMensagens = 'lista'; // 'lista' | 'form'
+let form = null;
+
 const MODULOS_BLOQUEAVEIS = ['dashboard', 'kanban', 'chatbot', 'campanhas', 'importar', 'link_qr', 'lembretes', 'webhooks'];
 
 const MODULOS = [
@@ -35,6 +39,8 @@ const LARGURA_BARRA = 70; // px
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'toggle_panel') abrirModulo('mensagens');
 });
+
+function gerarId() { return Math.random().toString(36).slice(2, 10); }
 
 async function init() {
   const data = await chrome.storage.local.get(['ft_token']);
@@ -311,12 +317,33 @@ function montarIdioma(container) {
   `;
 }
 
+// ═══════════════════════════════════════════════════════
+// MENSAGENS RÁPIDAS — LISTA + CRIAÇÃO/EDIÇÃO
+// ═══════════════════════════════════════════════════════
+
 function montarMensagens(container) {
+  mensagensContainerEl = container;
+  viewMensagens = 'lista';
+  form = null;
+  renderViewMensagens();
+}
+
+function renderViewMensagens() {
+  if (!mensagensContainerEl) return;
+  if (viewMensagens === 'form' && form) {
+    renderFormMensagens(mensagensContainerEl);
+  } else {
+    renderListaMensagens(mensagensContainerEl);
+  }
+}
+
+function renderListaMensagens(container) {
   container.innerHTML = `
     <div style="padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;display:flex;flex-direction:column;gap:8px;">
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="ft-busca" placeholder="🔍 Pesquisar mensagens..." style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
       </div>
+      <button id="ft-nova-seq" style="width:100%;padding:10px;border-radius:8px;border:none;background:#0B1F4D;color:#fff;cursor:pointer;font-size:13px;font-weight:700;">+ Nova sequência</button>
       <button id="ft-atualizar" style="width:100%;padding:11px;border-radius:8px;border:1.5px solid #0B1F4D;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:600;color:#0B1F4D;">
         <span id="ft-atualizar-icone" style="display:inline-block;font-size:18px;">🔄</span> Atualizar mensagens
       </button>
@@ -325,6 +352,7 @@ function montarMensagens(container) {
     <div id="ft-lista" style="flex:1;overflow-y:auto;"></div>
   `;
   container.querySelector('#ft-busca').addEventListener('input', (e) => renderMensagens(e.target.value));
+  container.querySelector('#ft-nova-seq').addEventListener('click', () => iniciarNovaSequenciaExt());
   container.querySelector('#ft-atualizar').addEventListener('click', async (e) => {
     if (atualizandoLista) return;
     atualizandoLista = true;
@@ -352,6 +380,344 @@ function montarMensagens(container) {
   renderMensagens('');
 }
 
+function iniciarNovaSequenciaExt() {
+  form = {
+    modo: 'nova',
+    seqId: gerarId(),
+    nomeSeq: '',
+    mensagens: [{ texto: '', tipo_conteudo: 'texto', midia_url: '', ordem: 1 }],
+    idsOriginais: [],
+    enviandoIdx: null,
+    salvando: false,
+  };
+  viewMensagens = 'form';
+  renderViewMensagens();
+}
+
+function editarSequenciaExt(seq) {
+  form = {
+    modo: 'editar',
+    seqId: seq.id,
+    nomeSeq: seq.nome,
+    mensagens: seq.msgs.map((m, i) => ({
+      id: m.id,
+      texto: m.mensagem || '',
+      tipo_conteudo: m.tipo_conteudo || 'texto',
+      midia_url: m.midia_url || '',
+      ordem: i + 1,
+    })),
+    idsOriginais: seq.msgs.map(m => m.id),
+    enviandoIdx: null,
+    salvando: false,
+  };
+  viewMensagens = 'form';
+  renderViewMensagens();
+}
+
+async function excluirSequenciaExt(seq) {
+  if (!confirm(`Excluir a sequência "${seq.nome}"?`)) return;
+  try {
+    const ids = seq.msgs.map(m => m.id);
+    await fetch(`${SUPABASE_URL}/rest/v1/mensagens_rapidas?id=in.(${ids.join(',')})`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    await carregarSequencias();
+    renderMensagens(document.getElementById('ft-busca')?.value || '');
+  } catch (e) {
+    alert('Erro ao excluir: ' + e.message);
+  }
+}
+
+async function uploadArquivoExt(idx, file) {
+  if (!file) return;
+  const tamanhoMB = file.size / (1024 * 1024);
+  if (tamanhoMB > 10) { alert(`Arquivo muito grande (${tamanhoMB.toFixed(1)}MB). O limite é 10MB.`); return; }
+
+  form.enviandoIdx = idx;
+  renderViewMensagens();
+
+  try {
+    const ext = file.name.split('.').pop();
+    const caminho = `${gerarId()}.${ext}`;
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/midias-mensagens/${caminho}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      alert('Erro ao enviar arquivo: ' + errText);
+      return;
+    }
+    form.mensagens[idx].midia_url = `${SUPABASE_URL}/storage/v1/object/public/midias-mensagens/${caminho}`;
+  } catch (e) {
+    alert('Erro ao enviar arquivo: ' + e.message);
+  } finally {
+    form.enviandoIdx = null;
+    renderViewMensagens();
+  }
+}
+
+async function salvarSequenciaExt() {
+  const f = form;
+  if (!f.nomeSeq.trim()) { alert('Informe o nome da sequência.'); return; }
+  const incompleta = f.mensagens.some(m => m.tipo_conteudo === 'texto' ? !m.texto.trim() : !m.midia_url);
+  if (incompleta) { alert('Preencha ou anexe todas as mensagens.'); return; }
+
+  f.salvando = true;
+  renderViewMensagens();
+
+  try {
+    if (f.modo === 'editar' && f.idsOriginais.length > 0) {
+      await fetch(`${SUPABASE_URL}/rest/v1/mensagens_rapidas?id=in.(${f.idsOriginais.join(',')})`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+      });
+    }
+
+    const inserts = f.mensagens.map((m, i) => ({
+      user_id: userId,
+      titulo: `${f.nomeSeq} — Msg ${i + 1}`,
+      mensagem: m.texto,
+      tipo_conteudo: m.tipo_conteudo,
+      midia_url: m.midia_url || null,
+      categoria: 'Sequência',
+      nome_sequencia: f.nomeSeq,
+      sequencia_id: f.seqId,
+      sequencia_ordem: i + 1,
+    }));
+
+    await fetch(`${SUPABASE_URL}/rest/v1/mensagens_rapidas`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(inserts),
+    });
+
+    await carregarSequencias();
+    viewMensagens = 'lista';
+    form = null;
+    renderViewMensagens();
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+    f.salvando = false;
+    renderViewMensagens();
+  }
+}
+
+function renderFormMensagens(container) {
+  const f = form;
+  const NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:14px 16px;overflow-y:auto;height:100%;box-sizing:border-box;';
+
+  const voltarBtn = document.createElement('button');
+  voltarBtn.textContent = '← Voltar';
+  voltarBtn.style.cssText = 'background:none;border:none;color:#64748B;cursor:pointer;font-size:12px;margin-bottom:10px;padding:0;';
+  voltarBtn.addEventListener('click', () => { viewMensagens = 'lista'; form = null; renderViewMensagens(); });
+  wrap.appendChild(voltarBtn);
+
+  const titulo = document.createElement('div');
+  titulo.style.cssText = 'font-size:15px;font-weight:700;color:#0B1F4D;margin-bottom:12px;';
+  titulo.textContent = f.modo === 'nova' ? '+ Nova sequência' : '✎ Editar sequência';
+  wrap.appendChild(titulo);
+
+  const labelNome = document.createElement('label');
+  labelNome.textContent = 'Nome da sequência';
+  labelNome.style.cssText = 'font-size:11px;font-weight:600;color:#0B1F4D;display:block;margin-bottom:4px;';
+  wrap.appendChild(labelNome);
+
+  const inputNome = document.createElement('input');
+  inputNome.value = f.nomeSeq;
+  inputNome.placeholder = 'Ex: Abordagem Inicial PGFN';
+  inputNome.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:13px;margin-bottom:16px;box-sizing:border-box;';
+  inputNome.addEventListener('input', (e) => { f.nomeSeq = e.target.value; });
+  wrap.appendChild(inputNome);
+
+  const labelMsgs = document.createElement('div');
+  labelMsgs.textContent = 'Mensagens (em ordem de envio)';
+  labelMsgs.style.cssText = 'font-size:12px;font-weight:700;color:#0B1F4D;margin-bottom:10px;';
+  wrap.appendChild(labelMsgs);
+
+  f.mensagens.forEach((m, i) => {
+    const bloco = document.createElement('div');
+    bloco.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;align-items:flex-start;border-bottom:1px solid #F1F5F9;padding-bottom:12px;';
+
+    const numero = document.createElement('div');
+    numero.style.cssText = 'font-size:16px;flex-shrink:0;margin-top:6px;';
+    numero.textContent = NUMS[i] || `${i + 1}.`;
+    bloco.appendChild(numero);
+
+    const corpo = document.createElement('div');
+    corpo.style.cssText = 'flex:1;min-width:0;';
+
+    const tiposDiv = document.createElement('div');
+    tiposDiv.style.cssText = 'display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;';
+    [['texto', '📝 Texto'], ['foto', '📷 Foto'], ['video', '🎬 Vídeo']].forEach(([tipo, label]) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      const ativo = m.tipo_conteudo === tipo;
+      btn.style.cssText = `padding:5px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;border:${ativo ? '1.5px solid #0B1F4D' : '1px solid #C8D0DC'};background:${ativo ? '#0B1F4D' : '#fff'};color:${ativo ? '#fff' : '#64748B'};`;
+      btn.addEventListener('click', () => {
+        m.tipo_conteudo = tipo; m.texto = ''; m.midia_url = '';
+        renderViewMensagens();
+      });
+      tiposDiv.appendChild(btn);
+    });
+    corpo.appendChild(tiposDiv);
+
+    if (m.tipo_conteudo === 'texto') {
+      const textarea = document.createElement('textarea');
+      textarea.value = m.texto;
+      textarea.rows = 2;
+      textarea.placeholder = `Mensagem ${i + 1}...`;
+      textarea.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:12px;resize:vertical;box-sizing:border-box;';
+      textarea.addEventListener('input', (e) => { m.texto = e.target.value; });
+      corpo.appendChild(textarea);
+    } else if (m.tipo_conteudo === 'audio') {
+      const info = document.createElement('div');
+      info.textContent = '🎤 Mensagem de áudio — edite o arquivo pelo site fiscaltrib.com.br';
+      info.style.cssText = 'font-size:11px;color:#64748B;margin-bottom:6px;';
+      corpo.appendChild(info);
+      if (m.midia_url) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = m.midia_url;
+        audio.style.cssText = 'width:100%;height:32px;';
+        corpo.appendChild(audio);
+      }
+    } else {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = m.tipo_conteudo === 'foto' ? 'image/*' : 'video/*';
+      fileInput.style.cssText = 'font-size:11px;margin-bottom:6px;display:block;';
+      fileInput.disabled = f.enviandoIdx === i;
+      fileInput.addEventListener('change', (e) => uploadArquivoExt(i, e.target.files[0]));
+      corpo.appendChild(fileInput);
+
+      const linkLabel = document.createElement('div');
+      linkLabel.textContent = 'ou cole um link já hospedado:';
+      linkLabel.style.cssText = 'font-size:10px;color:#64748B;margin-bottom:4px;';
+      corpo.appendChild(linkLabel);
+
+      const linkInput = document.createElement('input');
+      linkInput.value = m.midia_url && !m.midia_url.includes('midias-mensagens') ? m.midia_url : '';
+      linkInput.placeholder = 'https://...';
+      linkInput.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:12px;box-sizing:border-box;margin-bottom:6px;';
+      linkInput.addEventListener('input', (e) => { m.midia_url = e.target.value; });
+      corpo.appendChild(linkInput);
+
+      if (f.enviandoIdx === i) {
+        const status = document.createElement('div');
+        status.textContent = 'Enviando arquivo...';
+        status.style.cssText = 'font-size:11px;color:#0B1F4D;';
+        corpo.appendChild(status);
+      } else if (m.midia_url) {
+        const ok = document.createElement('div');
+        ok.textContent = '✓ Arquivo anexado';
+        ok.style.cssText = 'font-size:11px;color:#16A34A;margin-bottom:4px;';
+        corpo.appendChild(ok);
+        if (m.tipo_conteudo === 'foto') {
+          const img = document.createElement('img');
+          img.src = m.midia_url;
+          img.style.cssText = 'max-width:100%;max-height:140px;border-radius:8px;display:block;';
+          corpo.appendChild(img);
+        } else {
+          const vid = document.createElement('video');
+          vid.src = m.midia_url;
+          vid.controls = true;
+          vid.style.cssText = 'max-width:100%;max-height:140px;border-radius:8px;display:block;';
+          corpo.appendChild(vid);
+        }
+      }
+    }
+
+    const controles = document.createElement('div');
+    controles.style.cssText = 'display:flex;gap:4px;margin-top:8px;';
+
+    const btnUp = document.createElement('button');
+    btnUp.textContent = '↑';
+    btnUp.disabled = i === 0;
+    btnUp.style.cssText = `padding:3px 7px;border-radius:4px;border:1px solid #C8D0DC;background:#fff;font-size:10px;cursor:${i === 0 ? 'default' : 'pointer'};opacity:${i === 0 ? 0.4 : 1};`;
+    btnUp.addEventListener('click', () => {
+      if (i === 0) return;
+      [f.mensagens[i - 1], f.mensagens[i]] = [f.mensagens[i], f.mensagens[i - 1]];
+      f.mensagens.forEach((mm, idx) => mm.ordem = idx + 1);
+      renderViewMensagens();
+    });
+
+    const btnDown = document.createElement('button');
+    btnDown.textContent = '↓';
+    btnDown.disabled = i === f.mensagens.length - 1;
+    btnDown.style.cssText = `padding:3px 7px;border-radius:4px;border:1px solid #C8D0DC;background:#fff;font-size:10px;cursor:${i === f.mensagens.length - 1 ? 'default' : 'pointer'};opacity:${i === f.mensagens.length - 1 ? 0.4 : 1};`;
+    btnDown.addEventListener('click', () => {
+      if (i === f.mensagens.length - 1) return;
+      [f.mensagens[i], f.mensagens[i + 1]] = [f.mensagens[i + 1], f.mensagens[i]];
+      f.mensagens.forEach((mm, idx) => mm.ordem = idx + 1);
+      renderViewMensagens();
+    });
+
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '✕';
+    btnDel.disabled = f.mensagens.length === 1;
+    btnDel.style.cssText = `padding:3px 7px;border-radius:4px;border:1px solid #FECACA;background:#FEF2F2;color:#DC2626;font-size:10px;cursor:${f.mensagens.length === 1 ? 'default' : 'pointer'};opacity:${f.mensagens.length === 1 ? 0.4 : 1};`;
+    btnDel.addEventListener('click', () => {
+      if (f.mensagens.length === 1) return;
+      f.mensagens.splice(i, 1);
+      f.mensagens.forEach((mm, idx) => mm.ordem = idx + 1);
+      renderViewMensagens();
+    });
+
+    controles.appendChild(btnUp);
+    controles.appendChild(btnDown);
+    controles.appendChild(btnDel);
+    corpo.appendChild(controles);
+
+    bloco.appendChild(corpo);
+    wrap.appendChild(bloco);
+  });
+
+  const btnAdd = document.createElement('button');
+  btnAdd.textContent = '+ Adicionar mensagem';
+  btnAdd.style.cssText = 'padding:6px 14px;border-radius:8px;border:1.5px solid #0B1F4D;background:#fff;color:#0B1F4D;font-weight:600;font-size:11px;cursor:pointer;margin-bottom:16px;';
+  btnAdd.addEventListener('click', () => {
+    f.mensagens.push({ texto: '', tipo_conteudo: 'texto', midia_url: '', ordem: f.mensagens.length + 1 });
+    renderViewMensagens();
+  });
+  wrap.appendChild(btnAdd);
+
+  const botoes = document.createElement('div');
+  botoes.style.cssText = 'display:flex;gap:8px;';
+
+  const btnSalvar = document.createElement('button');
+  btnSalvar.textContent = f.salvando ? 'Salvando...' : 'Salvar sequência';
+  btnSalvar.disabled = !!f.salvando;
+  btnSalvar.style.cssText = `padding:9px 18px;border-radius:8px;background:#0B1F4D;color:#fff;border:none;font-weight:700;font-size:12px;cursor:pointer;opacity:${f.salvando ? 0.6 : 1};`;
+  btnSalvar.addEventListener('click', salvarSequenciaExt);
+
+  const btnCancelar = document.createElement('button');
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.style.cssText = 'padding:9px 18px;border-radius:8px;background:#fff;color:#0B1F4D;border:1.5px solid #0B1F4D;font-weight:700;font-size:12px;cursor:pointer;';
+  btnCancelar.addEventListener('click', () => { viewMensagens = 'lista'; form = null; renderViewMensagens(); });
+
+  botoes.appendChild(btnSalvar);
+  botoes.appendChild(btnCancelar);
+  wrap.appendChild(botoes);
+
+  container.innerHTML = '';
+  container.appendChild(wrap);
+}
+
 function abrirModulo(id) {
   if (painelAtivo === id) { fecharPainelAtivo(); return; }
   if (painelAtivo) fecharPainelAtivo();
@@ -361,7 +727,11 @@ function abrirModulo(id) {
   painel.style.left = `${LARGURA_BARRA}px`;
   painelAtivo = id;
 
-  if (id === 'mensagens') carregarSequencias().then(() => renderMensagens(''));
+  if (id === 'mensagens') {
+    viewMensagens = 'lista';
+    form = null;
+    carregarSequencias().then(() => renderViewMensagens());
+  }
 
   document.querySelectorAll('.ft-icone').forEach(b => {
     if (b.dataset.modulo === id) {
@@ -389,7 +759,7 @@ async function carregarSequencias() {
     const grupos = {};
     (data || []).forEach(m => {
       const sid = m.sequencia_id || m.id;
-      if (!grupos[sid]) grupos[sid] = { nome: m.nome_sequencia || m.titulo, msgs: [] };
+      if (!grupos[sid]) grupos[sid] = { id: sid, nome: m.nome_sequencia || m.titulo, msgs: [] };
       grupos[sid].msgs.push(m);
     });
     sequencias = Object.values(grupos);
@@ -406,64 +776,70 @@ function iconeTipoMsg(tipo) {
 function renderMensagens(busca) {
   const lista = document.getElementById('ft-lista');
   if (!lista) return;
+  lista.innerHTML = '';
 
-  const msgs = sequencias.flatMap(s =>
-    s.msgs.map(m => ({ ...m, nomeSeq: s.nome }))
-  ).filter(m => {
-    if (!busca) return true;
-    const alvo = (m.mensagem || '') + ' ' + m.nomeSeq;
-    return alvo.toLowerCase().includes(busca.toLowerCase());
-  });
+  const gruposFiltrados = sequencias.map(s => ({
+    ...s,
+    msgsFiltradas: s.msgs.filter(m => {
+      if (!busca) return true;
+      const alvo = (m.mensagem || '') + ' ' + s.nome;
+      return alvo.toLowerCase().includes(busca.toLowerCase());
+    })
+  })).filter(s => s.msgsFiltradas.length > 0);
 
-  if (msgs.length === 0) {
+  if (gruposFiltrados.length === 0) {
     lista.innerHTML = '<div style="padding:20px;text-align:center;color:#64748B;font-size:12px;">Nenhuma mensagem encontrada</div>';
     return;
   }
 
-  lista.innerHTML = '';
-  let seqAtual = '';
-
-  msgs.forEach((m) => {
-    if (m.nomeSeq !== seqAtual) {
-      seqAtual = m.nomeSeq;
-      const titulo = document.createElement('div');
-      titulo.style.cssText = 'padding:8px 16px 4px;font-size:10px;font-weight:700;color:#64748B;letter-spacing:1px;text-transform:uppercase;';
-      titulo.textContent = seqAtual;
-      lista.appendChild(titulo);
-    }
-
-    const tipo = m.tipo_conteudo || 'texto';
-    const descricao = tipo === 'texto' ? (m.mensagem || '') : `Arquivo de ${tipo}`;
-
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #F1F5F9;gap:10px;cursor:pointer;';
-    item.addEventListener('mouseover', () => item.style.background = '#F8FAFC');
-    item.addEventListener('mouseout', () => item.style.background = 'transparent');
-
-    const avatar = document.createElement('div');
-    avatar.style.cssText = 'width:36px;height:36px;border:2px solid #00A884;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;';
-    avatar.textContent = iconeTipoMsg(tipo);
-
-    const meio = document.createElement('div');
-    meio.style.cssText = 'flex:1;min-width:0;';
-    meio.innerHTML = `
-      <div style="font-size:12px;font-weight:600;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.nomeSeq} — ${m.sequencia_ordem}</div>
-      <div style="font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${descricao}</div>
+  gruposFiltrados.forEach(s => {
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px;gap:8px;';
+    header.innerHTML = `
+      <span style="font-size:10px;font-weight:700;color:#64748B;letter-spacing:1px;text-transform:uppercase;">${s.nome}</span>
+      <span style="display:flex;gap:4px;">
+        <button class="ft-editar-seq" style="background:none;border:none;cursor:pointer;font-size:13px;color:#0B1F4D;" title="Editar sequência">✎</button>
+        <button class="ft-excluir-seq" style="background:none;border:none;cursor:pointer;font-size:13px;color:#DC2626;" title="Excluir sequência">🗑</button>
+      </span>
     `;
+    header.querySelector('.ft-editar-seq').addEventListener('click', () => editarSequenciaExt(s));
+    header.querySelector('.ft-excluir-seq').addEventListener('click', () => excluirSequenciaExt(s));
+    lista.appendChild(header);
 
-    const btnEnviar = document.createElement('button');
-    btnEnviar.style.cssText = 'background:none;border:none;cursor:pointer;color:#00A884;padding:4px;flex-shrink:0;';
-    btnEnviar.title = 'Enviar no WhatsApp';
-    btnEnviar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
-    btnEnviar.addEventListener('click', (e) => {
-      e.stopPropagation();
-      enviarMensagem(m, btnEnviar);
+    s.msgsFiltradas.forEach((m) => {
+      const tipo = m.tipo_conteudo || 'texto';
+      const descricao = tipo === 'texto' ? (m.mensagem || '') : `Arquivo de ${tipo}`;
+
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #F1F5F9;gap:10px;cursor:pointer;';
+      item.addEventListener('mouseover', () => item.style.background = '#F8FAFC');
+      item.addEventListener('mouseout', () => item.style.background = 'transparent');
+
+      const avatar = document.createElement('div');
+      avatar.style.cssText = 'width:36px;height:36px;border:2px solid #00A884;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;';
+      avatar.textContent = iconeTipoMsg(tipo);
+
+      const meio = document.createElement('div');
+      meio.style.cssText = 'flex:1;min-width:0;';
+      meio.innerHTML = `
+        <div style="font-size:12px;font-weight:600;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.nome} — ${m.sequencia_ordem}</div>
+        <div style="font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${descricao}</div>
+      `;
+
+      const btnEnviar = document.createElement('button');
+      btnEnviar.style.cssText = 'background:none;border:none;cursor:pointer;color:#00A884;padding:4px;flex-shrink:0;';
+      btnEnviar.title = 'Enviar no WhatsApp';
+      btnEnviar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+      btnEnviar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        enviarMensagem(m, btnEnviar);
+      });
+
+      item.appendChild(avatar);
+      item.appendChild(meio);
+      item.appendChild(btnEnviar);
+      lista.appendChild(item);
     });
-
-    item.appendChild(avatar);
-    item.appendChild(meio);
-    item.appendChild(btnEnviar);
-    lista.appendChild(item);
   });
 }
 
