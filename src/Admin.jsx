@@ -377,3 +377,280 @@ export default function Admin({ onVoltar }) {
             <div>
               <label style={{display:'block',fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>E-mail do cliente *</label>
               <input value={bonEmail} onChange={e=>setBonEmail(e.target.value)} placeholder="cliente@empresa.com.br"
+                style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,boxSizing:'border-box'}} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>Plano *</label>
+              <select value={bonPlano} onChange={e=>setBonPlano(e.target.value)}
+                style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,boxSizing:'border-box'}}>
+                <option value="essencial">Essencial</option>
+                <option value="avancado">Avançado</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>Tipo de acesso *</label>
+              <select value={bonTipo} onChange={e=>setBonTipo(e.target.value)}
+                style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,boxSizing:'border-box'}}>
+                <option value="prazo">Por prazo (dias)</option>
+                <option value="permanente">Permanente</option>
+              </select>
+            </div>
+            {bonTipo === 'prazo' && (
+              <div>
+                <label style={{display:'block',fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>Prazo (dias) *</label>
+                <input value={bonDias} onChange={e=>setBonDias(e.target.value)} type="number" min="1" placeholder="Ex: 90"
+                  style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,boxSizing:'border-box'}} />
+              </div>
+            )}
+          </div>
+          {bonEmail && (
+            <div style={{background:C.bg,borderRadius:8,padding:'12px 16px',marginBottom:16,fontSize:13,color:C.muted,border:`1px solid ${C.border}`}}>
+              📋 <strong style={{color:C.text}}>Resumo:</strong> Plano <strong style={{color:planoColor[bonPlano]}}>{planoLabel[bonPlano]}</strong> {bonTipo==='permanente'?'permanentemente':`por ${bonDias} dias`} para <strong style={{color:C.text}}>{bonEmail}</strong> — <strong style={{color:'#16a34a'}}>R$ 0,00</strong>
+            </div>
+          )}
+          <button onClick={liberarAcesso} disabled={bonLoading}
+            style={{background:C.navy,border:'none',color:C.white,padding:'10px 24px',borderRadius:8,cursor:'pointer',fontSize:14,fontWeight:600}}>
+            {bonLoading?'⏳ Liberando...':'🎁 Liberar Acesso'}
+          </button>
+          {bonMsg && (
+            <div style={{marginTop:16,padding:'12px 16px',borderRadius:8,fontSize:13,fontWeight:600,
+              background:bonMsg.startsWith('✅')?'#f0fdf4':'#fff1f2',
+              color:bonMsg.startsWith('✅')?'#16a34a':'#dc2626',
+              border:`1px solid ${bonMsg.startsWith('✅')?'#86efac':'#fecdd3'}`}}>
+              {bonMsg}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ABA USUÁRIOS ── */}
+      {abaAtiva === 'usuarios' && <>
+        <div style={{marginBottom:16}}>
+          <input
+            style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,marginBottom:12,boxSizing:'border-box',background:C.white}}
+            placeholder="🔍 Buscar por nome, e-mail ou CNPJ..." value={busca} onChange={e=>setBusca(e.target.value)} />
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {['todos','essencial','avancado','premium','bloqueado'].map(f=>(
+              <button key={f}
+                style={{padding:'6px 14px',borderRadius:20,border:`1px solid ${filtro===f?C.navy:C.border}`,background:filtro===f?C.navy:'transparent',color:filtro===f?C.white:C.muted,cursor:'pointer',fontSize:13,fontWeight:filtro===f?600:400}}
+                onClick={()=>setFiltro(f)}>
+                {f==='todos'?'Todos':f==='bloqueado'?'🔒 Bloqueados':planoLabel[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {load ? (
+          <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando usuários...</p>
+        ) : lista.length === 0 ? (
+          <p style={{color:C.muted,textAlign:'center',padding:40}}>Nenhum usuário encontrado.</p>
+        ) : (
+          <div style={{overflowX:'auto',borderRadius:12,border:`1px solid ${C.border}`,background:C.white}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <thead>
+                <tr style={{background:'#F8FAFC'}}>
+                  {['Nome','E-mail','Tipo','Plano','CNPJ/CPF','Cidade','Status','Ações'].map(h=>(
+                    <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap',textTransform:'uppercase',letterSpacing:0.5}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map(u=>(
+                  <tr key={u.id} style={{borderBottom:`1px solid ${C.border}`,opacity:u.ativo===false?0.6:1}}
+                    onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{padding:'12px 14px',color:C.text,fontWeight:500}}>{u.nome_completo||<em style={{color:C.muted}}>—</em>}</td>
+                    <td style={{padding:'12px 14px',color:C.muted}}>{u.email}</td>
+                    <td style={{padding:'12px 14px'}}>
+                      <span style={{padding:'3px 8px',borderRadius:12,fontSize:12,background:'#F1F5F9',color:C.muted}}>
+                        {u.tipo_perfil==='contador'?'👔':u.tipo_perfil==='advogado'?'⚖️':u.tipo_perfil==='pf'?'👤':'—'} {u.tipo_perfil||'—'}
+                      </span>
+                    </td>
+                    <td style={{padding:'12px 14px'}}>
+                      {u.plano?<span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:planoColor[u.plano]+'18',color:planoColor[u.plano],border:`1px solid ${planoColor[u.plano]}44`}}>{planoLabel[u.plano]||u.plano}</span>:'—'}
+                    </td>
+                    <td style={{padding:'12px 14px',color:C.muted,fontSize:12}}>{u.cnpj||u.cpf||'—'}</td>
+                    <td style={{padding:'12px 14px',color:C.muted,fontSize:12}}>{u.cidade?`${u.cidade}/${u.estado}`:'—'}</td>
+                    <td style={{padding:'12px 14px'}}>
+                      <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:u.ativo!==false?'#dcfce7':'#fee2e2',color:u.ativo!==false?'#16a34a':'#dc2626'}}>
+                        {u.ativo!==false?'✅ Ativo':'🔒 Bloqueado'}
+                      </span>
+                    </td>
+                    <td style={{padding:'12px 14px'}}>
+                      <div style={{display:'flex',gap:6}}>
+                        <button style={{border:'none',borderRadius:6,padding:'6px 10px',cursor:'pointer',fontSize:14,background:u.ativo!==false?'#fee2e2':'#dcfce7',color:u.ativo!==false?'#dc2626':'#16a34a'}}
+                          onClick={()=>toggleStatus(u)} title={u.ativo!==false?'Bloquear':'Desbloquear'}>
+                          {u.ativo!==false?'🔒':'🔓'}
+                        </button>
+                        <button style={{border:'none',borderRadius:6,padding:'6px 10px',cursor:'pointer',fontSize:14,background:'#fee2e2',color:'#dc2626'}}
+                          onClick={()=>excluirUsuario(u)} title="Excluir">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>}
+
+      {/* ── ABA CENTRO DE DESENVOLVIMENTO ── */}
+      {abaAtiva === 'desenvolvimento' && (
+        <div>
+          {/* Header do Centro */}
+          <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff'}}>
+            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — USO INTERNO</div>
+            <h2 style={{fontSize:20,fontWeight:900,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
+            <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Ferramentas internas de teste, homologação e desenvolvimento. Não visível aos usuários do sistema.</p>
+          </div>
+
+          {/* Sub-abas do Centro */}
+          <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+            {[
+              {key:'laboratorio', label:'🧪 Laboratório FiscalTrib'},
+              {key:'cenarios',    label:'📚 Base de Cenários'},
+              {key:'logs',        label:'📝 Logs de Homologação'},
+              {key:'ferramentas', label:'🔧 Ferramentas'},
+            ].map(a=>(
+              <button key={a.key} onClick={()=>setAbaDesenv(a.key)}
+                style={{padding:'8px 18px',borderRadius:20,border:`1px solid ${abaDesenv===a.key?'#0B1F4D':'#e2e8f0'}`,background:abaDesenv===a.key?'#0B1F4D':'#fff',color:abaDesenv===a.key?'#fff':'#64748b',cursor:'pointer',fontSize:13,fontWeight:abaDesenv===a.key?600:400}}>
+                {a.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Laboratório */}
+          {abaDesenv === 'laboratorio' && <Laboratorio />}
+
+          {/* Base de Cenários */}
+          {abaDesenv === 'cenarios' && (
+            <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center'}}>
+              <div style={{fontSize:40,marginBottom:12}}>📚</div>
+              <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D',marginBottom:8}}>Base de Cenários de Homologação</div>
+              <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
+                Biblioteca de empresas fictícias completas para teste do FiscalTrib.<br/>
+                Importe pelo Laboratório e os cenários ficam registrados aqui.
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,maxWidth:600,margin:'0 auto'}}>
+                {[
+                  {codigo:'FT-001',nome:'Comércio Varejista',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-002',nome:'Prestadora de Serviços',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-003',nome:'Indústria',regime:'Lucro Presumido',status:'Em breve'},
+                  {codigo:'FT-004',nome:'Lucro Real',regime:'Lucro Real',status:'Em breve'},
+                  {codigo:'FT-005',nome:'Casos com Erros',regime:'Simples Nacional',status:'Em breve'},
+                ].map((c,i)=>(
+                  <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left'}}>
+                    <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,marginBottom:4}}>{c.codigo}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:'#0B1F4D',marginBottom:4}}>{c.nome}</div>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>{c.regime}</div>
+                    <span style={{background:'#fef9c3',color:'#854d0e',padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>{c.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Logs */}
+          {abaDesenv === 'logs' && <LogsHomologacao />}
+
+          {/* Ferramentas */}
+          {abaDesenv === 'ferramentas' && (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              {[
+                {icon:'🗑️',titulo:'Limpar banco de testes',desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.',cor:'#dc2626',btn:'Limpar',disabled:false},
+                {icon:'📊',titulo:'Relatório de cobertura',desc:'Verifica quais módulos do FiscalTrib foram testados nos cenários importados.',cor:'#2563eb',btn:'Gerar',disabled:true},
+                {icon:'🔄',titulo:'Sincronizar layouts CSV',desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',cor:'#7c3aed',btn:'Sincronizar',disabled:true},
+                {icon:'📤',titulo:'Exportar todos os cenários',desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',cor:'#d97706',btn:'Exportar',disabled:true},
+              ].map((f,i)=>(
+                <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px'}}>
+                  <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#0B1F4D',marginBottom:6}}>{f.titulo}</div>
+                  <div style={{fontSize:13,color:'#64748b',marginBottom:16,lineHeight:1.6}}>{f.desc}</div>
+                  <button disabled={f.disabled}
+                    style={{padding:'8px 20px',background:f.disabled?'#e2e8f0':f.cor,color:f.disabled?'#94a3b8':'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:f.disabled?'default':'pointer'}}>
+                    {f.disabled?'Em breve':f.btn}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Logs de Homologação ──────────────────────────────────────────────
+function LogsHomologacao() {
+  const [logs, setLogs] = useState([])
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    async function carregar() {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase.from('log_importacao').select('*').eq('usuario_id', user.id).order('created_at', { ascending: false }).limit(100)
+      setLogs(data || [])
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  if (carregando) return <div style={{textAlign:'center',padding:40,color:'#64748b'}}>⏳ Carregando logs...</div>
+
+  if (logs.length === 0) return (
+    <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:48,textAlign:'center',color:'#94a3b8'}}>
+      <div style={{fontSize:40,marginBottom:12}}>📝</div>
+      <div style={{fontSize:15,fontWeight:600}}>Nenhum log registrado ainda</div>
+      <div style={{fontSize:13,marginTop:8}}>Os logs aparecem após a primeira importação no Laboratório</div>
+    </div>
+  )
+
+  const totalImportados = logs.reduce((s,l)=>s+(l.importados||0),0)
+  const totalRejeitados = logs.reduce((s,l)=>s+(l.rejeitados||0),0)
+
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
+        {[
+          {label:'Total de logs',    valor:logs.length,                        cor:'#0B1F4D'},
+          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'), cor:'#16a34a'},
+          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'), cor:'#dc2626'},
+          {label:'Último import',    valor:logs[0]?new Date(logs[0].created_at).toLocaleDateString('pt-BR'):'—', cor:'#7c3aed'},
+        ].map((c,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px'}}>
+            <div style={{fontSize:18,fontWeight:800,color:c.cor}}>{c.valor}</div>
+            <div style={{fontSize:11,color:'#64748b',marginTop:3}}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',overflow:'hidden'}}>
+        <div style={{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontSize:13,fontWeight:700,color:'#0B1F4D'}}>
+          📝 Logs de homologação (últimos 100)
+        </div>
+        <div style={{maxHeight:500,overflowY:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead>
+              <tr style={{background:'#f8fafc',position:'sticky',top:0}}>
+                {['Data/Hora','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=>(
+                  <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l,i)=>(
+                <tr key={i} style={{borderBottom:'1px solid #f1f5f9'}}>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',fontWeight:600,color:'#0B1F4D'}}>{l.arquivo}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tabela}</td>
+                  <td style={{padding:'9px 14px',color:'#16a34a',fontWeight:700}}>{(l.importados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:l.rejeitados>0?'#dc2626':'#94a3b8',fontWeight:l.rejeitados>0?700:400}}>{(l.rejeitados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
