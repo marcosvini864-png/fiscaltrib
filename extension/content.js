@@ -2,10 +2,14 @@ const SUPABASE_URL = 'https://ikodyhxukvclgzydvztu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrb2R5aHh1a3ZjbGd6eWR2enR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTU1OTEsImV4cCI6MjA5Njg3MTU5MX0.X_02n8Hy0LaFoZQmLdGwjIA_LixYkMlxeVaMay4rRfg';
 
 let token = null;
+let userId = null;
 let sequencias = [];
+let permissoesExtensao = {};
 let painelAtivo = null;
 let enviandoAgora = false;
 let atualizandoLista = false;
+
+const MODULOS_BLOQUEAVEIS = ['dashboard', 'kanban', 'chatbot', 'campanhas', 'importar', 'link_qr', 'lembretes', 'webhooks'];
 
 const MODULOS = [
   { id: 'dashboard',   icone: '📊', label: 'Dashboard',              pronto: false },
@@ -36,8 +40,36 @@ async function init() {
   const data = await chrome.storage.local.get(['ft_token']);
   if (!data.ft_token) return;
   token = data.ft_token;
+  await carregarUsuario();
+  await carregarPermissoes();
   await carregarSequencias();
   injetarBarraLateral();
+}
+
+async function carregarUsuario() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    userId = data?.id || null;
+  } catch (e) { userId = null; }
+}
+
+async function carregarPermissoes() {
+  if (!userId) { permissoesExtensao = {}; return; }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/extensao_permissoes?usuario_id=eq.${userId}&select=*`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    permissoesExtensao = (data && data[0]) ? data[0] : {};
+  } catch (e) { permissoesExtensao = {}; }
+}
+
+function moduloBloqueado(id) {
+  if (!MODULOS_BLOQUEAVEIS.includes(id)) return false;
+  return permissoesExtensao[id] === false;
 }
 
 function injetarBarraLateral() {
@@ -82,11 +114,22 @@ function svgIconeBranco(tipo) {
   return '';
 }
 
+function svgCadeado() {
+  return `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="11" width="16" height="10" rx="2"/>
+      <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+    </svg>
+  `;
+}
+
 function criarIcone(m, barra) {
+  const bloqueado = moduloBloqueado(m.id);
+
   const btn = document.createElement('div');
   btn.className = 'ft-icone';
   btn.dataset.modulo = m.id;
-  btn.title = m.label;
+  btn.title = bloqueado ? `${m.label} (bloqueado)` : m.label;
   btn.style.cssText = `
     width: 49px;
     height: 49px;
@@ -119,6 +162,26 @@ function criarIcone(m, barra) {
     btn.textContent = m.icone;
     btn.style.fontSize = '24px';
     btn.style.opacity = m.pronto ? '1' : '0.55';
+  }
+
+  if (bloqueado) {
+    btn.style.opacity = '0.35';
+    const badge = document.createElement('div');
+    badge.style.cssText = `
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #DC2626;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #0B1F4D;
+    `;
+    badge.innerHTML = svgCadeado();
+    btn.appendChild(badge);
   }
 
   btn.addEventListener('mouseover', () => btn.style.background = 'rgba(255,255,255,0.15)');
@@ -210,6 +273,8 @@ function criarPaineis() {
       montarMensagens(painel.querySelector('.ft-corpo'));
     } else if (m.id === 'idioma') {
       montarIdioma(painel.querySelector('.ft-corpo'));
+    } else if (moduloBloqueado(m.id)) {
+      montarBloqueado(painel.querySelector('.ft-corpo'), m.label);
     } else {
       montarEmBreve(painel.querySelector('.ft-corpo'), m.label);
     }
@@ -222,6 +287,16 @@ function montarEmBreve(container, label) {
       <div style="font-size:32px;margin-bottom:12px;">🚧</div>
       <div style="font-size:14px;font-weight:600;color:#1E293B;margin-bottom:4px;">${label}</div>
       <div style="font-size:12px;">Módulo em desenvolvimento. Em breve disponível.</div>
+    </div>
+  `;
+}
+
+function montarBloqueado(container, label) {
+  container.innerHTML = `
+    <div style="padding:40px 20px;text-align:center;color:#64748B;">
+      <div style="font-size:32px;margin-bottom:12px;">🔒</div>
+      <div style="font-size:14px;font-weight:600;color:#1E293B;margin-bottom:4px;">${label}</div>
+      <div style="font-size:12px;">Este módulo não está disponível no seu plano.<br>Fale com o administrador para liberar o acesso.</div>
     </div>
   `;
 }
