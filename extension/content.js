@@ -75,6 +75,7 @@ const RODAPE = [
 
 const LARGURA_BARRA = 70; // px
 const LARGURA_PAINEL = 270; // px (padrão para a maioria dos módulos)
+const LARGURA_CONTATOS_WHATSAPP = 400; // px aproximado - espaço reservado para a lista de contatos
 const PAINEL_LARGURAS = { kanban: 860 };
 
 function larguraDoPainel(id) { return PAINEL_LARGURAS[id] || LARGURA_PAINEL; }
@@ -289,10 +290,25 @@ function criarPaineis() {
     if (document.getElementById(`ft-painel-${m.id}`)) return;
 
     const largura = larguraDoPainel(m.id);
+    const ehKanban = m.id === 'kanban';
 
     const painel = document.createElement('div');
     painel.id = `ft-painel-${m.id}`;
-    painel.style.cssText = `
+    painel.style.cssText = ehKanban ? `
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: ${LARGURA_BARRA + LARGURA_CONTATOS_WHATSAPP}px;
+      height: 100vh;
+      background: #fff;
+      z-index: 99998;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      font-family: Inter, system-ui, sans-serif;
+      transition: transform 0.25s ease;
+      transform: translateX(110%);
+    ` : `
       position: fixed;
       left: -${largura + 20}px;
       top: 0;
@@ -1217,7 +1233,12 @@ function abrirModulo(id) {
 
   const painel = document.getElementById(`ft-painel-${id}`);
   if (!painel) return;
-  painel.style.left = `${LARGURA_BARRA}px`;
+
+  if (id === 'kanban') {
+    painel.style.transform = 'translateX(0)';
+  } else {
+    painel.style.left = `${LARGURA_BARRA}px`;
+  }
   painelAtivo = id;
 
   if (id === 'mensagens') {
@@ -1244,8 +1265,14 @@ function abrirModulo(id) {
 function fecharPainelAtivo() {
   if (!painelAtivo) return;
   const painel = document.getElementById(`ft-painel-${painelAtivo}`);
-  const largura = larguraDoPainel(painelAtivo);
-  if (painel) painel.style.left = `-${largura + 20}px`;
+  if (painel) {
+    if (painelAtivo === 'kanban') {
+      painel.style.transform = 'translateX(110%)';
+    } else {
+      const largura = larguraDoPainel(painelAtivo);
+      painel.style.left = `-${largura + 20}px`;
+    }
+  }
   document.querySelectorAll('.ft-icone').forEach(b => b.style.outline = 'none');
   painelAtivo = null;
   fecharOverlayMsgKanban();
