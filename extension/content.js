@@ -13,11 +13,50 @@ let mensagensContainerEl = null;
 let viewMensagens = 'lista'; // 'lista' | 'form'
 let form = null;
 
+// ── KANBAN ──
+let kanbanContainerEl = null;
+let kanbanColunas = [];
+let kanbanRegistros = [];
+let kanbanBusca = '';
+let kanbanEditando = null;
+let kanbanSalvando = false;
+let dragItemKanban = null;
+let kanbanMsgOverlayAberto = false;
+let kanbanMsgWhatsapp = '';
+let kanbanMsgBusca = '';
+
+const KANBAN_COLS_META = [
+  { key: 'col1', cor: '#3B82F6', bg: '#EFF6FF' },
+  { key: 'col2', cor: '#8B5CF6', bg: '#F5F3FF' },
+  { key: 'col3', cor: '#F59E0B', bg: '#FFFBEB' },
+  { key: 'col4', cor: '#06B6D4', bg: '#ECFEFF' },
+  { key: 'col5', cor: '#F97316', bg: '#FFF7ED' },
+  { key: 'col6', cor: '#EF4444', bg: '#FEF2F2' },
+  { key: 'col7', cor: '#16A34A', bg: '#F0FDF4' },
+  { key: 'col8', cor: '#6B7280', bg: '#F9FAFB' },
+];
+const KANBAN_COLS_DEFAULT_LABEL = {
+  col1: 'Novo', col2: 'Primeiro Contato', col3: 'Aguardando Retorno', col4: 'Visita Agendada',
+  col5: 'Proposta Enviada', col6: 'Negociação', col7: 'Cliente Fechado', col8: 'Perdido',
+};
+
+const TEMP_LIST = [
+  { key: 'quente', label: '🔴 Quente', cor: '#DC2626' },
+  { key: 'morno',  label: '🟠 Morno',  cor: '#EA580C' },
+  { key: 'frio',   label: '🟡 Frio',   cor: '#D97706' },
+  { key: 'inativo',label: '⚫ Inativo', cor: '#6B7280' },
+];
+
+const ACOES_LIST = [
+  'Ligar','Enviar WhatsApp','Enviar e-mail','Agendar visita',
+  'Realizar visita','Enviar proposta','Cobrar resposta','Reunião','Encerrar negociação'
+];
+
 const MODULOS_BLOQUEAVEIS = ['dashboard', 'kanban', 'chatbot', 'campanhas', 'importar', 'link_qr', 'lembretes', 'webhooks'];
 
 const MODULOS = [
   { id: 'dashboard',   icone: '📊', label: 'Dashboard',              pronto: false },
-  { id: 'kanban',      icone: '🗂️', label: 'Modo CRM (Kanban)',      pronto: false },
+  { id: 'kanban',      icone: '🗂️', label: 'Modo CRM (Kanban)',      pronto: true  },
   { id: 'mensagens',   icone: '💬', label: 'Mensagens rápidas',      pronto: true  },
   { id: 'chatbot',     tipo: 'atendente', label: 'Chat Bot',          pronto: false },
   { id: 'campanhas',   icone: '📣', label: 'Campanhas',               pronto: false },
@@ -35,6 +74,10 @@ const RODAPE = [
 ];
 
 const LARGURA_BARRA = 70; // px
+const LARGURA_PAINEL = 270; // px (padrão para a maioria dos módulos)
+const PAINEL_LARGURAS = { kanban: 860 };
+
+function larguraDoPainel(id) { return PAINEL_LARGURAS[id] || LARGURA_PAINEL; }
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'toggle_panel') abrirModulo('mensagens');
@@ -245,13 +288,15 @@ function criarPaineis() {
   [...MODULOS, ...RODAPE].forEach(m => {
     if (document.getElementById(`ft-painel-${m.id}`)) return;
 
+    const largura = larguraDoPainel(m.id);
+
     const painel = document.createElement('div');
     painel.id = `ft-painel-${m.id}`;
     painel.style.cssText = `
       position: fixed;
-      left: -400px;
+      left: -${largura + 20}px;
       top: 0;
-      width: 380px;
+      width: ${largura}px;
       height: 100vh;
       background: #fff;
       z-index: 99998;
@@ -269,7 +314,7 @@ function criarPaineis() {
         <span style="font-size:14px;font-weight:700;">${rotuloIcone} ${m.label}</span>
         <button class="ft-fechar" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:18px;line-height:1;">✕</button>
       </div>
-      <div class="ft-corpo" style="flex:1;overflow-y:auto;"></div>
+      <div class="ft-corpo" style="flex:1;overflow-y:auto;position:relative;"></div>
     `;
 
     document.body.appendChild(painel);
@@ -277,6 +322,8 @@ function criarPaineis() {
 
     if (m.id === 'mensagens') {
       montarMensagens(painel.querySelector('.ft-corpo'));
+    } else if (m.id === 'kanban') {
+      // montado sob demanda em abrirModulo (precisa recarregar sempre)
     } else if (m.id === 'idioma') {
       montarIdioma(painel.querySelector('.ft-corpo'));
     } else if (moduloBloqueado(m.id)) {
@@ -718,6 +765,452 @@ function renderFormMensagens(container) {
   container.appendChild(wrap);
 }
 
+// ═══════════════════════════════════════════════════════
+// KANBAN (CRM) — QUADRO + EDIÇÃO RÁPIDA + MENSAGENS
+// ═══════════════════════════════════════════════════════
+
+async function abrirKanban() {
+  const painel = document.getElementById('ft-painel-kanban');
+  if (!painel) return;
+  kanbanContainerEl = painel.querySelector('.ft-corpo');
+  kanbanEditando = null;
+  kanbanContainerEl.innerHTML = '<div style="padding:40px;text-align:center;color:#64748B;">⏳ Carregando quadro...</div>';
+  await Promise.all([carregarKanbanColunas(), carregarKanbanRegistros()]);
+  renderKanban();
+}
+
+async function carregarKanbanColunas() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kanban_colunas?usuario_id=eq.${userId}&select=*`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    const linha = (data && data[0]) || {};
+    kanbanColunas = KANBAN_COLS_META.map(meta => ({
+      ...meta,
+      label: linha[meta.key] || KANBAN_COLS_DEFAULT_LABEL[meta.key],
+    }));
+  } catch (e) {
+    kanbanColunas = KANBAN_COLS_META.map(meta => ({ ...meta, label: KANBAN_COLS_DEFAULT_LABEL[meta.key] }));
+  }
+}
+
+async function carregarKanbanRegistros() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/prospeccao_clientes?user_id=eq.${userId}&select=*`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    kanbanRegistros = (data || []).sort((a, b) => {
+      if (!a.data_proxima_acao) return 1;
+      if (!b.data_proxima_acao) return -1;
+      return a.data_proxima_acao < b.data_proxima_acao ? -1 : 1;
+    });
+  } catch (e) { kanbanRegistros = []; }
+}
+
+function getTempKanban(key) { return TEMP_LIST.find(t => t.key === key) || TEMP_LIST[2]; }
+
+function renderKanban() {
+  if (!kanbanContainerEl) return;
+  if (kanbanEditando) {
+    renderKanbanForm(kanbanContainerEl);
+  } else {
+    renderKanbanBoard(kanbanContainerEl);
+  }
+}
+
+function renderKanbanBoard(container) {
+  container.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'padding:10px 14px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;display:flex;gap:8px;align-items:center;flex-shrink:0;';
+  header.innerHTML = `
+    <input id="ft-kanban-busca" placeholder="🔍 Buscar por nome, telefone, cidade..." value="${kanbanBusca}" style="flex:1;padding:7px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#fff;color:#1E293B;outline:none;box-sizing:border-box;" />
+    <button id="ft-kanban-atualizar" style="padding:7px 12px;border-radius:6px;border:1.5px solid #0B1F4D;background:#fff;color:#0B1F4D;cursor:pointer;font-size:13px;">🔄</button>
+  `;
+  container.appendChild(header);
+  header.querySelector('#ft-kanban-busca').addEventListener('input', (e) => { kanbanBusca = e.target.value; renderKanbanBoardColunas(colunasWrap); });
+  header.querySelector('#ft-kanban-atualizar').addEventListener('click', async () => {
+    await carregarKanbanRegistros();
+    renderKanbanBoardColunas(colunasWrap);
+  });
+
+  const colunasWrap = document.createElement('div');
+  colunasWrap.style.cssText = 'flex:1;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:14px;box-sizing:border-box;';
+  container.appendChild(colunasWrap);
+
+  renderKanbanBoardColunas(colunasWrap);
+}
+
+function registrosFiltradosKanban() {
+  const termo = kanbanBusca.toLowerCase();
+  return kanbanRegistros.filter(r => {
+    if (!termo) return true;
+    return (r.razao_social || '').toLowerCase().includes(termo) ||
+      (r.telefone || '').includes(termo) ||
+      (r.whatsapp || '').includes(termo) ||
+      (r.endereco_municipio || '').toLowerCase().includes(termo);
+  });
+}
+
+function renderKanbanBoardColunas(colunasWrap) {
+  colunasWrap.innerHTML = '';
+  const filtrados = registrosFiltradosKanban();
+  const hojeStr = new Date().toISOString().split('T')[0];
+
+  kanbanColunas.forEach(col => {
+    const cards = filtrados.filter(r => r.status_lead === col.label);
+
+    const colDiv = document.createElement('div');
+    colDiv.style.cssText = `min-width:200px;max-width:210px;flex-shrink:0;background:#F1F5F9;border-radius:10px;padding:8px;display:flex;flex-direction:column;box-sizing:border-box;`;
+
+    const colHeader = document.createElement('div');
+    colHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;';
+    colHeader.innerHTML = `
+      <span style="font-size:11px;font-weight:700;color:#1E293B;">${col.label}</span>
+      <span style="background:${col.bg};color:${col.cor};padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;border:1px solid ${col.cor};">${cards.length}</span>
+    `;
+    colDiv.appendChild(colHeader);
+
+    const cardsWrap = document.createElement('div');
+    cardsWrap.style.cssText = 'flex:1;overflow-y:auto;min-height:60px;';
+
+    colDiv.addEventListener('dragover', (e) => { e.preventDefault(); colDiv.style.background = col.bg; });
+    colDiv.addEventListener('dragleave', () => { colDiv.style.background = '#F1F5F9'; });
+    colDiv.addEventListener('drop', async () => {
+      colDiv.style.background = '#F1F5F9';
+      if (dragItemKanban && dragItemKanban.status_lead !== col.label) {
+        await moverCardKanban(dragItemKanban.id, col.label);
+        dragItemKanban = null;
+        renderKanbanBoardColunas(colunasWrap);
+      }
+    });
+
+    if (cards.length === 0) {
+      const vazio = document.createElement('div');
+      vazio.style.cssText = 'text-align:center;padding:14px 4px;font-size:10px;color:#94A3B8;border:2px dashed #E2E8F0;border-radius:8px;';
+      vazio.textContent = 'Arraste um card aqui';
+      cardsWrap.appendChild(vazio);
+    }
+
+    cards.forEach(r => {
+      const temp = getTempKanban(r.temperatura);
+      const atrasado = r.data_proxima_acao && r.data_proxima_acao < hojeStr;
+      const ehHoje = r.data_proxima_acao === hojeStr;
+
+      const card = document.createElement('div');
+      card.draggable = true;
+      card.style.cssText = `background:${atrasado ? '#FEF2F2' : '#fff'};border:1px solid ${atrasado ? '#FECACA' : '#E2E8F0'};border-radius:8px;padding:8px 9px;cursor:grab;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.06);`;
+
+      card.innerHTML = `
+        <div style="font-size:11px;font-weight:700;color:#1E293B;margin-bottom:3px;line-height:1.3;">${r.razao_social || '—'}</div>
+        ${r.contato_nome ? `<div style="font-size:10px;color:#64748B;margin-bottom:2px;">👤 ${r.contato_nome}</div>` : ''}
+        ${r.endereco_municipio ? `<div style="font-size:10px;color:#64748B;margin-bottom:3px;">📍 ${r.endereco_municipio}/${r.endereco_uf || ''}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+          <span style="font-size:9px;color:${temp.cor};font-weight:700;">${temp.label}</span>
+          ${r.data_proxima_acao ? `<span style="font-size:9px;font-weight:600;color:${atrasado ? '#DC2626' : ehHoje ? '#2563EB' : '#64748B'};">${atrasado ? '⚠️' : ehHoje ? '🔔' : r.data_proxima_acao}</span>` : ''}
+        </div>
+      `;
+
+      card.addEventListener('dragstart', () => { dragItemKanban = r; });
+      card.addEventListener('click', () => {
+        kanbanEditando = { ...r };
+        renderKanban();
+      });
+      cardsWrap.appendChild(card);
+    });
+
+    colDiv.appendChild(cardsWrap);
+    colunasWrap.appendChild(colDiv);
+  });
+}
+
+async function moverCardKanban(id, novoStatus) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/prospeccao_clientes?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ status_lead: novoStatus }),
+    });
+    kanbanRegistros = kanbanRegistros.map(r => r.id === id ? { ...r, status_lead: novoStatus } : r);
+  } catch (e) { alert('Erro ao mover: ' + e.message); }
+}
+
+function renderKanbanForm(container) {
+  const r = kanbanEditando;
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:16px 18px;overflow-y:auto;height:100%;box-sizing:border-box;';
+
+  const voltarBtn = document.createElement('button');
+  voltarBtn.textContent = '← Voltar ao quadro';
+  voltarBtn.style.cssText = 'background:none;border:none;color:#64748B;cursor:pointer;font-size:12px;margin-bottom:10px;padding:0;';
+  voltarBtn.addEventListener('click', () => { kanbanEditando = null; renderKanban(); });
+  wrap.appendChild(voltarBtn);
+
+  const titulo = document.createElement('div');
+  titulo.style.cssText = 'font-size:16px;font-weight:700;color:#1E293B;margin-bottom:2px;';
+  titulo.textContent = r.razao_social || 'Sem nome';
+  wrap.appendChild(titulo);
+
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size:11px;color:#64748B;margin-bottom:16px;';
+  sub.textContent = r.cnpj || '';
+  wrap.appendChild(sub);
+
+  function campo(labelTxt, elInput) {
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-bottom:12px;';
+    const lbl = document.createElement('label');
+    lbl.textContent = labelTxt;
+    lbl.style.cssText = 'font-size:11px;font-weight:600;color:#0B1F4D;display:block;margin-bottom:4px;';
+    box.appendChild(lbl);
+    box.appendChild(elInput);
+    return box;
+  }
+
+  function inputTexto(valor, onchange, tipo = 'text') {
+    const inp = document.createElement('input');
+    inp.type = tipo;
+    inp.value = valor || '';
+    inp.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:13px;box-sizing:border-box;';
+    inp.addEventListener('input', (e) => onchange(e.target.value));
+    return inp;
+  }
+
+  function selectOpcoes(valor, opcoes, onchange) {
+    const sel = document.createElement('select');
+    sel.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:13px;box-sizing:border-box;';
+    opcoes.forEach(([v, l]) => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = l;
+      if (v === valor) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', (e) => onchange(e.target.value));
+    return sel;
+  }
+
+  wrap.appendChild(campo('Status do Lead', selectOpcoes(r.status_lead, kanbanColunas.map(c => [c.label, c.label]), v => r.status_lead = v)));
+  wrap.appendChild(campo('Temperatura', selectOpcoes(r.temperatura, TEMP_LIST.map(t => [t.key, t.label]), v => r.temperatura = v)));
+  wrap.appendChild(campo('Próxima Ação', selectOpcoes(r.proxima_acao, [['', 'Selecione...'], ...ACOES_LIST.map(a => [a, a])], v => r.proxima_acao = v)));
+  wrap.appendChild(campo('Data da Próxima Ação', inputTexto(r.data_proxima_acao, v => r.data_proxima_acao = v, 'date')));
+  wrap.appendChild(campo('Hora (opcional)', inputTexto(r.hora_proxima_acao, v => r.hora_proxima_acao = v, 'time')));
+  wrap.appendChild(campo('Telefone', inputTexto(r.telefone, v => r.telefone = v)));
+  wrap.appendChild(campo('WhatsApp', inputTexto(r.whatsapp, v => r.whatsapp = v)));
+
+  const obsBox = document.createElement('div');
+  obsBox.style.cssText = 'margin-bottom:14px;';
+  const obsLbl = document.createElement('label');
+  obsLbl.textContent = 'Observações';
+  obsLbl.style.cssText = 'font-size:11px;font-weight:600;color:#0B1F4D;display:block;margin-bottom:4px;';
+  const obsInput = document.createElement('textarea');
+  obsInput.value = r.observacoes || '';
+  obsInput.rows = 3;
+  obsInput.style.cssText = 'width:100%;padding:8px 10px;border-radius:6px;border:1px solid #C8D0DC;font-size:13px;resize:vertical;box-sizing:border-box;';
+  obsInput.addEventListener('input', (e) => r.observacoes = e.target.value);
+  obsBox.appendChild(obsLbl);
+  obsBox.appendChild(obsInput);
+  wrap.appendChild(obsBox);
+
+  // Ações de contato
+  const acoesLinha = document.createElement('div');
+  acoesLinha.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;';
+
+  if (r.telefone) {
+    const btnTel = document.createElement('a');
+    btnTel.href = `tel:${r.telefone}`;
+    btnTel.textContent = '📞 Ligar';
+    btnTel.style.cssText = 'padding:6px 12px;border-radius:6px;border:1.5px solid #0B1F4D;color:#0B1F4D;text-decoration:none;font-size:11px;font-weight:600;';
+    acoesLinha.appendChild(btnTel);
+  }
+
+  const btnMsg = document.createElement('button');
+  btnMsg.textContent = '⚡ Mensagens Rápidas';
+  btnMsg.style.cssText = 'padding:6px 12px;border-radius:6px;border:none;background:#25D366;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;';
+  btnMsg.addEventListener('click', () => abrirOverlayMsgKanban(r.whatsapp));
+  acoesLinha.appendChild(btnMsg);
+
+  wrap.appendChild(acoesLinha);
+
+  // Botões salvar/excluir
+  const botoes = document.createElement('div');
+  botoes.style.cssText = 'display:flex;gap:8px;';
+
+  const btnSalvar = document.createElement('button');
+  btnSalvar.textContent = kanbanSalvando ? 'Salvando...' : '💾 Salvar';
+  btnSalvar.disabled = kanbanSalvando;
+  btnSalvar.style.cssText = `padding:9px 18px;border-radius:8px;background:#0B1F4D;color:#fff;border:none;font-weight:700;font-size:12px;cursor:pointer;opacity:${kanbanSalvando ? 0.6 : 1};`;
+  btnSalvar.addEventListener('click', salvarKanbanEdicao);
+
+  const btnExcluir = document.createElement('button');
+  btnExcluir.textContent = '🗑️ Excluir';
+  btnExcluir.style.cssText = 'padding:9px 16px;border-radius:8px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;font-weight:700;font-size:12px;cursor:pointer;';
+  btnExcluir.addEventListener('click', excluirKanbanRegistro);
+
+  botoes.appendChild(btnSalvar);
+  botoes.appendChild(btnExcluir);
+  wrap.appendChild(botoes);
+
+  container.appendChild(wrap);
+}
+
+async function salvarKanbanEdicao() {
+  const r = kanbanEditando;
+  kanbanSalvando = true;
+  renderKanban();
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/prospeccao_clientes?id=eq.${r.id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        status_lead: r.status_lead, temperatura: r.temperatura,
+        proxima_acao: r.proxima_acao, data_proxima_acao: r.data_proxima_acao || null,
+        hora_proxima_acao: r.hora_proxima_acao || null,
+        telefone: r.telefone, whatsapp: r.whatsapp, observacoes: r.observacoes,
+      }),
+    });
+    await carregarKanbanRegistros();
+    kanbanSalvando = false;
+    kanbanEditando = null;
+    renderKanban();
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+    kanbanSalvando = false;
+    renderKanban();
+  }
+}
+
+async function excluirKanbanRegistro() {
+  const r = kanbanEditando;
+  if (!confirm(`Excluir "${r.razao_social || 'este registro'}"?`)) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/prospeccao_clientes?id=eq.${r.id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+    });
+    await carregarKanbanRegistros();
+    kanbanEditando = null;
+    renderKanban();
+  } catch (e) {
+    alert('Erro ao excluir: ' + e.message);
+  }
+}
+
+// ── OVERLAY MENSAGENS RÁPIDAS (a partir do card do Kanban) ──
+async function abrirOverlayMsgKanban(whatsapp) {
+  kanbanMsgWhatsapp = whatsapp || '';
+  kanbanMsgBusca = '';
+  kanbanMsgOverlayAberto = true;
+  await carregarSequencias();
+  renderOverlayMsgKanban();
+}
+
+function fecharOverlayMsgKanban() {
+  kanbanMsgOverlayAberto = false;
+  const el = document.getElementById('ft-kanban-msg-overlay');
+  if (el) el.remove();
+}
+
+function renderOverlayMsgKanban() {
+  let overlay = document.getElementById('ft-kanban-msg-overlay');
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement('div');
+  overlay.id = 'ft-kanban-msg-overlay';
+  overlay.style.cssText = `
+    position: fixed; top: 0; right: 0; width: 320px; height: 100vh;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.2);
+    z-index: 100001; display: flex; flex-direction: column;
+    font-family: Inter, system-ui, sans-serif;
+  `;
+
+  const header = document.createElement('div');
+  header.style.cssText = 'padding:14px 16px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
+  header.innerHTML = `<span style="font-size:14px;font-weight:700;color:#1E293B;">Mensagens rápidas</span>`;
+  const btnFechar = document.createElement('button');
+  btnFechar.textContent = '✕';
+  btnFechar.style.cssText = 'background:none;border:none;color:#64748B;cursor:pointer;font-size:18px;line-height:1;';
+  btnFechar.addEventListener('click', fecharOverlayMsgKanban);
+  header.appendChild(btnFechar);
+  overlay.appendChild(header);
+
+  const status = document.createElement('div');
+  const temWhats = !!kanbanMsgWhatsapp;
+  status.style.cssText = `padding:8px 16px;background:${temWhats ? '#F0FDF4' : '#FEF2F2'};border-bottom:1px solid #E2E8F0;font-size:11px;color:${temWhats ? '#16A34A' : '#DC2626'};font-weight:600;`;
+  status.textContent = temWhats ? `📱 Enviando para: ${kanbanMsgWhatsapp}` : '⚠️ Sem WhatsApp cadastrado';
+  overlay.appendChild(status);
+
+  const buscaBox = document.createElement('div');
+  buscaBox.style.cssText = 'padding:10px 12px;border-bottom:1px solid #E2E8F0;background:#F8FAFC;';
+  const buscaInput = document.createElement('input');
+  buscaInput.placeholder = 'Pesquisar';
+  buscaInput.value = kanbanMsgBusca;
+  buscaInput.style.cssText = 'width:100%;padding:7px 12px;border-radius:6px;border:1px solid #E2E8F0;font-size:12px;background:#fff;box-sizing:border-box;color:#1E293B;outline:none;';
+  buscaInput.addEventListener('input', (e) => { kanbanMsgBusca = e.target.value; renderListaOverlayMsg(listaDiv); });
+  buscaBox.appendChild(buscaInput);
+  overlay.appendChild(buscaBox);
+
+  const listaDiv = document.createElement('div');
+  listaDiv.style.cssText = 'flex:1;overflow-y:auto;';
+  overlay.appendChild(listaDiv);
+
+  document.body.appendChild(overlay);
+  renderListaOverlayMsg(listaDiv);
+}
+
+function renderListaOverlayMsg(listaDiv) {
+  listaDiv.innerHTML = '';
+  const termo = kanbanMsgBusca.toLowerCase();
+  const todas = sequencias.flatMap(s => s.msgs.map(m => ({ ...m, nomeSeq: s.nome })))
+    .filter(m => !termo || (m.mensagem || '').toLowerCase().includes(termo) || m.nomeSeq.toLowerCase().includes(termo));
+
+  if (todas.length === 0) {
+    listaDiv.innerHTML = '<div style="padding:24px;text-align:center;color:#64748B;font-size:12px;">Nenhuma mensagem encontrada.<br>Crie sequências no módulo "Mensagens rápidas".</div>';
+    return;
+  }
+
+  todas.forEach(m => {
+    const tipo = m.tipo_conteudo || 'texto';
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid #F1F5F9;gap:10px;';
+
+    const icone = tipo === 'foto' ? '📷' : tipo === 'video' ? '🎬' : tipo === 'audio' ? '🎤' : '📝';
+    const desc = tipo === 'texto' ? (m.mensagem || '') : `Arquivo de ${tipo} (abra no app para enviar)`;
+
+    item.innerHTML = `
+      <div style="width:34px;height:34px;border-radius:6px;border:2px solid #00A884;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${icone}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:600;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.nomeSeq} — ${m.sequencia_ordem}</div>
+        <div style="font-size:10px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc}</div>
+      </div>
+    `;
+
+    const btnEnviar = document.createElement('button');
+    btnEnviar.style.cssText = 'background:none;border:none;cursor:pointer;color:#00A884;padding:4px;flex-shrink:0;';
+    btnEnviar.title = 'Enviar no WhatsApp';
+    btnEnviar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+    btnEnviar.disabled = tipo !== 'texto' || !kanbanMsgWhatsapp;
+    if (btnEnviar.disabled) btnEnviar.style.opacity = '0.3';
+    btnEnviar.addEventListener('click', () => {
+      const num = kanbanMsgWhatsapp.replace(/\D/g, '');
+      if (!num) { alert('Este prospect não tem WhatsApp cadastrado.'); return; }
+      window.open(`https://wa.me/55${num}?text=${encodeURIComponent(m.mensagem || '')}`, '_blank');
+    });
+    item.appendChild(btnEnviar);
+
+    listaDiv.appendChild(item);
+  });
+}
+
 function abrirModulo(id) {
   if (painelAtivo === id) { fecharPainelAtivo(); return; }
   if (painelAtivo) fecharPainelAtivo();
@@ -731,6 +1224,12 @@ function abrirModulo(id) {
     viewMensagens = 'lista';
     form = null;
     carregarSequencias().then(() => renderViewMensagens());
+  } else if (id === 'kanban') {
+    if (moduloBloqueado('kanban')) {
+      montarBloqueado(painel.querySelector('.ft-corpo'), 'Modo CRM (Kanban)');
+    } else {
+      abrirKanban();
+    }
   }
 
   document.querySelectorAll('.ft-icone').forEach(b => {
@@ -745,9 +1244,11 @@ function abrirModulo(id) {
 function fecharPainelAtivo() {
   if (!painelAtivo) return;
   const painel = document.getElementById(`ft-painel-${painelAtivo}`);
-  if (painel) painel.style.left = '-400px';
+  const largura = larguraDoPainel(painelAtivo);
+  if (painel) painel.style.left = `-${largura + 20}px`;
   document.querySelectorAll('.ft-icone').forEach(b => b.style.outline = 'none');
   painelAtivo = null;
+  fecharOverlayMsgKanban();
 }
 
 async function carregarSequencias() {
