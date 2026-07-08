@@ -41,7 +41,18 @@ function alertaExigencia(dias) {
   return { cor: '#64748b', bg: '#f8fafc', label: `${dias} dias restantes` }
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 export default function PerdComp() {
+  const isMobile = useIsMobile()
   const [clientes,      setClientes]      = useState([])
   const [recuperacoes,  setRecuperacoes]  = useState([])
   const [perdcomps,     setPerdcomps]     = useState([])
@@ -236,26 +247,26 @@ export default function PerdComp() {
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: '#1e3a5f', fontSize: 16 }}>Carregando...</div>
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
 
       {/* BANNER */}
-      <div style={{ background: 'linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #0d9488 100%)', borderRadius: '0 0 24px 24px', padding: '36px 40px 40px', marginBottom: 32, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #0d9488 100%)', borderRadius: '0 0 24px 24px', padding: isMobile ? '24px 20px 28px' : '36px 40px 40px', marginBottom: 32, color: '#fff', position: 'relative', overflow: 'hidden', boxSizing: 'border-box' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: 12, color: '#9db8d8', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — RECUPERAÇÃO TRIBUTÁRIA</div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 8, color: '#fff' }}>📤 PER/DCOMP</h1>
-          <p style={{ fontSize: 16, color: '#9db8d8', marginBottom: 28, lineHeight: 1.6, maxWidth: 560 }}>
+          <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, marginBottom: 8, color: '#fff' }}>📤 PER/DCOMP</h1>
+          <p style={{ fontSize: isMobile ? 14 : 16, color: '#9db8d8', marginBottom: isMobile ? 20 : 28, lineHeight: 1.6, maxWidth: 560 }}>
             Gerencie todos os pedidos de restituição e compensação tributária. Do protocolo à recuperação financeira.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
             {[
               { valor: fmtR(totalProtocolado), label: 'Valor protocolado',  cor: '#60a5fa' },
               { valor: fmtR(totalHomologado),  label: 'Valor homologado',   cor: '#4ade80' },
               { valor: fmtR(totalRecuperado),  label: 'Valor recuperado',   cor: '#fbbf24' },
               { valor: fmtR(totalGlosado),     label: 'Valor glosado',      cor: '#f87171' },
             ].map((c, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
+              <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: isMobile ? '12px 14px' : '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 900, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
                 <div style={{ fontSize: 11, color: '#9db8d8', fontWeight: 600 }}>{c.label}</div>
               </div>
             ))}
@@ -265,7 +276,7 @@ export default function PerdComp() {
 
       {/* ALERTAS DE EXIGÊNCIA */}
       {exigPendentes.length > 0 && (
-        <div style={{ background: '#fff1f2', border: '2px solid #fecdd3', borderRadius: 14, padding: '16px 24px', marginBottom: 24 }}>
+        <div style={{ background: '#fff1f2', border: '2px solid #fecdd3', borderRadius: 14, padding: '16px 24px', marginBottom: 24, boxSizing: 'border-box' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#dc2626', marginBottom: 12 }}>
             🔴 {exigPendentes.length} exigência(s) pendente(s) — Verifique os prazos!
           </div>
@@ -273,7 +284,7 @@ export default function PerdComp() {
             const dias   = diasParaVencer(e.prazo_resposta)
             const alerta = alertaExigencia(dias)
             return (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #fecdd3' }}>
+              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #fecdd3', flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ fontSize: 13, color: '#374151' }}>{e.tipo_exigencia} — Prazo: {fmtData(e.prazo_resposta)}</div>
                 {alerta && <span style={{ fontSize: 12, fontWeight: 700, background: alerta.bg, color: alerta.cor, padding: '3px 10px', borderRadius: 99 }}>{alerta.label}</span>}
               </div>
@@ -284,7 +295,7 @@ export default function PerdComp() {
 
       {/* ABAS + AÇÕES */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             { id: 'dashboard',  label: '📊 Dashboard'    },
             { id: 'processos',  label: `📋 Processos (${perdcomps.length})` },
@@ -299,7 +310,7 @@ export default function PerdComp() {
             }}>{a.label}</button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={exportarPDF} style={{ padding: '10px 18px', background: '#64748b', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             📄 PDF
           </button>
@@ -312,7 +323,7 @@ export default function PerdComp() {
       {/* ABA DASHBOARD */}
       {aba === 'dashboard' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 12 : 20, marginBottom: 24 }}>
             {[
               { label: 'Em andamento',     valor: emAndamento,                                              cor: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
               { label: 'Com exigência',    valor: comExigencia,                                             cor: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
@@ -321,15 +332,15 @@ export default function PerdComp() {
               { label: 'Total processos',  valor: perdcomps.length,                                         cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
               { label: 'Exig. pendentes',  valor: exigPendentes.length,                                     cor: '#f97316', bg: '#fff7ed', border: '#fed7aa' },
             ].map((c, i) => (
-              <div key={i} style={{ background: c.bg, border: `2px solid ${c.border}`, borderRadius: 14, padding: '24px' }}>
-                <div style={{ fontSize: 40, fontWeight: 900, color: c.cor, marginBottom: 8 }}>{c.valor}</div>
-                <div style={{ fontSize: 14, color: '#64748b', fontWeight: 600 }}>{c.label}</div>
+              <div key={i} style={{ background: c.bg, border: `2px solid ${c.border}`, borderRadius: 14, padding: isMobile ? '16px' : '24px', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: isMobile ? 28 : 40, fontWeight: 900, color: c.cor, marginBottom: 8 }}>{c.valor}</div>
+                <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{c.label}</div>
               </div>
             ))}
           </div>
 
           {/* Pipeline visual */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20, boxSizing: 'border-box' }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#1e3a5f', marginBottom: 20 }}>Pipeline de Recuperação</div>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
               {STATUS_PIPELINE.map(st => {
@@ -363,9 +374,9 @@ export default function PerdComp() {
                 const st  = STATUS_PIPELINE.find(s => s.id === p.status) || STATUS_PIPELINE[0]
                 const exigP = exigencias.filter(e => e.perdcomp_id === p.id && e.situacao === 'Pendente')
                 return (
-                  <div key={p.id} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${st.border}`, padding: '20px 24px' }}>
+                  <div key={p.id} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${st.border}`, padding: '20px 24px', boxSizing: 'border-box' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 13, fontWeight: 800, color: '#1e3a5f' }}>
                             {p.numero_perdcomp || `PER/DCOMP ${p.id.slice(0, 8).toUpperCase()}`}
@@ -381,12 +392,12 @@ export default function PerdComp() {
                         </div>
                         {p.tese_aplicada && <div style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>📚 {p.tese_aplicada}</div>}
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div style={{ textAlign: isMobile ? 'left' : 'right', width: isMobile ? '100%' : 'auto' }}>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Crédito identificado</div>
                         <div style={{ fontSize: 18, fontWeight: 900, color: '#16a34a', marginBottom: 4 }}>{fmtR(p.valor_credito)}</div>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Protocolado</div>
                         <div style={{ fontSize: 16, fontWeight: 700, color: '#3b82f6', marginBottom: 12 }}>{fmtR(p.valor_protocolado)}</div>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: isMobile ? 'flex-start' : 'flex-end', flexWrap: 'wrap' }}>
                           <select value={p.status} onChange={e => atualizarStatus(p.id, e.target.value)}
                             style={{ padding: '6px 10px', border: `2px solid ${st.border}`, borderRadius: 8, fontSize: 12, fontWeight: 700, color: st.cor, background: st.bg, cursor: 'pointer' }}>
                             {STATUS_PIPELINE.map(s => <option key={s.id}>{s.id}</option>)}
@@ -400,7 +411,7 @@ export default function PerdComp() {
                     </div>
                     {/* Indicadores financeiros */}
                     {(p.valor_homologado > 0 || p.valor_recuperado > 0 || p.valor_glosado > 0) && (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
                         {[
                           { label: 'Homologado', valor: p.valor_homologado, cor: '#16a34a' },
                           { label: 'Recuperado', valor: p.valor_recuperado, cor: '#0d9488' },
@@ -434,7 +445,7 @@ export default function PerdComp() {
                 const alerta = alertaExigencia(dias)
                 const cli    = clientes.find(c => c.id === e.cliente_id)
                 return (
-                  <div key={e.id} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${e.situacao === 'Pendente' ? '#fecdd3' : '#e2e8f0'}`, padding: '20px 24px' }}>
+                  <div key={e.id} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${e.situacao === 'Pendente' ? '#fecdd3' : '#e2e8f0'}`, padding: '20px 24px', boxSizing: 'border-box' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                       <div>
                         <div style={{ display: 'flex', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -463,7 +474,7 @@ export default function PerdComp() {
 
       {/* ABA TIMELINE */}
       {aba === 'timeline' && (
-        <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px' }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', boxSizing: 'border-box' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#1e3a5f', marginBottom: 20 }}>📅 Timeline Completa</div>
           {timeline.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#94a3b8', padding: 32 }}>Nenhum evento registrado ainda.</div>
@@ -475,7 +486,7 @@ export default function PerdComp() {
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#1e3a5f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, zIndex: 1 }}>
                     {i % 2 === 0 ? '📤' : '🔔'}
                   </div>
-                  <div style={{ flex: 1, background: '#f8fafc', borderRadius: 10, padding: '14px 18px' }}>
+                  <div style={{ flex: 1, background: '#f8fafc', borderRadius: 10, padding: '14px 18px', minWidth: 0, boxSizing: 'border-box' }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{t.evento}</div>
                     <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>{t.descricao}</div>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>{fmtDT(t.data_evento)}</div>
@@ -490,7 +501,7 @@ export default function PerdComp() {
       {/* MODAL NOVO PER/DCOMP */}
       {modalNovo && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: '32px', width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: isMobile ? '20px' : '32px', width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1e3a5f', marginBottom: 20 }}>📤 Novo PER/DCOMP</div>
 
             {/* Preencher de recuperação */}
@@ -506,7 +517,7 @@ export default function PerdComp() {
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
               {[
                 { label: 'Nº PER/DCOMP', key: 'numero_perdcomp', ph: 'Ex: 2026.000123456' },
                 { label: 'Competência',   key: 'competencia',     ph: 'Ex: 2021-05' },
@@ -549,9 +560,9 @@ export default function PerdComp() {
                 style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }} />
             </div>
 
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button onClick={() => setModalNovo(false)} style={{ padding: '12px 24px', background: '#f8fafc', color: '#64748b', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={salvarPerdComp} disabled={salvando} style={{ flex: 1, padding: '12px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>
+              <button onClick={salvarPerdComp} disabled={salvando} style={{ flex: 1, minWidth: 160, padding: '12px 0', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>
                 {salvando ? 'Salvando...' : '💾 Salvar PER/DCOMP'}
               </button>
             </div>
@@ -562,9 +573,9 @@ export default function PerdComp() {
       {/* MODAL EXIGÊNCIA */}
       {modalExig && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: '32px', width: '100%', maxWidth: 520 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: isMobile ? '20px' : '32px', width: '100%', maxWidth: 520, boxSizing: 'border-box' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', marginBottom: 20 }}>⚠️ Registrar Exigência Fiscal</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Tipo de Exigência</label>
                 <select value={formExig.tipo_exigencia} onChange={e => setFormExig(f => ({ ...f, tipo_exigencia: e.target.value }))}
@@ -594,9 +605,9 @@ export default function PerdComp() {
               <textarea value={formExig.resposta} onChange={e => setFormExig(f => ({ ...f, resposta: e.target.value }))} rows={3}
                 style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }} />
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button onClick={() => setModalExig(null)} style={{ padding: '12px 24px', background: '#f8fafc', color: '#64748b', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={salvarExigencia} disabled={salvando} style={{ flex: 1, padding: '12px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>
+              <button onClick={salvarExigencia} disabled={salvando} style={{ flex: 1, minWidth: 160, padding: '12px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>
                 {salvando ? 'Salvando...' : '⚠️ Registrar Exigência'}
               </button>
             </div>

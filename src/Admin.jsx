@@ -258,15 +258,15 @@ export default function Admin({ onVoltar }) {
   const essencial=usuarios.filter(u=>u.plano==='essencial').length, avancado=usuarios.filter(u=>u.plano==='avancado').length, premium=usuarios.filter(u=>u.plano==='premium').length
 
   return (
-    <div style={{minHeight:'100vh',background:C.bg,padding:'24px',fontFamily:'Inter, system-ui, sans-serif'}}>
+    <div style={{minHeight:'100vh',background:C.bg,padding:'24px',fontFamily:'Inter, system-ui, sans-serif',boxSizing:'border-box'}}>
 
       {/* HEADER */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,background:C.white,borderRadius:12,padding:'16px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,background:C.white,borderRadius:12,padding:'16px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',flexWrap:'wrap',gap:12}}>
         <div>
           <h1 style={{color:C.navy,fontSize:20,fontWeight:700,margin:0}}>⚙️ Painel Admin — FiscalTrib</h1>
           <p style={{color:C.muted,fontSize:13,margin:'4px 0 0'}}>Área exclusiva do administrador</p>
         </div>
-        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
           <button onClick={enviarBackup} disabled={enviandoBkp}
             style={{background:'#f59e0b',border:'none',color:C.white,padding:'8px 18px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
             {enviandoBkp?'⏳ Enviando...':'📦 Backup por e-mail'}
@@ -295,7 +295,7 @@ export default function Admin({ onVoltar }) {
           {label:'Premium',          valor:premium,        cor:'#f59e0b'},
           {label:'Online agora',     valor:sessoes.length, cor:'#10b981'},
         ].map((c,i)=>(
-          <div key={i} style={{background:C.white,borderRadius:10,padding:16,display:'flex',flexDirection:'column',gap:4,borderTop:`3px solid ${c.cor}`,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+          <div key={i} style={{background:C.white,borderRadius:10,padding:16,display:'flex',flexDirection:'column',gap:4,borderTop:`3px solid ${c.cor}`,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)',minWidth:0,boxSizing:'border-box'}}>
             <span style={{fontSize:26,fontWeight:700,color:c.cor}}>{c.valor}</span>
             <span style={{color:C.muted,fontSize:12}}>{c.label}</span>
           </div>
@@ -321,7 +321,7 @@ export default function Admin({ onVoltar }) {
 
       {/* ── ABA PERMISSÕES DO SISTEMA (SITE) ── */}
       {abaAtiva === 'permissoessite' && (
-        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
+        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🖥️ Permissões do Sistema (fiscaltrib.com.br)</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
             Controle quais módulos do site cada cliente enxerga. Ex: deixe só "Prospecção" ligado para vender apenas o CRM/Kanban, sem nenhum módulo tributário. Todos os módulos vêm habilitados por padrão.
@@ -372,7 +372,7 @@ export default function Admin({ onVoltar }) {
 
       {/* ── ABA PERMISSÕES DA EXTENSÃO ── */}
       {abaAtiva === 'permissoes' && (
-        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
+        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🧩 Permissões da Extensão do WhatsApp</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
             Habilite ou bloqueie cada módulo da extensão individualmente por cliente. Todos os módulos vêm habilitados por padrão.
@@ -423,8 +423,8 @@ export default function Admin({ onVoltar }) {
 
       {/* ── ABA MONITORAMENTO ── */}
       {abaAtiva === 'monitor' && (
-        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
             <div>
               <div style={{fontSize:16,fontWeight:700,color:'#10b981',marginBottom:4}}>👁️ Usuários Online Agora</div>
               <div style={{fontSize:12,color:C.muted}}>Atualiza a cada 15 segundos. Online = atividade nos últimos 5 minutos.</div>
@@ -471,12 +471,12 @@ export default function Admin({ onVoltar }) {
 
       {/* ── ABA BONIFICAÇÃO ── */}
       {abaAtiva === 'bonificacao' && (
-        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`}}>
+        <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🎁 Liberar Acesso Bonificado</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:20}}>
             Dê acesso gratuito ao FiscalTrib para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:16,marginBottom:16}}>
             <div>
               <label style={{display:'block',fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>E-mail do cliente *</label>
               <input value={bonEmail} onChange={e=>setBonEmail(e.target.value)} placeholder="cliente@empresa.com.br"
@@ -601,7 +601,7 @@ export default function Admin({ onVoltar }) {
       {abaAtiva === 'desenvolvimento' && (
         <div>
           {/* Header do Centro */}
-          <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff'}}>
+          <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff',boxSizing:'border-box'}}>
             <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — USO INTERNO</div>
             <h2 style={{fontSize:20,fontWeight:900,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
             <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Ferramentas internas de teste, homologação e desenvolvimento. Não visível aos usuários do sistema.</p>
@@ -627,14 +627,14 @@ export default function Admin({ onVoltar }) {
 
           {/* Base de Cenários */}
           {abaDesenv === 'cenarios' && (
-            <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center'}}>
+            <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center',boxSizing:'border-box'}}>
               <div style={{fontSize:40,marginBottom:12}}>📚</div>
               <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D',marginBottom:8}}>Base de Cenários de Homologação</div>
               <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
                 Biblioteca de empresas fictícias completas para teste do FiscalTrib.<br/>
                 Importe pelo Laboratório e os cenários ficam registrados aqui.
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,maxWidth:600,margin:'0 auto'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:12,maxWidth:600,margin:'0 auto'}}>
                 {[
                   {codigo:'FT-001',nome:'Comércio Varejista',regime:'Simples Nacional',status:'Em breve'},
                   {codigo:'FT-002',nome:'Prestadora de Serviços',regime:'Simples Nacional',status:'Em breve'},
@@ -642,7 +642,7 @@ export default function Admin({ onVoltar }) {
                   {codigo:'FT-004',nome:'Lucro Real',regime:'Lucro Real',status:'Em breve'},
                   {codigo:'FT-005',nome:'Casos com Erros',regime:'Simples Nacional',status:'Em breve'},
                 ].map((c,i)=>(
-                  <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left'}}>
+                  <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left',minWidth:0,boxSizing:'border-box'}}>
                     <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,marginBottom:4}}>{c.codigo}</div>
                     <div style={{fontSize:13,fontWeight:700,color:'#0B1F4D',marginBottom:4}}>{c.nome}</div>
                     <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>{c.regime}</div>
@@ -658,14 +658,14 @@ export default function Admin({ onVoltar }) {
 
           {/* Ferramentas */}
           {abaDesenv === 'ferramentas' && (
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))',gap:14}}>
               {[
                 {icon:'🗑️',titulo:'Limpar banco de testes',desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.',cor:'#dc2626',btn:'Limpar',disabled:false},
                 {icon:'📊',titulo:'Relatório de cobertura',desc:'Verifica quais módulos do FiscalTrib foram testados nos cenários importados.',cor:'#2563eb',btn:'Gerar',disabled:true},
                 {icon:'🔄',titulo:'Sincronizar layouts CSV',desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',cor:'#7c3aed',btn:'Sincronizar',disabled:true},
                 {icon:'📤',titulo:'Exportar todos os cenários',desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',cor:'#d97706',btn:'Exportar',disabled:true},
               ].map((f,i)=>(
-                <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px'}}>
+                <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px',minWidth:0,boxSizing:'border-box'}}>
                   <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
                   <div style={{fontSize:14,fontWeight:700,color:'#0B1F4D',marginBottom:6}}>{f.titulo}</div>
                   <div style={{fontSize:13,color:'#64748b',marginBottom:16,lineHeight:1.6}}>{f.desc}</div>
@@ -713,14 +713,14 @@ function LogsHomologacao() {
 
   return (
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12,marginBottom:16}}>
         {[
           {label:'Total de logs',    valor:logs.length,                        cor:'#0B1F4D'},
           {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'), cor:'#16a34a'},
           {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'), cor:'#dc2626'},
           {label:'Último import',    valor:logs[0]?new Date(logs[0].created_at).toLocaleDateString('pt-BR'):'—', cor:'#7c3aed'},
         ].map((c,i)=>(
-          <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px'}}>
+          <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px',minWidth:0,boxSizing:'border-box'}}>
             <div style={{fontSize:18,fontWeight:800,color:c.cor}}>{c.valor}</div>
             <div style={{fontSize:11,color:'#64748b',marginTop:3}}>{c.label}</div>
           </div>
@@ -730,24 +730,24 @@ function LogsHomologacao() {
         <div style={{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontSize:13,fontWeight:700,color:'#0B1F4D'}}>
           📝 Logs de homologação (últimos 100)
         </div>
-        <div style={{maxHeight:500,overflowY:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+        <div style={{maxHeight:500,overflowY:'auto',overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600}}>
             <thead>
               <tr style={{background:'#f8fafc',position:'sticky',top:0}}>
                 {['Data/Hora','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=>(
-                  <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0'}}>{h}</th>
+                  <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,fontWeight:600,color:'#64748b',borderBottom:'1px solid #e2e8f0',whiteSpace:'nowrap'}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {logs.map((l,i)=>(
                 <tr key={i} style={{borderBottom:'1px solid #f1f5f9'}}>
-                  <td style={{padding:'9px 14px',color:'#64748b'}}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
-                  <td style={{padding:'9px 14px',fontWeight:600,color:'#0B1F4D'}}>{l.arquivo}</td>
-                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tabela}</td>
-                  <td style={{padding:'9px 14px',color:'#16a34a',fontWeight:700}}>{(l.importados||0).toLocaleString('pt-BR')}</td>
-                  <td style={{padding:'9px 14px',color:l.rejeitados>0?'#dc2626':'#94a3b8',fontWeight:l.rejeitados>0?700:400}}>{(l.rejeitados||0).toLocaleString('pt-BR')}</td>
-                  <td style={{padding:'9px 14px',color:'#64748b'}}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b',whiteSpace:'nowrap'}}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',fontWeight:600,color:'#0B1F4D',whiteSpace:'nowrap'}}>{l.arquivo}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b',whiteSpace:'nowrap'}}>{l.tabela}</td>
+                  <td style={{padding:'9px 14px',color:'#16a34a',fontWeight:700,whiteSpace:'nowrap'}}>{(l.importados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:l.rejeitados>0?'#dc2626':'#94a3b8',fontWeight:l.rejeitados>0?700:400,whiteSpace:'nowrap'}}>{(l.rejeitados||0).toLocaleString('pt-BR')}</td>
+                  <td style={{padding:'9px 14px',color:'#64748b',whiteSpace:'nowrap'}}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
                 </tr>
               ))}
             </tbody>
