@@ -385,6 +385,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const btnPrimary={padding:'10px 16px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
   const btnOutline={padding:'10px 16px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
   const btnDanger ={padding:'4px 12px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}
+  const btnVoltar ={ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', background:'none', border:`1.5px solid ${C.border}`, borderRadius:8, color:C.muted, fontSize:13, cursor:'pointer', marginBottom:16 }
 
   const currentTabs = MODULES[module]?.tabs || []
   const padding = isMobile ? '16px' : '24px 28px'
@@ -512,6 +513,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             </>}
 
             {module==='clientes' && activeTab===1 && novoCliente && <>
+              <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>← Voltar</button>
               <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:20}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
               {!novoCliente.id && (
                 <div style={{background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:12,padding:'14px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
@@ -560,12 +562,19 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             </>}
 
             {module==='clientes' && activeTab===2 && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={(destino) => {
-            if (destino === 'diagnostico') navigateTo('analise', 0)
-            else if (destino === 'importacoes') navigateTo('clientes', 3)
-            else if (destino === 'relatorio') navigateTo('relatorios', 0)
+              if (destino === 'lista') navigateTo('clientes', 0)
+              else if (destino === 'diagnostico') navigateTo('analise', 0)
+              else if (destino === 'importacoes') navigateTo('clientes', 3)
+              else if (destino === 'relatorio') navigateTo('relatorios', 0)
             }} />}
-            {module==='clientes' && activeTab===3 && <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />}
+
+            {module==='clientes' && activeTab===3 && <>
+              <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>← Voltar</button>
+              <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
+            </>}
+
             {module==='clientes' && activeTab===4 && <>
+              <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>← Voltar</button>
               <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
               <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{active?.razao_social} · {active?.regime}</div>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:16,marginBottom:14}}>
