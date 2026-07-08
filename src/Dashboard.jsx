@@ -559,7 +559,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               </div>
             </>}
 
-            {module==='clientes' && activeTab===2 && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={()=>{}} />}
+            {module==='clientes' && activeTab===2 && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={(destino) => {
+            if (destino === 'diagnostico') navigateTo('analise', 0)
+            else if (destino === 'importacoes') navigateTo('clientes', 3)
+            else if (destino === 'relatorio') navigateTo('relatorios', 0)
+            }} />}
             {module==='clientes' && activeTab===3 && <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />}
             {module==='clientes' && activeTab===4 && <>
               <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
