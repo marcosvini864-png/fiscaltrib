@@ -260,7 +260,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
 
   return (
     <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', overflow: 'hidden', marginTop: 24 }}>
-      <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Relatório de Importação</div>
         <button onClick={() => imprimirRelatorio('relatorio-importacao-conteudo')}
           style={{ padding: '8px 20px', background: '#0B1F4D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -268,8 +268,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
         </button>
       </div>
 
-      <div id="relatorio-importacao-conteudo" style={{ padding: '32px 36px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottom: '2px solid #0B1F4D' }}>
+      <div id="relatorio-importacao-conteudo" style={{ padding: '32px 36px', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottom: '2px solid #0B1F4D', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>FISCALTRIB — RELATÓRIO DE IMPORTAÇÃO</div>
             <div style={{ fontSize: 22, fontWeight: 900, color: '#0B1F4D', marginBottom: 4 }}>Relatório de Importação Fiscal</div>
@@ -283,7 +283,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
 
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Dados do Cliente</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <div><div style={{ fontSize: 11, color: '#64748b' }}>Razão Social</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.razao_social || '—'}</div></div>
             <div><div style={{ fontSize: 11, color: '#64748b' }}>CNPJ</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{cliente?.cnpj || '—'}</div></div>
             <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{regime}</div></div>
@@ -292,14 +292,14 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📥 Resumo da Importação</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
             {[
               { label: 'Tipo de arquivo',   valor: origem,                             cor: '#0B1F4D' },
               { label: 'NF-e importadas',   valor: nfes.length,                        cor: '#2563eb' },
               { label: 'Período analisado', valor: `${periodoInicio} a ${periodoFim}`, cor: '#7c3aed' },
               { label: 'Competências',      valor: competencias.length,                cor: '#d97706' },
             ].map((c, i) => (
-              <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+              <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', border: '1px solid #e2e8f0', minWidth: 0, boxSizing: 'border-box' }}>
                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{c.label}</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: c.cor }}>{c.valor}</div>
               </div>
@@ -310,31 +310,33 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>💰 Valores Fiscais Identificados</div>
           <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#0B1F4D', color: '#fff' }}>
-                  {['Tributo','Valor Total','% sobre Faturamento'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { tributo: 'Faturamento Total (NF-e)', valor: totalNF,       pct: 100,                                         bold: false },
-                  { tributo: 'ICMS',                     valor: totalICMS,     pct: totalNF > 0 ? totalICMS/totalNF*100 : 0,     bold: false },
-                  { tributo: 'PIS',                      valor: totalPIS,      pct: totalNF > 0 ? totalPIS/totalNF*100 : 0,      bold: false },
-                  { tributo: 'COFINS',                   valor: totalCOFINS,   pct: totalNF > 0 ? totalCOFINS/totalNF*100 : 0,  bold: false },
-                  { tributo: 'ICMS-ST',                  valor: totalST,       pct: totalNF > 0 ? totalST/totalNF*100 : 0,      bold: false },
-                  { tributo: 'Total de Impostos',        valor: totalImpostos, pct: totalNF > 0 ? totalImpostos/totalNF*100 : 0, bold: true  },
-                ].map((r, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.bold ? '#f0f9ff' : i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                    <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151' }}>{r.tributo}</td>
-                    <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151' }}>{fmtR(r.valor)}</td>
-                    <td style={{ padding: '10px 16px', color: '#64748b' }}>{r.pct.toFixed(2)}%</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
+                <thead>
+                  <tr style={{ background: '#0B1F4D', color: '#fff' }}>
+                    {['Tributo','Valor Total','% sobre Faturamento'].map(h => (
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[
+                    { tributo: 'Faturamento Total (NF-e)', valor: totalNF,       pct: 100,                                         bold: false },
+                    { tributo: 'ICMS',                     valor: totalICMS,     pct: totalNF > 0 ? totalICMS/totalNF*100 : 0,     bold: false },
+                    { tributo: 'PIS',                      valor: totalPIS,      pct: totalNF > 0 ? totalPIS/totalNF*100 : 0,      bold: false },
+                    { tributo: 'COFINS',                   valor: totalCOFINS,   pct: totalNF > 0 ? totalCOFINS/totalNF*100 : 0,  bold: false },
+                    { tributo: 'ICMS-ST',                  valor: totalST,       pct: totalNF > 0 ? totalST/totalNF*100 : 0,      bold: false },
+                    { tributo: 'Total de Impostos',        valor: totalImpostos, pct: totalNF > 0 ? totalImpostos/totalNF*100 : 0, bold: true  },
+                  ].map((r, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.bold ? '#f0f9ff' : i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                      <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151', whiteSpace: 'nowrap' }}>{r.tributo}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: r.bold ? 700 : 400, color: r.bold ? '#0B1F4D' : '#374151', whiteSpace: 'nowrap' }}>{fmtR(r.valor)}</td>
+                      <td style={{ padding: '10px 16px', color: '#64748b', whiteSpace: 'nowrap' }}>{r.pct.toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -342,28 +344,30 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📅 Detalhamento por Competência</div>
             <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc' }}>
-                    {['Competência','NF-e','Faturamento','ICMS','PIS','COFINS','ST'].map(h => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {agrupadas.map((a, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0B1F4D' }}>{a.competencia}</td>
-                      <td style={{ padding: '8px 12px' }}>{a.qtd}</td>
-                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vNF)}</td>
-                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vICMS)}</td>
-                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vPIS)}</td>
-                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vCOFINS)}</td>
-                      <td style={{ padding: '8px 12px' }}>{fmtR(a.vST)}</td>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 560 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['Competência','NF-e','Faturamento','ICMS','PIS','COFINS','ST'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {agrupadas.map((a, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0B1F4D', whiteSpace: 'nowrap' }}>{a.competencia}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{a.qtd}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtR(a.vNF)}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtR(a.vICMS)}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtR(a.vPIS)}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtR(a.vCOFINS)}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtR(a.vST)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -377,8 +381,8 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
               return (
                 <div key={i} style={{ display: 'flex', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${detectada ? '#86efac' : '#e2e8f0'}`, background: detectada ? '#f0fdf4' : '#f8fafc' }}>
                   <div style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{c.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: detectada ? '#16a34a' : '#0B1F4D' }}>{c.titulo}</span>
                       {detectada
                         ? <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 99 }}>✅ IDENTIFICADO</span>
@@ -403,7 +407,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
                 </div>
               </div>
               {oportunidades.map((op, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderRadius: 8, marginBottom: 8, border: `1px solid ${op.cor}33` }}>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderRadius: 8, marginBottom: 8, border: `1px solid ${op.cor}33`, flexWrap: 'wrap', gap: 8 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: op.cor }}>{op.icon} {op.tese}</div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{op.descricao}</div>
@@ -424,7 +428,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>⚠️ Relatório preliminar — não substitui análise profissional habilitada.</div>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822</div>
         </div>
@@ -478,20 +482,20 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
 
   return (
     <div style={{ marginTop: 32 }}>
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — ANÁLISE AUTOMÁTICA</div>
         <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8 }}>⚡ Raio-X Tributário</h2>
         <div style={{ fontSize: 14, color: '#93c5fd', marginBottom: 16 }}>
           Cliente: <strong style={{ color: '#fff' }}>{cliente?.razao_social}</strong> · Regime: <strong style={{ color: '#4ade80' }}>{cliente?.regime}</strong>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginTop: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16, marginTop: 8 }}>
           {[
             { label: 'NF-e analisadas',   valor: nfes?.length || 0,    cor: '#7CC4FF' },
             { label: 'Oportunidades',      valor: oportunidades.length,  cor: '#4ade80' },
             { label: 'Potencial estimado', valor: fmtR(potencialFinal),  cor: '#fbbf24' },
             { label: 'Prazos críticos',    valor: criticos.length,       cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
           ].map((c, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px' }}>
+            <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px', minWidth: 0, boxSizing: 'border-box' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: c.cor }}>{c.valor}</div>
               <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 4 }}>{c.label}</div>
             </div>
@@ -505,8 +509,8 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
             🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
           </div>
           {oportunidades.map((op, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+            <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 4 }}>
                     {op.icon} {op.tese}
@@ -521,16 +525,14 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                   <div style={{ fontSize: 18, fontWeight: 800, color: op.cor }}>{fmtR(op.mediaMensal)}</div>
                 </div>
               </div>
-              <div style={{ background: '#f8fafc', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
-                  {op.projecoes.map((p, j) => (
-                    <div key={j} style={{ padding: '12px 16px', borderRight: j < 3 ? '1px solid #e2e8f0' : 'none', textAlign: 'center', background: j === 3 ? op.cor + '12' : 'transparent' }}>
-                      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
-                      <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>{fmtR(p.valor)}</div>
-                      {j === 3 && <div style={{ fontSize: 10, color: op.cor, fontWeight: 700, marginTop: 2 }}>★ POTENCIAL MÁXIMO</div>}
-                    </div>
-                  ))}
-                </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                {op.projecoes.map((p, j) => (
+                  <div key={j} style={{ flex: '1 1 110px', minWidth: 110, padding: '12px 16px', textAlign: 'center', background: j === 3 ? op.cor + '12' : '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
+                    <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>{fmtR(p.valor)}</div>
+                    {j === 3 && <div style={{ fontSize: 10, color: op.cor, fontWeight: 700, marginTop: 2 }}>★ POTENCIAL MÁXIMO</div>}
+                  </div>
+                ))}
               </div>
               {op.ncms.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
@@ -541,7 +543,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
               {op.produtos.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>}
             </div>
           ))}
-          <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff' }}>
+          <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 13, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>POTENCIAL TOTAL IDENTIFICADO</div>
               <div style={{ fontSize: 12, color: '#93c5fd' }}>{oportunidades.length} teses · {nfes?.length || 0} NF-e analisadas</div>
@@ -556,8 +558,8 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${scoreCor}33`, padding: '24px', textAlign: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${scoreCor}33`, padding: '24px', textAlign: 'center', boxSizing: 'border-box' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>📊 SCORE FISCAL</div>
           <div style={{ fontSize: 56, fontWeight: 900, color: scoreCor, lineHeight: 1 }}>{score}</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>de 100 pontos</div>
@@ -566,7 +568,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: scoreCor }}>{scoreLabel}</div>
         </div>
-        <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${criticos.length > 0 ? '#fecdd3' : '#e2e8f0'}`, padding: '24px' }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${criticos.length > 0 ? '#fecdd3' : '#e2e8f0'}`, padding: '24px', boxSizing: 'border-box' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>⏳ PRAZOS PRESCRICIONAIS</div>
           {criticos.length === 0 ? (
             <div style={{ fontSize: 15, color: '#16a34a', fontWeight: 700, marginTop: 16 }}>✅ Nenhum prazo crítico nos próximos 12 meses</div>
@@ -585,9 +587,9 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20, boxSizing: 'border-box' }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>🎯 Próximas ações recomendadas</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <button onClick={onDiagnostico} style={{ padding: '14px 20px', background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#1e40af', cursor: 'pointer', textAlign: 'left' }}>📋 Gerar diagnóstico completo</button>
           <button onClick={onRelatorio}   style={{ padding: '14px 20px', background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#166534', cursor: 'pointer', textAlign: 'left' }}>📄 Emitir relatório executivo</button>
         </div>
@@ -725,17 +727,17 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   const clienteHistorico       = relatorioAberto ? { razao_social: relatorioAberto.cliente_nome, cnpj: relatorioAberto.cliente_cnpj, regime: relatorioAberto.cliente_regime } : null
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
 
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — AUTOMAÇÃO FISCAL</div>
         <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>💼 Gestão de Recuperações</h1>
         <p style={{ fontSize: 15, color: '#93c5fd', marginBottom: 24, maxWidth: 560 }}>
           Importe arquivos fiscais e receba o <strong style={{ color: '#4ade80' }}>Raio-X Tributário Automático</strong> com as oportunidades do seu cliente.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 14 }}>
           {[{ v:'NCM', l:'Monofásicos' },{ v:'CST/CFOP', l:'Substituição Tributária' },{ v:'Teses', l:'Motor automático' },{ v:'⚡ Raio-X', l:'Potencial em R$' }].map((c,i)=>(
-            <div key={i} style={{ background:'rgba(255,255,255,0.08)', borderRadius:10, padding:'12px 16px', border:'1px solid rgba(255,255,255,0.1)' }}>
+            <div key={i} style={{ background:'rgba(255,255,255,0.08)', borderRadius:10, padding:'12px 16px', border:'1px solid rgba(255,255,255,0.1)', minWidth: 0, boxSizing: 'border-box' }}>
               <div style={{ fontSize:18, fontWeight:900, color:'#7CC4FF', marginBottom:4 }}>{c.v}</div>
               <div style={{ fontSize:11, color:'#93c5fd' }}>{c.l}</div>
             </div>
@@ -744,12 +746,12 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       </div>
 
       {relatorios.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20, boxSizing: 'border-box' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🗂️ Relatórios Anteriores</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {relatorios.map(r => (
-              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: relatorioAberto?.id === r.id ? '#eff6ff' : '#f8fafc', border: `1px solid ${relatorioAberto?.id === r.id ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: relatorioAberto?.id === r.id ? '#eff6ff' : '#f8fafc', border: `1px solid ${relatorioAberto?.id === r.id ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {r.cliente_nome} <span style={{ fontWeight: 400, color: '#94a3b8' }}>· {r.origem}</span>
                   </div>
@@ -774,7 +776,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
       {relatorioAberto && nfesHistorico.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>📋 Exibindo relatório salvo — {relatorioAberto.cliente_nome}</div>
             <button onClick={() => setRelatorioAberto(null)}
               style={{ padding: '6px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
@@ -785,10 +787,10 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         </div>
       )}
 
-      <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20, boxSizing: 'border-box' }}>
         <label style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', display: 'block', marginBottom: 10 }}>👤 Cliente para importação:</label>
         <select value={clienteId} onChange={e => { setClienteId(e.target.value); setSalvo(false); setNfesLidas([]); setMostrarRelatorio(false); setRelatorioAberto(null) }}
-          style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc' }}>
+          style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc', boxSizing: 'border-box' }}>
           <option value="">— Selecione um cliente —</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.razao_social} ({c.regime})</option>)}
         </select>
@@ -883,7 +885,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
       <div onDragOver={e=>{ e.preventDefault(); setDragOver(true) }} onDragLeave={()=>setDragOver(false)}
         onDrop={e=>{ e.preventDefault(); setDragOver(false); processarArquivos(e.dataTransfer.files) }}
         onClick={()=>inputRef.current.click()}
-        style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'48px 32px', textAlign:'center', cursor:'pointer', marginBottom:24 }}>
+        style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'48px 32px', textAlign:'center', cursor:'pointer', marginBottom:24, boxSizing: 'border-box' }}>
         <div style={{ fontSize:48, marginBottom:12 }}>🧾</div>
         <div style={{ fontSize:18, fontWeight:800, color:'#0B1F4D', marginBottom:8 }}>Arraste os XMLs de NF-e aqui</div>
         <div style={{ fontSize:14, color:'#64748b', marginBottom:16 }}>Múltiplos arquivos · Leitura de NCM, CST, CFOP automática</div>
@@ -893,14 +895,14 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
       {erros.length > 0 && <ErroBanner erros={erros} />}
       {nfes.length > 0 && (
         <div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:20 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px, 1fr))', gap:14, marginBottom:20 }}>
             {[
               { label:'NF-e lidas',  valor:nfes.length,                                      cor:'#0B1F4D' },
               { label:'Faturamento', valor:fmtR(nfes.reduce((s,n)=>s+n.vNF,0)),              cor:'#16a34a' },
               { label:'ICMS+ST',     valor:fmtR(nfes.reduce((s,n)=>s+n.vICMS+n.vST,0)),     cor:'#d97706' },
               { label:'PIS+COFINS',  valor:fmtR(nfes.reduce((s,n)=>s+n.vPIS+n.vCOFINS,0)), cor:'#7c3aed' },
             ].map((c,i)=>(
-              <div key={i} style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px' }}>
+              <div key={i} style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', minWidth: 0, boxSizing: 'border-box' }}>
                 <div style={{ fontSize:18, fontWeight:800, color:c.cor }}>{c.valor}</div>
                 <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{c.label}</div>
               </div>
@@ -912,7 +914,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
                 ⚡ {oportunidadesPreview.length} oportunidade(s) — Potencial: {fmtR(oportunidadesPreview.reduce((s,o)=>s+o.potencial,0))}
               </div>
               {oportunidadesPreview.map((op,i)=>(
-                <div key={i} style={{ fontSize:13, color:'#166534', marginBottom:4, display:'flex', justifyContent:'space-between' }}>
+                <div key={i} style={{ fontSize:13, color:'#166534', marginBottom:4, display:'flex', justifyContent:'space-between', flexWrap: 'wrap', gap: 4 }}>
                   <span>✓ {op.tese}</span><span style={{ fontWeight:700 }}>{fmtR(op.potencial)}</span>
                 </div>
               ))}
@@ -954,19 +956,19 @@ function AbaDAS({ clienteId, onSalvo }) {
     finally { setSalvando(false) }
   }
   return <div>
-    <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'24px 28px', marginBottom:20 }}>
+    <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'24px 28px', marginBottom:20, boxSizing: 'border-box' }}>
       <div style={{ fontSize:15, fontWeight:700, color:'#0B1F4D', marginBottom:20 }}>💳 Registrar DAS Pagos</div>
       {linhas.map((l,i)=>(
-        <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr auto', gap:12, marginBottom:10, alignItems:'center' }}>
-          <input type="month" value={l.competencia} onChange={e=>upd(i,'competencia',e.target.value)} style={IS} />
-          <input value={l.valor} onChange={e=>upd(i,'valor',mask(e.target.value))} placeholder="0,00" style={IS} />
-          <select value={l.situacao} onChange={e=>upd(i,'situacao',e.target.value)} style={IS}>
+        <div key={i} style={{ display:'flex', flexWrap: 'wrap', gap:10, marginBottom:10, alignItems:'center' }}>
+          <input type="month" value={l.competencia} onChange={e=>upd(i,'competencia',e.target.value)} style={{ ...IS, flex: '1 1 140px' }} />
+          <input value={l.valor} onChange={e=>upd(i,'valor',mask(e.target.value))} placeholder="0,00" style={{ ...IS, flex: '1 1 140px' }} />
+          <select value={l.situacao} onChange={e=>upd(i,'situacao',e.target.value)} style={{ ...IS, flex: '1 1 140px' }}>
             <option value="pago">✅ Pago</option><option value="pendente">⏳ Pendente</option><option value="atraso">🔴 Em atraso</option>
           </select>
-          <button onClick={()=>setLinhas(p=>p.filter((_,j)=>j!==i))} style={{ padding:'10px 14px', background:'#fff1f2', border:'1px solid #fecdd3', color:'#dc2626', borderRadius:8, cursor:'pointer', fontWeight:700 }}>✕</button>
+          <button onClick={()=>setLinhas(p=>p.filter((_,j)=>j!==i))} style={{ padding:'10px 14px', background:'#fff1f2', border:'1px solid #fecdd3', color:'#dc2626', borderRadius:8, cursor:'pointer', fontWeight:700, flexShrink: 0 }}>✕</button>
         </div>
       ))}
-      <button onClick={()=>setLinhas(p=>[...p,{competencia:'',valor:'',situacao:'pago'}])} style={{ padding:'10px 20px', background:'#f8fafc', border:'2px dashed #e2e8f0', color:'#64748b', borderRadius:8, fontSize:14, cursor:'pointer', fontWeight:600, width:'100%', marginTop:8 }}>+ Adicionar competência</button>
+      <button onClick={()=>setLinhas(p=>[...p,{competencia:'',valor:'',situacao:'pago'}])} style={{ padding:'10px 20px', background:'#f8fafc', border:'2px dashed #e2e8f0', color:'#64748b', borderRadius:8, fontSize:14, cursor:'pointer', fontWeight:600, width:'100%', marginTop:8, boxSizing: 'border-box' }}>+ Adicionar competência</button>
     </div>
     {salvo?<SalvoRaioX />:<button onClick={salvar} disabled={salvando} style={{ ...BP, width:'100%' }}>{salvando?'Salvando...':'💾 Salvar DAS'}</button>}
   </div>
@@ -1011,7 +1013,7 @@ function AbaDebitos({ clienteId, onSalvo }) {
     {dados && <div>
       <div style={{ background:'#fff1f2', border:'1px solid #fecdd3', borderRadius:12, padding:'16px 20px', marginBottom:16 }}>
         <div style={{ fontSize:15, fontWeight:700, color:'#dc2626', marginBottom:12 }}>⚠️ {dados.debitos.length} débito(s) — Total: {fmtR(dados.totalDebito)}</div>
-        {dados.debitos.map((d,i)=><div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #fecdd3', fontSize:13 }}><span style={{ color:'#dc2626', fontWeight:600 }}>{d.tributo} — {d.situacao}</span><span style={{ fontWeight:800, color:'#dc2626' }}>{fmtR(d.valor)}</span></div>)}
+        {dados.debitos.map((d,i)=><div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #fecdd3', fontSize:13, flexWrap: 'wrap', gap: 4 }}><span style={{ color:'#dc2626', fontWeight:600 }}>{d.tributo} — {d.situacao}</span><span style={{ fontWeight:800, color:'#dc2626' }}>{fmtR(d.valor)}</span></div>)}
       </div>
       {salvo?<SalvoRaioX />:<BotoesAcao onLimpar={()=>setDados(null)} onSalvar={salvarDados} salvando={salvando} />}
     </div>}
@@ -1024,7 +1026,7 @@ function AbaUpload({ icon, titulo, sub, accept, onFile, inputRef, erro, children
     <div onDragOver={e=>{ e.preventDefault(); setDragOver(true) }} onDragLeave={()=>setDragOver(false)}
       onDrop={e=>{ e.preventDefault(); setDragOver(false); if(e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]) }}
       onClick={()=>inputRef.current.click()}
-      style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'40px 32px', textAlign:'center', cursor:'pointer', marginBottom:24 }}>
+      style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'40px 32px', textAlign:'center', cursor:'pointer', marginBottom:24, boxSizing: 'border-box' }}>
       <div style={{ fontSize:44, marginBottom:10 }}>{icon}</div>
       <div style={{ fontSize:17, fontWeight:800, color:'#0B1F4D', marginBottom:6 }}>{titulo}</div>
       <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>{sub}</div>
@@ -1037,8 +1039,8 @@ function AbaUpload({ icon, titulo, sub, accept, onFile, inputRef, erro, children
 }
 
 function GridCards({ items }) {
-  return <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
-    {items.map((c,i)=><div key={i} style={{ background:'#f8fafc', borderRadius:10, padding:'14px 16px' }}>
+  return <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:14 }}>
+    {items.map((c,i)=><div key={i} style={{ background:'#f8fafc', borderRadius:10, padding:'14px 16px', minWidth: 0, boxSizing: 'border-box' }}>
       <div style={{ fontSize:11, color:'#94a3b8', fontWeight:600, marginBottom:4 }}>{c.label}</div>
       <div style={{ fontSize:15, fontWeight:700, color:'#1e293b' }}>{c.valor}</div>
     </div>)}
@@ -1052,9 +1054,9 @@ function ErroBanner({ erros }) {
 }
 
 function BotoesAcao({ onLimpar, onSalvar, salvando }) {
-  return <div style={{ display:'flex', gap:12 }}>
+  return <div style={{ display:'flex', gap:12, flexWrap: 'wrap' }}>
     <button onClick={onLimpar} style={BC}>🗑️ Limpar</button>
-    <button onClick={onSalvar} disabled={salvando} style={{ ...BP, flex:1 }}>{salvando?'Salvando...':'💾 Salvar e gerar Raio-X'}</button>
+    <button onClick={onSalvar} disabled={salvando} style={{ ...BP, flex:1, minWidth: 160 }}>{salvando?'Salvando...':'💾 Salvar e gerar Raio-X'}</button>
   </div>
 }
 

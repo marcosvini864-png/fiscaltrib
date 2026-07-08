@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -227,6 +227,16 @@ const POTENCIAL_STYLE = {
   Baixo:  { cor: '#dc2626', bg: '#fff1f2' },
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 function exportarPDF(teses, filtroRegime, filtroCategoria) {
   const doc = new jsPDF()
   const hoje = new Date().toLocaleDateString('pt-BR')
@@ -261,6 +271,7 @@ function exportarPDF(teses, filtroRegime, filtroCategoria) {
 }
 
 export default function TesesTributarias() {
+  const isMobile = useIsMobile()
   const [filtroRegime,    setFiltroRegime]    = useState('Todos')
   const [filtroCategoria, setFiltroCategoria] = useState('Todas')
   const [filtroRisco,     setFiltroRisco]     = useState('Todos')
@@ -279,10 +290,10 @@ export default function TesesTributarias() {
   const totalAlto       = TESES.filter(t => t.potencial === 'Alto').length
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 40px' }}>
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
 
       {/* ── BANNER TOPO ── */}
-      <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2444 60%, #1e3a5f 100%)', borderRadius: '0 0 24px 24px', padding: '36px 40px 40px', marginBottom: 32, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2444 60%, #1e3a5f 100%)', borderRadius: '0 0 24px 24px', padding: isMobile ? '24px 20px 28px' : '36px 40px 40px', marginBottom: 32, color: '#fff', position: 'relative', overflow: 'hidden', boxSizing: 'border-box' }}>
 
         {/* Decoração de fundo */}
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
@@ -290,24 +301,24 @@ export default function TesesTributarias() {
 
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: 12, color: '#9db8d8', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — INTELIGÊNCIA TRIBUTÁRIA</div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 8, lineHeight: 1.2, color: '#fff' }}>
+          <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, marginBottom: 8, lineHeight: 1.2, color: '#fff' }}>
             🏛️ Painel de Teses Tributárias
           </h1>
-          <p style={{ fontSize: 16, color: '#9db8d8', marginBottom: 32, lineHeight: 1.6, maxWidth: 560 }}>
+          <p style={{ fontSize: isMobile ? 14 : 16, color: '#9db8d8', marginBottom: isMobile ? 20 : 32, lineHeight: 1.6, maxWidth: 560 }}>
             Recupere o que é seu por direito. Teses jurídicas e tributárias validadas para identificar oportunidades de restituição e redução da carga tributária.
           </p>
 
           {/* Cards de indicadores */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
             {[
               { valor: TESES.length,      label: 'Teses disponíveis',    cor: '#60a5fa' },
               { valor: totalBaixoRisco,   label: 'Baixo risco',          cor: '#4ade80' },
               { valor: totalAlto,         label: 'Alto potencial',        cor: '#fbbf24' },
               { valor: '5 anos',          label: 'Prazo prescricional',   cor: '#f472b6' },
             ].map((c, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
-                <div style={{ fontSize: 12, color: '#9db8d8', fontWeight: 600 }}>{c.label}</div>
+              <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: isMobile ? '12px 14px' : '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
+                <div style={{ fontSize: isMobile ? 11 : 12, color: '#9db8d8', fontWeight: 600, lineHeight: 1.3 }}>{c.label}</div>
               </div>
             ))}
           </div>
@@ -315,8 +326,8 @@ export default function TesesTributarias() {
       </div>
 
       {/* ── FILTROS ── */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '2px solid #e2e8f0', padding: '24px 28px', marginBottom: 24, boxShadow: '0 2px 16px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 16, alignItems: 'end' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '2px solid #e2e8f0', padding: isMobile ? '18px 18px' : '24px 28px', marginBottom: 24, boxShadow: '0 2px 16px rgba(0,0,0,0.04)', boxSizing: 'border-box' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr 1fr', gap: 16, alignItems: 'end' }}>
 
           {/* Busca */}
           <div>
@@ -333,7 +344,7 @@ export default function TesesTributarias() {
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', display: 'block', marginBottom: 8 }}>📋 Regime</label>
             <select value={filtroRegime} onChange={e => setFiltroRegime(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc' }}>
+              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc', boxSizing: 'border-box' }}>
               {REGIMES_FILTRO.map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
@@ -342,7 +353,7 @@ export default function TesesTributarias() {
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', display: 'block', marginBottom: 8 }}>🏷️ Categoria</label>
             <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc' }}>
+              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc', boxSizing: 'border-box' }}>
               {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
@@ -351,20 +362,20 @@ export default function TesesTributarias() {
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', display: 'block', marginBottom: 8 }}>⚡ Risco</label>
             <select value={filtroRisco} onChange={e => setFiltroRisco(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc' }}>
+              style={{ width: '100%', padding: '12px 16px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14, color: '#374151', background: '#f8fafc', boxSizing: 'border-box' }}>
               {['Todos', 'Baixo', 'Médio', 'Alto'].map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
         </div>
 
         {/* Resultado + exportar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 0, justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
           <span style={{ fontSize: 14, color: '#64748b', fontWeight: 600 }}>
             {tesesFiltradas.length} {tesesFiltradas.length === 1 ? 'tese encontrada' : 'teses encontradas'}
           </span>
           <button
             onClick={() => exportarPDF(tesesFiltradas, filtroRegime, filtroCategoria)}
-            style={{ padding: '10px 20px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            style={{ padding: '10px 20px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', width: isMobile ? '100%' : 'auto' }}
           >
             📄 Exportar PDF
           </button>
@@ -391,9 +402,9 @@ export default function TesesTributarias() {
                 {/* Cabeçalho da tese */}
                 <div
                   onClick={() => setExpandida(aberta ? null : t.id)}
-                  style={{ padding: '20px 28px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}
+                  style={{ padding: isMobile ? '16px 18px' : '20px 28px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}
                 >
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Badges topo */}
                     <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                       {t.regime.map(r => (
@@ -402,10 +413,10 @@ export default function TesesTributarias() {
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: '#f5f3ff', color: '#5b21b6', border: '1px solid #ddd6fe' }}>{t.categoria}</span>
                     </div>
 
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#1e293b', marginBottom: 6, lineHeight: 1.4 }}>{t.titulo}</div>
+                    <div style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800, color: '#1e293b', marginBottom: 6, lineHeight: 1.4 }}>{t.titulo}</div>
 
                     {/* Badges risco e potencial */}
-                    <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 99, background: risco.bg, color: risco.texto, border: `1px solid ${risco.border}` }}>
                         {risco.label} risco
                       </span>
@@ -422,7 +433,7 @@ export default function TesesTributarias() {
 
                 {/* Conteúdo expandido */}
                 {aberta && (
-                  <div style={{ borderTop: '1px solid #f1f5f9', padding: '24px 28px', background: '#fafafa' }}>
+                  <div style={{ borderTop: '1px solid #f1f5f9', padding: isMobile ? '18px 18px' : '24px 28px', background: '#fafafa' }}>
                     <div style={{ marginBottom: 20 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', marginBottom: 8 }}>📝 Descrição</div>
                       <p style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, margin: 0 }}>{t.descricao}</p>

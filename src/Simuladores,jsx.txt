@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtP = v => parseFloat(v || 0).toFixed(1) + '%'
@@ -26,8 +26,18 @@ const ABAS = [
   { id: 'honorarios',  icon: '🏆', label: 'Honorários' },
 ]
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 function Card({ children, style }) {
-  return <div style={{ background: C.white, borderRadius: 14, border: `2px solid ${C.border}`, padding: '24px 28px', ...style }}>{children}</div>
+  return <div style={{ background: C.white, borderRadius: 14, border: `2px solid ${C.border}`, padding: '24px 28px', boxSizing: 'border-box', ...style }}>{children}</div>
 }
 
 function ResultCard({ label, valor, cor = '#16a34a', sub }) {
@@ -69,7 +79,7 @@ const selectStyle = { padding: '10px 14px', border: `1px solid ${C.border}`, bor
 const btnCalc = { width: '100%', padding: '14px 0', background: C.navy, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 8 }
 
 // ─── SIMULADOR 1: RECUPERAÇÃO TRIBUTÁRIA ─────────────────────────────────────
-function SimRecuperacao() {
+function SimRecuperacao({ isMobile }) {
   const [fat,    setFat]    = useState('')
   const [meses,  setMeses]  = useState('60')
   const [regime, setRegime] = useState('Simples Nacional')
@@ -102,7 +112,7 @@ function SimRecuperacao() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>💰 Dados para simulação</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -131,7 +141,7 @@ function SimRecuperacao() {
 
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <ResultCard label="Estimativa mínima" valor={fmtR(result.creditoMin)} cor="#d97706" sub={fmtP(result.taxaMin * 100) + ' do faturamento'} />
             <ResultCard label="Estimativa máxima" valor={fmtR(result.creditoMax)} cor="#16a34a" sub={fmtP(result.taxaMax * 100) + ' do faturamento'} />
           </div>
@@ -160,7 +170,7 @@ function SimRecuperacao() {
 }
 
 // ─── SIMULADOR 2: ECONOMIA FISCAL ────────────────────────────────────────────
-function SimEconomia() {
+function SimEconomia({ isMobile }) {
   const [receita, setReceita] = useState('')
   const [folha,   setFolha]   = useState('')
   const [margem,  setMargem]  = useState('')
@@ -210,7 +220,7 @@ function SimEconomia() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>⚖️ Dados da empresa</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -236,7 +246,7 @@ function SimEconomia() {
           ].map((r, i) => {
             const comp = comparar(r.valor, [result.impostoSN, result.impostoLP, result.impostoLR])
             return (
-              <div key={i} style={{ background: comp.cor + '10', border: `2px solid ${comp.cor}33`, borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={i} style={{ background: comp.cor + '10', border: `2px solid ${comp.cor}33`, borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{r.regime}</div>
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{r.desc}</div>
@@ -262,7 +272,7 @@ function SimEconomia() {
 }
 
 // ─── SIMULADOR 3: TRANSAÇÃO TRIBUTÁRIA ───────────────────────────────────────
-function SimTransacao() {
+function SimTransacao({ isMobile }) {
   const [divida,     setDivida]     = useState('')
   const [capacidade, setCapacidade] = useState('')
   const [prazo,      setPrazo]      = useState('60')
@@ -312,7 +322,7 @@ function SimTransacao() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🤝 Dados da transação</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -342,7 +352,7 @@ function SimTransacao() {
             📌 {result.desc}
             <span style={{ display: 'block', marginTop: 4, color: '#64748b', fontWeight: 400 }}>Prazo máximo desta modalidade: {result.prazoMax} meses</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <ResultCard label="Saldo após descontos" valor={fmtR(result.saldoFinal)} cor="#0B1F4D" />
             <ResultCard label="Economia total"       valor={fmtR(result.totalReducao)} cor="#16a34a" />
             <ResultCard label="Entrada estimada"     valor={fmtR(result.entrada)} cor="#7c3aed" />
@@ -374,7 +384,7 @@ function SimTransacao() {
 }
 
 // ─── SIMULADOR 4: PARCELAMENTO ────────────────────────────────────────────────
-function SimParcelamento() {
+function SimParcelamento({ isMobile }) {
   const [valor,  setValor]  = useState('')
   const [taxa,   setTaxa]   = useState('1')
   const [qtd,    setQtd]    = useState('60')
@@ -407,7 +417,7 @@ function SimParcelamento() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📋 Dados do parcelamento</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -434,31 +444,33 @@ function SimParcelamento() {
 
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
             <ResultCard label="Valor da parcela" valor={fmtR(result.parcela)} cor="#0B1F4D" sub={`${result.n}x`} />
             <ResultCard label="Total pago"        valor={fmtR(result.totalPago)} cor="#7c3aed" />
             <ResultCard label="Total de juros"    valor={fmtR(result.totalJuros)} cor={result.totalJuros > 0 ? '#dc2626' : '#16a34a'} />
           </div>
           <Card style={{ padding: '16px 20px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 12 }}>Primeiras 12 parcelas</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc' }}>
-                  {['Mês','Parcela','Juros'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.tabela.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '7px 10px', color: C.muted }}>{row.mes}ª</td>
-                    <td style={{ padding: '7px 10px', fontWeight: 700, color: C.navy }}>{fmtR(row.parcela)}</td>
-                    <td style={{ padding: '7px 10px', color: row.juros > 0 ? '#dc2626' : C.muted }}>{fmtR(row.juros)}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['Mês','Parcela','Juros'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.tabela.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '7px 10px', color: C.muted, whiteSpace: 'nowrap' }}>{row.mes}ª</td>
+                      <td style={{ padding: '7px 10px', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{fmtR(row.parcela)}</td>
+                      <td style={{ padding: '7px 10px', color: row.juros > 0 ? '#dc2626' : C.muted, whiteSpace: 'nowrap' }}>{fmtR(row.juros)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       ) : (
@@ -472,7 +484,7 @@ function SimParcelamento() {
 }
 
 // ─── SIMULADOR 5: HONORÁRIOS ──────────────────────────────────────────────────
-function SimHonorarios() {
+function SimHonorarios({ isMobile }) {
   const [credito,    setCredito]    = useState('')
   const [pctFixo,    setPctFixo]    = useState('5')
   const [pctSucesso, setPctSucesso] = useState('20')
@@ -495,7 +507,7 @@ function SimHonorarios() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🏆 Dados dos honorários</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -523,7 +535,7 @@ function SimHonorarios() {
 
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <ResultCard label={`Honorário fixo (${result.pf}%)`}    valor={fmtR(result.honorarioFixo)}    cor="#2563eb" sub={`${fmtR(result.mensalidadeFixa)}/mês por ${result.pr} meses`} />
             <ResultCard label={`Honorário sucesso (${result.ps}%)`} valor={fmtR(result.honorarioSucesso)} cor="#7c3aed" sub="Pago após recuperação" />
           </div>
@@ -537,7 +549,7 @@ function SimHonorarios() {
               { label: 'Mensalidade fixa',     valor: fmtR(result.mensalidadeFixa),  cor: '#d97706' },
               { label: 'Receita total',        valor: fmtR(result.receitaTotal),     cor: '#16a34a' },
             ].map((r, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 4 ? `1px solid ${C.border}` : 'none', fontSize: 13 }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 4 ? `1px solid ${C.border}` : 'none', fontSize: 13, flexWrap: 'wrap', gap: 4 }}>
                 <span style={{ color: C.muted }}>{r.label}</span>
                 <span style={{ fontWeight: 700, color: r.cor }}>{r.valor}</span>
               </div>
@@ -559,13 +571,14 @@ function SimHonorarios() {
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function Simuladores() {
+  const isMobile = useIsMobile()
   const [aba, setAba] = useState('recuperacao')
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px' }}>
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: isMobile ? '20px 20px' : '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — FERRAMENTAS COMERCIAIS</div>
-        <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
+        <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
         <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>
           Demonstre oportunidades e feche contratos com simulações rápidas e profissionais.
         </p>
@@ -580,11 +593,11 @@ export default function Simuladores() {
         ))}
       </div>
 
-      {aba === 'recuperacao'  && <SimRecuperacao />}
-      {aba === 'economia'     && <SimEconomia />}
-      {aba === 'transacao'    && <SimTransacao />}
-      {aba === 'parcelamento' && <SimParcelamento />}
-      {aba === 'honorarios'   && <SimHonorarios />}
+      {aba === 'recuperacao'  && <SimRecuperacao isMobile={isMobile} />}
+      {aba === 'economia'     && <SimEconomia isMobile={isMobile} />}
+      {aba === 'transacao'    && <SimTransacao isMobile={isMobile} />}
+      {aba === 'parcelamento' && <SimParcelamento isMobile={isMobile} />}
+      {aba === 'honorarios'   && <SimHonorarios isMobile={isMobile} />}
     </div>
   )
 }
