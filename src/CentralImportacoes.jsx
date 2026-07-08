@@ -21,28 +21,106 @@ function parseXMLNFe(xmlStr) {
   const doc = parser.parseFromString(xmlStr, 'application/xml')
   const get = tag => { const els = doc.getElementsByTagNameNS('*', tag); return els[0]?.textContent?.trim() || '' }
   const getAll = tag => Array.from(doc.getElementsByTagNameNS('*', tag))
-  const dhEmi = get('dhEmi') || get('dEmi')
+
+  // Cabeçalho
+  const dhEmi       = get('dhEmi') || get('dEmi')
   const competencia = dhEmi ? dhEmi.slice(0, 7) : ''
+  const tpNF        = get('tpNF')   // '0'=entrada, '1'=saída
+  const chNFe       = get('chNFe')  // chave de acesso 44 dígitos
+  const nNF         = get('nNF')    // número da nota
+  const serie       = get('serie')  // série da nota
+  const natOp       = get('natOp')
+  const cnpjEmi     = get('CNPJ')
+
+  // Totais
   const vNF     = parseFloat(get('vNF')      || 0)
   const vICMS   = parseFloat(get('vICMS')    || 0)
   const vPIS    = parseFloat(get('vPIS')     || 0)
   const vCOFINS = parseFloat(get('vCOFINS') || 0)
   const vISS    = parseFloat(get('vISS')     || get('vISSQN') || 0)
   const vST     = parseFloat(get('vST')      || 0)
-  const cnpjEmi = get('CNPJ')
-  const natOp   = get('natOp')
+  const vFrete  = parseFloat(get('vFrete')   || 0)
+  const vDesc   = parseFloat(get('vDesc')    || 0)
+  const vIPI    = parseFloat(get('vIPI')     || 0)
+
+  // Itens
   const itens = []
   const dets = getAll('det')
   dets.forEach(det => {
     const getD = tag => Array.from(det.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || ''
-    const ncm = getD('NCM'); const cfop = getD('CFOP'); const cst = getD('CST') || getD('CSOSN')
-    const xProd = getD('xProd'); const vProd = parseFloat(getD('vProd') || 0)
-    const vItemPIS = parseFloat(getD('vPIS') || 0); const vItemCOFINS = parseFloat(getD('vCOFINS') || 0)
-    const vItemICMS = parseFloat(getD('vICMS') || 0); const vItemST = parseFloat(getD('vICMSST') || getD('vST') || 0)
-    const pPIS = parseFloat(getD('pPIS') || 0); const pCOFINS = parseFloat(getD('pCOFINS') || 0)
-    if (ncm || cfop) itens.push({ ncm, cfop, cst, xProd, vProd, vItemPIS, vItemCOFINS, vItemICMS, vItemST, pPIS, pCOFINS })
+
+    // Identificação do produto
+    const ncm   = getD('NCM')
+    const cfop  = getD('CFOP')
+    const cst   = getD('CST') || getD('CSOSN')
+    const cest  = getD('CEST')   // código especificador ST
+    const cProd = getD('cProd')  // código interno do produto
+    const xProd = getD('xProd')  // descrição
+    const orig  = getD('orig')   // origem: 0=nacional, 1-8=importado
+
+    // Quantidade e valor
+    const qCom   = parseFloat(getD('qCom')   || 0)  // quantidade
+    const vUnCom = parseFloat(getD('vUnCom') || 0)  // valor unitário
+    const vProd  = parseFloat(getD('vProd')  || 0)  // valor total do item
+    const vDesc  = parseFloat(getD('vDesc')  || 0)  // desconto do item
+
+    // ICMS
+    const vBC    = parseFloat(getD('vBC')    || 0)  // base de cálculo ICMS
+    const pICMS  = parseFloat(getD('pICMS')  || 0)  // alíquota ICMS
+    const vItemICMS = parseFloat(getD('vICMS') || 0)
+
+    // ICMS-ST
+    const vBCST     = parseFloat(getD('vBCST')    || 0)  // base de cálculo ST
+    const pICMSST   = parseFloat(getD('pICMSST')  || 0)  // alíquota ST
+    const vItemST   = parseFloat(getD('vICMSST')  || getD('vST') || 0)
+
+    // IPI
+    const vItemIPI  = parseFloat(getD('vIPI')     || 0)
+
+    // PIS
+    const vBCPIS    = parseFloat(getD('vBCPIS')   || 0)  // base de cálculo PIS
+    const pPIS      = parseFloat(getD('pPIS')     || 0)  // alíquota PIS
+    const vItemPIS  = parseFloat(getD('vPIS')     || 0)
+
+    // COFINS
+    const vBCCOFINS = parseFloat(getD('vBCCOFINS') || 0)  // base de cálculo COFINS
+    const pCOFINS   = parseFloat(getD('pCOFINS')   || 0)  // alíquota COFINS
+    const vItemCOFINS = parseFloat(getD('vCOFINS') || 0)
+
+    if (ncm || cfop) itens.push({
+      // Identificação
+      ncm, cfop, cst, cest, cProd, xProd, orig,
+      // Quantidade
+      qCom, vUnCom,
+      // Valores
+      vProd, vDesc,
+      // ICMS
+      vBC, pICMS, vItemICMS,
+      // ST
+      vBCST, pICMSST, vItemST,
+      // IPI
+      vItemIPI,
+      // PIS
+      vBCPIS, pPIS, vItemPIS,
+      // COFINS
+      vBCCOFINS, pCOFINS, vItemCOFINS,
+    })
   })
-  return { competencia, vNF, vICMS, vPIS, vCOFINS, vISS, vST, cnpjEmi, natOp, itens, valido: !!competencia && vNF > 0 }
+
+  return {
+    // Identificação da nota
+    chNFe, nNF, serie,
+    tpNF,        // '0'=entrada, '1'=saída — CRÍTICO para todos os motores
+    competencia,
+    cnpjEmi,
+    natOp,
+    // Totais
+    vNF, vICMS, vPIS, vCOFINS, vISS, vST, vFrete, vDesc, vIPI,
+    // Itens
+    itens,
+    // Validação
+    valido: !!competencia && vNF > 0,
+  }
 }
 
 const PERIODOS = [
@@ -55,9 +133,12 @@ const PERIODOS = [
 function detectarOportunidades(nfes, regime) {
   const oportunidades = []
   let totalVNF = 0, totalVST = 0
-  const todosItens = nfes.flatMap(n => n.itens || [])
-  nfes.forEach(n => { totalVNF += n.vNF; totalVST += n.vST })
-  const meses = [...new Set(nfes.map(n => n.competencia))].length || 1
+
+  // Filtrar apenas saídas (tpNF === '1') — evita contar notas de entrada
+  const nfesSaida = nfes.filter(n => n.tpNF === '1' || n.tpNF === '')
+  const todosItens = nfesSaida.flatMap(n => n.itens || [])
+  nfesSaida.forEach(n => { totalVNF += n.vNF; totalVST += n.vST })
+  const meses = [...new Set(nfesSaida.map(n => n.competencia))].length || 1
 
   const itensMonofasicos = todosItens.filter(i => NCM_MONOFASICOS.some(ncm => i.ncm.startsWith(ncm)))
   if (itensMonofasicos.length > 0) {
