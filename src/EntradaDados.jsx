@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const fmtR      = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -8,6 +8,16 @@ const maskMoeda = v => { const n=v.replace(/\D/g,''); if(!n) return ''; return (
 const NCM_MONO = ['2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715','3002','3003','3004','3005','3006','3303','3304','3305','3306','3307','2201','2202','2203','2204','2205','2206','2207','2208']
 const CST_ST   = ['10','30','60','70','90']
 const CFOP_SRV = ['5301','5302','5303','5304','5305','5306','5307','5308','5309','5310','5311','5312','5313','5314','5315','5316','6301','6302']
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
 
 function parseNFe(xmlStr) {
   const doc = new DOMParser().parseFromString(xmlStr, 'application/xml')
@@ -86,6 +96,7 @@ function detectarRaioX(nfes, regime) {
 }
 
 export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
+  const isMobile = useIsMobile()
   const [etapa,        setEtapa]        = useState('inicio')
   const [dadosImport,  setDadosImport]  = useState(null)
   const [nfesLidas,    setNfesLidas]    = useState([])
@@ -228,7 +239,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
 
   const CardImport = ({ icon, label, desc, onClick, cor }) => (
     <div onClick={onClick}
-      style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:14, padding:20, cursor:'pointer', textAlign:'center', transition:'all 0.15s' }}
+      style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:14, padding:20, cursor:'pointer', textAlign:'center', transition:'all 0.15s', minWidth:0, boxSizing:'border-box' }}
       onMouseEnter={e => { e.currentTarget.style.borderColor=cor; e.currentTarget.style.transform='translateY(-2px)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.transform='none' }}>
       <div style={{ fontSize:32, marginBottom:8 }}>{icon}</div>
@@ -238,7 +249,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
   )
 
   return (
-    <div style={{ maxWidth:900, margin:'0 auto' }}>
+    <div style={{ maxWidth:900, margin:'0 auto', boxSizing:'border-box' }}>
 
       <button onClick={() => setPage && setPage('diagnostico')}
         style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', background:'none', border:'1.5px solid #E2E8F0', borderRadius:8, color:'#64748B', fontSize:13, cursor:'pointer', marginBottom:20 }}
@@ -247,9 +258,9 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
         ← Voltar
       </button>
 
-      <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:16, padding:'24px 32px', marginBottom:24, color:'#fff' }}>
+      <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:16, padding: isMobile ? '20px 20px' : '24px 32px', marginBottom:24, color:'#fff', boxSizing:'border-box' }}>
         <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:6 }}>FISCALTRIB — COLETA INTELIGENTE</div>
-        <h2 style={{ fontSize:22, fontWeight:900, margin:'0 0 6px', color:'#fff' }}>📥 Centro de Coleta de Dados</h2>
+        <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight:900, margin:'0 0 6px', color:'#fff' }}>📥 Centro de Coleta de Dados</h2>
         <p style={{ fontSize:13, color:'#93c5fd', margin:0 }}>Importe os arquivos fiscais — o sistema preenche tudo automaticamente.</p>
       </div>
 
@@ -261,19 +272,19 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
       ) : (
         <>
           {/* BLOCO 1 */}
-          <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding: isMobile ? '18px 18px' : '20px 24px', marginBottom:16, boxSizing:'border-box' }}>
             <div style={{ fontSize:13, fontWeight:800, color:'#0B1F4D', marginBottom:4 }}>🏢 Bloco 1 — Identificação da empresa</div>
             <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Cliente selecionado ou busque outro CNPJ</div>
-            <div style={{ background:'#f0f9ff', border:'1.5px solid #bae6fd', borderRadius:10, padding:'14px 18px', marginBottom:14, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ background:'#f0f9ff', border:'1.5px solid #bae6fd', borderRadius:10, padding:'14px 18px', marginBottom:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10 }}>
               <div>
                 <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D' }}>{cliente?.razao_social}</div>
                 <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>{cliente?.cnpj} · {cliente?.regime} · CNAE {cliente?.cnae_principal||'—'}</div>
               </div>
               <span style={{ background:'#0B1F4D', color:'#fff', fontSize:11, padding:'4px 12px', borderRadius:99, fontWeight:700 }}>✓ Ativo</span>
             </div>
-            <div style={{ display:'flex', gap:10 }}>
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
               <input value={cnpjBusca} onChange={e => setCnpjBusca(maskCNPJ(e.target.value))} placeholder="Buscar outro CNPJ..."
-                style={{ flex:1, padding:'10px 14px', border:'2px solid #e2e8f0', borderRadius:8, fontSize:13 }} />
+                style={{ flex:'1 1 200px', padding:'10px 14px', border:'2px solid #e2e8f0', borderRadius:8, fontSize:13, boxSizing:'border-box' }} />
               <button onClick={buscarCNPJ} disabled={buscando}
                 style={{ padding:'10px 20px', background:'#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                 {buscando ? '⏳' : '🔍 Buscar'}
@@ -282,7 +293,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
             {empresaBusca && (
               <div style={{ marginTop:12, background:'#f8fafc', borderRadius:10, padding:'14px 16px', fontSize:13 }}>
                 <div style={{ fontWeight:700, color:'#0B1F4D', marginBottom:6 }}>{empresaBusca.razao_social}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, color:'#64748b' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:8, color:'#64748b' }}>
                   <div>CNPJ: <strong>{empresaBusca.cnpj}</strong></div>
                   <div>CNAE: <strong>{empresaBusca.cnae}</strong></div>
                   <div>Município: <strong>{empresaBusca.municipio}/{empresaBusca.uf}</strong></div>
@@ -293,10 +304,10 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
           </div>
 
           {/* BLOCO 2 */}
-          <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding: isMobile ? '18px 18px' : '20px 24px', marginBottom:16, boxSizing:'border-box' }}>
             <div style={{ fontSize:13, fontWeight:800, color:'#0B1F4D', marginBottom:4 }}>📂 Bloco 2 — Fontes de dados</div>
             <div style={{ fontSize:12, color:'#64748b', marginBottom:16 }}>Clique para importar — o sistema lê e preenche tudo automaticamente</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:14 }}>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4,1fr)', gap:12, marginBottom:14 }}>
               <CardImport icon="🧾" label="XML NF-e em lote"            desc="Múltiplos arquivos XML"      onClick={() => nfeRef.current?.click()}           cor="#16a34a" />
               <CardImport icon="📋" label="PGDAS-D"                     desc="XML do Simples Nacional"    onClick={() => pgdasRef.current?.click()}         cor="#2563eb" />
               <CardImport icon="📂" label="SPED Fiscal / Contribuições" desc="Arquivo TXT do SPED"        onClick={() => spedRef.current?.click()}          cor="#7c3aed" />
@@ -316,7 +327,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
 
           {/* BLOCO 3 */}
           {dadosImport && (
-            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #22C55E', padding:'20px 24px', marginBottom:16 }}>
+            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #22C55E', padding: isMobile ? '18px 18px' : '20px 24px', marginBottom:16, boxSizing:'border-box' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
                 <span style={{ fontSize:22 }}>✅</span>
                 <div>
@@ -324,14 +335,14 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
                   <div style={{ fontSize:12, color:'#16a34a', fontWeight:600 }}>{dadosImport.tipo} processado com sucesso</div>
                 </div>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4,1fr)', gap:12, marginBottom:16 }}>
                 {[
                   { label:'NF-e analisadas',   valor: dadosImport.nfes || '—'    },
                   { label:'Receita encontrada', valor: fmtR(dadosImport.receita)  },
                   { label:'Impostos totais',    valor: fmtR(dadosImport.impostos) },
                   { label:'Período',            valor: dadosImport.periodo        },
                 ].map((k,i) => (
-                  <div key={i} style={{ background:'#f0fdf4', borderRadius:10, padding:'12px 14px' }}>
+                  <div key={i} style={{ background:'#f0fdf4', borderRadius:10, padding:'12px 14px', minWidth:0, boxSizing:'border-box' }}>
                     <div style={{ fontSize:11, color:'#64748b', marginBottom:4 }}>{k.label}</div>
                     <div style={{ fontSize:14, fontWeight:800, color:'#0B1F4D' }}>{k.valor}</div>
                   </div>
@@ -346,12 +357,12 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
 
           {/* BLOCO 4 */}
           {raioX.length > 0 && (
-            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:16 }}>
+            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding: isMobile ? '18px 18px' : '20px 24px', marginBottom:16, boxSizing:'border-box' }}>
               <div style={{ fontSize:13, fontWeight:800, color:'#0B1F4D', marginBottom:4 }}>⚡ Bloco 4 — Raio-X Tributário</div>
               <div style={{ fontSize:12, color:'#64748b', marginBottom:16 }}>Oportunidades detectadas automaticamente</div>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {raioX.map((op,i) => (
-                  <div key={i} style={{ background:op.bg, borderRadius:10, padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', border:`1.5px solid ${op.cor}33` }}>
+                  <div key={i} style={{ background:op.bg, borderRadius:10, padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', border:`1.5px solid ${op.cor}33`, flexWrap:'wrap', gap:10 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                       <span style={{ fontSize:22 }}>{op.icon}</span>
                       <div>
@@ -365,16 +376,16 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
                     </div>
                   </div>
                 ))}
-                <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:10, padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ background:'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius:10, padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:'#7CC4FF' }}>POTENCIAL TOTAL (60 MESES)</div>
                   <div style={{ fontSize:22, fontWeight:900, color:'#4ade80' }}>{fmtR(raioX.reduce((s,o) => s+o.potencial, 0))}</div>
                 </div>
               </div>
-              <div style={{ display:'flex', gap:10, marginTop:16 }}>
-                <button onClick={() => setPage && setPage('diagnostico')} style={{ flex:1, padding:'12px 0', background:'#eff6ff', border:'2px solid #bfdbfe', color:'#1e40af', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              <div style={{ display:'flex', gap:10, marginTop:16, flexWrap:'wrap' }}>
+                <button onClick={() => setPage && setPage('diagnostico')} style={{ flex:'1 1 200px', padding:'12px 0', background:'#eff6ff', border:'2px solid #bfdbfe', color:'#1e40af', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                   📋 Ver diagnóstico completo
                 </button>
-                <button onClick={() => setPage && setPage('relatorio')} style={{ flex:1, padding:'12px 0', background:'#f0fdf4', border:'2px solid #86efac', color:'#166534', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                <button onClick={() => setPage && setPage('relatorio')} style={{ flex:'1 1 200px', padding:'12px 0', background:'#f0fdf4', border:'2px solid #86efac', color:'#166534', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                   📄 Gerar relatório matador
                 </button>
               </div>
@@ -383,15 +394,15 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
 
           {/* ENTRADA MANUAL */}
           {etapa === 'manual' && (
-            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #fde68a', padding:'20px 24px', marginBottom:16 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <div style={{ background:'#fff', borderRadius:14, border:'2px solid #fde68a', padding: isMobile ? '18px 18px' : '20px 24px', marginBottom:16, boxSizing:'border-box' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:8 }}>
                 <div>
                   <div style={{ fontSize:13, fontWeight:800, color:'#92400e' }}>⚠️ Entrada manual — somente emergência</div>
                   <div style={{ fontSize:12, color:'#94a3b8' }}>Prefira sempre importar arquivos fiscais</div>
                 </div>
                 <button onClick={() => setEtapa('inicio')} style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:18 }}>✕</button>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:14 }}>
                 {[['Competência','competencia',null],['Receita Bruta (R$)','receita_bruta','moeda'],['Tributo Pago (R$)','tributo_pago','moeda'],['Tributo Devido (R$)','tributo_devido','moeda']].map(([lb,k,tp]) => (
                   <div key={k}>
                     <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>{lb}</label>
@@ -403,7 +414,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
                 <div>
                   <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>Tributo</label>
                   <select value={manual.tributo} onChange={e => setManual(p => ({ ...p, tributo:e.target.value }))}
-                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13 }}>
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box' }}>
                     <option value=''>— Selecione —</option>
                     {['DAS','IRPJ','CSLL','PIS','COFINS','INSS','ISS','ICMS ST'].map(t => <option key={t}>{t}</option>)}
                   </select>
@@ -411,7 +422,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
                 <div>
                   <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>Risco</label>
                   <select value={manual.risco} onChange={e => setManual(p => ({ ...p, risco:e.target.value }))}
-                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13 }}>
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box' }}>
                     <option value='baixo'>Baixo</option>
                     <option value='medio'>Médio</option>
                     <option value='alto'>Alto</option>
@@ -421,7 +432,7 @@ export default function EntradaDados({ clienteId, cliente, onSalvo, setPage }) {
               <div style={{ marginTop:14 }}>
                 <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>Tipo de oportunidade</label>
                 <select value={manual.tipo_oportunidade} onChange={e => setManual(p => ({ ...p, tipo_oportunidade:e.target.value }))}
-                  style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13 }}>
+                  style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box' }}>
                   <option value=''>— Selecione —</option>
                   {['Receita monofásica tributada indevidamente','Substituição tributária indevida','Base de cálculo reduzida não aplicada','Isenção não aproveitada','Alíquota incorreta','Crédito não aproveitado'].map(t => <option key={t}>{t}</option>)}
                 </select>
