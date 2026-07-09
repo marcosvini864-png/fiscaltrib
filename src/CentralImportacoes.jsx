@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
-
+import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria'
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
 const NCM_MONOFASICOS = [
@@ -773,7 +773,8 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       setNfesLidas(nfes)
       setMostrarRelatorio(true)
       if (usuarioId && clienteId) {
-        const oportunidades = detectarOportunidades(nfes, clienteAtual?.regime || 'Simples Nacional')
+        const resultadoMotor = await MotorInteligenciaTributaria.analisar(nfes, clienteAtual)
+        const oportunidades  = resultadoMotor.consolidado?.oportunidades || []
         await salvarRelatorio({ usuarioId, clienteId, cliente: clienteAtual, origem: origemImp, nfes, oportunidades })
         carregarRelatorios(usuarioId)
       }
