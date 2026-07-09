@@ -215,7 +215,7 @@ export function calcularAliquotaEfetiva(receitaBruta12m, anexo = 'III') {
  */
 export function calcularEconomiaMigracao(receitaBrutaMensal, receitaBruta12m) {
   if (receitaBrutaMensal <= 0 || receitaBruta12m <= 0) {
-    return { economiaM ensal: 0, economiaAnual: 0, valido: false }
+    return { economiaMensal: 0, economiaAnual: 0, valido: false }
   }
 
   const aliqAnexoIII = calcularAliquotaEfetiva(receitaBruta12m, 'III')
