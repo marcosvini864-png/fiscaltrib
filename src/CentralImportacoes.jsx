@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria'
+
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
 const NCM_MONOFASICOS = [
@@ -22,17 +23,15 @@ function parseXMLNFe(xmlStr) {
   const get = tag => { const els = doc.getElementsByTagNameNS('*', tag); return els[0]?.textContent?.trim() || '' }
   const getAll = tag => Array.from(doc.getElementsByTagNameNS('*', tag))
 
-  // Cabeçalho
   const dhEmi       = get('dhEmi') || get('dEmi')
   const competencia = dhEmi ? dhEmi.slice(0, 7) : ''
-  const tpNF        = get('tpNF')   // '0'=entrada, '1'=saída
-  const chNFe       = get('chNFe')  // chave de acesso 44 dígitos
-  const nNF         = get('nNF')    // número da nota
-  const serie       = get('serie')  // série da nota
+  const tpNF        = get('tpNF')
+  const chNFe       = get('chNFe')
+  const nNF         = get('nNF')
+  const serie       = get('serie')
   const natOp       = get('natOp')
   const cnpjEmi     = get('CNPJ')
 
-  // Totais
   const vNF     = parseFloat(get('vNF')      || 0)
   const vICMS   = parseFloat(get('vICMS')    || 0)
   const vPIS    = parseFloat(get('vPIS')     || 0)
@@ -43,82 +42,62 @@ function parseXMLNFe(xmlStr) {
   const vDesc   = parseFloat(get('vDesc')    || 0)
   const vIPI    = parseFloat(get('vIPI')     || 0)
 
-  // Itens
   const itens = []
   const dets = getAll('det')
   dets.forEach(det => {
     const getD = tag => Array.from(det.getElementsByTagNameNS('*', tag))[0]?.textContent?.trim() || ''
 
-    // Identificação do produto
     const ncm   = getD('NCM')
     const cfop  = getD('CFOP')
     const cst   = getD('CST') || getD('CSOSN')
-    const cest  = getD('CEST')   // código especificador ST
-    const cProd = getD('cProd')  // código interno do produto
-    const xProd = getD('xProd')  // descrição
-    const orig  = getD('orig')   // origem: 0=nacional, 1-8=importado
+    const cest  = getD('CEST')
+    const cProd = getD('cProd')
+    const xProd = getD('xProd')
+    const orig  = getD('orig')
 
-    // Quantidade e valor
-    const qCom   = parseFloat(getD('qCom')   || 0)  // quantidade
-    const vUnCom = parseFloat(getD('vUnCom') || 0)  // valor unitário
-    const vProd  = parseFloat(getD('vProd')  || 0)  // valor total do item
-    const vDesc  = parseFloat(getD('vDesc')  || 0)  // desconto do item
+    const qCom   = parseFloat(getD('qCom')   || 0)
+    const vUnCom = parseFloat(getD('vUnCom') || 0)
+    const vProd  = parseFloat(getD('vProd')  || 0)
+    const vDescI = parseFloat(getD('vDesc')  || 0)
 
-    // ICMS
-    const vBC    = parseFloat(getD('vBC')    || 0)  // base de cálculo ICMS
-    const pICMS  = parseFloat(getD('pICMS')  || 0)  // alíquota ICMS
+    const vBC    = parseFloat(getD('vBC')    || 0)
+    const pICMS  = parseFloat(getD('pICMS')  || 0)
     const vItemICMS = parseFloat(getD('vICMS') || 0)
 
-    // ICMS-ST
-    const vBCST     = parseFloat(getD('vBCST')    || 0)  // base de cálculo ST
-    const pICMSST   = parseFloat(getD('pICMSST')  || 0)  // alíquota ST
+    const vBCST     = parseFloat(getD('vBCST')    || 0)
+    const pICMSST   = parseFloat(getD('pICMSST')  || 0)
     const vItemST   = parseFloat(getD('vICMSST')  || getD('vST') || 0)
 
-    // IPI
     const vItemIPI  = parseFloat(getD('vIPI')     || 0)
 
-    // PIS
-    const vBCPIS    = parseFloat(getD('vBCPIS')   || 0)  // base de cálculo PIS
-    const pPIS      = parseFloat(getD('pPIS')     || 0)  // alíquota PIS
+    const vBCPIS    = parseFloat(getD('vBCPIS')   || 0)
+    const pPIS      = parseFloat(getD('pPIS')     || 0)
     const vItemPIS  = parseFloat(getD('vPIS')     || 0)
 
-    // COFINS
-    const vBCCOFINS = parseFloat(getD('vBCCOFINS') || 0)  // base de cálculo COFINS
-    const pCOFINS   = parseFloat(getD('pCOFINS')   || 0)  // alíquota COFINS
+    const vBCCOFINS = parseFloat(getD('vBCCOFINS') || 0)
+    const pCOFINS   = parseFloat(getD('pCOFINS')   || 0)
     const vItemCOFINS = parseFloat(getD('vCOFINS') || 0)
 
     if (ncm || cfop) itens.push({
-      // Identificação
       ncm, cfop, cst, cest, cProd, xProd, orig,
-      // Quantidade
       qCom, vUnCom,
-      // Valores
-      vProd, vDesc,
-      // ICMS
+      vProd, vDesc: vDescI,
       vBC, pICMS, vItemICMS,
-      // ST
       vBCST, pICMSST, vItemST,
-      // IPI
       vItemIPI,
-      // PIS
       vBCPIS, pPIS, vItemPIS,
-      // COFINS
       vBCCOFINS, pCOFINS, vItemCOFINS,
     })
   })
 
   return {
-    // Identificação da nota
     chNFe, nNF, serie,
-    tpNF,        // '0'=entrada, '1'=saída — CRÍTICO para todos os motores
+    tpNF,
     competencia,
     cnpjEmi,
     natOp,
-    // Totais
     vNF, vICMS, vPIS, vCOFINS, vISS, vST, vFrete, vDesc, vIPI,
-    // Itens
     itens,
-    // Validação
     valido: !!competencia && vNF > 0,
   }
 }
@@ -134,7 +113,6 @@ function detectarOportunidades(nfes, regime) {
   const oportunidades = []
   let totalVNF = 0, totalVST = 0
 
-  // Filtrar apenas saídas (tpNF === '1') — evita contar notas de entrada
   const nfesSaida = nfes.filter(n => n.tpNF === '1' || n.tpNF === '')
   const todosItens = nfesSaida.flatMap(n => n.itens || [])
   nfesSaida.forEach(n => { totalVNF += n.vNF; totalVST += n.vST })
@@ -251,7 +229,7 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
   const totalCOFINS      = nfes.reduce((s, n) => s + n.vCOFINS, 0)
   const totalST          = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos    = totalICMS + totalPIS + totalCOFINS + totalST
-  const potencialTotal   = oportunidades.reduce((s, o) => s + o.potencial, 0)
+  const potencialTotal   = oportunidades.reduce((s, o) => s + (o.potencial || 0), 0)
   const { error } = await supabase.from('relatorios_importacao').insert({
     usuario_id: usuarioId, cliente_id: clienteId, cliente_nome: cliente?.razao_social || '',
     cliente_cnpj: cliente?.cnpj || '', cliente_regime: cliente?.regime || '', origem,
@@ -292,7 +270,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   const totalCOFINS   = nfes.reduce((s, n) => s + n.vCOFINS, 0)
   const totalST       = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos = totalICMS + totalPIS + totalCOFINS + totalST
-  const totalPotencial = oportunidades.reduce((s, o) => s + o.potencial, 0)
+  const totalPotencial = oportunidades.reduce((s, o) => s + (o.potencial || 0), 0)
   const dataHoje  = new Date().toLocaleDateString('pt-BR')
   const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   const regime    = cliente?.regime || 'Simples Nacional'
@@ -348,7 +326,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
           🖨️ Imprimir
         </button>
       </div>
-
       <div id="relatorio-importacao-conteudo" style={{ padding: '32px 36px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottom: '2px solid #0B1F4D', flexWrap: 'wrap', gap: 16 }}>
           <div>
@@ -361,7 +338,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             <div style={{ fontSize: 11, color: '#64748b' }}>Sistema de Recuperação Tributária</div>
           </div>
         </div>
-
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Dados do Cliente</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
@@ -370,7 +346,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             <div><div style={{ fontSize: 11, color: '#64748b' }}>Regime Tributário</div><div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D' }}>{regime}</div></div>
           </div>
         </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📥 Resumo da Importação</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
@@ -387,7 +362,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             ))}
           </div>
         </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>💰 Valores Fiscais Identificados</div>
           <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
@@ -420,7 +394,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </div>
           </div>
         </div>
-
         {agrupadas.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>📅 Detalhamento por Competência</div>
@@ -452,7 +425,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </div>
           </div>
         )}
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 4 }}>⚖️ {diag.titulo}</div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>{diag.intro}</div>
@@ -477,7 +449,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             })}
           </div>
         </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1F4D', marginBottom: 12 }}>⚡ Resultado da Análise</div>
           {oportunidades.length > 0 ? (
@@ -488,14 +459,14 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
                 </div>
               </div>
               {oportunidades.map((op, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderRadius: 8, marginBottom: 8, border: `1px solid ${op.cor}33`, flexWrap: 'wrap', gap: 8 }}>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderRadius: 8, marginBottom: 8, border: `1px solid ${op.cor || '#e2e8f0'}33`, flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: op.cor }}>{op.icon} {op.tese}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: op.cor || '#0B1F4D' }}>{op.icon || '⚡'} {op.tese}</div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{op.descricao}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>Potencial 60m</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: op.cor }}>{fmtR(op.potencial)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: op.cor || '#0B1F4D' }}>{fmtR(op.potencial || 0)}</div>
                   </div>
                 </div>
               ))}
@@ -508,7 +479,6 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
             </div>
           )}
         </div>
-
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>⚠️ Relatório preliminar — não substitui análise profissional habilitada.</div>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>FiscalTrib · contato@fiscaltrib.com.br · (11) 99957-9822</div>
@@ -615,13 +585,13 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                   </div>
                 ))}
               </div>
-              {op.ncms.length > 0 && (
+              {op.ncms?.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                   <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>NCMs:</span>
                   {op.ncms.map((n, j) => <span key={j} style={{ fontSize: 11, background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 8px', borderRadius: 6, color: '#374151', fontWeight: 600 }}>{n}</span>)}
                 </div>
               )}
-              {op.produtos.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>}
+              {op.produtos?.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>}
             </div>
           ))}
           <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', flexWrap: 'wrap', gap: 12 }}>
@@ -810,7 +780,6 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
-
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — AUTOMAÇÃO FISCAL</div>
         <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>💼 Gestão de Recuperações</h1>
