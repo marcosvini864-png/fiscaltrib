@@ -106,18 +106,21 @@ export default function AnaliseFiscal() {
   const cliente = clientes.find(c => c.id === clienteId)
 
   async function carregarDados(id) {
-    setLoading(true)
-    const [{ data: ents }, { data: recs }] = await Promise.all([
-      supabase.from('entradas').select('*').eq('cliente_id', id),
-      supabase.from('recuperacoes').select('*').eq('cliente_id', id),
-    ])
-    setEntradas(ents || [])
-    setRecuperacoes(recs || [])
-    setMensagens([{
-      role: 'assistant',
-      content: `Olá! Carreguei os dados de **${clientes.find(c=>c.id===id)?.razao_social}**.\n\nEncontrei **${(ents||[]).length} entradas fiscais** e **${(recs||[]).length} processo(s)** de recuperação.\n\nO que você quer saber sobre este cliente?`,
-    }])
-    setLoading(false)
+  setLoading(true)
+  const [{ data: ents }, { data: recs }, { data: rels }] = await Promise.all([
+    supabase.from('entradas').select('*').eq('cliente_id', id),
+    supabase.from('recuperacoes').select('*').eq('cliente_id', id),
+    supabase.from('relatorios_importacao').select('*').eq('cliente_id', id).order('created_at', { ascending: false }).limit(1),
+  ])
+  setEntradas(ents || [])
+  setRecuperacoes(recs || [])
+  const ultimoRelatorio = rels?.[0]
+  const oportunidades = ultimoRelatorio?.dados_json?.oportunidades || []
+  setMensagens([{
+    role: 'assistant',
+    content: `Olá! Carreguei os dados de **${clientes.find(c=>c.id===id)?.razao_social}**.\n\nEncontrei **${(ents||[]).length}** entradas fiscais, **${(recs||[]).length}** processo(s) de recuperação e **${oportunidades.length}** oportunidade(s) identificada(s) pelo Motor de Inteligência Tributária.${oportunidades.length > 0 ? '\n\nOportunidades: ' + oportunidades.map(o => o.tese || o.nome || 'Oportunidade').join(', ') : ''}`
+  }])
+  setLoading(false)
   }
 
   async function enviarPergunta(texto) {
