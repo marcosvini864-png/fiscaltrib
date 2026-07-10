@@ -297,7 +297,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     const { data,error } = await supabase.from('clientes').select('*').eq('usuario_id',user.id).order('id',{ascending:false})
     if(!error&&data){
       setClientes(data)
-      if(data.length>0) setActiveId(data[0].id.toString())
+      if(data.length>0 && !activeId) setActiveId(data[0].id.toString())
       const ids=data.map(c=>c.id)
       if(ids.length>0){
         const { data:ents }=await supabase.from('entradas').select('*').in('cliente_id',ids)
