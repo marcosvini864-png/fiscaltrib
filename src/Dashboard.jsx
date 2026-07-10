@@ -638,7 +638,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               )}
             </>}
-            {module==='analise' && activeTab===1 && <AnaliseFiscal />}
+            {module==='analise' && activeTab===1 && <AnaliseFiscal clienteAtivo={activeId} />}
             {module==='analise' && activeTab===2 && <TesesTributarias />}
             {module==='analise' && activeTab===3 && <Simuladores />}
             {module==='analise' && activeTab===4 && <>

@@ -81,7 +81,7 @@ ${recuperacoes.slice(0, 10).map(r =>
 `
 }
 
-export default function AnaliseFiscal() {
+export default function AnaliseFiscal({ clienteAtivo }) {
   const [clientes,      setClientes]      = useState([])
   const [clienteId,     setClienteId]     = useState('')
   const [entradas,      setEntradas]      = useState([])
@@ -98,6 +98,12 @@ export default function AnaliseFiscal() {
         .then(({ data }) => setClientes(data || []))
     })
   }, [])
+  useEffect(() => {
+  if (clienteAtivo && clientes.length > 0) {
+    setClienteId(clienteAtivo)
+    carregarDados(clienteAtivo)
+  }
+  }, [clienteAtivo, clientes])
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: 'smooth' })
