@@ -264,7 +264,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
       setModule(primeiroPermitido || 'painel')
       setActiveTab(0)
     }
-  }, [permissoesModulos, module])
+  }, [permissoesModulos])
 
   async function carregarPermissoesModulos() {
     const { data:{ user } } = await supabase.auth.getUser()
