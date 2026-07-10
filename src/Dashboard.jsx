@@ -1,7 +1,6 @@
 import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
-import Acompanhamento from './Acompanhamento'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
 import Planos from './Planos'
@@ -227,7 +226,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [menuAberto, setMenuAberto] = useState(false)
   const [user,        setUser]        = useState(null)
   const [module, setModule] = useState(() => localStorage.getItem('fiscaltrib_module') || 'painel')
-  useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
+  const moduleRef = useRef(module)
+  useEffect(() => { moduleRef.current = module }, [module])
   const [activeTab,   setActiveTab]   = useState(0)
   const [clientes,    setClientes]    = useState([])
   const [entradas,    setEntradas]    = useState({})
