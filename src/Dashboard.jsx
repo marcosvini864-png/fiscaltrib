@@ -315,7 +315,14 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     await supabase.from('recuperacoes').delete().eq('cliente_id', c.id)
     await supabase.from('acompanhamentos').delete().eq('cliente_id', c.id)
     await supabase.from('prazos_fiscais').delete().eq('cliente_id', c.id)
-    await supabase.from('clientes').delete().eq('id', c.id)
+    await supabase.from('checklist').delete().eq('cliente_id', c.id)
+    await supabase.from('scores_fiscais').delete().eq('cliente_id', c.id)
+    await supabase.from('monitor_obrigacoes').delete().eq('cliente_id', c.id)
+    await supabase.from('perdcomp').delete().eq('cliente_id', c.id)
+    await supabase.from('exigencias_fiscais').delete().eq('cliente_id', c.id)
+    await supabase.from('relatorios_importacao').delete().eq('cliente_id', c.id)
+    const { error } = await supabase.from('clientes').delete().eq('id', c.id)
+    if (error) { alert('Erro ao excluir cliente: ' + error.message); return }
     setClientes(prev => prev.filter(x => x.id !== c.id))
     const novaEntradas = { ...entradas }; delete novaEntradas[c.id]; setEntradas(novaEntradas)
   }
