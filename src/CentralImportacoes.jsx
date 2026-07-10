@@ -535,7 +535,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
     <div style={{ marginTop: 32 }}>
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — ANÁLISE AUTOMÁTICA</div>
-        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8 }}>⚡ Raio-X Tributário</h2>
+        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>⚡ Raio-X Tributário</h2>
         <div style={{ fontSize: 14, color: '#93c5fd', marginBottom: 16 }}>
           Cliente: <strong style={{ color: '#fff' }}>{cliente?.razao_social}</strong> · Regime: <strong style={{ color: '#4ade80' }}>{cliente?.regime}</strong>
         </div>
