@@ -630,6 +630,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                     ))}</tbody>
                   </table>
                 </div>
+              ) : ents.length>0 ? (
+                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
+                  <div style={{fontSize:36,marginBottom:12}}>✅</div>
+                  <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Nenhuma oportunidade de recuperação identificada</div>
+                  <div style={{fontSize:13,color:C.muted,marginBottom:16,lineHeight:1.5,maxWidth:480,marginLeft:'auto',marginRight:'auto'}}>
+                    O Motor analisou {ents.length} {ents.length===1?'item':'itens'} deste cliente e não encontrou produtos com tributação monofásica ou outras oportunidades no período importado.
+                  </div>
+                  <div style={{fontSize:12,color:C.muted}}>Isso costuma indicar que os produtos não se enquadram nas hipóteses de recuperação mapeadas — não é um erro do sistema.</div>
+                </div>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:12}}>🔍</div>
