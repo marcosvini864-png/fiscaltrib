@@ -252,7 +252,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     registrarPresenca()
     const interval = setInterval(registrarPresenca, 60000)
     return ()=>clearInterval(interval)
-  },[module, nomeUsuario])
+  },[])
 
   // Se o módulo atual for bloqueado pelas permissões, redireciona para o primeiro módulo liberado
   useEffect(() => {

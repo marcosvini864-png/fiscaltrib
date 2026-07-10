@@ -46,9 +46,9 @@ export default function App() {
     setUsuario(user)
 
     if (user.email === ADMIN_EMAIL) {
-      setTela('admin')
-      return
-    }
+    setTela(prev => prev === 'login' || prev === '' ? 'admin' : prev)
+    return
+}
 
     const { data: perfil } = await supabase
       .from('usuarios')
