@@ -919,11 +919,15 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
     setSalvando(true)
     try {
       for (const comp of agrupadas) {
-        await supabase.from('entradas').upsert({
-          cliente_id: clienteId, competencia: comp.competencia, tributo: 'NF-e importada',
-          receita_bruta: comp.vNF, tributo_pago: comp.vICMS + comp.vPIS + comp.vCOFINS,
-          tributo_devido: comp.vICMS + comp.vPIS + comp.vCOFINS, credito: 0, tipo_oportunidade: '', risco: 'baixo'
-        }, { onConflict: 'cliente_id,competencia,tributo' })
+        const opsComp = oportunidadesPreview.filter(o => o.mediaMensal > 0)
+    const creditoComp = opsComp.reduce((s, o) => s + o.mediaMensal, 0)
+    const tipoOp = opsComp.map(o => o.tese).join(', ')
+    await supabase.from('entradas').upsert({
+    cliente_id: clienteId, competencia: comp.competencia, tributo: 'NF-e importada',
+    receita_bruta: comp.vNF, tributo_pago: comp.vICMS + comp.vPIS + comp.vCOFINS,
+    tributo_devido: comp.vICMS + comp.vPIS + comp.vCOFINS,
+    credito: creditoComp, tipo_oportunidade: tipoOp, risco: opsComp.length > 0 ? 'baixo' : 'baixo'
+  }, { onConflict: 'cliente_id,competencia,tributo' })
       }
       setSalvo(true)
       if (onSalvo) onSalvo(nfes)
