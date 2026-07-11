@@ -229,7 +229,7 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
   const totalCOFINS      = nfes.reduce((s, n) => s + n.vCOFINS, 0)
   const totalST          = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos    = totalICMS + totalPIS + totalCOFINS + totalST
-  const potencialTotal   = oportunidades.reduce((s, o) => s + (o.potencial || 0), 0)
+  const potencialTotal   = oportunidades.reduce((s, o) => s + (o.potencial || o.calculos?.creditoTotal || 0), 0)
   const { error } = await supabase.from('relatorios_importacao').insert({
     usuario_id: usuarioId, cliente_id: clienteId, cliente_nome: cliente?.razao_social || '',
     cliente_cnpj: cliente?.cnpj || '', cliente_regime: cliente?.regime || '', origem,
@@ -239,6 +239,84 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
     dados_json: { nfes, oportunidades, agrupadas },
   })
   return error
+}
+
+/**
+ * Grava, na tabela `entradas`, uma linha por competência para cada oportunidade
+ * detectada pelo MotorInteligenciaTributaria. Se nenhuma oportunidade foi encontrada,
+ * grava uma única linha com credito=0 para o período analisado, permitindo que o
+ * Diagnóstico Tributário distinga "sem dados" de "sem oportunidades".
+ */
+async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
+  const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
+  const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)
+
+  function resumoEvidencias(evidencias, comp) {
+    const lista = (evidencias || []).filter(e => !comp || e.competencia === comp || e.comp === comp)
+    const fonte = lista.length > 0 ? lista : (evidencias || [])
+    return fonte.slice(0, 5).map(e => e.descricao || e.resumo || e.observacao || e.texto || '').filter(Boolean).join(' | ')
+  }
+
+  function riscoDoGrau(grau) {
+    if (grau === 'ALTO') return 'baixo'
+    if (grau === 'MEDIO') return 'medio'
+    return 'alto'
+  }
+
+  if (oportunidades.length === 0) {
+    await supabase.from('entradas').upsert({
+      cliente_id: clienteId,
+      competencia: periodoAtual,
+      tributo: 'NF-e importada',
+      credito: 0,
+      tipo_oportunidade: '',
+      risco: 'baixo',
+      periodo_inicio: competenciaInicioGeral || '',
+      periodo_fim: competenciaFimGeral || '',
+      nfes_analisadas: totalNfesGeral || 0,
+    }, { onConflict: 'cliente_id,competencia,tributo' })
+    return
+  }
+
+  for (const op of oportunidades) {
+    const porCompetencia = op.calculos?.porCompetencia || {}
+    const competenciasDaOp = Object.keys(porCompetencia)
+    const risco = riscoDoGrau(op.grauConfianca)
+    const tese = op.tese || 'Oportunidade identificada'
+
+    if (competenciasDaOp.length === 0) {
+      // Sem quebra por competência disponível — grava uma única linha representando o período completo (exceção, não regra)
+      await supabase.from('entradas').upsert({
+        cliente_id: clienteId,
+        competencia: periodoAtual,
+        tributo: tese,
+        credito: op.calculos?.creditoTotal || op.calculos?.baseCalculo || 0,
+        tipo_oportunidade: tese,
+        risco,
+        documentos: resumoEvidencias(op.evidencias),
+        periodo_inicio: competenciaInicioGeral || '',
+        periodo_fim: competenciaFimGeral || '',
+        nfes_analisadas: totalNfesGeral || 0,
+      }, { onConflict: 'cliente_id,competencia,tributo' })
+      continue
+    }
+
+    for (const comp of competenciasDaOp) {
+      const dadosComp = porCompetencia[comp] || {}
+      await supabase.from('entradas').upsert({
+        cliente_id: clienteId,
+        competencia: comp,
+        tributo: tese,
+        credito: dadosComp.credito || 0,
+        tipo_oportunidade: tese,
+        risco,
+        documentos: resumoEvidencias(op.evidencias, comp),
+        periodo_inicio: competenciaInicioGeral || '',
+        periodo_fim: competenciaFimGeral || '',
+        nfes_analisadas: dadosComp.totalNFes || 0,
+      }, { onConflict: 'cliente_id,competencia,tributo' })
+    }
+  }
 }
 
 function imprimirRelatorio(idElemento) {
@@ -270,7 +348,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   const totalCOFINS   = nfes.reduce((s, n) => s + n.vCOFINS, 0)
   const totalST       = nfes.reduce((s, n) => s + n.vST, 0)
   const totalImpostos = totalICMS + totalPIS + totalCOFINS + totalST
-  const totalPotencial = oportunidades.reduce((s, o) => s + (o.potencial || 0), 0)
+  const totalPotencial = oportunidades.reduce((s, o) => s + (o.potencial || o.calculos?.creditoTotal || 0), 0)
   const dataHoje  = new Date().toLocaleDateString('pt-BR')
   const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   const regime    = cliente?.regime || 'Simples Nacional'
@@ -466,7 +544,7 @@ function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>Potencial 60m</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: op.cor || '#0B1F4D' }}>{fmtR(op.potencial || 0)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: op.cor || '#0B1F4D' }}>{fmtR(op.potencial || op.calculos?.creditoPor60Meses || 0)}</div>
                   </div>
                 </div>
               ))}
@@ -746,6 +824,17 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
         const resultadoMotor = await MotorInteligenciaTributaria.analisar(nfes, clienteAtual)
         const oportunidades  = resultadoMotor.consolidado?.oportunidades || []
         await salvarRelatorio({ usuarioId, clienteId, cliente: clienteAtual, origem: origemImp, nfes, oportunidades })
+
+        const agrupadas = agruparNFePorCompetencia(nfes)
+        const competenciasOrdenadas = agrupadas.map(a => a.competencia).sort()
+        await salvarOportunidadesEmEntradas({
+          clienteId,
+          resultadoMotor,
+          competenciaInicioGeral: competenciasOrdenadas[0] || '',
+          competenciaFimGeral: competenciasOrdenadas[competenciasOrdenadas.length - 1] || '',
+          totalNfesGeral: nfes.length,
+        })
+
         carregarRelatorios(usuarioId)
       }
     } else {
@@ -918,17 +1007,6 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
   async function salvarEntradas() {
     setSalvando(true)
     try {
-      for (const comp of agrupadas) {
-        const opsComp = oportunidadesPreview.filter(o => o.mediaMensal > 0)
-    const creditoComp = opsComp.reduce((s, o) => s + o.mediaMensal, 0)
-    const tipoOp = opsComp.map(o => o.tese).join(', ')
-    await supabase.from('entradas').upsert({
-    cliente_id: clienteId, competencia: comp.competencia, tributo: 'NF-e importada',
-    receita_bruta: comp.vNF, tributo_pago: comp.vICMS + comp.vPIS + comp.vCOFINS,
-    tributo_devido: comp.vICMS + comp.vPIS + comp.vCOFINS,
-    credito: creditoComp, tipo_oportunidade: tipoOp, risco: opsComp.length > 0 ? 'baixo' : 'baixo'
-  }, { onConflict: 'cliente_id,competencia,tributo' })
-      }
       setSalvo(true)
       if (onSalvo) onSalvo(nfes)
     } catch { alert('Erro ao salvar.') }
