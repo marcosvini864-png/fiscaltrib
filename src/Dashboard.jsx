@@ -646,7 +646,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
                 <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:16}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
                 <button onClick={()=>navigateTo('clientes',3)} style={{padding:'9px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
-                </div>>
+                </div>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:12}}>🔍</div>
