@@ -638,15 +638,51 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   </table>
                 </div>
               ) : ents.length>0 ? (
-                 <div style={{background:'#FFF7ED',borderRadius:12,border:'2px solid #F97316',padding:32,textAlign:'center'}}>
-                 <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
-                 <div style={{fontSize:16,fontWeight:800,color:'#C2410C',marginBottom:10}}>Nenhuma oportunidade de recuperação identificada</div>
-                 <div style={{background:'#FFEDD5',border:'1px solid #FDBA74',borderRadius:8,padding:'12px 20px',maxWidth:520,margin:'0 auto 14px',fontSize:13,color:'#9A3412',lineHeight:1.7}}>
-                 O Motor de Inteligência Tributária analisou <strong>{ents.length} {ents.length===1?'registro':'registros'}</strong> deste cliente e <strong>não encontrou produtos com NCM monofásico</strong> nem outras oportunidades de recuperação no período importado.
-                </div>
-                <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:16}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
-                <button onClick={()=>navigateTo('clientes',3)} style={{padding:'9px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
-                </div>
+      <div>
+      <div style={{background:'#FFF7ED',borderRadius:12,border:'2px solid #F97316',padding:'24px 28px',marginBottom:16}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+        <div style={{fontSize:40}}>⚠️</div>
+        <div>
+          <div style={{fontSize:18,fontWeight:900,color:'#C2410C',marginBottom:4}}>Nenhuma oportunidade de recuperação identificada</div>
+          <div style={{fontSize:13,color:'#9A3412'}}>O Motor de Inteligência Tributária analisou os dados deste cliente e não encontrou hipóteses de recuperação.</div>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}}>
+        {[
+          {label:'Registros analisados', valor:ents.length, cor:'#C2410C'},
+          {label:'Competências', valor:[...new Set(ents.map(e=>e.competencia).filter(Boolean))].length, cor:'#C2410C'},
+          {label:'Período início', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort()[0]||'—'), cor:'#C2410C'},
+          {label:'Período fim', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort().slice(-1)[0]||'—'), cor:'#C2410C'},
+        ].map((k,i)=>(
+          <div key={i} style={{background:'#FFEDD5',borderRadius:8,padding:'12px 16px',border:'1px solid #FDBA74'}}>
+            <div style={{fontSize:16,fontWeight:800,color:k.cor}}>{k.valor}</div>
+            <div style={{fontSize:11,color:'#9A3412',marginTop:2}}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#FFEDD5',borderRadius:8,padding:'14px 18px',border:'1px solid #FDBA74',marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#9A3412',marginBottom:8}}>📋 HIPÓTESES VERIFICADAS PELO MOTOR</div>
+        {[
+          {icon:'💊',tese:'Receitas Monofásicas (PIS/COFINS)',motivo:'Nenhum NCM monofásico identificado nas NF-es importadas'},
+          {icon:'🏷️',tese:'ICMS-ST na Base do Simples',motivo:'Nenhum item com CST de substituição tributária e valor de ST > 0'},
+          {icon:'📊',tese:'Segregação de Receitas por Anexo',motivo:'Não identificado mix de mercadorias e serviços'},
+          {icon:'🔄',tese:'Fator R — Migração Anexo V→III',motivo:'Não identificado como prestador de serviços elegível'},
+          {icon:'📋',tese:'PIS/COFINS — Alíquota Incorreta',motivo:'Nenhum item com alíquota acima do permitido'},
+        ].map((h,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 0',borderBottom:i<4?'1px solid #FED7AA':'none'}}>
+            <span style={{fontSize:18,flexShrink:0}}>{h.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#C2410C'}}>{h.tese}</div>
+              <div style={{fontSize:12,color:'#9A3412'}}>{h.motivo}</div>
+            </div>
+            <span style={{fontSize:11,fontWeight:700,background:'#FEF3C7',color:'#92400E',padding:'2px 8px',borderRadius:99,flexShrink:0,whiteSpace:'nowrap'}}>✗ Não aplicável</span>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:12}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
+      <button onClick={()=>navigateTo('clientes',3)} style={{padding:'10px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
+    </div>
+  </div>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:12}}>🔍</div>
