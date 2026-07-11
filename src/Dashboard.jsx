@@ -638,14 +638,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   </table>
                 </div>
               ) : ents.length>0 ? (
-                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
-                  <div style={{fontSize:36,marginBottom:12}}>✅</div>
-                  <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Nenhuma oportunidade de recuperação identificada</div>
-                  <div style={{fontSize:13,color:C.muted,marginBottom:16,lineHeight:1.5,maxWidth:480,marginLeft:'auto',marginRight:'auto'}}>
-                    O Motor analisou {ents.length} {ents.length===1?'item':'itens'} deste cliente e não encontrou produtos com tributação monofásica ou outras oportunidades no período importado.
-                  </div>
-                  <div style={{fontSize:12,color:C.muted}}>Isso costuma indicar que os produtos não se enquadram nas hipóteses de recuperação mapeadas — não é um erro do sistema.</div>
+                 <div style={{background:'#FFF7ED',borderRadius:12,border:'2px solid #F97316',padding:32,textAlign:'center'}}>
+                 <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+                 <div style={{fontSize:16,fontWeight:800,color:'#C2410C',marginBottom:10}}>Nenhuma oportunidade de recuperação identificada</div>
+                 <div style={{background:'#FFEDD5',border:'1px solid #FDBA74',borderRadius:8,padding:'12px 20px',maxWidth:520,margin:'0 auto 14px',fontSize:13,color:'#9A3412',lineHeight:1.7}}>
+                 O Motor de Inteligência Tributária analisou <strong>{ents.length} {ents.length===1?'registro':'registros'}</strong> deste cliente e <strong>não encontrou produtos com NCM monofásico</strong> nem outras oportunidades de recuperação no período importado.
                 </div>
+                <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:16}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
+                <button onClick={()=>navigateTo('clientes',3)} style={{padding:'9px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
+                </div>>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:12}}>🔍</div>
