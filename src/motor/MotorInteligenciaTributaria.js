@@ -12,7 +12,7 @@
  * — Cada módulo especializado segue o mesmo contrato
  *
  * USO:
- *   import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria'
+ *   import { analisarExclusaoICMS }  from './modulos/exclusao_icms.js'
  *   const resultado = await MotorInteligenciaTributaria.analisar(nfes, cliente)
  *   const mono      = await MotorInteligenciaTributaria.analisarModulo('MONOFASICOS', nfes, cliente)
  *
@@ -68,14 +68,14 @@ const MODULOS = {
     regimes:     ['Simples Nacional', 'Lucro Presumido', 'Lucro Real'],
   },
   EXCLUSAO_ICMS: {
-    id:          'EXCLUSAO_ICMS',
-    nome:        'Motor de Exclusão ICMS/PIS-COFINS',
-    versao:      '1.0',
-    fn:          null,
-    disponivel:  false,
-    descricao:   'Exclusão do ICMS da Base de PIS/COFINS — Tema 69 STF',
-    regimes:     ['Lucro Presumido', 'Lucro Real'],
-  },
+     id:          'EXCLUSAO_ICMS',
+     nome:        'Motor de Exclusão ICMS/PIS-COFINS',
+     versao:      '1.0',
+     fn:          analisarExclusaoICMS,
+     disponivel:  true,
+     descricao:   'Exclusão do ICMS da Base de PIS/COFINS — Tema 69 STF',
+     regimes:     ['Lucro Presumido', 'Lucro Real'],
+},
   FATOR_R: {
     id:          'FATOR_R',
     nome:        'Motor do Fator R',

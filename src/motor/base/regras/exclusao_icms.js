@@ -1,482 +1,271 @@
 /**
- * regras/exclusao_icms.js — Base de Conhecimento Tributária — FiscalTrib
- * Regras de negócio do Motor de Exclusão do ICMS da Base de PIS/COFINS.
+ * modulos/exclusao_icms.js — FiscalTrib
+ * Motor Especializado de Exclusão do ICMS da Base de PIS/COFINS.
  *
- * Tese jurídica: RE 574.706 STF (Tema 69)
- * "O ICMS não compõe a base de cálculo para a incidência do PIS e da COFINS."
- *
- * Aplicável para:
- * — Lucro Presumido: alíquotas 0,65% (PIS) e 3% (COFINS) — regime cumulativo
- * — Lucro Real: alíquotas 1,65% (PIS) e 7,6% (COFINS) — regime não cumulativo
- * — NÃO se aplica ao Simples Nacional (PIS/COFINS dentro do DAS)
- *
- * Modulação dos efeitos:
- * — Contribuintes COM ação/pedido antes de 15/03/2017: retroatividade de 5 anos
- * — Contribuintes SEM ação/pedido antes de 15/03/2017: direito a partir de 15/03/2017
- *
- * Divergência RFB vs STF:
- * — RFB (ADI 5/2018 e SC COSIT 13/2018): ICMS efetivamente recolhido
- * — STF (embargos 13/05/2021): ICMS destacado na NF-e
- * — Recomendação FiscalTrib: ICMS destacado via judicial
+ * Tese: RE 574.706 STF (Tema 69)
+ * Aplicável: Lucro Presumido e Lucro Real
  *
  * Versão: 1.0
- * Data: 2026-07-08
+ * Data: 2026-07-11
  */
 
-import { VERSAO_ATUAL } from '../versionamento/versoes.js'
+import {
+  criarResultado,
+  finalizarResultado,
+  resultadoErro,
+  STATUS_ANALISE,
+  GRAU_CONFIANCA,
+} from '../contratos/ResultadoPadrao.js'
 
-// ─────────────────────────────────────────────────────────────
-// CONSTANTES DE REGRAS
-// ─────────────────────────────────────────────────────────────
+import { evidenciaDaNFe } from '../contratos/Evidencia.js'
 
-export const ALIQUOTAS_PIS_COFINS = {
-  cumulativo: {
-    regime:  'Lucro Presumido',
-    pis:     0.65,
-    cofins:  3.00,
-    total:   3.65,
-  },
-  naoCumulativo: {
-    regime:  'Lucro Real',
-    pis:     1.65,
-    cofins:  7.60,
-    total:   9.25,
-  },
-}
+export async function analisarExclusaoICMS(nfes, cliente, opcoes = {}, BaseTributaria) {
+  const inicio    = Date.now()
+  const modulo    = 'EXCLUSAO_ICMS'
+  const resultado = criarResultado(modulo)
+  resultado.descricaoModulo = 'Exclusão do ICMS da Base de PIS/COFINS — Tema 69 STF'
 
-// Data de corte da modulação do Tema 69
-export const DATA_CORTE_MODULACAO = '2017-03-15'
+  try {
 
-// Regimes elegíveis
-export const REGIMES_ELEGIVEIS = ['Lucro Presumido', 'Lucro Real']
-
-// ─────────────────────────────────────────────────────────────
-// REGRAS DE ELEGIBILIDADE
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Verifica se o regime tributário é elegível para a tese.
- * Simples Nacional NÃO é elegível — PIS/COFINS dentro do DAS.
- *
- * @param {string} regime
- * @returns {{ elegivel: boolean, motivo: string }}
- */
-export function verificarElegibilidadeRegime(regime) {
-  if (!regime) {
-    return { elegivel: false, motivo: 'Regime tributário não informado' }
-  }
-  if (regime === 'Simples Nacional') {
-    return {
-      elegivel: false,
-      motivo:   'Simples Nacional não é elegível — PIS/COFINS recolhido dentro do DAS. ' +
-                'Para ICMS-ST no Simples, ver Motor de ICMS-ST.',
+    // ── 1. Validações iniciais ──────────────────────────────
+    if (!nfes || nfes.length === 0) {
+      resultado.status = STATUS_ANALISE.SEM_DADOS
+      resultado.erro   = 'Nenhuma NF-e fornecida para análise.'
+      return finalizarResultado(resultado, inicio)
     }
-  }
-  if (!REGIMES_ELEGIVEIS.includes(regime)) {
-    return { elegivel: false, motivo: `Regime "${regime}" não elegível para esta tese.` }
-  }
-  return { elegivel: true, motivo: '' }
-}
 
-/**
- * Calcula o período retroativo com base na modulação do STF.
- *
- * @param {string} dataPedido   - Data do pedido/ação no formato 'AAAA-MM-DD'
- * @param {boolean} tinhaPedido - Se tinha ação ou pedido antes de 15/03/2017
- * @returns {object}
- */
-export function calcularPeriodoRetroativo(dataPedido, tinhaPedido = false) {
-  const corte      = new Date(DATA_CORTE_MODULACAO)
-  const pedido     = dataPedido ? new Date(dataPedido) : new Date()
-  const cincoAnos  = new Date(pedido)
-  cincoAnos.setFullYear(cincoAnos.getFullYear() - 5)
-
-  if (tinhaPedido) {
-    // Retroatividade de 5 anos a partir do pedido
-    return {
-      dataInicio:       cincoAnos.toISOString().slice(0, 10),
-      dataFim:          dataPedido || new Date().toISOString().slice(0, 10),
-      mesesRetroativos: calcularMesesEntre(cincoAnos, pedido),
-      modulacaoAplicada: false,
-      obs:              'Pedido anterior à modulação — retroatividade máxima de 5 anos.',
+    if (!cliente?.regime) {
+      resultado.status = STATUS_ANALISE.SEM_DADOS
+      resultado.erro   = 'Regime tributário do cliente não informado.'
+      return finalizarResultado(resultado, inicio)
     }
-  } else {
-    // Direito apenas a partir de 15/03/2017
-    const inicio = corte > cincoAnos ? corte : cincoAnos
-    return {
-      dataInicio:       inicio.toISOString().slice(0, 10),
-      dataFim:          dataPedido || new Date().toISOString().slice(0, 10),
-      mesesRetroativos: calcularMesesEntre(inicio, pedido),
-      modulacaoAplicada: true,
-      obs:              'Sem pedido anterior à modulação — direito a partir de 15/03/2017.',
+
+    const regras = BaseTributaria.regras.exclusaoICMS
+
+    // ── 2. Verifica elegibilidade do regime ─────────────────
+    const elegibilidade = regras.verificarElegibilidadeRegime(cliente.regime)
+    if (!elegibilidade.elegivel) {
+      resultado.status            = STATUS_ANALISE.CONCLUIDA
+      resultado.grauConfianca     = GRAU_CONFIANCA.ALTO
+      resultado.justificativaConfianca = elegibilidade.motivo
+      resultado.oportunidades     = []
+      resultado.relatorio.resumoExecutivo = elegibilidade.motivo
+      resultado.relatorio.conclusaoExecutiva = elegibilidade.motivo
+      return finalizarResultado(resultado, inicio, { totalNFes: nfes.length, regime: cliente.regime })
     }
-  }
-}
 
-/**
- * Calcula o número de meses entre duas datas.
- * @param {Date} inicio
- * @param {Date} fim
- * @returns {number}
- */
-function calcularMesesEntre(inicio, fim) {
-  return Math.max(0,
-    (fim.getFullYear() - inicio.getFullYear()) * 12 +
-    (fim.getMonth() - inicio.getMonth())
-  )
-}
+    // ── 3. Diagnóstico ──────────────────────────────────────
+    const metodo    = opcoes.metodo || 'DESTACADO'
+    const modulacao = opcoes.modulacao || { tinhaPedido: false, dataPedido: null }
 
-// ─────────────────────────────────────────────────────────────
-// REGRAS DE IDENTIFICAÇÃO DO ICMS
-// ─────────────────────────────────────────────────────────────
+    const diagnostico = regras.gerarDiagnosticoExclusaoICMS(nfes, cliente.regime, modulacao)
 
-/**
- * Obtém o valor do ICMS a ser excluído de uma NF-e.
- * Segue o entendimento do STF (embargos 2021): ICMS destacado.
- *
- * @param {object} nfe    - NF-e parseada
- * @param {string} metodo - 'DESTACADO' (STF) ou 'RECOLHIDO' (RFB)
- * @returns {{ valorICMS: number, metodo: string, obs: string }}
- */
-export function obterICMSParaExclusao(nfe, metodo = 'DESTACADO') {
-  if (!nfe) return { valorICMS: 0, metodo, obs: 'NF-e inválida' }
-
-  if (metodo === 'DESTACADO') {
-    // STF: ICMS destacado na NF-e (total da nota)
-    const valorICMS = nfe.vICMS || 0
-    return {
-      valorICMS,
-      metodo:  'DESTACADO',
-      fonte:   'vICMS da NF-e (tag <vICMS> do XML)',
-      obs:     'Conforme STF nos embargos de declaração do RE 574.706 (13/05/2021).',
+    resultado.diagnostico = {
+      totalDocumentosAnalisados: diagnostico.totalNFesAnalisadas,
+      totalItensAnalisados:      diagnostico.totalNFesSaida,
+      competenciasAnalisadas:    diagnostico.competencias,
+      periodoInicio:             diagnostico.periodoInicio,
+      periodoFim:                diagnostico.periodoFim,
+      situacoesEncontradas:      diagnostico.situacoesEncontradas,
+      observacoes: [
+        `${diagnostico.totalNFesSaida} NF-e(s) de saída analisadas`,
+        `${diagnostico.totalNFesComICMS} NF-e(s) com ICMS destacado`,
+        `Total ICMS identificado: R$ ${diagnostico.totalICMSIdentificado.toFixed(2)}`,
+        `Percentual ICMS sobre faturamento: ${diagnostico.percentualICMS}`,
+        diagnostico.modulacao.obs,
+      ].join('. '),
     }
-  } else {
-    // RFB: ICMS efetivamente recolhido (posição mais restritiva)
-    // Sem o SPED Fiscal não é possível calcular com precisão — usa vICMS como proxy
-    const valorICMS = nfe.vICMS || 0
-    return {
-      valorICMS,
-      metodo:  'RECOLHIDO',
-      fonte:   'Estimativa baseada em vICMS (recolhido real requer SPED Fiscal)',
-      obs:     'Conforme ADI RFB 5/2018 e SC COSIT 13/2018 — posição mais restritiva da RFB.',
-      riscoGlosa: 'MEDIO',
+
+    // ── 4. Verifica se há ICMS para excluir ─────────────────
+    if (diagnostico.totalNFesComICMS === 0) {
+      resultado.status            = STATUS_ANALISE.CONCLUIDA
+      resultado.grauConfianca     = GRAU_CONFIANCA.ALTO
+      resultado.justificativaConfianca = 'Nenhuma NF-e com ICMS destacado identificada.'
+      resultado.oportunidades     = []
+      resultado.relatorio.resumoExecutivo = `Nenhuma NF-e com ICMS destacado identificada no período analisado.`
+      resultado.relatorio.conclusaoExecutiva = 'Nenhuma oportunidade de exclusão do ICMS da base de PIS/COFINS identificada.'
+      return finalizarResultado(resultado, inicio, { totalNFes: nfes.length, regime: cliente.regime })
     }
-  }
-}
 
-/**
- * Valida uma NF-e para análise de exclusão do ICMS.
- *
- * @param {object} nfe
- * @param {string} regime
- * @returns {{ valida: boolean, motivo: string }}
- */
-export function validarNFeParaExclusao(nfe, regime) {
-  if (!nfe)             return { valida: false, motivo: 'NF-e nula ou indefinida' }
-  if (!nfe.valido)      return { valida: false, motivo: 'NF-e inválida' }
-  if (!nfe.competencia) return { valida: false, motivo: 'Competência não identificada' }
-  if (nfe.vNF <= 0)     return { valida: false, motivo: 'Valor total da NF-e é zero' }
+    // ── 5. Consolida créditos por competência ───────────────
+    const consolidado = regras.consolidarCreditosExclusaoICMS(nfes, cliente.regime, metodo, modulacao)
 
-  // Verifica se é NF-e de saída
-  if (nfe.tpNF && nfe.tpNF !== '1') {
-    return { valida: false, motivo: 'NF-e de entrada — não gera crédito de exclusão do ICMS' }
-  }
+    // ── 6. Grau de confiança ────────────────────────────────
+    const confianca = regras.calcularGrauConfiancaExclusao(consolidado, metodo)
+    resultado.grauConfianca          = confianca.grau
+    resultado.justificativaConfianca = confianca.justificativa
 
-  // Verifica se há ICMS destacado
-  if ((nfe.vICMS || 0) <= 0) {
-    return { valida: false, motivo: 'ICMS não destacado nesta NF-e' }
-  }
+    // ── 7. Evidências ────────────────────────────────────────
+    const evidencias = []
+    const nfesSaida  = nfes.filter(n => !n.tpNF || n.tpNF === '1')
 
-  // Verifica elegibilidade do regime
-  const elegibilidade = verificarElegibilidadeRegime(regime)
-  if (!elegibilidade.elegivel) {
-    return { valida: false, motivo: elegibilidade.motivo }
-  }
-
-  return { valida: true, motivo: '' }
-}
-
-// ─────────────────────────────────────────────────────────────
-// REGRAS DE CÁLCULO
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Calcula o crédito de PIS/COFINS pela exclusão do ICMS da base.
- *
- * @param {number} valorICMS - Valor do ICMS a excluir da base
- * @param {string} regime    - 'Lucro Presumido' ou 'Lucro Real'
- * @returns {object}
- */
-export function calcularCreditoExclusaoICMS(valorICMS, regime = 'Lucro Presumido') {
-  if (valorICMS <= 0) return { creditoPIS: 0, creditoCOFINS: 0, credito: 0 }
-
-  const aliq = regime === 'Lucro Real'
-    ? ALIQUOTAS_PIS_COFINS.naoCumulativo
-    : ALIQUOTAS_PIS_COFINS.cumulativo
-
-  const creditoPIS    = valorICMS * (aliq.pis    / 100)
-  const creditoCOFINS = valorICMS * (aliq.cofins / 100)
-  const credito       = creditoPIS + creditoCOFINS
-
-  return {
-    creditoPIS,
-    creditoCOFINS,
-    credito,
-    aliqPIS:       aliq.pis,
-    aliqCOFINS:    aliq.cofins,
-    valorICMSBase: valorICMS,
-    regime,
-    obs: `Crédito = ICMS excluído × (PIS ${aliq.pis}% + COFINS ${aliq.cofins}%)`,
-  }
-}
-
-/**
- * Calcula o crédito total de uma NF-e para exclusão do ICMS.
- *
- * @param {object} nfe    - NF-e parseada
- * @param {string} regime - Regime tributário
- * @param {string} metodo - 'DESTACADO' ou 'RECOLHIDO'
- * @returns {object}
- */
-export function calcularCreditoNFeExclusao(nfe, regime = 'Lucro Presumido', metodo = 'DESTACADO') {
-  const validacao = validarNFeParaExclusao(nfe, regime)
-  if (!validacao.valida) {
-    return { valido: false, motivo: validacao.motivo, credito: 0 }
-  }
-
-  const icmsInfo = obterICMSParaExclusao(nfe, metodo)
-  if (icmsInfo.valorICMS <= 0) {
-    return { valido: true, credito: 0, obs: 'Sem ICMS para excluir nesta NF-e' }
-  }
-
-  const calc = calcularCreditoExclusaoICMS(icmsInfo.valorICMS, regime)
-
-  return {
-    valido:      true,
-    chNFe:       nfe.chNFe,
-    competencia: nfe.competencia,
-    vNF:         nfe.vNF,
-    valorICMS:   icmsInfo.valorICMS,
-    metodoICMS:  icmsInfo.metodo,
-    regime,
-    ...calc,
-  }
-}
-
-/**
- * Consolida créditos de exclusão do ICMS por competência.
- *
- * @param {Array}  nfes        - Array de NF-es parseadas
- * @param {string} regime      - Regime tributário
- * @param {string} metodo      - 'DESTACADO' ou 'RECOLHIDO'
- * @param {object} modulacao   - { tinhaPedido, dataPedido }
- * @returns {object}
- */
-export function consolidarCreditosExclusaoICMS(
-  nfes,
-  regime      = 'Lucro Presumido',
-  metodo      = 'DESTACADO',
-  modulacao   = { tinhaPedido: false, dataPedido: null }
-) {
-  // Calcula o período retroativo com base na modulação
-  const periodo = calcularPeriodoRetroativo(modulacao.dataPedido, modulacao.tinhaPedido)
-
-  // Filtra NF-es dentro do período retroativo
-  const nfesFiltradas = nfes.filter(nfe => {
-    if (!nfe.competencia) return false
-    const compData = new Date(nfe.competencia + '-01')
-    const inicio   = new Date(periodo.dataInicio)
-    const fim      = new Date(periodo.dataFim)
-    return compData >= inicio && compData <= fim
-  })
-
-  const porCompetencia = {}
-  let creditoTotal      = 0
-  let totalICMSExcluido = 0
-  let totalNFesComICMS  = 0
-
-  nfesFiltradas.forEach(nfe => {
-    const calc = calcularCreditoNFeExclusao(nfe, regime, metodo)
-    if (!calc.valido || calc.credito <= 0) return
-
-    const comp = nfe.competencia
-    if (!porCompetencia[comp]) {
-      porCompetencia[comp] = {
-        competencia:   comp,
-        totalNFes:     0,
-        totalICMS:     0,
-        creditoPIS:    0,
-        creditoCOFINS: 0,
-        credito:       0,
+    nfesSaida.forEach(nfe => {
+      if ((nfe.vICMS || 0) <= 0) return
+      const calc = regras.calcularCreditoNFeExclusao(nfe, cliente.regime, metodo)
+      if (!calc.valido || calc.credito <= 0) return
+      // Cria evidência no nível da NF-e (não item)
+      const item = {
+        ncm: '', cfop: '', cst: '', xProd: `ICMS destacado NF-e ${nfe.nNF || ''}`,
+        vProd: nfe.vNF, vItemICMS: nfe.vICMS, vItemPIS: nfe.vPIS,
+        vItemCOFINS: nfe.vCOFINS, vItemST: nfe.vST, vItemIPI: nfe.vIPI || 0,
+        vBC: nfe.vICMS, pICMS: 0, vBCST: 0, pICMSST: 0,
+        pPIS: 0, pCOFINS: 0, vBCPIS: 0, vBCCOFINS: 0,
       }
+      const ev = evidenciaDaNFe(
+        nfe, item,
+        `ICMS de R$ ${nfe.vICMS.toFixed(2)} excluído da base de PIS/COFINS`,
+        calc.credito
+      )
+      evidencias.push(ev)
+    })
+
+    // ── 8. Oportunidade ──────────────────────────────────────
+    const scoreValor = regras.calcularScoreExclusaoICMS(consolidado, confianca)
+
+    const aliq = cliente.regime === 'Lucro Real'
+      ? { pis: 1.65, cofins: 7.60 }
+      : { pis: 0.65, cofins: 3.00 }
+
+    const oportunidade = {
+      id:            `EXCL_ICMS_${Date.now()}`,
+      tese:          'Exclusão do ICMS da Base de PIS/COFINS — Tema 69 STF',
+      descricao:     `${diagnostico.totalNFesComICMS} NF-e(s) com ICMS destacado identificadas em ${consolidado.totalCompetencias} competência(s). ` +
+                     `ICMS total excluível: R$ ${consolidado.totalICMSExcluido.toFixed(2)}. ` +
+                     `Crédito de PIS (${aliq.pis}%) + COFINS (${aliq.cofins}%) sobre o ICMS excluído.`,
+      score:         { valor: scoreValor, classificacao: scoreValor >= 80 ? 'Excelente' : scoreValor >= 60 ? 'Bom' : 'Regular', componentes: [] },
+      grauConfianca: confianca.grau,
+      evidencias:    evidencias.slice(0, 20),
+      fundamentacao: {
+        leis:        ['Lei 9.718/1998', 'LC 70/1991'],
+        decisoes:    ['RE 574.706 STF (Tema 69)', 'Embargos de Declaração — 13/05/2021'],
+        observacao:  metodo === 'DESTACADO'
+          ? 'Usando ICMS destacado na NF-e — conforme entendimento do STF (maior valor).'
+          : 'Usando ICMS recolhido — conforme entendimento da RFB (menor valor, menor risco de glosa).',
+      },
+      calculos: {
+        totalICMSExcluido:   consolidado.totalICMSExcluido,
+        baseCalculo:         consolidado.totalICMSExcluido,
+        creditoTotal:        consolidado.creditoTotal,
+        creditoMensalMedio:  consolidado.creditoMensalMedio,
+        creditoPor12Meses:   consolidado.creditoPor12Meses,
+        creditoPor24Meses:   consolidado.creditoPor24Meses,
+        creditoPor36Meses:   consolidado.creditoPor36Meses,
+        creditoPor60Meses:   consolidado.creditoPor60Meses,
+        porCompetencia:      consolidado.porCompetencia,
+        memoriaCalculo: [
+          `1. Identificação de ${diagnostico.totalNFesComICMS} NF-e(s) de saída com ICMS destacado`,
+          `2. Total de ICMS destacado: R$ ${consolidado.totalICMSExcluido.toFixed(2)}`,
+          `3. Crédito PIS (${aliq.pis}%): R$ ${(consolidado.totalICMSExcluido * aliq.pis / 100).toFixed(2)}`,
+          `4. Crédito COFINS (${aliq.cofins}%): R$ ${(consolidado.totalICMSExcluido * aliq.cofins / 100).toFixed(2)}`,
+          `5. Crédito total: R$ ${consolidado.creditoTotal.toFixed(2)}`,
+          `6. Média mensal: R$ ${consolidado.creditoMensalMedio.toFixed(2)}`,
+          `7. Projeção 60 meses: R$ ${consolidado.creditoPor60Meses.toFixed(2)}`,
+        ],
+      },
+      recomendacao: {
+        titulo:      'Ingressar com pedido de restituição via PER/DCOMP ou ação judicial',
+        prioridade:  'ALTA',
+        via:         consolidado.periodo?.modulacaoAplicada ? 'ADMINISTRATIVA' : 'JUDICIAL',
+        passos: [
+          { ordem: 1, acao: 'Levantar todas as NF-es de saída do período retroativo', prazo: '30 dias' },
+          { ordem: 2, acao: 'Apurar o ICMS destacado competência a competência', prazo: '15 dias' },
+          { ordem: 3, acao: 'Calcular o crédito de PIS/COFINS sobre o ICMS excluído', prazo: '15 dias' },
+          { ordem: 4, acao: 'Protocolar PER/DCOMP ou ajuizar ação de repetição do indébito', prazo: '30 dias' },
+        ],
+      },
     }
 
-    porCompetencia[comp].totalNFes++
-    porCompetencia[comp].totalICMS     += calc.valorICMS || 0
-    porCompetencia[comp].creditoPIS    += calc.creditoPIS || 0
-    porCompetencia[comp].creditoCOFINS += calc.creditoCOFINS || 0
-    porCompetencia[comp].credito       += calc.credito
+    resultado.oportunidades = [oportunidade]
 
-    creditoTotal       += calc.credito
-    totalICMSExcluido  += calc.valorICMS || 0
-    totalNFesComICMS++
-  })
+    // ── 9. Cálculos consolidados ─────────────────────────────
+    resultado.calculos = {
+      valorAnalisado:      nfesSaida.reduce((s, n) => s + (n.vNF || 0), 0),
+      baseCalculo:         consolidado.totalICMSExcluido,
+      creditoEstimado:     consolidado.creditoTotal,
+      economiaEstimada:    consolidado.creditoTotal,
+      moeda:               'BRL',
+      creditoPor12Meses:   consolidado.creditoPor12Meses,
+      creditoPor24Meses:   consolidado.creditoPor24Meses,
+      creditoPor36Meses:   consolidado.creditoPor36Meses,
+      creditoPor60Meses:   consolidado.creditoPor60Meses,
+      creditoMensalMedio:  consolidado.creditoMensalMedio,
+      percentuaisAplicados: [
+        { descricao: `PIS (${aliq.pis}%) sobre ICMS excluído`,    valor: aliq.pis },
+        { descricao: `COFINS (${aliq.cofins}%) sobre ICMS excluído`, valor: aliq.cofins },
+      ],
+      porCompetencia:      consolidado.porCompetencia,
+      memoriaCalculo:      oportunidade.calculos.memoriaCalculo,
+      totalDocumentos:     nfes.length,
+      totalItens:          diagnostico.totalNFesComICMS,
+      totalCompetencias:   consolidado.totalCompetencias,
+    }
 
-  const competencias = Object.values(porCompetencia).sort((a, b) =>
-    a.competencia.localeCompare(b.competencia)
-  )
-  const meses = competencias.length || 1
+    // ── 10. Score ────────────────────────────────────────────
+    resultado.score = {
+      valor:         scoreValor,
+      classificacao: scoreValor >= 80 ? 'Excelente' : scoreValor >= 60 ? 'Bom' : 'Regular',
+      componentes:   [],
+      justificativa: `Score ${scoreValor}/100. Tese pacificada no STF (Tema 69). ${confianca.justificativa}`,
+    }
 
-  return {
-    creditoTotal,
-    creditoMensalMedio:  creditoTotal / meses,
-    creditoPor12Meses:   (creditoTotal / meses) * 12,
-    creditoPor24Meses:   (creditoTotal / meses) * 24,
-    creditoPor36Meses:   (creditoTotal / meses) * 36,
-    creditoPor60Meses:   (creditoTotal / meses) * 60,
-    totalICMSExcluido,
-    totalNFes:           nfes.length,
-    totalNFesFiltradas:  nfesFiltradas.length,
-    totalNFesComICMS,
-    totalCompetencias:   competencias.length,
-    periodoInicio:       competencias[0]?.competencia || '',
-    periodoFim:          competencias[competencias.length - 1]?.competencia || '',
-    periodo,
-    regime,
-    metodo,
-    porCompetencia,
+    // ── 11. Riscos ───────────────────────────────────────────
+    resultado.riscos = []
+    if (metodo === 'RECOLHIDO') {
+      resultado.riscos.push({
+        descricao:  'Usando ICMS recolhido — RFB pode glosar diferença em relação ao destacado',
+        nivel:      'MEDIO',
+        mitigacao:  'Recomendado usar ICMS destacado via judicial para garantir maior valor',
+      })
+    }
+    if (consolidado.periodo?.modulacaoAplicada) {
+      resultado.riscos.push({
+        descricao:  'Modulação aplicada — direito limitado a partir de 15/03/2017',
+        nivel:      'BAIXO',
+        mitigacao:  'Verificar se havia ação ou pedido anterior a 15/03/2017 para ampliar retroatividade',
+      })
+    }
+    if (consolidado.totalCompetencias < 6) {
+      resultado.riscos.push({
+        descricao:  'Período analisado inferior a 6 meses — crédito pode estar subestimado',
+        nivel:      'MEDIO',
+        mitigacao:  'Importar NF-es de todo o período retroativo elegível',
+      })
+    }
+
+    // ── 12. Relatório ────────────────────────────────────────
+    const fmt = BaseTributaria.utilitarios.formatadores
+    resultado.relatorio = {
+      resumoExecutivo: `Identificada oportunidade de recuperação pela exclusão do ICMS da base de PIS/COFINS ` +
+                       `(RE 574.706 — Tema 69 STF) para ${cliente.razao_social}. ` +
+                       `Total de ICMS excluível: R$ ${consolidado.totalICMSExcluido.toFixed(2)}. ` +
+                       `Crédito estimado: R$ ${consolidado.creditoTotal.toFixed(2)} ` +
+                       `(projeção 60 meses: R$ ${consolidado.creditoPor60Meses.toFixed(2)}).`,
+      objetivoAnalise:     `Identificar créditos de PIS/COFINS decorrentes da exclusão do ICMS da base de cálculo, conforme RE 574.706 STF (Tema 69), para empresa no regime de ${cliente.regime}.`,
+      escopoAnalise:       `${diagnostico.totalNFesAnalisadas} NF-e(s) analisadas, período ${diagnostico.periodoInicio} a ${diagnostico.periodoFim}, ${diagnostico.totalCompetencias} competência(s).`,
+      diagnosticoTecnico:  `${diagnostico.totalNFesComICMS} NF-e(s) com ICMS destacado identificadas. Total ICMS: R$ ${diagnostico.totalICMSIdentificado.toFixed(2)} (${diagnostico.percentualICMS} do faturamento). ${diagnostico.modulacao.obs}`,
+      oportunidadesTexto:  `Exclusão do ICMS da base de PIS/COFINS — crédito estimado R$ ${consolidado.creditoMensalMedio.toFixed(2)}/mês, potencial 60 meses: R$ ${consolidado.creditoPor60Meses.toFixed(2)}.`,
+      riscosTexto:         resultado.riscos.map(r => `[${r.nivel}] ${r.descricao}`).join('. ') || 'Nenhum risco relevante identificado.',
+      fundamentacaoTexto:  'RE 574.706 STF (Tema 69): "O ICMS não compõe a base de cálculo para incidência do PIS e da COFINS." Embargos de declaração julgados em 13/05/2021 definiram uso do ICMS destacado.',
+      conclusaoExecutiva:  `Recomenda-se ingresso imediato com PER/DCOMP ou ação judicial para recuperação de R$ ${consolidado.creditoTotal.toFixed(2)} em créditos de PIS/COFINS pela exclusão do ICMS (Tema 69 STF). Grau de confiança: ${confianca.grau}.`,
+      planoAcao:           oportunidade.recomendacao.passos,
+    }
+
+    // ── 13. Status final ─────────────────────────────────────
+    resultado.status = consolidado.creditoTotal > 0
+      ? STATUS_ANALISE.CONCLUIDA
+      : STATUS_ANALISE.CONCLUIDA_PARCIAL
+
+    return finalizarResultado(resultado, inicio, {
+      totalNFes:      nfes.length,
+      regime:         cliente.regime,
+      clienteCNPJ:    cliente.cnpj || '',
+      totalComICMS:   diagnostico.totalNFesComICMS,
+      creditoTotal:   consolidado.creditoTotal,
+    })
+
+  } catch (erro) {
+    return resultadoErro(modulo, `Erro inesperado no Motor de Exclusão ICMS: ${erro.message}`)
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// REGRAS DE DIAGNÓSTICO
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Gera o diagnóstico completo para exclusão do ICMS.
- *
- * @param {Array}  nfes      - Array de NF-es parseadas
- * @param {string} regime    - Regime tributário
- * @param {object} modulacao - { tinhaPedido, dataPedido }
- * @returns {object}
- */
-export function gerarDiagnosticoExclusaoICMS(
-  nfes,
-  regime    = 'Lucro Presumido',
-  modulacao = { tinhaPedido: false, dataPedido: null }
-) {
-  // Verifica elegibilidade
-  const elegibilidade = verificarElegibilidadeRegime(regime)
-
-  // NF-es de saída com ICMS
-  const nfesSaida      = nfes.filter(n => !n.tpNF || n.tpNF === '1')
-  const nfesComICMS    = nfesSaida.filter(n => (n.vICMS || 0) > 0)
-  const competencias   = [...new Set(nfes.map(n => n.competencia))].sort()
-  const periodo        = calcularPeriodoRetroativo(modulacao.dataPedido, modulacao.tinhaPedido)
-
-  // Totais
-  const totalVNF   = nfesComICMS.reduce((s, n) => s + (n.vNF   || 0), 0)
-  const totalICMS  = nfesComICMS.reduce((s, n) => s + (n.vICMS || 0), 0)
-  const percICMS   = totalVNF > 0 ? (totalICMS / totalVNF) * 100 : 0
-
-  return {
-    elegivel:              elegibilidade.elegivel,
-    motivoInelegivel:      elegibilidade.motivo,
-    totalNFesAnalisadas:   nfes.length,
-    totalNFesSaida:        nfesSaida.length,
-    totalNFesComICMS:      nfesComICMS.length,
-    totalVNF,
-    totalICMSIdentificado: totalICMS,
-    percentualICMS:        percICMS.toFixed(2) + '%',
-    competencias,
-    periodoInicio:         competencias[0]  || '',
-    periodoFim:            competencias[competencias.length - 1] || '',
-    totalCompetencias:     competencias.length,
-    modulacao:             periodo,
-    regime,
-    situacoesEncontradas: [
-      elegibilidade.elegivel
-        ? `Regime ${regime} é elegível para exclusão do ICMS da base de PIS/COFINS`
-        : `Regime ${regime} NÃO é elegível — ${elegibilidade.motivo}`,
-      nfesComICMS.length > 0
-        ? `${nfesComICMS.length} NF-e(s) com ICMS destacado — total: R$ ${totalICMS.toFixed(2)}`
-        : 'Nenhuma NF-e com ICMS destacado identificada',
-      periodo.modulacaoAplicada
-        ? `Modulação aplicada — direito a partir de ${DATA_CORTE_MODULACAO}`
-        : `Retroatividade máxima — direito aos 5 anos anteriores ao pedido`,
-    ].filter(Boolean),
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// REGRAS DE SCORE E CONFIANÇA
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Calcula o grau de confiança da análise de exclusão do ICMS.
- *
- * @param {object} consolidado
- * @param {string} metodo
- * @returns {{ grau: string, justificativa: string, pontos: number }}
- */
-export function calcularGrauConfiancaExclusao(consolidado, metodo = 'DESTACADO') {
-  let pontos = 100
-
-  // Penaliza se usa método recolhido (risco de glosa)
-  if (metodo === 'RECOLHIDO') pontos -= 10
-
-  // Penaliza se período curto
-  if (consolidado.totalCompetencias < 6)  pontos -= 10
-  if (consolidado.totalCompetencias < 12) pontos -= 5
-
-  // Penaliza se poucas NF-es com ICMS
-  if (consolidado.totalNFesComICMS < 10) pontos -= 10
-
-  // Penaliza se modulação foi aplicada (período menor)
-  if (consolidado.periodo?.modulacaoAplicada) pontos -= 5
-
-  pontos = Math.max(0, Math.min(100, pontos))
-  const grau = pontos >= 80 ? 'ALTO' : pontos >= 60 ? 'MEDIO' : 'BAIXO'
-
-  const justificativa =
-    grau === 'ALTO'  ? 'ICMS destacado via judicial — máxima segurança jurídica (STF embargos 2021).' :
-    grau === 'MEDIO' ? 'Análise completa mas com limitações de período ou volume de NF-es.' :
-                       'Dados insuficientes para análise conclusiva.'
-
-  return { grau, justificativa, pontos }
-}
-
-/**
- * Calcula o score do Motor de Exclusão ICMS.
- *
- * @param {object} consolidado
- * @param {object} confianca
- * @returns {number}
- */
-export function calcularScoreExclusaoICMS(consolidado, confianca) {
-  let score = 88  // score base
-
-  // Via judicial é mais segura
-  if (consolidado.metodo === 'DESTACADO') score += 2
-
-  if (confianca.grau === 'MEDIO') score -= 8
-  if (confianca.grau === 'BAIXO') score -= 20
-
-  if (consolidado.totalNFesComICMS < 10) score -= 8
-  if (consolidado.totalCompetencias < 6) score -= 8
-  if (consolidado.periodo?.modulacaoAplicada) score -= 3
-
-  return Math.max(0, Math.min(100, Math.round(score)))
-}
-
-/**
- * Metadados das regras de exclusão do ICMS.
- */
-export const META_REGRAS_EXCLUSAO_ICMS = {
-  versaoBase:   VERSAO_ATUAL.codigo,
-  versaoRegras: '1.0',
-  atualizadaEm: '2026-07-08',
-  totalRegras:  9,
-  observacao:   'Regras baseadas no RE 574.706 STF (Tema 69) e embargos de declaração (13/05/2021). ' +
-                'Recomendado usar ICMS destacado via judicial para garantir o maior valor.',
-}
+export default analisarExclusaoICMS
