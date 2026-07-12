@@ -823,6 +823,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       if (usuarioId && clienteId) {
         const resultadoMotor = await MotorInteligenciaTributaria.analisar(nfes, clienteAtual)
         console.log('MOTOR RESULTADO:', JSON.stringify(resultadoMotor?.status), 'módulos:', resultadoMotor?.modulosExecutados, 'oportunidades:', resultadoMotor?.consolidado?.oportunidades?.length)
+		console.log('DETALHES:', JSON.stringify(resultadoMotor?.resultados?.map(r => ({ modulo: r.modulo, status: r.status, credito: r.calculos?.creditoEstimado, erro: r.erro }))))
         const oportunidades  = resultadoMotor.consolidado?.oportunidades || []
         await salvarRelatorio({ usuarioId, clienteId, cliente: clienteAtual, origem: origemImp, nfes, oportunidades })
 
