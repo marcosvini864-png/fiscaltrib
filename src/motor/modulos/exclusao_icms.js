@@ -15,9 +15,9 @@ import {
   resultadoErro,
   STATUS_ANALISE,
   GRAU_CONFIANCA,
-} from '../contratos/ResultadoPadrao.js'
+} from '../../motor/contratos/ResultadoPadrao.js'
 
-import { evidenciaDaNFe } from '../contratos/Evidencia.js'
+import { evidenciaDaNFe } from '../../motor/contratos/Evidencia.js'
 
 export async function analisarExclusaoICMS(nfes, cliente, opcoes = {}, BaseTributaria) {
   const inicio    = Date.now()

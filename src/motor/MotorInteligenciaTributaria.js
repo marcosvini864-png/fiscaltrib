@@ -30,7 +30,7 @@ import { analisarMonofasicos }   from './modulos/monofasicos.js'
 
 // Módulos futuros — descomentar conforme implementados
 // import { analisarICMSST }        from './modulos/icms_st.js'
-// import { analisarExclusaoICMS }  from './modulos/exclusao_icms.js'
+import { analisarExclusaoICMS }  from './modulos/exclusao_icms.js'
 // import { analisarFatorR }        from './modulos/fator_r.js'
 // import { analisarINSS }          from './modulos/inss.js'
 // import { analisarIRPJCSLL }      from './modulos/irpj_csll.js'
@@ -71,8 +71,8 @@ const MODULOS = {
      id:          'EXCLUSAO_ICMS',
      nome:        'Motor de Exclusão ICMS/PIS-COFINS',
      versao:      '1.0',
-     fn:          null,
-     disponivel:  false,
+     fn:          analisarExclusaoICMS,
+     disponivel:  true,
      descricao:   'Exclusão do ICMS da Base de PIS/COFINS — Tema 69 STF',
      regimes:     ['Lucro Presumido', 'Lucro Real'],
 },
