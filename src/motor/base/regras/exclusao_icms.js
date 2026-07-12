@@ -69,8 +69,8 @@ export function gerarDiagnosticoExclusaoICMS(nfes, regime, modulacao = {}) {
   // Competências únicas (YYYY-MM)
   const competenciasSet = new Set()
   nfesSaida.forEach(n => {
-    if (n.dhEmi || n.dEmi) {
-      const data = (n.dhEmi || n.dEmi).substring(0, 7)
+    if (n.dhEmi || n.dEmi || n.competencia) {
+      const data = (n.dhEmi || n.dEmi || n.competencia).substring(0, 7)
       competenciasSet.add(data)
     }
   })
@@ -191,13 +191,13 @@ export function consolidarCreditosExclusaoICMS(nfes, regime, metodo = 'DESTACADO
 
     if (vICMS <= 0) return
 
-    const dataStr = nfe.dhEmi || nfe.dEmi || ''
+    const dataStr = nfe.dhEmi || nfe.dEmi || nfe.competencia || ''
     if (!dataStr) return
 
     // Filtro de modulação
     if (dataCorteObj) {
-      const dataNFe = new Date(dataStr.substring(0, 10))
-      if (dataNFe < dataCorteObj) return
+      const dataRef = dataStr.length >= 10 ? dataStr.substring(0, 10) : dataStr + '-01'
+      const dataNFe = new Date(dataRef)
     }
 
     const competencia = dataStr.substring(0, 7) // YYYY-MM
