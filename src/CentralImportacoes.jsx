@@ -247,7 +247,7 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
  * grava uma única linha com credito=0 para o período analisado, permitindo que o
  * Diagnóstico Tributário distinga "sem dados" de "sem oportunidades".
  */
-async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
+async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
   const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
   await supabase.from('entradas').delete().eq('cliente_id', clienteId)
   const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)
@@ -267,6 +267,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, compet
   if (oportunidades.length === 0) {
     await supabase.from('entradas').upsert({
       cliente_id: clienteId,
+	  usuario_id: usuarioId,
       competencia: periodoAtual,
       tributo: 'NF-e importada',
       credito: 0,
@@ -288,6 +289,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, compet
     if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
+		usuario_id: usuarioId,
         competencia: periodoAtual,
         tributo: tese,
         credito: op.calculos?.creditoTotal || 0,
@@ -304,6 +306,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, compet
     for (const dadosComp of porCompetencia) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
+		usuario_id: usuarioId,
         competencia: dadosComp.competencia,
         tributo: tese,
         credito: dadosComp.creditoTotal || 0,
@@ -328,13 +331,14 @@ function imprimirRelatorio(idElemento) {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1e293b; padding: 32px 36px; }
       table { width: 100%; border-collapse: collapse; }
-      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-    </style>
-    </head><body>${conteudo}</body></html>`)
-  janela.document.close()
-  janela.focus()
-  setTimeout(() => { janela.print() }, 600)
-}
+    await salvarOportunidadesEmEntradas({
+    clienteId,
+    usuarioId,
+    resultadoMotor,
+    competenciaInicioGeral: competenciasOrdenadas[0] || '',
+    competenciaFimGeral: competenciasOrdenadas[competenciasOrdenadas.length - 1] || '',
+    totalNfesGeral: nfes.length,
+})
 
 function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   const agrupadas     = agruparNFePorCompetencia(nfes)
