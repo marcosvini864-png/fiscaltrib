@@ -249,9 +249,9 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
  */
 async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
   const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
-  const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)
-
-  function resumoEvidencias(evidencias, comp) {
+    await supabase.from('entradas').delete().eq('cliente_id', clienteId)
+    const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)  
+    function resumoEvidencias(evidencias, comp) {
     const lista = (evidencias || []).filter(e => !comp || e.competencia === comp || e.comp === comp)
     const fonte = lista.length > 0 ? lista : (evidencias || [])
     return fonte.slice(0, 5).map(e => e.descricao || e.resumo || e.observacao || e.texto || '').filter(Boolean).join(' | ')
