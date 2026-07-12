@@ -241,12 +241,6 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
   return error
 }
 
-/**
- * Grava, na tabela `entradas`, uma linha por competência para cada oportunidade
- * detectada pelo MotorInteligenciaTributaria. Se nenhuma oportunidade foi encontrada,
- * grava uma única linha com credito=0 para o período analisado, permitindo que o
- * Diagnóstico Tributário distinga "sem dados" de "sem oportunidades".
- */
 async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
   const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
   await supabase.from('entradas').delete().eq('cliente_id', clienteId)
@@ -267,7 +261,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMo
   if (oportunidades.length === 0) {
     await supabase.from('entradas').upsert({
       cliente_id: clienteId,
-	  usuario_id: usuarioId,
+      usuario_id: usuarioId,
       competencia: periodoAtual,
       tributo: 'NF-e importada',
       credito: 0,
@@ -281,7 +275,6 @@ async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMo
   }
 
   for (const op of oportunidades) {
-    // porCompetencia é um ARRAY: [{ competencia, totalICMS, creditoTotal, qtdNFes }, ...]
     const porCompetencia = op.calculos?.porCompetencia || []
     const risco = riscoDoGrau(op.grauConfianca)
     const tese = op.tese || 'Oportunidade identificada'
@@ -289,7 +282,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMo
     if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
-		usuario_id: usuarioId,
+        usuario_id: usuarioId,
         competencia: periodoAtual,
         tributo: tese,
         credito: op.calculos?.creditoTotal || 0,
@@ -306,7 +299,7 @@ async function salvarOportunidadesEmEntradas({ clienteId, usuarioId, resultadoMo
     for (const dadosComp of porCompetencia) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
-		usuario_id: usuarioId,
+        usuario_id: usuarioId,
         competencia: dadosComp.competencia,
         tributo: tese,
         credito: dadosComp.creditoTotal || 0,
@@ -331,14 +324,13 @@ function imprimirRelatorio(idElemento) {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1e293b; padding: 32px 36px; }
       table { width: 100%; border-collapse: collapse; }
-    await salvarOportunidadesEmEntradas({
-    clienteId,
-    usuarioId,
-    resultadoMotor,
-    competenciaInicioGeral: competenciasOrdenadas[0] || '',
-    competenciaFimGeral: competenciasOrdenadas[competenciasOrdenadas.length - 1] || '',
-    totalNfesGeral: nfes.length,
-})
+      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style>
+    </head><body>${conteudo}</body></html>`)
+  janela.document.close()
+  janela.focus()
+  setTimeout(() => { janela.print() }, 600)
+}
 
 function RelatorioImportacao({ cliente, nfes, origem, oportunidades }) {
   const agrupadas     = agruparNFePorCompetencia(nfes)
@@ -826,14 +818,15 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       if (usuarioId && clienteId) {
         const resultadoMotor = await MotorInteligenciaTributaria.analisar(nfes, clienteAtual)
         console.log('MOTOR RESULTADO:', JSON.stringify(resultadoMotor?.status), 'módulos:', resultadoMotor?.modulosExecutados, 'oportunidades:', resultadoMotor?.consolidado?.oportunidades?.length)
-		console.log('DETALHES:', JSON.stringify(resultadoMotor?.resultados?.map(r => ({ modulo: r.modulo, status: r.status, credito: r.calculos?.creditoEstimado, erro: r.erro }))))
-        const oportunidades  = resultadoMotor.consolidado?.oportunidades || []
+        console.log('DETALHES:', JSON.stringify(resultadoMotor?.resultados?.map(r => ({ modulo: r.modulo, status: r.status, credito: r.calculos?.creditoEstimado, erro: r.erro }))))
+        const oportunidades = resultadoMotor.consolidado?.oportunidades || []
         await salvarRelatorio({ usuarioId, clienteId, cliente: clienteAtual, origem: origemImp, nfes, oportunidades })
 
         const agrupadas = agruparNFePorCompetencia(nfes)
         const competenciasOrdenadas = agrupadas.map(a => a.competencia).sort()
         await salvarOportunidadesEmEntradas({
           clienteId,
+          usuarioId,
           resultadoMotor,
           competenciaInicioGeral: competenciasOrdenadas[0] || '',
           competenciaFimGeral: competenciasOrdenadas[competenciasOrdenadas.length - 1] || '',
