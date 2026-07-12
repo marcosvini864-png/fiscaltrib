@@ -249,9 +249,10 @@ async function salvarRelatorio({ usuarioId, clienteId, cliente, origem, nfes, op
  */
 async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, competenciaInicioGeral, competenciaFimGeral, totalNfesGeral }) {
   const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
-    await supabase.from('entradas').delete().eq('cliente_id', clienteId)
-    const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)  
-    function resumoEvidencias(evidencias, comp) {
+  await supabase.from('entradas').delete().eq('cliente_id', clienteId)
+  const periodoAtual = competenciaFimGeral || new Date().toISOString().slice(0, 7)
+
+  function resumoEvidencias(evidencias, comp) {
     const lista = (evidencias || []).filter(e => !comp || e.competencia === comp || e.comp === comp)
     const fonte = lista.length > 0 ? lista : (evidencias || [])
     return fonte.slice(0, 5).map(e => e.descricao || e.resumo || e.observacao || e.texto || '').filter(Boolean).join(' | ')
@@ -279,18 +280,17 @@ async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, compet
   }
 
   for (const op of oportunidades) {
-    const porCompetencia = op.calculos?.porCompetencia || {}
-    const competenciasDaOp = Object.keys(porCompetencia)
+    // porCompetencia é um ARRAY: [{ competencia, totalICMS, creditoTotal, qtdNFes }, ...]
+    const porCompetencia = op.calculos?.porCompetencia || []
     const risco = riscoDoGrau(op.grauConfianca)
     const tese = op.tese || 'Oportunidade identificada'
 
-    if (competenciasDaOp.length === 0) {
-      // Sem quebra por competência disponível — grava uma única linha representando o período completo (exceção, não regra)
+    if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
         competencia: periodoAtual,
         tributo: tese,
-        credito: op.calculos?.creditoTotal || op.calculos?.baseCalculo || 0,
+        credito: op.calculos?.creditoTotal || 0,
         tipo_oportunidade: tese,
         risco,
         documentos: resumoEvidencias(op.evidencias),
@@ -301,19 +301,18 @@ async function salvarOportunidadesEmEntradas({ clienteId, resultadoMotor, compet
       continue
     }
 
-    for (const comp of competenciasDaOp) {
-      const dadosComp = porCompetencia[comp] || {}
+    for (const dadosComp of porCompetencia) {
       await supabase.from('entradas').upsert({
         cliente_id: clienteId,
-        competencia: comp,
+        competencia: dadosComp.competencia,
         tributo: tese,
-        credito: dadosComp.credito || 0,
+        credito: dadosComp.creditoTotal || 0,
         tipo_oportunidade: tese,
         risco,
-        documentos: resumoEvidencias(op.evidencias, comp),
+        documentos: resumoEvidencias(op.evidencias, dadosComp.competencia),
         periodo_inicio: competenciaInicioGeral || '',
         periodo_fim: competenciaFimGeral || '',
-        nfes_analisadas: dadosComp.totalNFes || 0,
+        nfes_analisadas: dadosComp.qtdNFes || 0,
       }, { onConflict: 'cliente_id,competencia,tributo' })
     }
   }
