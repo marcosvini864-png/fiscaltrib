@@ -40,7 +40,7 @@ export async function analisarExclusaoICMS(nfes, cliente, opcoes = {}, BaseTribu
     }
 
     const regras = BaseTributaria.regras.exclusaoICMS
-
+    console.log('EXCLUSAO_ICMS nfes recebidas:', nfes.length, 'vICMS total:', nfes.reduce((s,n) => s + (n.vICMS||0), 0), 'tpNF values:', [...new Set(nfes.map(n => n.tpNF))])
     const elegibilidade = regras.verificarElegibilidadeRegime(cliente.regime)
     if (!elegibilidade.elegivel) {
       resultado.status                 = STATUS_ANALISE.CONCLUIDA
