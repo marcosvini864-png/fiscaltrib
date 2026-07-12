@@ -19,7 +19,7 @@ const RISCO_STYLE = {
   alto:  { cor: '#dc2626', bg: '#fff1f2', label: '🔴 Alto'  },
 }
 
-const fmtR    = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleDateString('pt-BR') : '—'
 
 // ─── EXPORTAR PDF ────────────────────────────────────────────────────────────
