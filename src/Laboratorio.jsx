@@ -144,13 +144,9 @@ const LAYOUTS = {
     ],
     mapear: (row, uid, clienteId) => ({ usuario_id: uid, cliente_id: clienteId, competencia: row.competencia, tributo: 'NF-e Entrada', receita_bruta: parseFloat(row.valor_total), tributo_pago: 0, tributo_devido: 0, credito: 0, tipo_oportunidade: '', risco: 'baixo' }),
   },
-
-  // ─── V2: com itens — passam pelo Motor ───────────────────────────────────
   'notas_saida_v2.csv': {
     descricao: 'Notas de Saída v2 (com itens)',
-    tabela: '_csv_v2_motor',
-    _v2: true,
-    mapear: null,
+    tabela: '_csv_v2_motor', _v2: true, mapear: null,
     colunas: [
       { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
       { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '1', valores: ['0','1'] },
@@ -200,9 +196,7 @@ const LAYOUTS = {
   },
   'notas_entrada_v2.csv': {
     descricao: 'Notas de Entrada v2 (com itens)',
-    tabela: '_csv_v2_motor',
-    _v2: true,
-    mapear: null,
+    tabela: '_csv_v2_motor', _v2: true, mapear: null,
     colunas: [
       { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
       { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '0', valores: ['0','1'] },
@@ -250,7 +244,6 @@ const LAYOUTS = {
       { nome: 'v_cofins_item',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
     ],
   },
-
   'folha.csv': {
     descricao: 'Folha de Pagamento', tabela: 'folha',
     colunas: [
@@ -447,13 +440,13 @@ const LAYOUTS = {
 }
 
 const FORMATOS_FUTUROS = [
-  { label: 'Excel (.xlsx)',         status: 'Em breve', cor: '#16a34a' },
-  { label: 'SPED Fiscal (.txt)',    status: 'Em breve', cor: '#2563eb' },
-  { label: 'SPED Contribuições',    status: 'Em breve', cor: '#2563eb' },
-  { label: 'ECD (.txt)',            status: 'Em breve', cor: '#7c3aed' },
-  { label: 'ECF (.txt)',            status: 'Em breve', cor: '#7c3aed' },
-  { label: 'XML NF-e',              status: 'Em breve', cor: '#d97706' },
-  { label: 'DCTF (.xml)',           status: 'Em breve', cor: '#d97706' },
+  { label: 'Excel (.xlsx)',      status: 'Em breve', cor: '#16a34a' },
+  { label: 'SPED Fiscal (.txt)',  status: 'Em breve', cor: '#2563eb' },
+  { label: 'SPED Contribuições', status: 'Em breve', cor: '#2563eb' },
+  { label: 'ECD (.txt)',         status: 'Em breve', cor: '#7c3aed' },
+  { label: 'ECF (.txt)',         status: 'Em breve', cor: '#7c3aed' },
+  { label: 'XML NF-e',           status: 'Em breve', cor: '#d97706' },
+  { label: 'DCTF (.xml)',        status: 'Em breve', cor: '#d97706' },
 ]
 
 function parseCSV(texto) {
@@ -492,8 +485,7 @@ function baixarModelo(nomeArquivo) {
   if (!layout) return
   const cabecalho = layout.colunas.map(c => c.nome).join(';')
   const exemplo   = layout.colunas.map(c => c.exemplo || '').join(';')
-  const conteudo  = `${cabecalho}\n${exemplo}\n`
-  const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([`${cabecalho}\n${exemplo}\n`], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href = url; a.download = nomeArquivo; a.click()
@@ -512,10 +504,8 @@ async function exportarCenario(uid, cnpjEmpresa, codigoCenario) {
     const { data } = await supabase.from(t.tabela).select('*').eq(t.filtro.campo, t.filtro.valor).eq('usuario_id', uid)
     if (!data || data.length === 0) continue
     const cols = Object.keys(data[0]).filter(k => k !== 'id' && k !== 'usuario_id' && k !== 'created_at')
-    const cabecalho = cols.join(';')
-    const linhas    = data.map(row => cols.map(c => row[c] ?? '').join(';'))
-    const conteudo  = [cabecalho, ...linhas].join('\n')
-    const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' })
+    const linhas = data.map(row => cols.map(c => row[c] ?? '').join(';'))
+    const blob = new Blob([[cols.join(';'), ...linhas].join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href = url; a.download = `${codigoCenario}_${t.arquivo}`; a.click()
@@ -529,24 +519,23 @@ export default function Laboratorio() {
   const inputRef   = useRef()
   const inputPasta = useRef()
 
-  const [aba,           setAba]           = useState('importar')
-  const [processando,   setProcessando]   = useState(false)
-  const [progresso,     setProgresso]     = useState({ atual: 0, total: 0, arquivo: '' })
-  const [resultados,    setResultados]    = useState([])
-  const [erroGlobal,    setErroGlobal]    = useState([])
-  const [avisoGlobal,   setAvisoGlobal]   = useState([])
-  const [resumo,        setResumo]        = useState(null)
-  const [comparacao,    setComparacao]    = useState([])
-  const [comparando,    setComparando]    = useState(false)
-  const [historico,     setHistorico]     = useState([])
-  const [limpando,      setLimpando]      = useState(false)
-  const [cnpjAtivo,     setCnpjAtivo]     = useState('')
-  const [cenarios,      setCenarios]      = useState([])
-  const [novoCenario,   setNovoCenario]   = useState({ codigo: '', nome: '' })
-  const [exportando,    setExportando]    = useState(false)
-  const [motorResultados, setMotorResultados] = useState([]) // resultados v2 do Motor
+  const [aba,             setAba]             = useState('importar')
+  const [processando,     setProcessando]     = useState(false)
+  const [progresso,       setProgresso]       = useState({ atual: 0, total: 0, arquivo: '' })
+  const [resultados,      setResultados]      = useState([])
+  const [erroGlobal,      setErroGlobal]      = useState([])
+  const [avisoGlobal,     setAvisoGlobal]     = useState([])
+  const [resumo,          setResumo]          = useState(null)
+  const [comparacao,      setComparacao]      = useState([])
+  const [comparando,      setComparando]      = useState(false)
+  const [historico,       setHistorico]       = useState([])
+  const [limpando,        setLimpando]        = useState(false)
+  const [cnpjAtivo,       setCnpjAtivo]       = useState('')
+  const [novoCenario,     setNovoCenario]     = useState({ codigo: '', nome: '' })
+  const [exportando,      setExportando]      = useState(false)
+  const [motorResultados, setMotorResultados] = useState([])
 
-  useEffect(() => { carregarHistorico(); carregarCenarios() }, [])
+  useEffect(() => { carregarHistorico() }, [])
 
   async function carregarHistorico() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -554,151 +543,83 @@ export default function Laboratorio() {
     setHistorico(data || [])
   }
 
-  async function carregarCenarios() {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data } = await supabase.from('log_importacao')
-      .select('arquivo,created_at')
-      .eq('usuario_id', user.id)
-      .eq('arquivo', 'empresa.csv')
-      .order('created_at', { ascending: false })
-    setCenarios(data || [])
-  }
-
-  // ── Gravar oportunidades do Motor nas entradas ───────────────────────────
   async function salvarOportunidadesEmEntradas_lab({ clienteId, usuarioId, resultadoMotor, nfes }) {
     const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
     const agrupadas = {}
-    nfes.forEach(n => {
-      if (!agrupadas[n.competencia]) agrupadas[n.competencia] = 0
-      agrupadas[n.competencia]++
-    })
+    nfes.forEach(n => { if (!agrupadas[n.competencia]) agrupadas[n.competencia] = 0; agrupadas[n.competencia]++ })
     const competencias  = Object.keys(agrupadas).sort()
     const periodoInicio = competencias[0] || ''
     const periodoFim    = competencias[competencias.length - 1] || ''
     const totalNfes     = nfes.length
 
     if (oportunidades.length === 0) {
-      await supabase.from('entradas').upsert({
-        cliente_id: clienteId, usuario_id: usuarioId,
-        competencia: periodoFim || new Date().toISOString().slice(0, 7),
-        tributo: 'CSV_V2 importado', credito: 0,
-        tipo_oportunidade: '', risco: 'baixo',
-        periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes,
-      }, { onConflict: 'cliente_id,competencia,tributo' })
+      await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: periodoFim || new Date().toISOString().slice(0,7), tributo: 'CSV_V2 importado', credito: 0, tipo_oportunidade: '', risco: 'baixo', periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes }, { onConflict: 'cliente_id,competencia,tributo' })
       return
     }
-
     for (const op of oportunidades) {
       const porCompetencia = op.calculos?.porCompetencia || []
       const risco = op.grauConfianca === 'ALTO' ? 'baixo' : op.grauConfianca === 'MEDIO' ? 'medio' : 'alto'
       const tese  = op.tese || 'Oportunidade identificada'
-
       if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
-        await supabase.from('entradas').upsert({
-          cliente_id: clienteId, usuario_id: usuarioId,
-          competencia: periodoFim, tributo: tese,
-          credito: op.calculos?.creditoTotal || 0,
-          tipo_oportunidade: tese, risco,
-          periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes,
-        }, { onConflict: 'cliente_id,competencia,tributo' })
+        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: periodoFim, tributo: tese, credito: op.calculos?.creditoTotal || 0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes }, { onConflict: 'cliente_id,competencia,tributo' })
         continue
       }
-
       for (const dadosComp of porCompetencia) {
-        await supabase.from('entradas').upsert({
-          cliente_id: clienteId, usuario_id: usuarioId,
-          competencia: dadosComp.competencia, tributo: tese,
-          credito: dadosComp.creditoTotal || 0,
-          tipo_oportunidade: tese, risco,
-          periodo_inicio: periodoInicio, periodo_fim: periodoFim,
-          nfes_analisadas: dadosComp.qtdNFes || 0,
-        }, { onConflict: 'cliente_id,competencia,tributo' })
+        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: dadosComp.competencia, tributo: tese, credito: dadosComp.creditoTotal || 0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: dadosComp.qtdNFes || 0 }, { onConflict: 'cliente_id,competencia,tributo' })
       }
     }
   }
 
-  // ── Processar arquivos (pasta ou seleção múltipla) ───────────────────────
   async function processarArquivos(files) {
-    setProcessando(true)
-    setResultados([])
-    setErroGlobal([])
-    setAvisoGlobal([])
-    setResumo(null)
-    setMotorResultados([])
-
+    setProcessando(true); setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setMotorResultados([])
     const { data: { user } } = await supabase.auth.getUser()
-    const uid    = user.id
+    const uid = user.id
     const inicio = Date.now()
-    const novosResultados = []
-    const todosErros      = []
-    const todosAvisos     = []
-    const novosMotorRes   = []
+    const novosResultados = []; const todosErros = []; const todosAvisos = []; const novosMotorRes = []
 
-    const filesOrdenados = Array.from(files).sort((a, b) => {
+    const filesOrdenados = Array.from(files).sort((a,b) => {
       if (a.name.toLowerCase() === 'empresa.csv') return -1
       if (b.name.toLowerCase() === 'empresa.csv') return 1
       return 0
     })
 
     setProgresso({ atual: 0, total: filesOrdenados.length, arquivo: '' })
-    let cnpjDetectado      = ''
-    let clienteIdDetectado = null
+    let cnpjDetectado = ''; let clienteIdDetectado = null
 
     for (let fi = 0; fi < filesOrdenados.length; fi++) {
-      const file        = filesOrdenados[fi]
+      const file = filesOrdenados[fi]
       const nomeArquivo = file.name.toLowerCase()
-      setProgresso({ atual: fi + 1, total: filesOrdenados.length, arquivo: file.name })
+      setProgresso({ atual: fi+1, total: filesOrdenados.length, arquivo: file.name })
 
       const layout = LAYOUTS[nomeArquivo]
-      if (!layout) {
-        novosResultados.push({ arquivo: file.name, status: 'ignorado', motivo: 'Layout não reconhecido', importados: 0, rejeitados: 0, erros: [], total: 0 })
-        continue
-      }
+      if (!layout) { novosResultados.push({ arquivo: file.name, status: 'ignorado', motivo: 'Layout não reconhecido', importados: 0, rejeitados: 0, erros: [], total: 0 }); continue }
 
-      const texto              = await file.text()
+      const texto = await file.text()
       const { cabecalho, rows } = parseCSV(texto)
 
-      // Verificar colunas (apenas para layouts normais — v2 tem validação própria)
       if (!layout._v2) {
-        const nomesEsperados = layout.colunas.map(c => c.nome)
-        const colsFaltando   = nomesEsperados.filter(c => !cabecalho.includes(c))
-        if (colsFaltando.length > 0) {
-          novosResultados.push({ arquivo: file.name, status: 'erro', motivo: `Colunas faltando: ${colsFaltando.join(', ')}`, importados: 0, rejeitados: rows.length, erros: [], total: rows.length })
-          continue
-        }
+        const colsFaltando = layout.colunas.map(c=>c.nome).filter(c=>!cabecalho.includes(c))
+        if (colsFaltando.length > 0) { novosResultados.push({ arquivo: file.name, status: 'erro', motivo: `Colunas faltando: ${colsFaltando.join(', ')}`, importados: 0, rejeitados: rows.length, erros: [], total: rows.length }); continue }
       }
 
-      if (nomeArquivo === 'empresa.csv' && rows.length > 0) {
-        cnpjDetectado = rows[0].cnpj || ''
-        setCnpjAtivo(cnpjDetectado)
-      }
+      if (nomeArquivo === 'empresa.csv' && rows.length > 0) { cnpjDetectado = rows[0].cnpj || ''; setCnpjAtivo(cnpjDetectado) }
 
-      let clienteId    = clienteIdDetectado
-      const precisaCliente = ['notas_saida.csv','notas_entrada.csv','oportunidades.csv','notas_saida_v2.csv','notas_entrada_v2.csv'].includes(nomeArquivo)
-      if (precisaCliente && !clienteId && cnpjDetectado) {
+      let clienteId = clienteIdDetectado
+      if (['notas_saida.csv','notas_entrada.csv','oportunidades.csv','notas_saida_v2.csv','notas_entrada_v2.csv'].includes(nomeArquivo) && !clienteId && cnpjDetectado) {
         const { data: cli } = await supabase.from('clientes').select('id').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
-        clienteId = cli?.id || null
-        clienteIdDetectado = clienteId
+        clienteId = cli?.id || null; clienteIdDetectado = clienteId
       }
 
-      let importados = 0
-      let rejeitados = 0
-      const errosArquivo = []
+      let importados = 0; let rejeitados = 0; const errosArquivo = []
 
-      // ── ARQUIVOS V2 — passam pelo parseCSVNFeV2 → Motor ─────────────────
+      // ── V2 → Motor ──────────────────────────────────────────────────────
       if (layout._v2) {
         const { nfes: nfesCSV, erros: errosCSV, avisos, rejeitadas } = parseCSVNFeV2(texto, file.name)
-
         errosCSV.forEach(e => { errosArquivo.push(e); todosErros.push(e) })
-        avisos.forEach(a   => todosAvisos.push(a))
+        avisos.forEach(a => todosAvisos.push(a))
 
         if (nfesCSV.length === 0) {
-          novosResultados.push({
-            arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
-            status: 'erro',
-            motivo: errosCSV.length > 0 ? 'Nenhuma NF-e válida — veja erros abaixo' : 'Arquivo sem dados válidos',
-            importados: 0, rejeitados: rejeitadas.length, erros: errosArquivo, total: rows.length,
-          })
+          novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: 'erro', motivo: errosCSV.length > 0 ? 'Nenhuma NF-e válida — veja erros abaixo' : 'Arquivo sem dados válidos', importados: 0, rejeitados: rejeitadas.length, erros: errosArquivo, total: rows.length })
           continue
         }
 
@@ -707,54 +628,24 @@ export default function Laboratorio() {
             const { data: cliData } = await supabase.from('clientes').select('*').eq('id', clienteId).single()
             const resultadoMotor    = await MotorInteligenciaTributaria.analisar(nfesCSV, cliData)
             const oportunidades     = resultadoMotor?.consolidado?.oportunidades || []
-            const creditoTotal      = oportunidades.reduce((s, o) => s + (o.calculos?.creditoTotal || 0), 0)
-
+            const creditoTotal      = oportunidades.reduce((s,o) => s+(o.calculos?.creditoTotal||0), 0)
             await salvarOportunidadesEmEntradas_lab({ clienteId, usuarioId: uid, resultadoMotor, nfes: nfesCSV })
-
-            const motorInfo = {
-              arquivo:       file.name,
-              nfes:          nfesCSV.length,
-              oportunidades: oportunidades.length,
-              credito:       creditoTotal,
-              avisos:        avisos.length,
-              detalhes:      oportunidades.map(o => ({
-                tese:   o.tese,
-                credito: o.calculos?.creditoTotal || 0,
-                grau:   o.grauConfianca,
-              })),
-            }
+            const motorInfo = { arquivo: file.name, nfes: nfesCSV.length, oportunidades: oportunidades.length, credito: creditoTotal, avisos: avisos.length, temCredito: creditoTotal > 0, detalhes: oportunidades.map(o => ({ tese: o.tese, credito: o.calculos?.creditoTotal||0, grau: o.grauConfianca })) }
             novosMotorRes.push(motorInfo)
-
-            novosResultados.push({
-              arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
-              status: rejeitadas.length === 0 ? 'sucesso' : 'parcial',
-              importados: nfesCSV.length, rejeitados: rejeitadas.length,
-              erros: errosArquivo, total: nfesCSV.length + rejeitadas.length,
-              _motorInfo: motorInfo,
-            })
-          } catch (e) {
-            errosArquivo.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: ' + e.message })
-            todosErros.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: ' + e.message })
+            novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: rejeitadas.length===0?'sucesso':'parcial', importados: nfesCSV.length, rejeitados: rejeitadas.length, erros: errosArquivo, total: nfesCSV.length+rejeitadas.length, _motorInfo: motorInfo })
+          } catch(e) {
+            errosArquivo.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: '+e.message })
+            todosErros.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: '+e.message })
             novosResultados.push({ arquivo: file.name, status: 'erro', motivo: 'Erro ao executar o Motor', importados: 0, rejeitados: rows.length, erros: errosArquivo, total: rows.length })
           }
         } else {
-          novosResultados.push({
-            arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
-            status: 'parcial',
-            motivo: 'NF-es parseadas mas sem cliente ativo — importe empresa.csv primeiro',
-            importados: nfesCSV.length, rejeitados: 0, erros: [], total: nfesCSV.length,
-          })
+          novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: 'parcial', motivo: 'NF-es parseadas mas sem cliente ativo — importe empresa.csv primeiro', importados: nfesCSV.length, rejeitados: 0, erros: [], total: nfesCSV.length })
         }
-
-        await supabase.from('log_importacao').insert({
-          usuario_id: uid, arquivo: file.name, tabela: 'Motor (CSV_V2)',
-          total_linhas: rows.length, importados: nfesCSV.length,
-          rejeitados: rejeitadas.length, erros: errosArquivo, tempo_ms: Date.now() - inicio,
-        })
-        continue // não cai no loop de rows abaixo
+        await supabase.from('log_importacao').insert({ usuario_id: uid, arquivo: file.name, tabela: 'Motor (CSV_V2)', total_linhas: rows.length, importados: nfesCSV.length, rejeitados: rejeitadas?.length||0, erros: errosArquivo, tempo_ms: Date.now()-inicio })
+        continue
       }
 
-      // ── ARQUIVOS NORMAIS — gravam linha a linha no banco ─────────────────
+      // ── Arquivos normais ────────────────────────────────────────────────
       for (const row of rows) {
         const erros = validarRow(row, layout, file.name)
         if (erros.length > 0) { errosArquivo.push(...erros); todosErros.push(...erros); rejeitados++; continue }
@@ -775,18 +666,14 @@ export default function Laboratorio() {
       novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: layout.tabela, status: rejeitados===0?'sucesso':importados===0?'erro':'parcial', importados, rejeitados, erros: errosArquivo, total: rows.length })
     }
 
-    setResultados(novosResultados)
-    setErroGlobal(todosErros)
-    setAvisoGlobal(todosAvisos)
-    setMotorResultados(novosMotorRes)
+    setResultados(novosResultados); setErroGlobal(todosErros); setAvisoGlobal(todosAvisos); setMotorResultados(novosMotorRes)
     setProcessando(false)
     if (cnpjDetectado) await carregarResumo(uid, cnpjDetectado)
     carregarHistorico()
-    carregarCenarios()
   }
 
   async function carregarResumo(uid, cnpj) {
-    const { data: emp }   = await supabase.from('clientes').select('*').eq('cnpj', cnpj).eq('usuario_id', uid).single()
+    const { data: emp } = await supabase.from('clientes').select('*').eq('cnpj', cnpj).eq('usuario_id', uid).single()
     if (!emp) return
     const { data: funcs } = await supabase.from('funcionarios').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
     const { data: clis  } = await supabase.from('fornecedores').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
@@ -794,12 +681,9 @@ export default function Laboratorio() {
     const { data: nfes  } = await supabase.from('entradas').select('receita_bruta,tributo,tributo_pago').eq('cliente_id', emp.id).eq('usuario_id', uid)
     const { data: folhas} = await supabase.from('folha').select('id,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
     const { data: tribs } = await supabase.from('tributos_lab').select('tributo,valor_pago,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const nfSaida   = (nfes||[]).filter(n => n.tributo === 'NF-e Saída')
-    const nfEntrada = (nfes||[]).filter(n => n.tributo === 'NF-e Entrada')
-    const recBruta  = nfSaida.reduce((s,n) => s + (n.receita_bruta||0), 0)
-    const tribTotal = (tribs||[]).reduce((s,t) => s + (t.valor_pago||0), 0)
-    const folhasComp = [...new Set((folhas||[]).map(f => f.competencia))].length
-    setResumo({ emp, qtd_funcionarios: (funcs||[]).length, qtd_clientes: (clis||[]).length, qtd_produtos: (prods||[]).length, qtd_nf_saida: nfSaida.length, qtd_nf_entrada: nfEntrada.length, qtd_folhas: folhasComp, receita_bruta: recBruta, tributos_total: tribTotal, tributos: tribs||[] })
+    const nfSaida   = (nfes||[]).filter(n=>n.tributo==='NF-e Saída')
+    const nfEntrada = (nfes||[]).filter(n=>n.tributo==='NF-e Entrada')
+    setResumo({ emp, qtd_funcionarios: (funcs||[]).length, qtd_clientes: (clis||[]).length, qtd_produtos: (prods||[]).length, qtd_nf_saida: nfSaida.length, qtd_nf_entrada: nfEntrada.length, qtd_folhas: [...new Set((folhas||[]).map(f=>f.competencia))].length, receita_bruta: nfSaida.reduce((s,n)=>s+(n.receita_bruta||0),0), tributos_total: (tribs||[]).reduce((s,t)=>s+(t.valor_pago||0),0), tributos: tribs||[] })
   }
 
   async function compararGabarito() {
@@ -811,9 +695,9 @@ export default function Laboratorio() {
     const { data: ents  } = await supabase.from('entradas').select('*').eq('usuario_id', user.id)
     const res = gab.map(g => {
       let valorCalculado = 0
-      const t = (tribs||[]).find(x => x.cnpj_empresa===g.cnpj_empresa && x.competencia===g.competencia && x.tributo===g.tributo)
+      const t = (tribs||[]).find(x=>x.cnpj_empresa===g.cnpj_empresa&&x.competencia===g.competencia&&x.tributo===g.tributo)
       if (t) valorCalculado = t.valor_pago
-      const e = (ents||[]).find(x => x.competencia===g.competencia && x.tributo===g.tributo)
+      const e = (ents||[]).find(x=>x.competencia===g.competencia&&x.tributo===g.tributo)
       if (e&&!t) valorCalculado = e.credito
       const diferenca = Math.abs(valorCalculado - g.valor_esperado)
       return { ...g, valor_calculado: valorCalculado, diferenca, aprovado: diferenca<=(g.tolerancia||0.01) }
@@ -826,10 +710,10 @@ export default function Laboratorio() {
     setLimpando(true)
     const { data: { user } } = await supabase.auth.getUser()
     const uid = user.id
-    const tabelas = ['funcionarios','socios','fornecedores','produtos','folha','pagamentos','recebimentos','tributos_lab','fgts','irrf','dctfweb_lab','esocial','efd_reinf','pis_cofins','irpj_csll','gabarito','log_importacao']
-    for (const t of tabelas) await supabase.from(t).delete().eq('usuario_id', uid)
+    for (const t of ['funcionarios','socios','fornecedores','produtos','folha','pagamentos','recebimentos','tributos_lab','fgts','irrf','dctfweb_lab','esocial','efd_reinf','pis_cofins','irpj_csll','gabarito','log_importacao'])
+      await supabase.from(t).delete().eq('usuario_id', uid)
     if (cnpjAtivo) await supabase.from('clientes').delete().eq('cnpj', cnpjAtivo).eq('usuario_id', uid)
-    setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setHistorico([]); setCenarios([]); setMotorResultados([])
+    setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setHistorico([]); setMotorResultados([])
     setLimpando(false)
     alert('✅ Cenário limpo! Pronto para um novo cenário.')
   }
@@ -838,19 +722,20 @@ export default function Laboratorio() {
     if (!cnpjAtivo) { alert('Nenhum cenário ativo para exportar.'); return }
     setExportando(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const codigo = novoCenario.codigo || 'FT-001'
-    await exportarCenario(user.id, cnpjAtivo, codigo)
+    await exportarCenario(user.id, cnpjAtivo, novoCenario.codigo || 'FT-001')
     setExportando(false)
   }
 
   const totalImportados = resultados.reduce((s,r)=>s+r.importados,0)
   const totalRejeitados = resultados.reduce((s,r)=>s+r.rejeitados,0)
-  const aprovados  = comparacao.filter(c=>c.aprovado).length
-  const reprovados = comparacao.filter(c=>!c.aprovado).length
+  const aprovados   = comparacao.filter(c=>c.aprovado).length
+  const reprovados  = comparacao.filter(c=>!c.aprovado).length
   const conformidade = comparacao.length > 0 ? (aprovados/comparacao.length*100).toFixed(2) : null
+  const temCredito  = motorResultados.some(m => m.temCredito)
+  const semCredito  = motorResultados.length > 0 && !temCredito
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 64 }}>
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius: 16, padding: '24px 28px', marginBottom: 24, color: '#fff' }}>
@@ -874,11 +759,17 @@ export default function Laboratorio() {
         <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input value={novoCenario.codigo} onChange={e=>setNovoCenario(p=>({...p,codigo:e.target.value}))}
             placeholder="Código (ex: FT-001)"
-            style={{ padding: '6px 12px', borderRadius: 7, border: 'none', fontSize: 12, width: 140, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }} />
+            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 140, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
+          />
           <input value={novoCenario.nome} onChange={e=>setNovoCenario(p=>({...p,nome:e.target.value}))}
             placeholder="Nome do cenário"
-            style={{ padding: '6px 12px', borderRadius: 7, border: 'none', fontSize: 12, width: 200, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }} />
-          {cnpjAtivo && <div style={{ background: 'rgba(74,222,128,0.2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#4ade80', fontWeight: 600 }}>🏢 CNPJ ativo: {cnpjAtivo}</div>}
+            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 200, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
+          />
+          {cnpjAtivo && (
+            <div style={{ background: 'rgba(74,222,128,0.2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', fontWeight: 600, border: '1px solid rgba(74,222,128,0.4)' }}>
+              🏢 CNPJ ativo: {cnpjAtivo}
+            </div>
+          )}
         </div>
       </div>
 
@@ -930,16 +821,17 @@ export default function Laboratorio() {
           </div>
         )}
 
-        {/* Resultado por arquivo */}
+        {/* Resultado */}
         {resultados.length > 0 && !processando && (
           <div>
+            {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
               {[
-                { label:'Arquivos',   valor: resultados.length,                         cor:'#0B1F4D' },
-                { label:'Importados', valor: fmtN(totalImportados),                     cor:'#16a34a' },
-                { label:'Rejeitados', valor: fmtN(totalRejeitados),                     cor:'#dc2626' },
+                { label:'Arquivos',   valor: resultados.length,   cor:'#0B1F4D' },
+                { label:'Importados', valor: fmtN(totalImportados), cor:'#16a34a' },
+                { label:'Rejeitados', valor: fmtN(totalRejeitados), cor:'#dc2626' },
                 { label:'Sucesso',    valor: totalImportados+totalRejeitados>0?`${Math.round(totalImportados/(totalImportados+totalRejeitados)*100)}%`:'—', cor:'#2563eb' },
-              ].map((c,i)=>(
+              ].map((c,i) => (
                 <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'12px 16px' }}>
                   <div style={{ fontSize:20, fontWeight:800, color:c.cor }}>{c.valor}</div>
                   <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{c.label}</div>
@@ -947,33 +839,50 @@ export default function Laboratorio() {
               ))}
             </div>
 
+            {/* Resultado por arquivo */}
             <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden', marginBottom:16 }}>
-              <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>📊 Resultado por arquivo</div>
+              <div style={{ padding:'14px 20px', borderBottom:'1px solid #e2e8f0', fontSize:15, fontWeight:700, color:'#0B1F4D' }}>📊 Resultado por arquivo</div>
               {resultados.map((r,i) => (
                 <div key={i} style={{ borderBottom: i<resultados.length-1?'1px solid #f1f5f9':'none' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background: r.status==='sucesso'?'#f0fdf4':r.status==='erro'?'#fff1f2':r.status==='ignorado'?'#f8fafc':'#fffbeb' }}>
-                    <div style={{ fontSize:15 }}>{r.status==='sucesso'?'✅':r.status==='erro'?'❌':r.status==='ignorado'?'⏭️':'⚠️'}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 20px', background:'#fff' }}>
+                    <div style={{ fontSize:18 }}>{r.status==='sucesso'?'✅':r.status==='erro'?'❌':r.status==='ignorado'?'⏭️':'⚠️'}</div>
                     <div style={{ flex:1 }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{r.arquivo}</span>
-                      {r.motivo && <span style={{ fontSize:12, color:'#dc2626', marginLeft:8 }}>{r.motivo}</span>}
+                      <span style={{ fontSize:15, fontWeight:700, color:'#1e293b' }}>{r.arquivo}</span>
+                      {r.motivo && <span style={{ fontSize:13, color:'#dc2626', marginLeft:10 }}>{r.motivo}</span>}
                     </div>
                     {r.status!=='ignorado' && (
-                      <div style={{ fontSize:12, textAlign:'right' }}>
+                      <div style={{ fontSize:13, textAlign:'right' }}>
                         {r.importados>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>→ {fmtN(r.importados)} importado(s)</span>}
                         {r.rejeitados>0 && <span style={{ color:'#dc2626', fontWeight:700, marginLeft:8 }}>{fmtN(r.rejeitados)} rejeitado(s)</span>}
                       </div>
                     )}
                   </div>
-                  {/* Painel Motor para arquivos v2 */}
+                  {/* Painel Motor v2 */}
                   {r._motorInfo && (
-                    <div style={{ background:'#f0fdf4', borderTop:'1px solid #86efac', padding:'10px 16px 10px 40px' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:'#166534', marginBottom:6 }}>
-                        ⚡ Motor executado — {r._motorInfo.nfes} NF-e(s) · {r._motorInfo.oportunidades} oportunidade(s) · Crédito: {fmtR(r._motorInfo.credito)}
-                        {r._motorInfo.avisos > 0 && <span style={{ color:'#d97706', marginLeft:8 }}>⚠️ {r._motorInfo.avisos} aviso(s)</span>}
+                    <div style={{ background:'#fff', borderTop:'2px solid #e2e8f0', padding:'20px 24px' }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:12 }}>
+                        <div>
+                          <div style={{ fontSize:16, fontWeight:800, color:'#1e293b', marginBottom:4 }}>
+                            ⚡ Motor executado — {r._motorInfo.nfes} NF-e(s) · {r._motorInfo.oportunidades} oportunidade(s)
+                            {r._motorInfo.avisos > 0 && <span style={{ color:'#d97706', marginLeft:8, fontSize:13 }}>⚠️ {r._motorInfo.avisos} aviso(s)</span>}
+                          </div>
+                          <div style={{ fontSize:22, fontWeight:900, color: r._motorInfo.temCredito ? '#16a34a' : '#dc2626' }}>
+                            {fmtR(r._motorInfo.credito)}
+                          </div>
+                        </div>
+                        {r._motorInfo.temCredito ? (
+                          <button style={{ padding:'10px 24px', background:'#16a34a', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:700, cursor:'default' }}>
+                            ✅ TEM CRÉDITO
+                          </button>
+                        ) : (
+                          <button style={{ padding:'10px 24px', background:'#dc2626', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:700, cursor:'default' }}>
+                            ❌ SEM CRÉDITO
+                          </button>
+                        )}
                       </div>
                       {r._motorInfo.detalhes?.map((d,j) => (
-                        <div key={j} style={{ fontSize:11, color:'#166534', marginBottom:2 }}>
-                          ✓ {d.tese} — {fmtR(d.credito)} <span style={{ color:'#64748b' }}>({d.grau})</span>
+                        <div key={j} style={{ fontSize:14, color:'#374151', marginBottom:4, paddingLeft:4, borderLeft:'3px solid #e2e8f0', paddingLeft:12 }}>
+                          ✓ <strong>{d.tese}</strong> — {fmtR(d.credito)} <span style={{ color:'#94a3b8', fontSize:12 }}>({d.grau})</span>
                         </div>
                       ))}
                     </div>
@@ -982,31 +891,31 @@ export default function Laboratorio() {
               ))}
             </div>
 
-            {/* Avisos (não fatais) */}
+            {/* Avisos */}
             {avisoGlobal.length > 0 && (
-              <div style={{ background:'#fffbeb', borderRadius:12, border:'2px solid #fde68a', padding:'14px 20px', marginBottom:16 }}>
-                <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:8 }}>⚠️ Avisos ({avisoGlobal.length})</div>
+              <div style={{ background:'#fffbeb', borderRadius:12, border:'2px solid #fde68a', padding:'16px 20px', marginBottom:16 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:'#92400e', marginBottom:8 }}>⚠️ Avisos ({avisoGlobal.length})</div>
                 {avisoGlobal.map((a,i) => (
-                  <div key={i} style={{ fontSize:12, color:'#78350f', marginBottom:4 }}>
+                  <div key={i} style={{ fontSize:13, color:'#78350f', marginBottom:4 }}>
                     {a.arquivo} — {a.chave_nfe ? `NF-e ${a.chave_nfe.slice(-6)}` : ''}: {a.motivo}
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Erros de validação */}
+            {/* Erros */}
             {erroGlobal.length > 0 && (
-              <div style={{ background:'#fff', borderRadius:12, border:'2px solid #fecdd3', overflow:'hidden' }}>
-                <div style={{ padding:'12px 16px', borderBottom:'1px solid #fecdd3', fontSize:13, fontWeight:700, color:'#dc2626' }}>❌ Erros de validação ({erroGlobal.length})</div>
+              <div style={{ background:'#fff', borderRadius:12, border:'2px solid #fecdd3', overflow:'hidden', marginBottom:16 }}>
+                <div style={{ padding:'14px 20px', borderBottom:'1px solid #fecdd3', fontSize:14, fontWeight:700, color:'#dc2626' }}>❌ Erros de validação ({erroGlobal.length})</div>
                 <div style={{ maxHeight:280, overflowY:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                    <thead><tr style={{ background:'#fff1f2' }}>{['Arquivo','Linha','Coluna','Motivo'].map(h=><th key={h} style={{ padding:'7px 12px', textAlign:'left', fontSize:11, fontWeight:600, color:'#dc2626', borderBottom:'1px solid #fecdd3' }}>{h}</th>)}</tr></thead>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                    <thead><tr style={{ background:'#fff1f2' }}>{['Arquivo','Linha','Coluna','Motivo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:12, fontWeight:600, color:'#dc2626', borderBottom:'1px solid #fecdd3' }}>{h}</th>)}</tr></thead>
                     <tbody>{erroGlobal.map((e,i)=>(
                       <tr key={i} style={{ borderBottom:'1px solid #fff1f2' }}>
-                        <td style={{ padding:'7px 12px', color:'#374151' }}>{e.arquivo}</td>
-                        <td style={{ padding:'7px 12px', color:'#dc2626', fontWeight:700 }}>{e.linha}</td>
-                        <td style={{ padding:'7px 12px', fontWeight:600, color:'#0B1F4D' }}>{e.coluna}</td>
-                        <td style={{ padding:'7px 12px', color:'#64748b' }}>{e.motivo}</td>
+                        <td style={{ padding:'9px 14px', color:'#374151' }}>{e.arquivo}</td>
+                        <td style={{ padding:'9px 14px', color:'#dc2626', fontWeight:700 }}>{e.linha}</td>
+                        <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{e.coluna}</td>
+                        <td style={{ padding:'9px 14px', color:'#64748b' }}>{e.motivo}</td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -1017,16 +926,16 @@ export default function Laboratorio() {
         )}
 
         {resultados.length===0 && !processando && (
-          <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', padding:'16px 20px' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>📋 {Object.keys(LAYOUTS).length} arquivos suportados — clique em "Modelos CSV" para baixar os templates</div>
+          <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', padding:'18px 22px' }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>📋 {Object.keys(LAYOUTS).length} arquivos suportados — clique em "Modelos CSV" para baixar os templates</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.keys(LAYOUTS).map(nome=>(
-                <span key={nome} style={{ background: nome.includes('_v2') ? '#f0fdf4' : '#f1f5f9', border: `1px solid ${nome.includes('_v2') ? '#86efac' : '#e2e8f0'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color: nome.includes('_v2') ? '#166534' : '#475569', fontWeight: nome.includes('_v2') ? 700 : 500 }}>
-                  {nome.includes('_v2') ? '⚡ ' : ''}{nome}
+                <span key={nome} style={{ background: nome.includes('_v2')?'#f0fdf4':'#f1f5f9', border:`1px solid ${nome.includes('_v2')?'#86efac':'#e2e8f0'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color: nome.includes('_v2')?'#166534':'#475569', fontWeight: nome.includes('_v2')?700:500 }}>
+                  {nome.includes('_v2')?'⚡ ':''}{nome}
                 </span>
               ))}
             </div>
-            <div style={{ marginTop:10, fontSize:11, color:'#64748b' }}>
+            <div style={{ marginTop:10, fontSize:12, color:'#64748b' }}>
               ⚡ Arquivos <strong>_v2</strong> passam pelo Motor de Inteligência Tributária automaticamente
             </div>
           </div>
@@ -1040,33 +949,20 @@ export default function Laboratorio() {
             <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:4 }}>📥 Baixar modelos CSV oficiais</div>
             <div style={{ fontSize:13, color:'#64748b' }}>Cada modelo contém o cabeçalho correto e uma linha de exemplo. Use-o para criar seus arquivos sem erro de importação.</div>
           </div>
-
-          {/* Destaque v2 */}
           <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'14px 18px', marginBottom:16 }}>
             <div style={{ fontSize:13, fontWeight:700, color:'#166534', marginBottom:4 }}>⚡ Novos formatos v2 — com itens de NF-e para o Motor</div>
-            <div style={{ fontSize:12, color:'#64748b' }}>
-              Os arquivos <strong>notas_saida_v2.csv</strong> e <strong>notas_entrada_v2.csv</strong> contêm uma linha por item de produto,
-              com NCM, CFOP, CST, PIS, COFINS e todos os campos tributários. Ao importá-los, o Motor de Inteligência Tributária é executado automaticamente.
-            </div>
+            <div style={{ fontSize:12, color:'#64748b' }}>Os arquivos <strong>notas_saida_v2.csv</strong> e <strong>notas_entrada_v2.csv</strong> contêm uma linha por item de produto com todos os campos tributários. Ao importá-los, o Motor é executado automaticamente.</div>
           </div>
-
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {Object.entries(LAYOUTS).map(([nome, layout]) => (
-              <div key={nome} style={{ background: nome.includes('_v2') ? '#f0fdf4' : '#fff', borderRadius:10, border: `1px solid ${nome.includes('_v2') ? '#86efac' : '#e2e8f0'}`, padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+              <div key={nome} style={{ background: nome.includes('_v2')?'#f0fdf4':'#fff', borderRadius:10, border:`1px solid ${nome.includes('_v2')?'#86efac':'#e2e8f0'}`, padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>
-                    {nome.includes('_v2') ? '⚡ ' : ''}{nome}
-                  </div>
-                  <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>
-                    {layout.descricao} · {layout.colunas.length} colunas
-                    {nome.includes('_v2') ? ' · Motor' : ` · tabela: ${layout.tabela}`}
-                  </div>
-                  <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>
-                    Obrigatórios: {layout.colunas.filter(c=>c.obrigatorio).map(c=>c.nome).join(', ')}
-                  </div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{nome.includes('_v2')?'⚡ ':''}{nome}</div>
+                  <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{layout.descricao} · {layout.colunas.length} colunas{nome.includes('_v2')?' · Motor':` · tabela: ${layout.tabela}`}</div>
+                  <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>Obrigatórios: {layout.colunas.filter(c=>c.obrigatorio).map(c=>c.nome).join(', ')}</div>
                 </div>
                 <button onClick={() => baixarModelo(nome)}
-                  style={{ padding:'7px 14px', background: nome.includes('_v2') ? '#16a34a' : '#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                  style={{ padding:'7px 14px', background: nome.includes('_v2')?'#16a34a':'#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
                   📥 Baixar
                 </button>
               </div>
@@ -1112,7 +1008,7 @@ export default function Laboratorio() {
                       <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{t.tributo}</td>
                       <td style={{ padding:'9px 14px', color:'#64748b' }}>{t.competencia}</td>
                       <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtR(t.valor_pago)}</td>
-                      <td style={{ padding:'9px 14px' }}><span style={{ background: t.situacao==='pago'?'#dcfce7':'#fef9c3', color: t.situacao==='pago'?'#166534':'#854d0e', padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:700 }}>{t.situacao}</span></td>
+                      <td style={{ padding:'9px 14px' }}><span style={{ background:t.situacao==='pago'?'#dcfce7':'#fef9c3', color:t.situacao==='pago'?'#166534':'#854d0e', padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:700 }}>{t.situacao}</span></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -1139,17 +1035,13 @@ export default function Laboratorio() {
           </button>
         </div>
         {comparacao.length > 0 && <>
-          <div style={{ background: parseFloat(conformidade)>=99?'#f0fdf4':'#fffbeb', border: `2px solid ${parseFloat(conformidade)>=99?'#86efac':'#fde68a'}`, borderRadius:14, padding:'20px 28px', marginBottom:20, textAlign:'center' }}>
+          <div style={{ background:parseFloat(conformidade)>=99?'#f0fdf4':'#fffbeb', border:`2px solid ${parseFloat(conformidade)>=99?'#86efac':'#fde68a'}`, borderRadius:14, padding:'20px 28px', marginBottom:20, textAlign:'center' }}>
             <div style={{ fontSize:12, fontWeight:700, color:'#64748b', marginBottom:4, letterSpacing:1, textTransform:'uppercase' }}>Índice de Conformidade</div>
-            <div style={{ fontSize:48, fontWeight:900, color: parseFloat(conformidade)>=99?'#16a34a':'#d97706', lineHeight:1 }}>{conformidade}%</div>
+            <div style={{ fontSize:48, fontWeight:900, color:parseFloat(conformidade)>=99?'#16a34a':'#d97706', lineHeight:1 }}>{conformidade}%</div>
             <div style={{ fontSize:14, color:'#64748b', marginTop:4 }}>{aprovados} de {comparacao.length} testes aprovados</div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:16 }}>
-            {[
-              { label:'Total de testes', valor:comparacao.length, cor:'#0B1F4D' },
-              { label:'✅ Aprovados',     valor:aprovados,         cor:'#16a34a' },
-              { label:'❌ Reprovados',    valor:reprovados,        cor:'#dc2626' },
-            ].map((c,i) => (
+            {[{ label:'Total de testes', valor:comparacao.length, cor:'#0B1F4D' },{ label:'✅ Aprovados', valor:aprovados, cor:'#16a34a' },{ label:'❌ Reprovados', valor:reprovados, cor:'#dc2626' }].map((c,i)=>(
               <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'14px', textAlign:'center' }}>
                 <div style={{ fontSize:24, fontWeight:800, color:c.cor }}>{c.valor}</div>
                 <div style={{ fontSize:12, color:'#64748b', marginTop:3 }}>{c.label}</div>
@@ -1158,29 +1050,17 @@ export default function Laboratorio() {
           </div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-              <thead>
-                <tr style={{ background:'#f8fafc' }}>
-                  {['Competência','Tributo','Esperado','Calculado','Diferença','Status'].map(h=>(
-                    <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>
-                  ))}
+              <thead><tr style={{ background:'#f8fafc' }}>{['Competência','Tributo','Esperado','Calculado','Diferença','Status'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>)}</tr></thead>
+              <tbody>{comparacao.map((c,i)=>(
+                <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background:c.aprovado?'#f0fdf4':'#fff1f2' }}>
+                  <td style={{ padding:'9px 14px', color:'#374151' }}>{c.competencia}</td>
+                  <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{c.tributo}</td>
+                  <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtR(c.valor_esperado)}</td>
+                  <td style={{ padding:'9px 14px', color:c.aprovado?'#16a34a':'#dc2626', fontWeight:700 }}>{fmtR(c.valor_calculado)}</td>
+                  <td style={{ padding:'9px 14px', color:c.aprovado?'#94a3b8':'#dc2626', fontWeight:c.aprovado?400:700 }}>{fmtR(c.diferenca)}</td>
+                  <td style={{ padding:'9px 14px' }}><span style={{ background:c.aprovado?'#dcfce7':'#fee2e2', color:c.aprovado?'#166534':'#991b1b', padding:'2px 10px', borderRadius:99, fontSize:11, fontWeight:700 }}>{c.aprovado?'✅ OK':'❌ Divergente'}</span></td>
                 </tr>
-              </thead>
-              <tbody>
-                {comparacao.map((c,i)=>(
-                  <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background:c.aprovado?'#f0fdf4':'#fff1f2' }}>
-                    <td style={{ padding:'9px 14px', color:'#374151' }}>{c.competencia}</td>
-                    <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{c.tributo}</td>
-                    <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtR(c.valor_esperado)}</td>
-                    <td style={{ padding:'9px 14px', color:c.aprovado?'#16a34a':'#dc2626', fontWeight:700 }}>{fmtR(c.valor_calculado)}</td>
-                    <td style={{ padding:'9px 14px', color:c.aprovado?'#94a3b8':'#dc2626', fontWeight:c.aprovado?400:700 }}>{fmtR(c.diferenca)}</td>
-                    <td style={{ padding:'9px 14px' }}>
-                      <span style={{ background:c.aprovado?'#dcfce7':'#fee2e2', color:c.aprovado?'#166534':'#991b1b', padding:'2px 10px', borderRadius:99, fontSize:11, fontWeight:700 }}>
-                        {c.aprovado?'✅ OK':'❌ Divergente'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              ))}</tbody>
             </table>
           </div>
         </>}
@@ -1197,41 +1077,31 @@ export default function Laboratorio() {
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden' }}>
             <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>📋 Histórico completo de importações</div>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-              <thead>
-                <tr style={{ background:'#f8fafc' }}>
-                  {['Data','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=>(
-                    <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>
-                  ))}
+              <thead><tr style={{ background:'#f8fafc' }}>{['Data','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>)}</tr></thead>
+              <tbody>{historico.map((l,i)=>(
+                <tr key={i} style={{ borderBottom:'1px solid #f1f5f9' }}>
+                  <td style={{ padding:'9px 14px', color:'#64748b' }}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
+                  <td style={{ padding:'9px 14px', fontWeight:600, color:l.arquivo?.includes('_v2')?'#166534':'#0B1F4D' }}>{l.arquivo?.includes('_v2')?'⚡ ':''}{l.arquivo}</td>
+                  <td style={{ padding:'9px 14px', color:'#64748b' }}>{l.tabela}</td>
+                  <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtN(l.importados)}</td>
+                  <td style={{ padding:'9px 14px', color:l.rejeitados>0?'#dc2626':'#94a3b8', fontWeight:l.rejeitados>0?700:400 }}>{fmtN(l.rejeitados)}</td>
+                  <td style={{ padding:'9px 14px', color:'#64748b' }}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {historico.map((l,i)=>(
-                  <tr key={i} style={{ borderBottom:'1px solid #f1f5f9' }}>
-                    <td style={{ padding:'9px 14px', color:'#64748b' }}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
-                    <td style={{ padding:'9px 14px', fontWeight:600, color: l.arquivo?.includes('_v2') ? '#166534' : '#0B1F4D' }}>
-                      {l.arquivo?.includes('_v2') ? '⚡ ' : ''}{l.arquivo}
-                    </td>
-                    <td style={{ padding:'9px 14px', color:'#64748b' }}>{l.tabela}</td>
-                    <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtN(l.importados)}</td>
-                    <td style={{ padding:'9px 14px', color:l.rejeitados>0?'#dc2626':'#94a3b8', fontWeight:l.rejeitados>0?700:400 }}>{fmtN(l.rejeitados)}</td>
-                    <td style={{ padding:'9px 14px', color:'#64748b' }}>{l.tempo_ms?`${l.tempo_ms}ms`:'—'}</td>
-                  </tr>
-                ))}
-              </tbody>
+              ))}</tbody>
             </table>
           </div>
         )
       )}
 
-      {/* ── ABA FORMATOS FUTUROS ── */}
+      {/* ── ABA FORMATOS ── */}
       {aba==='formatos' && (
         <div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', marginBottom:14 }}>
             <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>✅ Formatos ativos ({Object.keys(LAYOUTS).length})</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.keys(LAYOUTS).map(nome=>(
-                <span key={nome} style={{ background: nome.includes('_v2') ? '#dcfce7' : '#dcfce7', border: `1px solid ${nome.includes('_v2') ? '#16a34a' : '#86efac'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color:'#166534', fontWeight:600 }}>
-                  {nome.includes('_v2') ? '⚡ ' : '✅ '}{nome}
+                <span key={nome} style={{ background:'#dcfce7', border:`1px solid ${nome.includes('_v2')?'#16a34a':'#86efac'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color:'#166534', fontWeight:600 }}>
+                  {nome.includes('_v2')?'⚡ ':'✅ '}{nome}
                 </span>
               ))}
             </div>
