@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from './supabase'
+import { parseCSVNFeV2 } from '../motor/adaptadores/parseCSVNFeV2'
+import { MotorInteligenciaTributaria } from '../motor/MotorInteligenciaTributaria'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtN = v => parseInt(v || 0).toLocaleString('pt-BR')
@@ -142,6 +144,113 @@ const LAYOUTS = {
     ],
     mapear: (row, uid, clienteId) => ({ usuario_id: uid, cliente_id: clienteId, competencia: row.competencia, tributo: 'NF-e Entrada', receita_bruta: parseFloat(row.valor_total), tributo_pago: 0, tributo_devido: 0, credito: 0, tipo_oportunidade: '', risco: 'baixo' }),
   },
+
+  // ─── V2: com itens — passam pelo Motor ───────────────────────────────────
+  'notas_saida_v2.csv': {
+    descricao: 'Notas de Saída v2 (com itens)',
+    tabela: '_csv_v2_motor',
+    _v2: true,
+    mapear: null,
+    colunas: [
+      { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
+      { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '1', valores: ['0','1'] },
+      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_emitente',      tipo: 'texto',   obrigatorio: true,  exemplo: '14123456000189' },
+      { nome: 'cnpj_destinatario',  tipo: 'texto',   obrigatorio: false, exemplo: '98765432000110' },
+      { nome: 'numero_nf',          tipo: 'texto',   obrigatorio: true,  exemplo: '000001' },
+      { nome: 'serie',              tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',       tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
+      { nome: 'nat_op',             tipo: 'texto',   obrigatorio: false, exemplo: 'Venda de mercadoria' },
+      { nome: 'v_nf',               tipo: 'decimal', obrigatorio: true,  exemplo: '1500.00' },
+      { nome: 'v_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_st',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_frete',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_desc',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_iss',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'numero_item',        tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
+      { nome: 'c_prod',             tipo: 'texto',   obrigatorio: false, exemplo: '001' },
+      { nome: 'x_prod',             tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
+      { nome: 'ncm',                tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
+      { nome: 'cest',               tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'cfop',               tipo: 'texto',   obrigatorio: true,  exemplo: '5102' },
+      { nome: 'cst',                tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'csosn',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'orig',               tipo: 'texto',   obrigatorio: false, exemplo: '0' },
+      { nome: 'q_com',              tipo: 'decimal', obrigatorio: false, exemplo: '10.00' },
+      { nome: 'v_un_com',           tipo: 'decimal', obrigatorio: false, exemplo: '18.90' },
+      { nome: 'v_prod',             tipo: 'decimal', obrigatorio: true,  exemplo: '189.00' },
+      { nome: 'v_desc_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_st',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_pis',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_cofins',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins_item',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+    ],
+  },
+  'notas_entrada_v2.csv': {
+    descricao: 'Notas de Entrada v2 (com itens)',
+    tabela: '_csv_v2_motor',
+    _v2: true,
+    mapear: null,
+    colunas: [
+      { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
+      { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '0', valores: ['0','1'] },
+      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_emitente',      tipo: 'texto',   obrigatorio: true,  exemplo: '11222333000144' },
+      { nome: 'cnpj_destinatario',  tipo: 'texto',   obrigatorio: false, exemplo: '14123456000189' },
+      { nome: 'numero_nf',          tipo: 'texto',   obrigatorio: true,  exemplo: '005001' },
+      { nome: 'serie',              tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',       tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-03' },
+      { nome: 'nat_op',             tipo: 'texto',   obrigatorio: false, exemplo: 'Compra de mercadoria' },
+      { nome: 'v_nf',               tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
+      { nome: 'v_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_st',               tipo: 'decimal', obrigatorio: false, exemplo: '224.00' },
+      { nome: 'v_ipi',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_frete',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_desc',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_iss',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'numero_item',        tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
+      { nome: 'c_prod',             tipo: 'texto',   obrigatorio: false, exemplo: '001' },
+      { nome: 'x_prod',             tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
+      { nome: 'ncm',                tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
+      { nome: 'cest',               tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'cfop',               tipo: 'texto',   obrigatorio: true,  exemplo: '1102' },
+      { nome: 'cst',                tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'csosn',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'orig',               tipo: 'texto',   obrigatorio: false, exemplo: '0' },
+      { nome: 'q_com',              tipo: 'decimal', obrigatorio: false, exemplo: '50.00' },
+      { nome: 'v_un_com',           tipo: 'decimal', obrigatorio: false, exemplo: '56.00' },
+      { nome: 'v_prod',             tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
+      { nome: 'v_desc_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_st',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_pis',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_cofins',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins_item',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+    ],
+  },
+
   'folha.csv': {
     descricao: 'Folha de Pagamento', tabela: 'folha',
     colunas: [
@@ -337,7 +446,6 @@ const LAYOUTS = {
   },
 }
 
-// ─── FORMATOS FUTUROS — Prioridade 8 ─────────────────────────────────────────
 const FORMATOS_FUTUROS = [
   { label: 'Excel (.xlsx)',         status: 'Em breve', cor: '#16a34a' },
   { label: 'SPED Fiscal (.txt)',    status: 'Em breve', cor: '#2563eb' },
@@ -348,7 +456,6 @@ const FORMATOS_FUTUROS = [
   { label: 'DCTF (.xml)',           status: 'Em breve', cor: '#d97706' },
 ]
 
-// ─── PARSER CSV ───────────────────────────────────────────────────────────────
 function parseCSV(texto) {
   const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (linhas.length < 2) return { cabecalho: [], rows: [] }
@@ -363,7 +470,6 @@ function parseCSV(texto) {
   return { cabecalho, rows }
 }
 
-// ─── VALIDADOR — Prioridade 3 ─────────────────────────────────────────────────
 function validarRow(row, layout, arquivo) {
   const erros = []
   layout.colunas.forEach(col => {
@@ -381,7 +487,6 @@ function validarRow(row, layout, arquivo) {
   return erros
 }
 
-// ─── DOWNLOAD MODELO CSV — Prioridade 2 ──────────────────────────────────────
 function baixarModelo(nomeArquivo) {
   const layout = LAYOUTS[nomeArquivo]
   if (!layout) return
@@ -395,7 +500,6 @@ function baixarModelo(nomeArquivo) {
   URL.revokeObjectURL(url)
 }
 
-// ─── EXPORT CENÁRIO — Prioridade 7 ───────────────────────────────────────────
 async function exportarCenario(uid, cnpjEmpresa, codigoCenario) {
   const tabelas = [
     { arquivo: 'empresa_export.csv',      tabela: 'clientes',     filtro: { campo: 'cnpj',         valor: cnpjEmpresa } },
@@ -430,6 +534,7 @@ export default function Laboratorio() {
   const [progresso,     setProgresso]     = useState({ atual: 0, total: 0, arquivo: '' })
   const [resultados,    setResultados]    = useState([])
   const [erroGlobal,    setErroGlobal]    = useState([])
+  const [avisoGlobal,   setAvisoGlobal]   = useState([])
   const [resumo,        setResumo]        = useState(null)
   const [comparacao,    setComparacao]    = useState([])
   const [comparando,    setComparando]    = useState(false)
@@ -439,6 +544,7 @@ export default function Laboratorio() {
   const [cenarios,      setCenarios]      = useState([])
   const [novoCenario,   setNovoCenario]   = useState({ codigo: '', nome: '' })
   const [exportando,    setExportando]    = useState(false)
+  const [motorResultados, setMotorResultados] = useState([]) // resultados v2 do Motor
 
   useEffect(() => { carregarHistorico(); carregarCenarios() }, [])
 
@@ -458,13 +564,75 @@ export default function Laboratorio() {
     setCenarios(data || [])
   }
 
-  // ── Prioridade 1 — importar pasta ou arquivos ────────────────────────────
+  // ── Gravar oportunidades do Motor nas entradas ───────────────────────────
+  async function salvarOportunidadesEmEntradas_lab({ clienteId, usuarioId, resultadoMotor, nfes }) {
+    const oportunidades = resultadoMotor?.consolidado?.oportunidades || []
+    const agrupadas = {}
+    nfes.forEach(n => {
+      if (!agrupadas[n.competencia]) agrupadas[n.competencia] = 0
+      agrupadas[n.competencia]++
+    })
+    const competencias  = Object.keys(agrupadas).sort()
+    const periodoInicio = competencias[0] || ''
+    const periodoFim    = competencias[competencias.length - 1] || ''
+    const totalNfes     = nfes.length
+
+    if (oportunidades.length === 0) {
+      await supabase.from('entradas').upsert({
+        cliente_id: clienteId, usuario_id: usuarioId,
+        competencia: periodoFim || new Date().toISOString().slice(0, 7),
+        tributo: 'CSV_V2 importado', credito: 0,
+        tipo_oportunidade: '', risco: 'baixo',
+        periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes,
+      }, { onConflict: 'cliente_id,competencia,tributo' })
+      return
+    }
+
+    for (const op of oportunidades) {
+      const porCompetencia = op.calculos?.porCompetencia || []
+      const risco = op.grauConfianca === 'ALTO' ? 'baixo' : op.grauConfianca === 'MEDIO' ? 'medio' : 'alto'
+      const tese  = op.tese || 'Oportunidade identificada'
+
+      if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
+        await supabase.from('entradas').upsert({
+          cliente_id: clienteId, usuario_id: usuarioId,
+          competencia: periodoFim, tributo: tese,
+          credito: op.calculos?.creditoTotal || 0,
+          tipo_oportunidade: tese, risco,
+          periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes,
+        }, { onConflict: 'cliente_id,competencia,tributo' })
+        continue
+      }
+
+      for (const dadosComp of porCompetencia) {
+        await supabase.from('entradas').upsert({
+          cliente_id: clienteId, usuario_id: usuarioId,
+          competencia: dadosComp.competencia, tributo: tese,
+          credito: dadosComp.creditoTotal || 0,
+          tipo_oportunidade: tese, risco,
+          periodo_inicio: periodoInicio, periodo_fim: periodoFim,
+          nfes_analisadas: dadosComp.qtdNFes || 0,
+        }, { onConflict: 'cliente_id,competencia,tributo' })
+      }
+    }
+  }
+
+  // ── Processar arquivos (pasta ou seleção múltipla) ───────────────────────
   async function processarArquivos(files) {
-    setProcessando(true); setResultados([]); setErroGlobal([]); setResumo(null)
+    setProcessando(true)
+    setResultados([])
+    setErroGlobal([])
+    setAvisoGlobal([])
+    setResumo(null)
+    setMotorResultados([])
+
     const { data: { user } } = await supabase.auth.getUser()
-    const uid = user.id
+    const uid    = user.id
     const inicio = Date.now()
-    const novosResultados = []; const todosErros = []
+    const novosResultados = []
+    const todosErros      = []
+    const todosAvisos     = []
+    const novosMotorRes   = []
 
     const filesOrdenados = Array.from(files).sort((a, b) => {
       if (a.name.toLowerCase() === 'empresa.csv') return -1
@@ -473,35 +641,120 @@ export default function Laboratorio() {
     })
 
     setProgresso({ atual: 0, total: filesOrdenados.length, arquivo: '' })
-    let cnpjDetectado = ''; let clienteIdDetectado = null
+    let cnpjDetectado      = ''
+    let clienteIdDetectado = null
 
     for (let fi = 0; fi < filesOrdenados.length; fi++) {
-      const file = filesOrdenados[fi]
+      const file        = filesOrdenados[fi]
       const nomeArquivo = file.name.toLowerCase()
       setProgresso({ atual: fi + 1, total: filesOrdenados.length, arquivo: file.name })
 
       const layout = LAYOUTS[nomeArquivo]
-      if (!layout) { novosResultados.push({ arquivo: file.name, status: 'ignorado', motivo: 'Layout não reconhecido', importados: 0, rejeitados: 0, erros: [], total: 0 }); continue }
-
-      const texto = await file.text()
-      const { cabecalho, rows } = parseCSV(texto)
-
-      // Verificar colunas
-      const nomesEsperados = layout.colunas.map(c => c.nome)
-      const colsFaltando   = nomesEsperados.filter(c => !cabecalho.includes(c))
-      if (colsFaltando.length > 0) { novosResultados.push({ arquivo: file.name, status: 'erro', motivo: `Colunas faltando: ${colsFaltando.join(', ')}`, importados: 0, rejeitados: rows.length, erros: [], total: rows.length }); continue }
-
-      if (nomeArquivo === 'empresa.csv' && rows.length > 0) { cnpjDetectado = rows[0].cnpj || ''; setCnpjAtivo(cnpjDetectado) }
-
-      let clienteId = clienteIdDetectado
-      const precisaCliente = ['notas_saida.csv','notas_entrada.csv','oportunidades.csv'].includes(nomeArquivo)
-      if (precisaCliente && !clienteId && cnpjDetectado) {
-        const { data: cli } = await supabase.from('clientes').select('id').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
-        clienteId = cli?.id || null; clienteIdDetectado = clienteId
+      if (!layout) {
+        novosResultados.push({ arquivo: file.name, status: 'ignorado', motivo: 'Layout não reconhecido', importados: 0, rejeitados: 0, erros: [], total: 0 })
+        continue
       }
 
-      let importados = 0; let rejeitados = 0; const errosArquivo = []
+      const texto              = await file.text()
+      const { cabecalho, rows } = parseCSV(texto)
 
+      // Verificar colunas (apenas para layouts normais — v2 tem validação própria)
+      if (!layout._v2) {
+        const nomesEsperados = layout.colunas.map(c => c.nome)
+        const colsFaltando   = nomesEsperados.filter(c => !cabecalho.includes(c))
+        if (colsFaltando.length > 0) {
+          novosResultados.push({ arquivo: file.name, status: 'erro', motivo: `Colunas faltando: ${colsFaltando.join(', ')}`, importados: 0, rejeitados: rows.length, erros: [], total: rows.length })
+          continue
+        }
+      }
+
+      if (nomeArquivo === 'empresa.csv' && rows.length > 0) {
+        cnpjDetectado = rows[0].cnpj || ''
+        setCnpjAtivo(cnpjDetectado)
+      }
+
+      let clienteId    = clienteIdDetectado
+      const precisaCliente = ['notas_saida.csv','notas_entrada.csv','oportunidades.csv','notas_saida_v2.csv','notas_entrada_v2.csv'].includes(nomeArquivo)
+      if (precisaCliente && !clienteId && cnpjDetectado) {
+        const { data: cli } = await supabase.from('clientes').select('id').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
+        clienteId = cli?.id || null
+        clienteIdDetectado = clienteId
+      }
+
+      let importados = 0
+      let rejeitados = 0
+      const errosArquivo = []
+
+      // ── ARQUIVOS V2 — passam pelo parseCSVNFeV2 → Motor ─────────────────
+      if (layout._v2) {
+        const { nfes: nfesCSV, erros: errosCSV, avisos, rejeitadas } = parseCSVNFeV2(texto, file.name)
+
+        errosCSV.forEach(e => { errosArquivo.push(e); todosErros.push(e) })
+        avisos.forEach(a   => todosAvisos.push(a))
+
+        if (nfesCSV.length === 0) {
+          novosResultados.push({
+            arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
+            status: 'erro',
+            motivo: errosCSV.length > 0 ? 'Nenhuma NF-e válida — veja erros abaixo' : 'Arquivo sem dados válidos',
+            importados: 0, rejeitados: rejeitadas.length, erros: errosArquivo, total: rows.length,
+          })
+          continue
+        }
+
+        if (clienteId) {
+          try {
+            const { data: cliData } = await supabase.from('clientes').select('*').eq('id', clienteId).single()
+            const resultadoMotor    = await MotorInteligenciaTributaria.analisar(nfesCSV, cliData)
+            const oportunidades     = resultadoMotor?.consolidado?.oportunidades || []
+            const creditoTotal      = oportunidades.reduce((s, o) => s + (o.calculos?.creditoTotal || 0), 0)
+
+            await salvarOportunidadesEmEntradas_lab({ clienteId, usuarioId: uid, resultadoMotor, nfes: nfesCSV })
+
+            const motorInfo = {
+              arquivo:       file.name,
+              nfes:          nfesCSV.length,
+              oportunidades: oportunidades.length,
+              credito:       creditoTotal,
+              avisos:        avisos.length,
+              detalhes:      oportunidades.map(o => ({
+                tese:   o.tese,
+                credito: o.calculos?.creditoTotal || 0,
+                grau:   o.grauConfianca,
+              })),
+            }
+            novosMotorRes.push(motorInfo)
+
+            novosResultados.push({
+              arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
+              status: rejeitadas.length === 0 ? 'sucesso' : 'parcial',
+              importados: nfesCSV.length, rejeitados: rejeitadas.length,
+              erros: errosArquivo, total: nfesCSV.length + rejeitadas.length,
+              _motorInfo: motorInfo,
+            })
+          } catch (e) {
+            errosArquivo.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: ' + e.message })
+            todosErros.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: ' + e.message })
+            novosResultados.push({ arquivo: file.name, status: 'erro', motivo: 'Erro ao executar o Motor', importados: 0, rejeitados: rows.length, erros: errosArquivo, total: rows.length })
+          }
+        } else {
+          novosResultados.push({
+            arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
+            status: 'parcial',
+            motivo: 'NF-es parseadas mas sem cliente ativo — importe empresa.csv primeiro',
+            importados: nfesCSV.length, rejeitados: 0, erros: [], total: nfesCSV.length,
+          })
+        }
+
+        await supabase.from('log_importacao').insert({
+          usuario_id: uid, arquivo: file.name, tabela: 'Motor (CSV_V2)',
+          total_linhas: rows.length, importados: nfesCSV.length,
+          rejeitados: rejeitadas.length, erros: errosArquivo, tempo_ms: Date.now() - inicio,
+        })
+        continue // não cai no loop de rows abaixo
+      }
+
+      // ── ARQUIVOS NORMAIS — gravam linha a linha no banco ─────────────────
       for (const row of rows) {
         const erros = validarRow(row, layout, file.name)
         if (erros.length > 0) { errosArquivo.push(...erros); todosErros.push(...erros); rejeitados++; continue }
@@ -522,12 +775,16 @@ export default function Laboratorio() {
       novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: layout.tabela, status: rejeitados===0?'sucesso':importados===0?'erro':'parcial', importados, rejeitados, erros: errosArquivo, total: rows.length })
     }
 
-    setResultados(novosResultados); setErroGlobal(todosErros); setProcessando(false)
+    setResultados(novosResultados)
+    setErroGlobal(todosErros)
+    setAvisoGlobal(todosAvisos)
+    setMotorResultados(novosMotorRes)
+    setProcessando(false)
     if (cnpjDetectado) await carregarResumo(uid, cnpjDetectado)
-    carregarHistorico(); carregarCenarios()
+    carregarHistorico()
+    carregarCenarios()
   }
 
-  // ── Prioridade 4 — resumo após importação ────────────────────────────────
   async function carregarResumo(uid, cnpj) {
     const { data: emp }   = await supabase.from('clientes').select('*').eq('cnpj', cnpj).eq('usuario_id', uid).single()
     if (!emp) return
@@ -537,15 +794,14 @@ export default function Laboratorio() {
     const { data: nfes  } = await supabase.from('entradas').select('receita_bruta,tributo,tributo_pago').eq('cliente_id', emp.id).eq('usuario_id', uid)
     const { data: folhas} = await supabase.from('folha').select('id,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
     const { data: tribs } = await supabase.from('tributos_lab').select('tributo,valor_pago,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const nfSaida  = (nfes||[]).filter(n => n.tributo === 'NF-e Saída')
-    const nfEntrada= (nfes||[]).filter(n => n.tributo === 'NF-e Entrada')
-    const recBruta = nfSaida.reduce((s,n) => s + (n.receita_bruta||0), 0)
-    const tribTotal= (tribs||[]).reduce((s,t) => s + (t.valor_pago||0), 0)
+    const nfSaida   = (nfes||[]).filter(n => n.tributo === 'NF-e Saída')
+    const nfEntrada = (nfes||[]).filter(n => n.tributo === 'NF-e Entrada')
+    const recBruta  = nfSaida.reduce((s,n) => s + (n.receita_bruta||0), 0)
+    const tribTotal = (tribs||[]).reduce((s,t) => s + (t.valor_pago||0), 0)
     const folhasComp = [...new Set((folhas||[]).map(f => f.competencia))].length
     setResumo({ emp, qtd_funcionarios: (funcs||[]).length, qtd_clientes: (clis||[]).length, qtd_produtos: (prods||[]).length, qtd_nf_saida: nfSaida.length, qtd_nf_entrada: nfEntrada.length, qtd_folhas: folhasComp, receita_bruta: recBruta, tributos_total: tribTotal, tributos: tribs||[] })
   }
 
-  // ── Prioridade 5 — comparar gabarito com índice de conformidade ──────────
   async function compararGabarito() {
     setComparando(true); setComparacao([])
     const { data: { user } } = await supabase.auth.getUser()
@@ -565,7 +821,6 @@ export default function Laboratorio() {
     setComparacao(res); setComparando(false)
   }
 
-  // ── Prioridade limpar ────────────────────────────────────────────────────
   async function limparCenario() {
     if (!window.confirm('Apagar TODOS os dados do Laboratório? Esta ação não pode ser desfeita.')) return
     setLimpando(true)
@@ -574,12 +829,11 @@ export default function Laboratorio() {
     const tabelas = ['funcionarios','socios','fornecedores','produtos','folha','pagamentos','recebimentos','tributos_lab','fgts','irrf','dctfweb_lab','esocial','efd_reinf','pis_cofins','irpj_csll','gabarito','log_importacao']
     for (const t of tabelas) await supabase.from(t).delete().eq('usuario_id', uid)
     if (cnpjAtivo) await supabase.from('clientes').delete().eq('cnpj', cnpjAtivo).eq('usuario_id', uid)
-    setResultados([]); setErroGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setHistorico([]); setCenarios([])
+    setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setHistorico([]); setCenarios([]); setMotorResultados([])
     setLimpando(false)
     alert('✅ Cenário limpo! Pronto para um novo cenário.')
   }
 
-  // ── Prioridade 7 — exportar cenário ─────────────────────────────────────
   async function handleExportar() {
     if (!cnpjAtivo) { alert('Nenhum cenário ativo para exportar.'); return }
     setExportando(true)
@@ -617,8 +871,6 @@ export default function Laboratorio() {
             </button>
           </div>
         </div>
-
-        {/* Identificador do cenário — Prioridade 6 */}
         <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input value={novoCenario.codigo} onChange={e=>setNovoCenario(p=>({...p,codigo:e.target.value}))}
             placeholder="Código (ex: FT-001)"
@@ -678,7 +930,7 @@ export default function Laboratorio() {
           </div>
         )}
 
-        {/* Prioridade 2 — resultado por arquivo */}
+        {/* Resultado por arquivo */}
         {resultados.length > 0 && !processando && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
@@ -698,23 +950,51 @@ export default function Laboratorio() {
             <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden', marginBottom:16 }}>
               <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>📊 Resultado por arquivo</div>
               {resultados.map((r,i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderBottom: i<resultados.length-1?'1px solid #f1f5f9':'none', background: r.status==='sucesso'?'#f0fdf4':r.status==='erro'?'#fff1f2':r.status==='ignorado'?'#f8fafc':'#fffbeb' }}>
-                  <div style={{ fontSize:15 }}>{r.status==='sucesso'?'✅':r.status==='erro'?'❌':r.status==='ignorado'?'⏭️':'⚠️'}</div>
-                  <div style={{ flex:1 }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{r.arquivo}</span>
-                    {r.motivo && <span style={{ fontSize:12, color:'#dc2626', marginLeft:8 }}>{r.motivo}</span>}
+                <div key={i} style={{ borderBottom: i<resultados.length-1?'1px solid #f1f5f9':'none' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background: r.status==='sucesso'?'#f0fdf4':r.status==='erro'?'#fff1f2':r.status==='ignorado'?'#f8fafc':'#fffbeb' }}>
+                    <div style={{ fontSize:15 }}>{r.status==='sucesso'?'✅':r.status==='erro'?'❌':r.status==='ignorado'?'⏭️':'⚠️'}</div>
+                    <div style={{ flex:1 }}>
+                      <span style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{r.arquivo}</span>
+                      {r.motivo && <span style={{ fontSize:12, color:'#dc2626', marginLeft:8 }}>{r.motivo}</span>}
+                    </div>
+                    {r.status!=='ignorado' && (
+                      <div style={{ fontSize:12, textAlign:'right' }}>
+                        {r.importados>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>→ {fmtN(r.importados)} importado(s)</span>}
+                        {r.rejeitados>0 && <span style={{ color:'#dc2626', fontWeight:700, marginLeft:8 }}>{fmtN(r.rejeitados)} rejeitado(s)</span>}
+                      </div>
+                    )}
                   </div>
-                  {r.status!=='ignorado' && (
-                    <div style={{ fontSize:12, textAlign:'right' }}>
-                      {r.importados>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>→ {fmtN(r.importados)} importado(s)</span>}
-                      {r.rejeitados>0 && <span style={{ color:'#dc2626', fontWeight:700, marginLeft:8 }}>{fmtN(r.rejeitados)} rejeitado(s)</span>}
+                  {/* Painel Motor para arquivos v2 */}
+                  {r._motorInfo && (
+                    <div style={{ background:'#f0fdf4', borderTop:'1px solid #86efac', padding:'10px 16px 10px 40px' }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:'#166534', marginBottom:6 }}>
+                        ⚡ Motor executado — {r._motorInfo.nfes} NF-e(s) · {r._motorInfo.oportunidades} oportunidade(s) · Crédito: {fmtR(r._motorInfo.credito)}
+                        {r._motorInfo.avisos > 0 && <span style={{ color:'#d97706', marginLeft:8 }}>⚠️ {r._motorInfo.avisos} aviso(s)</span>}
+                      </div>
+                      {r._motorInfo.detalhes?.map((d,j) => (
+                        <div key={j} style={{ fontSize:11, color:'#166534', marginBottom:2 }}>
+                          ✓ {d.tese} — {fmtR(d.credito)} <span style={{ color:'#64748b' }}>({d.grau})</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               ))}
             </div>
 
-            {/* Prioridade 3 — erros com arquivo, linha, coluna, motivo */}
+            {/* Avisos (não fatais) */}
+            {avisoGlobal.length > 0 && (
+              <div style={{ background:'#fffbeb', borderRadius:12, border:'2px solid #fde68a', padding:'14px 20px', marginBottom:16 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:8 }}>⚠️ Avisos ({avisoGlobal.length})</div>
+                {avisoGlobal.map((a,i) => (
+                  <div key={i} style={{ fontSize:12, color:'#78350f', marginBottom:4 }}>
+                    {a.arquivo} — {a.chave_nfe ? `NF-e ${a.chave_nfe.slice(-6)}` : ''}: {a.motivo}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Erros de validação */}
             {erroGlobal.length > 0 && (
               <div style={{ background:'#fff', borderRadius:12, border:'2px solid #fecdd3', overflow:'hidden' }}>
                 <div style={{ padding:'12px 16px', borderBottom:'1px solid #fecdd3', fontSize:13, fontWeight:700, color:'#dc2626' }}>❌ Erros de validação ({erroGlobal.length})</div>
@@ -741,32 +1021,52 @@ export default function Laboratorio() {
             <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>📋 {Object.keys(LAYOUTS).length} arquivos suportados — clique em "Modelos CSV" para baixar os templates</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.keys(LAYOUTS).map(nome=>(
-                <span key={nome} style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'3px 10px', fontSize:11, color:'#475569', fontWeight:500 }}>{nome}</span>
+                <span key={nome} style={{ background: nome.includes('_v2') ? '#f0fdf4' : '#f1f5f9', border: `1px solid ${nome.includes('_v2') ? '#86efac' : '#e2e8f0'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color: nome.includes('_v2') ? '#166534' : '#475569', fontWeight: nome.includes('_v2') ? 700 : 500 }}>
+                  {nome.includes('_v2') ? '⚡ ' : ''}{nome}
+                </span>
               ))}
+            </div>
+            <div style={{ marginTop:10, fontSize:11, color:'#64748b' }}>
+              ⚡ Arquivos <strong>_v2</strong> passam pelo Motor de Inteligência Tributária automaticamente
             </div>
           </div>
         )}
       </>}
 
-      {/* ── ABA MODELOS CSV — Prioridade 2 ── */}
+      {/* ── ABA MODELOS CSV ── */}
       {aba==='modelos' && (
         <div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', marginBottom:16 }}>
             <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:4 }}>📥 Baixar modelos CSV oficiais</div>
             <div style={{ fontSize:13, color:'#64748b' }}>Cada modelo contém o cabeçalho correto e uma linha de exemplo. Use-o para criar seus arquivos sem erro de importação.</div>
           </div>
+
+          {/* Destaque v2 */}
+          <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'14px 18px', marginBottom:16 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#166534', marginBottom:4 }}>⚡ Novos formatos v2 — com itens de NF-e para o Motor</div>
+            <div style={{ fontSize:12, color:'#64748b' }}>
+              Os arquivos <strong>notas_saida_v2.csv</strong> e <strong>notas_entrada_v2.csv</strong> contêm uma linha por item de produto,
+              com NCM, CFOP, CST, PIS, COFINS e todos os campos tributários. Ao importá-los, o Motor de Inteligência Tributária é executado automaticamente.
+            </div>
+          </div>
+
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {Object.entries(LAYOUTS).map(([nome, layout]) => (
-              <div key={nome} style={{ background:'#fff', borderRadius:10, border:'1px solid #e2e8f0', padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+              <div key={nome} style={{ background: nome.includes('_v2') ? '#f0fdf4' : '#fff', borderRadius:10, border: `1px solid ${nome.includes('_v2') ? '#86efac' : '#e2e8f0'}`, padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{nome}</div>
-                  <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{layout.descricao} · {layout.colunas.length} colunas · tabela: {layout.tabela}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>
+                    {nome.includes('_v2') ? '⚡ ' : ''}{nome}
+                  </div>
+                  <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>
+                    {layout.descricao} · {layout.colunas.length} colunas
+                    {nome.includes('_v2') ? ' · Motor' : ` · tabela: ${layout.tabela}`}
+                  </div>
                   <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>
                     Obrigatórios: {layout.colunas.filter(c=>c.obrigatorio).map(c=>c.nome).join(', ')}
                   </div>
                 </div>
                 <button onClick={() => baixarModelo(nome)}
-                  style={{ padding:'7px 14px', background:'#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                  style={{ padding:'7px 14px', background: nome.includes('_v2') ? '#16a34a' : '#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
                   📥 Baixar
                 </button>
               </div>
@@ -775,7 +1075,7 @@ export default function Laboratorio() {
         </div>
       )}
 
-      {/* ── ABA RESUMO — Prioridade 4 ── */}
+      {/* ── ABA RESUMO ── */}
       {aba==='resumo' && (
         resumo ? (
           <div>
@@ -785,18 +1085,16 @@ export default function Laboratorio() {
               <div style={{ fontSize:13, color:'#93c5fd' }}>{resumo.emp.cnpj} · {resumo.emp.regime} · {resumo.emp.municipio}/{resumo.emp.uf}</div>
               <div style={{ fontSize:12, color:'#7CC4FF', marginTop:4 }}>Período: {resumo.emp.competencia_inicio} a {resumo.emp.competencia_fim}</div>
             </div>
-
-            {/* Prioridade 4 — resumo completo */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
               {[
-                { label:'Funcionários',    valor: fmtN(resumo.qtd_funcionarios), cor:'#0d9488', icon:'👤' },
-                { label:'Clientes/Forn.',  valor: fmtN(resumo.qtd_clientes),     cor:'#2563eb', icon:'🤝' },
-                { label:'Produtos',        valor: fmtN(resumo.qtd_produtos),      cor:'#7c3aed', icon:'📦' },
-                { label:'Notas de Saída',  valor: fmtN(resumo.qtd_nf_saida),     cor:'#16a34a', icon:'🧾' },
-                { label:'Notas Entrada',   valor: fmtN(resumo.qtd_nf_entrada),   cor:'#d97706', icon:'📥' },
-                { label:'Folhas',          valor: fmtN(resumo.qtd_folhas),        cor:'#dc2626', icon:'📋' },
-                { label:'Receita Total',   valor: fmtR(resumo.receita_bruta),     cor:'#16a34a', icon:'💰' },
-                { label:'Tributos Calc.',  valor: fmtR(resumo.tributos_total),    cor:'#dc2626', icon:'⚖️' },
+                { label:'Funcionários',   valor: fmtN(resumo.qtd_funcionarios), cor:'#0d9488', icon:'👤' },
+                { label:'Clientes/Forn.', valor: fmtN(resumo.qtd_clientes),     cor:'#2563eb', icon:'🤝' },
+                { label:'Produtos',       valor: fmtN(resumo.qtd_produtos),      cor:'#7c3aed', icon:'📦' },
+                { label:'Notas de Saída', valor: fmtN(resumo.qtd_nf_saida),     cor:'#16a34a', icon:'🧾' },
+                { label:'Notas Entrada',  valor: fmtN(resumo.qtd_nf_entrada),   cor:'#d97706', icon:'📥' },
+                { label:'Folhas',         valor: fmtN(resumo.qtd_folhas),        cor:'#dc2626', icon:'📋' },
+                { label:'Receita Total',  valor: fmtR(resumo.receita_bruta),     cor:'#16a34a', icon:'💰' },
+                { label:'Tributos Calc.', valor: fmtR(resumo.tributos_total),    cor:'#dc2626', icon:'⚖️' },
               ].map((c,i) => (
                 <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'14px 16px' }}>
                   <div style={{ fontSize:11, color:'#94a3b8', marginBottom:3 }}>{c.icon} {c.label}</div>
@@ -804,7 +1102,6 @@ export default function Laboratorio() {
                 </div>
               ))}
             </div>
-
             {resumo.tributos.length > 0 && (
               <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden' }}>
                 <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>💰 Tributos calculados</div>
@@ -831,7 +1128,7 @@ export default function Laboratorio() {
         )
       )}
 
-      {/* ── ABA GABARITO — Prioridade 5 ── */}
+      {/* ── ABA GABARITO ── */}
       {aba==='gabarito' && <>
         <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'18px 22px', marginBottom:20 }}>
           <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:6 }}>🎯 Comparação com Gabarito Oficial</div>
@@ -841,15 +1138,12 @@ export default function Laboratorio() {
             {comparando ? '⏳ Comparando...' : '🔍 Comparar com Gabarito'}
           </button>
         </div>
-
         {comparacao.length > 0 && <>
-          {/* Índice de conformidade */}
           <div style={{ background: parseFloat(conformidade)>=99?'#f0fdf4':'#fffbeb', border: `2px solid ${parseFloat(conformidade)>=99?'#86efac':'#fde68a'}`, borderRadius:14, padding:'20px 28px', marginBottom:20, textAlign:'center' }}>
             <div style={{ fontSize:12, fontWeight:700, color:'#64748b', marginBottom:4, letterSpacing:1, textTransform:'uppercase' }}>Índice de Conformidade</div>
             <div style={{ fontSize:48, fontWeight:900, color: parseFloat(conformidade)>=99?'#16a34a':'#d97706', lineHeight:1 }}>{conformidade}%</div>
             <div style={{ fontSize:14, color:'#64748b', marginTop:4 }}>{aprovados} de {comparacao.length} testes aprovados</div>
           </div>
-
           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:16 }}>
             {[
               { label:'Total de testes', valor:comparacao.length, cor:'#0B1F4D' },
@@ -862,7 +1156,6 @@ export default function Laboratorio() {
               </div>
             ))}
           </div>
-
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
@@ -893,7 +1186,7 @@ export default function Laboratorio() {
         </>}
       </>}
 
-      {/* ── ABA HISTÓRICO — Prioridade 6 ── */}
+      {/* ── ABA HISTÓRICO ── */}
       {aba==='historico' && (
         historico.length===0 ? (
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:48, textAlign:'center', color:'#94a3b8' }}>
@@ -915,7 +1208,9 @@ export default function Laboratorio() {
                 {historico.map((l,i)=>(
                   <tr key={i} style={{ borderBottom:'1px solid #f1f5f9' }}>
                     <td style={{ padding:'9px 14px', color:'#64748b' }}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
-                    <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{l.arquivo}</td>
+                    <td style={{ padding:'9px 14px', fontWeight:600, color: l.arquivo?.includes('_v2') ? '#166534' : '#0B1F4D' }}>
+                      {l.arquivo?.includes('_v2') ? '⚡ ' : ''}{l.arquivo}
+                    </td>
                     <td style={{ padding:'9px 14px', color:'#64748b' }}>{l.tabela}</td>
                     <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtN(l.importados)}</td>
                     <td style={{ padding:'9px 14px', color:l.rejeitados>0?'#dc2626':'#94a3b8', fontWeight:l.rejeitados>0?700:400 }}>{fmtN(l.rejeitados)}</td>
@@ -928,20 +1223,22 @@ export default function Laboratorio() {
         )
       )}
 
-      {/* ── ABA FORMATOS FUTUROS — Prioridade 8 ── */}
+      {/* ── ABA FORMATOS FUTUROS ── */}
       {aba==='formatos' && (
         <div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', marginBottom:14 }}>
             <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>✅ Formatos ativos ({Object.keys(LAYOUTS).length})</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.keys(LAYOUTS).map(nome=>(
-                <span key={nome} style={{ background:'#dcfce7', border:'1px solid #86efac', borderRadius:6, padding:'3px 10px', fontSize:11, color:'#166534', fontWeight:600 }}>✅ {nome}</span>
+                <span key={nome} style={{ background: nome.includes('_v2') ? '#dcfce7' : '#dcfce7', border: `1px solid ${nome.includes('_v2') ? '#16a34a' : '#86efac'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color:'#166534', fontWeight:600 }}>
+                  {nome.includes('_v2') ? '⚡ ' : '✅ '}{nome}
+                </span>
               ))}
             </div>
           </div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px' }}>
             <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:4 }}>🔮 Em desenvolvimento</div>
-            <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Arquitetura preparada para receber novos formatos sem alterar a estrutura principal. Cada parser é registrado de forma independente.</div>
+            <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Arquitetura preparada para receber novos formatos sem alterar a estrutura principal.</div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {FORMATOS_FUTUROS.map((f,i)=>(
                 <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
