@@ -590,14 +590,14 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
   async function iniciarRecuperacao() {
     setCriando(true)
     try {
-      await supabase.from('recuperacoes').insert({
-        cliente_id: clienteId, competencia: new Date().toISOString().slice(0, 7),
-        tributo: oportunidades[0]?.tese || 'A definir', valor_credito: potencialFinal,
-        potencial_recuperavel: potencialFinal, tese_aplicada: oportunidades.map(o => o.tese).join(', '),
-        risco: oportunidades.some(o => o.risco === 'baixo') ? 'baixo' : 'medio',
-        origem: origem || 'Raio-X XML', status: 'Identificado', score_fiscal: score,
-        observacoes: `Raio-X automático. ${oportunidades.length} oportunidades detectadas via ${origem}.`,
-      })
+      await supabase.from('recuperacoes').upsert({
+      cliente_id: clienteId, competencia: new Date().toISOString().slice(0, 7),
+      tributo: oportunidades[0]?.tese || 'A definir', valor_credito: potencialFinal,
+      potencial_recuperavel: potencialFinal, tese_aplicada: oportunidades.map(o => o.tese).join(', '),
+      risco: oportunidades.some(o => o.risco === 'baixo') ? 'baixo' : 'medio',
+      origem: origem || 'Raio-X XML', status: 'Identificado', score_fiscal: score,
+      observacoes: `Raio-X automático. ${oportunidades.length} oportunidades detectadas via ${origem}.`,
+}, { onConflict: 'cliente_id' })
       setCriado(true)
       if (onIniciarRecuperacao) onIniciarRecuperacao()
     } catch (e) { alert('Erro: ' + e.message) }
