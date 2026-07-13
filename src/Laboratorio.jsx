@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from './supabase'
 import { parseCSVNFeV2 } from './motor/adaptadores/parseCSVNFeV2'
-import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria'import { parseCSVNFeV2 } from './motor/adaptadores/parseCSVNFeV2'
 import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
