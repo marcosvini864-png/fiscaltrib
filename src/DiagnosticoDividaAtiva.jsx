@@ -1102,16 +1102,15 @@ export default function DiagnosticoDividaAtiva({ active }) {
                   <td style={{padding:'10px 10px',fontWeight:700,color:(c.provimento_economico||0)>0?'#16a34a':'#94a3b8',whiteSpace:'nowrap'}}>
                     {(c.provimento_economico||0)>0?parseFloat(c.provimento_economico).toFixed(1)+'%':'—'}
                   </td>
-                  <td style={{padding:'10px 10px',fontWeight:700,color:'#2563eb',whiteSpace:'nowrap'}}>{'R$ '+(c.total_a_pagar||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                  <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_entrada||'—'}</td>
-                  <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{(c.valor_entrada||0)>0?'R$ '+c.valor_entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
-                  <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_parcelas||'—'}</td>
-                  <td style={{padding:'10px 10px',fontWeight:700,color:'#7c3aed',whiteSpace:'nowrap'}}>{(c.valor_parcela||0)>0?'R$ '+c.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
-                  <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_1||'—'}</td>    
-		    </tr>
-		  </>}
-        </div>
-      </>}
-    </div>
-  )
-}
+               <td style={{padding:'10px 10px',fontWeight:700,color:'#2563eb',whiteSpace:'nowrap'}}>{'R$ '+(c.total_a_pagar||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+               <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_entrada||'—'}</td>
+               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{(c.valor_entrada||0)>0?'R$ '+c.valor_entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+               <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_parcelas||'—'}</td>
+               <td style={{padding:'10px 10px',fontWeight:700,color:'#7c3aed',whiteSpace:'nowrap'}}>{(c.valor_parcela||0)>0?'R$ '+c.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_1||'—'}</td>
+               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_2||'—'}</td>
+              <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_3||'—'}</td>
+          </tr>
+        )
+      })}
+      </tbody>
