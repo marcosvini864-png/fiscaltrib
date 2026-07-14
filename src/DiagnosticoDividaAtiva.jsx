@@ -1111,6 +1111,5 @@ export default function DiagnosticoDividaAtiva({ active }) {
                <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_2||'—'}</td>
               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_3||'—'}</td>
           </tr>
-        )
-      })}
-      </tbody>
+        )})}
+        </tbody>
