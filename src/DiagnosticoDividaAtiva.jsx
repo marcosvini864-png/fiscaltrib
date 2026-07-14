@@ -1108,7 +1108,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                   <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_parcelas||'—'}</td>
                   <td style={{padding:'10px 10px',fontWeight:700,color:'#7c3aed',whiteSpace:'nowrap'}}>{(c.valor_parcela||0)>0?'R$ '+c.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
                   <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_1||'—'}</td>    
-		  
+		    </tr>
 		  </>}
         </div>
       </>}
