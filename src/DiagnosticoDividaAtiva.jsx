@@ -1068,49 +1068,71 @@ export default function DiagnosticoDividaAtiva({ active }) {
     <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',overflow:'hidden',marginBottom:16}}>
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-          <thead>
-            <tr style={{background:'#0B1F4D'}}>
-              {['Empresa','CNPJ','Tipo','Modalidade Escolhida','Total s/Desconto','Desconto (R$)','Provim. Econ. (%)','Total a Pagar','Qt. Entrada','Vl. Entrada (R$)','Qt. Parcelas','Vl. Parcela (R$)','PRESIDENTE/SÓCIO','SÓCIO 2','SÓCIO 3'].map(h=>(
-                <th key={h} style={{padding:'10px 10px',textAlign:'left',fontSize:10,fontWeight:700,color:'#fff',whiteSpace:'nowrap',borderRight:'1px solid rgba(255,255,255,0.1)'}}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {cdas.map((c,i)=>{
-              const semProc = !c.modalidade_transacao||c.status_procuracao==='Pendente'
-              return (
-                <tr key={c.id||i} style={{background:i%2===0?'#fff':'#f8fafc',borderBottom:'1px solid #f1f5f9'}}>
-                  <td style={{padding:'10px 10px',fontWeight:600,color:'#0B1F4D',minWidth:160}}>{clienteAtual?.razao_social||'—'}</td>
-                  <td style={{padding:'10px 10px',color:'#64748b',whiteSpace:'nowrap'}}>{clienteAtual?.cnpj||'—'}</td>
-                  <td style={{padding:'10px 10px',whiteSpace:'nowrap'}}>
-                    <span style={{background:c.tipo_debito?.includes('Prev')?'#eff6ff':'#f0fdf4',color:c.tipo_debito?.includes('Prev')?'#1d4ed8':'#166534',padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>
-                      {c.tipo_debito||'Demais Déb.'}
-                    </span>
-                  </td>
-                  <td style={{padding:'10px 10px',minWidth:220}}>
-                    {semProc
-                      ?<span style={{color:'#dc2626',fontWeight:700,fontSize:11}}>SEM PROCURAÇÃO</span>
-                      :<span style={{color:'#374151',fontSize:11}}>{c.modalidade_transacao}</span>
-                    }
-                  </td>
-                  <td style={{padding:'10px 10px',fontWeight:700,color:'#0B1F4D',whiteSpace:'nowrap'}}>{'R$ '+(c.total_sem_desconto||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                  <td style={{padding:'10px 10px',fontWeight:700,color:'#16a34a',whiteSpace:'nowrap'}}>
-                    {(c.desconto_valor||0)>0?'R$ '+(c.desconto_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):<span style={{color:'#94a3b8'}}>R$ 0,00</span>}
-                  </td>
-                  <td style={{padding:'10px 10px',fontWeight:700,color:(c.provimento_economico||0)>0?'#16a34a':'#94a3b8',whiteSpace:'nowrap'}}>
-                    {(c.provimento_economico||0)>0?parseFloat(c.provimento_economico).toFixed(1)+'%':'—'}
-                  </td>
-               <td style={{padding:'10px 10px',fontWeight:700,color:'#2563eb',whiteSpace:'nowrap'}}>{'R$ '+(c.total_a_pagar||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-               <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_entrada||'—'}</td>
-               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{(c.valor_entrada||0)>0?'R$ '+c.valor_entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
-               <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_parcelas||'—'}</td>
-               <td style={{padding:'10px 10px',fontWeight:700,color:'#7c3aed',whiteSpace:'nowrap'}}>{(c.valor_parcela||0)>0?'R$ '+c.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
-               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_1||'—'}</td>
-               <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_2||'—'}</td>
-              <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_3||'—'}</td>
-          </tr>
-        )
-      })}
-        </tbody>
+  <thead>
+    <tr style={{background:'#0B1F4D'}}>
+      {['Empresa','CNPJ','Tipo','Modalidade Escolhida','Total s/Desconto','Desconto (R$)','Provim. Econ. (%)','Total a Pagar','Qt. Entrada','Vl. Entrada (R$)','Qt. Parcelas','Vl. Parcela (R$)','PRESIDENTE/SÓCIO','SÓCIO 2','SÓCIO 3'].map(h=>(
+        <th key={h} style={{padding:'10px 10px',textAlign:'left',fontSize:10,fontWeight:700,color:'#fff',whiteSpace:'nowrap',borderRight:'1px solid rgba(255,255,255,0.1)'}}>{h}</th>
+      ))}
+    </tr>
+  </thead>
+  <tbody>
+    {cdas.map((c,i)=>{
+      const semProc = !c.modalidade_transacao||c.status_procuracao==='Pendente'
+      return (
+        <tr key={c.id||i} style={{background:i%2===0?'#fff':'#f8fafc',borderBottom:'1px solid #f1f5f9'}}>
+          <td style={{padding:'10px 10px',fontWeight:600,color:'#0B1F4D',minWidth:160}}>{clienteAtual?.razao_social||'—'}</td>
+          <td style={{padding:'10px 10px',color:'#64748b',whiteSpace:'nowrap'}}>{clienteAtual?.cnpj||'—'}</td>
+          <td style={{padding:'10px 10px',whiteSpace:'nowrap'}}>
+            <span style={{background:c.tipo_debito?.includes('Prev')?'#eff6ff':'#f0fdf4',color:c.tipo_debito?.includes('Prev')?'#1d4ed8':'#166534',padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>{c.tipo_debito||'Demais Déb.'}</span>
+          </td>
+          <td style={{padding:'10px 10px',minWidth:220}}>
+            {semProc?<span style={{color:'#dc2626',fontWeight:700,fontSize:11}}>SEM PROCURAÇÃO</span>:<span style={{color:'#374151',fontSize:11}}>{c.modalidade_transacao}</span>}
+          </td>
+          <td style={{padding:'10px 10px',fontWeight:700,color:'#0B1F4D',whiteSpace:'nowrap'}}>{'R$ '+(c.total_sem_desconto||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+          <td style={{padding:'10px 10px',fontWeight:700,color:'#16a34a',whiteSpace:'nowrap'}}>{(c.desconto_valor||0)>0?'R$ '+(c.desconto_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):<span style={{color:'#94a3b8'}}>R$ 0,00</span>}</td>
+          <td style={{padding:'10px 10px',fontWeight:700,color:(c.provimento_economico||0)>0?'#16a34a':'#94a3b8',whiteSpace:'nowrap'}}>{(c.provimento_economico||0)>0?parseFloat(c.provimento_economico).toFixed(1)+'%':'—'}</td>
+          <td style={{padding:'10px 10px',fontWeight:700,color:'#2563eb',whiteSpace:'nowrap'}}>{'R$ '+(c.total_a_pagar||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+          <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_entrada||'—'}</td>
+          <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{(c.valor_entrada||0)>0?'R$ '+c.valor_entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+          <td style={{padding:'10px 10px',color:'#374151',textAlign:'center'}}>{c.qt_parcelas||'—'}</td>
+          <td style={{padding:'10px 10px',fontWeight:700,color:'#7c3aed',whiteSpace:'nowrap'}}>{(c.valor_parcela||0)>0?'R$ '+c.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+          <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_1||'—'}</td>
+          <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_2||'—'}</td>
+          <td style={{padding:'10px 10px',color:'#374151',whiteSpace:'nowrap'}}>{c.socio_3||'—'}</td>
+        </tr>
+      )
+    })}
+  </tbody>
+  <tfoot>
+    <tr style={{background:'#0B1F4D'}}>
+      <td colSpan={4} style={{padding:'12px 10px',color:'#7CC4FF',fontWeight:700,fontSize:12}}>TOTAIS CONSOLIDADOS ({cdas.length} linha{cdas.length!==1?'s':''})</td>
+      <td style={{padding:'12px 10px',color:'#fff',fontWeight:900,fontSize:13,whiteSpace:'nowrap'}}>{'R$ '+cdas.reduce((s,c)=>s+(c.total_sem_desconto||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style={{padding:'12px 10px',color:'#4ade80',fontWeight:900,fontSize:13,whiteSpace:'nowrap'}}>{'R$ '+cdas.reduce((s,c)=>s+(c.desconto_valor||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style={{padding:'12px 10px',color:'#fff'}}>—</td>
+      <td style={{padding:'12px 10px',color:'#93c5fd',fontWeight:900,fontSize:13,whiteSpace:'nowrap'}}>{'R$ '+cdas.reduce((s,c)=>s+(c.total_a_pagar||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style={{padding:'12px 10px',color:'#fff'}}>—</td>
+      <td style={{padding:'12px 10px',color:'#fbbf24',fontWeight:900,fontSize:13,whiteSpace:'nowrap'}}>{'R$ '+cdas.reduce((s,c)=>s+(c.valor_entrada||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style={{padding:'12px 10px',color:'#fff'}}>—</td>
+      <td style={{padding:'12px 10px',color:'#c4b5fd',fontWeight:900,fontSize:13,whiteSpace:'nowrap'}}>{'R$ '+cdas.reduce((s,c)=>s+(c.valor_parcela||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td colSpan={3} style={{padding:'12px 10px'}}></td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+      <div style={{padding:'14px 20px',borderTop:'1px solid #e2e8f0',background:'#f8fafc'}}>
+        <div style={{fontSize:11,color:'#64748b',fontWeight:700,marginBottom:8}}>NOTAS DO RELATÓRIO</div>
+        {cdas.filter(c=>c.observacoes).map((c,i)=>(
+          <div key={i} style={{fontSize:11,color:'#64748b',marginBottom:4}}>✦ {c.numero_cda?`CDA ${c.numero_cda}`:`Linha ${i+1}`}: {c.observacoes}</div>
+        ))}
+        {cdas.filter(c=>!c.modalidade_transacao||c.status_procuracao==='Pendente').length>0&&(
+          <div style={{fontSize:11,color:'#dc2626',fontWeight:600,marginTop:8}}>⚠️ Linhas em cinza claro = empresa sem simulação concluída.</div>
+        )}
+      </div>
+    </div>
+  )}
+  <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}>
+    <button onClick={()=>window.print()} style={{padding:'10px 20px',background:'#16a34a',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>🖨️ Imprimir Relatório</button>
+  </div>
+</>}</div>
+  )
+}
