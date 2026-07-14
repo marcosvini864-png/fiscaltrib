@@ -26,11 +26,11 @@ export default function PrazosPrescricionais({ active }) {
   const [filtro,    setFiltro]    = useState('todos')
   const [ordenacao, setOrdenacao] = useState('urgencia')
 
-  useEffect(() => { if(active?.id) carregarEntradas() }, [active?.id])
+  useEffect(() => { if(active?.id || active) carregarEntradas() }, [active])
 
   async function carregarEntradas() {
     setLoading(true)
-    const { data } = await supabase.from('entradas').select('*').eq('cliente_id', active.id)
+    const { data } = await supabase.from('entradas').select('*').eq('cliente_id', active?.id || active)
     setEntradas(data || [])
     setLoading(false)
   }
