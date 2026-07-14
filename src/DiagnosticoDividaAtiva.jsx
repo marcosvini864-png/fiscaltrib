@@ -1133,6 +1133,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}>
     <button onClick={()=>window.print()} style={{padding:'10px 20px',background:'#16a34a',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>🖨️ Imprimir Relatório</button>
   </div>
-</>}</div>
-  )
+</>}
+</div>
+)
 }
