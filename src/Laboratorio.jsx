@@ -5,25 +5,25 @@ import { MotorInteligenciaTributaria } from './motor/MotorInteligenciaTributaria
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtN = v => parseInt(v || 0).toLocaleString('pt-BR')
+const fmtPct = v => parseFloat(v || 0).toFixed(2) + '%'
 
 // ─── LAYOUTS OFICIAIS FiscalTrib ──────────────────────────────────────────────
 const LAYOUTS = {
   'empresa.csv': {
-    descricao: 'Empresa',
-    tabela: 'clientes',
+    descricao: 'Empresa', tabela: 'clientes',
     colunas: [
-      { nome: 'cnpj',               tipo: 'texto',    obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'razao_social',       tipo: 'texto',    obrigatorio: true,  exemplo: 'Mercado Exemplo Ltda' },
-      { nome: 'nome_fantasia',      tipo: 'texto',    obrigatorio: false, exemplo: 'Mercado Exemplo' },
-      { nome: 'regime_tributario',  tipo: 'enum',     obrigatorio: true,  exemplo: 'Simples Nacional', valores: ['Simples Nacional','Lucro Presumido','Lucro Real'] },
-      { nome: 'cnae',               tipo: 'texto',    obrigatorio: true,  exemplo: '47.11-3-01' },
-      { nome: 'abertura',           tipo: 'data',     obrigatorio: false, exemplo: '2015-03-01' },
-      { nome: 'municipio',          tipo: 'texto',    obrigatorio: true,  exemplo: 'São Paulo' },
-      { nome: 'uf',                 tipo: 'texto2',   obrigatorio: true,  exemplo: 'SP' },
-      { nome: 'inscricao_estadual', tipo: 'texto',    obrigatorio: false, exemplo: '111222333' },
-      { nome: 'inscricao_municipal',tipo: 'texto',    obrigatorio: false, exemplo: '445566' },
-      { nome: 'competencia_inicio', tipo: 'aaaa-mm',  obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'competencia_fim',    tipo: 'aaaa-mm',  obrigatorio: true,  exemplo: '2024-12' },
+      { nome: 'cnpj',               tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'razao_social',       tipo: 'texto',   obrigatorio: true,  exemplo: 'Mercado Exemplo Ltda' },
+      { nome: 'nome_fantasia',      tipo: 'texto',   obrigatorio: false, exemplo: 'Mercado Exemplo' },
+      { nome: 'regime_tributario',  tipo: 'enum',    obrigatorio: true,  exemplo: 'Simples Nacional', valores: ['Simples Nacional','Lucro Presumido','Lucro Real'] },
+      { nome: 'cnae',               tipo: 'texto',   obrigatorio: true,  exemplo: '47.11-3-01' },
+      { nome: 'abertura',           tipo: 'data',    obrigatorio: false, exemplo: '2015-03-01' },
+      { nome: 'municipio',          tipo: 'texto',   obrigatorio: true,  exemplo: 'São Paulo' },
+      { nome: 'uf',                 tipo: 'texto2',  obrigatorio: true,  exemplo: 'SP' },
+      { nome: 'inscricao_estadual', tipo: 'texto',   obrigatorio: false, exemplo: '111222333' },
+      { nome: 'inscricao_municipal',tipo: 'texto',   obrigatorio: false, exemplo: '445566' },
+      { nome: 'competencia_inicio', tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'competencia_fim',    tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-12' },
     ],
     mapear: (row, uid) => ({
       usuario_id: uid, cnpj: row.cnpj, razao_social: row.razao_social,
@@ -40,208 +40,206 @@ const LAYOUTS = {
   'socios.csv': {
     descricao: 'Sócios', tabela: 'socios',
     colunas: [
-      { nome: 'cnpj_empresa',             tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'cpf_socio',                tipo: 'texto',   obrigatorio: true,  exemplo: '111.222.333-44' },
-      { nome: 'nome',                     tipo: 'texto',   obrigatorio: true,  exemplo: 'Carlos Eduardo Martins' },
-      { nome: 'percentual_participacao',  tipo: 'decimal', obrigatorio: true,  exemplo: '60.00' },
-      { nome: 'data_entrada',             tipo: 'data',    obrigatorio: true,  exemplo: '2015-03-01' },
-      { nome: 'qualificacao',             tipo: 'texto',   obrigatorio: false, exemplo: 'Sócio-Administrador' },
+      { nome: 'cnpj_empresa',            tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'cpf_socio',               tipo: 'texto',   obrigatorio: true,  exemplo: '111.222.333-44' },
+      { nome: 'nome',                    tipo: 'texto',   obrigatorio: true,  exemplo: 'Carlos Eduardo Martins' },
+      { nome: 'percentual_participacao', tipo: 'decimal', obrigatorio: true,  exemplo: '60.00' },
+      { nome: 'data_entrada',            tipo: 'data',    obrigatorio: true,  exemplo: '2015-03-01' },
+      { nome: 'qualificacao',            tipo: 'texto',   obrigatorio: false, exemplo: 'Sócio-Administrador' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, cpf_socio: row.cpf_socio, nome: row.nome, percentual_participacao: parseFloat(row.percentual_participacao), data_entrada: row.data_entrada, qualificacao: row.qualificacao||'' }),
   },
   'clientes_empresa.csv': {
     descricao: 'Clientes da Empresa', tabela: 'clientes_empresa',
     colunas: [
-      { nome: 'cnpj_empresa',       tipo: 'texto', obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'cnpj_cpf_cliente',   tipo: 'texto', obrigatorio: true,  exemplo: '98.765.432/0001-10' },
-      { nome: 'nome',               tipo: 'texto', obrigatorio: true,  exemplo: 'Cliente Exemplo SA' },
-      { nome: 'tipo',               tipo: 'enum',  obrigatorio: true,  exemplo: 'J', valores: ['F','J'] },
-      { nome: 'municipio',          tipo: 'texto', obrigatorio: false, exemplo: 'Rio de Janeiro' },
-      { nome: 'uf',                 tipo: 'texto2',obrigatorio: false, exemplo: 'RJ' },
-      { nome: 'email',              tipo: 'texto', obrigatorio: false, exemplo: 'contato@cliente.com' },
-      { nome: 'telefone',           tipo: 'texto', obrigatorio: false, exemplo: '(21)99999-0000' },
+      { nome: 'cnpj_empresa',     tipo: 'texto',  obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'cnpj_cpf_cliente', tipo: 'texto',  obrigatorio: true,  exemplo: '98.765.432/0001-10' },
+      { nome: 'nome',             tipo: 'texto',  obrigatorio: true,  exemplo: 'Cliente Exemplo SA' },
+      { nome: 'tipo',             tipo: 'enum',   obrigatorio: true,  exemplo: 'J', valores: ['F','J'] },
+      { nome: 'municipio',        tipo: 'texto',  obrigatorio: false, exemplo: 'Rio de Janeiro' },
+      { nome: 'uf',               tipo: 'texto2', obrigatorio: false, exemplo: 'RJ' },
+      { nome: 'email',            tipo: 'texto',  obrigatorio: false, exemplo: 'contato@cliente.com' },
+      { nome: 'telefone',         tipo: 'texto',  obrigatorio: false, exemplo: '(21)99999-0000' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, cnpj_cpf_cliente: row.cnpj_cpf_cliente, nome: row.nome, tipo: row.tipo, municipio: row.municipio||'', uf: row.uf||'', email: row.email||'', telefone: row.telefone||'' }),
   },
   'fornecedores.csv': {
     descricao: 'Fornecedores', tabela: 'fornecedores',
     colunas: [
-      { nome: 'cnpj_empresa',           tipo: 'texto', obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'cnpj_cpf_fornecedor',    tipo: 'texto', obrigatorio: true,  exemplo: '11.222.333/0001-44' },
-      { nome: 'nome',                   tipo: 'texto', obrigatorio: true,  exemplo: 'Fornecedor Ltda' },
-      { nome: 'tipo',                   tipo: 'enum',  obrigatorio: true,  exemplo: 'J', valores: ['F','J'] },
-      { nome: 'municipio',              tipo: 'texto', obrigatorio: false, exemplo: 'Campinas' },
-      { nome: 'uf',                     tipo: 'texto2',obrigatorio: false, exemplo: 'SP' },
-      { nome: 'email',                  tipo: 'texto', obrigatorio: false, exemplo: 'nfe@fornecedor.com' },
-      { nome: 'telefone',               tipo: 'texto', obrigatorio: false, exemplo: '(19)3333-0000' },
+      { nome: 'cnpj_empresa',        tipo: 'texto',  obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'cnpj_cpf_fornecedor', tipo: 'texto',  obrigatorio: true,  exemplo: '11.222.333/0001-44' },
+      { nome: 'nome',                tipo: 'texto',  obrigatorio: true,  exemplo: 'Fornecedor Ltda' },
+      { nome: 'tipo',                tipo: 'enum',   obrigatorio: true,  exemplo: 'J', valores: ['F','J'] },
+      { nome: 'municipio',           tipo: 'texto',  obrigatorio: false, exemplo: 'Campinas' },
+      { nome: 'uf',                  tipo: 'texto2', obrigatorio: false, exemplo: 'SP' },
+      { nome: 'email',               tipo: 'texto',  obrigatorio: false, exemplo: 'nfe@fornecedor.com' },
+      { nome: 'telefone',            tipo: 'texto',  obrigatorio: false, exemplo: '(19)3333-0000' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, cnpj_cpf_fornecedor: row.cnpj_cpf_fornecedor, nome: row.nome, tipo: row.tipo, municipio: row.municipio||'', uf: row.uf||'', email: row.email||'', telefone: row.telefone||'' }),
   },
   'funcionarios.csv': {
     descricao: 'Funcionários', tabela: 'funcionarios',
     colunas: [
-      { nome: 'cnpj_empresa',   tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'cpf',            tipo: 'texto',   obrigatorio: true,  exemplo: '987.654.321-00' },
-      { nome: 'nome',           tipo: 'texto',   obrigatorio: true,  exemplo: 'Maria Souza' },
-      { nome: 'data_admissao',  tipo: 'data',    obrigatorio: true,  exemplo: '2020-01-01' },
-      { nome: 'data_demissao',  tipo: 'data',    obrigatorio: false, exemplo: '' },
-      { nome: 'cargo',          tipo: 'texto',   obrigatorio: false, exemplo: 'Caixa' },
-      { nome: 'salario_base',   tipo: 'decimal', obrigatorio: true,  exemplo: '1600.00' },
-      { nome: 'cbo',            tipo: 'texto',   obrigatorio: false, exemplo: '5211-05' },
+      { nome: 'cnpj_empresa',  tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'cpf',           tipo: 'texto',   obrigatorio: true,  exemplo: '987.654.321-00' },
+      { nome: 'nome',          tipo: 'texto',   obrigatorio: true,  exemplo: 'Maria Souza' },
+      { nome: 'data_admissao', tipo: 'data',    obrigatorio: true,  exemplo: '2020-01-01' },
+      { nome: 'data_demissao', tipo: 'data',    obrigatorio: false, exemplo: '' },
+      { nome: 'cargo',         tipo: 'texto',   obrigatorio: false, exemplo: 'Caixa' },
+      { nome: 'salario_base',  tipo: 'decimal', obrigatorio: true,  exemplo: '1600.00' },
+      { nome: 'cbo',           tipo: 'texto',   obrigatorio: false, exemplo: '5211-05' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, cpf: row.cpf, nome: row.nome, data_admissao: row.data_admissao, data_demissao: row.data_demissao||null, cargo: row.cargo||'', salario_base: parseFloat(row.salario_base), cbo: row.cbo||'' }),
   },
   'produtos.csv': {
     descricao: 'Produtos', tabela: 'produtos',
     colunas: [
-      { nome: 'cnpj_empresa',     tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'codigo',           tipo: 'texto',   obrigatorio: true,  exemplo: '001' },
-      { nome: 'descricao',        tipo: 'texto',   obrigatorio: true,  exemplo: 'Arroz Tipo 1 5kg' },
-      { nome: 'ncm',              tipo: 'texto',   obrigatorio: true,  exemplo: '1006.30.21' },
-      { nome: 'cfop_saida',       tipo: 'texto',   obrigatorio: false, exemplo: '5102' },
-      { nome: 'unidade',          tipo: 'texto',   obrigatorio: false, exemplo: 'PCT' },
-      { nome: 'preco_unitario',   tipo: 'decimal', obrigatorio: false, exemplo: '18.90' },
-      { nome: 'cst_pis',          tipo: 'texto',   obrigatorio: false, exemplo: '07' },
-      { nome: 'cst_cofins',       tipo: 'texto',   obrigatorio: false, exemplo: '07' },
-      { nome: 'aliquota_pis',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'aliquota_cofins',  tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'cnpj_empresa',    tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'codigo',          tipo: 'texto',   obrigatorio: true,  exemplo: '001' },
+      { nome: 'descricao',       tipo: 'texto',   obrigatorio: true,  exemplo: 'Arroz Tipo 1 5kg' },
+      { nome: 'ncm',             tipo: 'texto',   obrigatorio: true,  exemplo: '1006.30.21' },
+      { nome: 'cfop_saida',      tipo: 'texto',   obrigatorio: false, exemplo: '5102' },
+      { nome: 'unidade',         tipo: 'texto',   obrigatorio: false, exemplo: 'PCT' },
+      { nome: 'preco_unitario',  tipo: 'decimal', obrigatorio: false, exemplo: '18.90' },
+      { nome: 'cst_pis',         tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'cst_cofins',      tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'aliquota_pis',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'aliquota_cofins', tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, codigo: row.codigo, descricao: row.descricao, ncm: row.ncm, cfop_saida: row.cfop_saida||'', unidade: row.unidade||'', preco_unitario: parseFloat(row.preco_unitario||0), cst_pis: row.cst_pis||'', cst_cofins: row.cst_cofins||'', aliquota_pis: parseFloat(row.aliquota_pis||0), aliquota_cofins: parseFloat(row.aliquota_cofins||0) }),
   },
   'notas_saida.csv': {
     descricao: 'Notas de Saída', tabela: 'entradas',
     colunas: [
-      { nome: 'cnpj_empresa',           tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'numero_nf',              tipo: 'texto',   obrigatorio: true,  exemplo: '000001' },
-      { nome: 'serie',                  tipo: 'texto',   obrigatorio: false, exemplo: '1' },
-      { nome: 'data_emissao',           tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
-      { nome: 'cnpj_cpf_destinatario',  tipo: 'texto',   obrigatorio: false, exemplo: '000.000.000-00' },
-      { nome: 'cfop',                   tipo: 'texto',   obrigatorio: false, exemplo: '5102' },
-      { nome: 'valor_total',            tipo: 'decimal', obrigatorio: true,  exemplo: '15000.00' },
-      { nome: 'valor_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_st',               tipo: 'decimal', obrigatorio: false, exemplo: '1200.00' },
-      { nome: 'competencia',            tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_empresa',          tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'numero_nf',             tipo: 'texto',   obrigatorio: true,  exemplo: '000001' },
+      { nome: 'serie',                 tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',          tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
+      { nome: 'cnpj_cpf_destinatario', tipo: 'texto',   obrigatorio: false, exemplo: '000.000.000-00' },
+      { nome: 'cfop',                  tipo: 'texto',   obrigatorio: false, exemplo: '5102' },
+      { nome: 'valor_total',           tipo: 'decimal', obrigatorio: true,  exemplo: '15000.00' },
+      { nome: 'valor_icms',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_pis',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_cofins',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_st',              tipo: 'decimal', obrigatorio: false, exemplo: '1200.00' },
+      { nome: 'competencia',           tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
     ],
     mapear: (row, uid, clienteId) => ({ usuario_id: uid, cliente_id: clienteId, competencia: row.competencia, tributo: 'NF-e Saída', receita_bruta: parseFloat(row.valor_total), tributo_pago: parseFloat(row.valor_icms||0)+parseFloat(row.valor_pis||0)+parseFloat(row.valor_cofins||0), tributo_devido: parseFloat(row.valor_icms||0)+parseFloat(row.valor_pis||0)+parseFloat(row.valor_cofins||0), credito: 0, tipo_oportunidade: '', risco: 'baixo' }),
   },
   'notas_entrada.csv': {
     descricao: 'Notas de Entrada', tabela: 'entradas',
     colunas: [
-      { nome: 'cnpj_empresa',     tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'numero_nf',        tipo: 'texto',   obrigatorio: true,  exemplo: '005001' },
-      { nome: 'serie',            tipo: 'texto',   obrigatorio: false, exemplo: '1' },
-      { nome: 'data_emissao',     tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-03' },
-      { nome: 'cnpj_fornecedor',  tipo: 'texto',   obrigatorio: false, exemplo: '11.222.333/0001-44' },
-      { nome: 'cfop',             tipo: 'texto',   obrigatorio: false, exemplo: '1102' },
-      { nome: 'valor_total',      tipo: 'decimal', obrigatorio: true,  exemplo: '28000.00' },
-      { nome: 'valor_icms',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_pis',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_cofins',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_st',         tipo: 'decimal', obrigatorio: false, exemplo: '2240.00' },
-      { nome: 'competencia',      tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_empresa',    tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'numero_nf',       tipo: 'texto',   obrigatorio: true,  exemplo: '005001' },
+      { nome: 'serie',           tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',    tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-03' },
+      { nome: 'cnpj_fornecedor', tipo: 'texto',   obrigatorio: false, exemplo: '11.222.333/0001-44' },
+      { nome: 'cfop',            tipo: 'texto',   obrigatorio: false, exemplo: '1102' },
+      { nome: 'valor_total',     tipo: 'decimal', obrigatorio: true,  exemplo: '28000.00' },
+      { nome: 'valor_icms',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_pis',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_cofins',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_st',        tipo: 'decimal', obrigatorio: false, exemplo: '2240.00' },
+      { nome: 'competencia',     tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
     ],
     mapear: (row, uid, clienteId) => ({ usuario_id: uid, cliente_id: clienteId, competencia: row.competencia, tributo: 'NF-e Entrada', receita_bruta: parseFloat(row.valor_total), tributo_pago: 0, tributo_devido: 0, credito: 0, tipo_oportunidade: '', risco: 'baixo' }),
   },
   'notas_saida_v2.csv': {
-    descricao: 'Notas de Saída v2 (com itens)',
-    tabela: '_csv_v2_motor', _v2: true, mapear: null,
+    descricao: 'Notas de Saída v2 (com itens)', tabela: '_csv_v2_motor', _v2: true, mapear: null,
     colunas: [
-      { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
-      { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '1', valores: ['0','1'] },
-      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'cnpj_emitente',      tipo: 'texto',   obrigatorio: true,  exemplo: '14123456000189' },
-      { nome: 'cnpj_destinatario',  tipo: 'texto',   obrigatorio: false, exemplo: '98765432000110' },
-      { nome: 'numero_nf',          tipo: 'texto',   obrigatorio: true,  exemplo: '000001' },
-      { nome: 'serie',              tipo: 'texto',   obrigatorio: false, exemplo: '1' },
-      { nome: 'data_emissao',       tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
-      { nome: 'nat_op',             tipo: 'texto',   obrigatorio: false, exemplo: 'Venda de mercadoria' },
-      { nome: 'v_nf',               tipo: 'decimal', obrigatorio: true,  exemplo: '1500.00' },
-      { nome: 'v_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_st',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_ipi',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_frete',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_desc',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_iss',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'numero_item',        tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
-      { nome: 'c_prod',             tipo: 'texto',   obrigatorio: false, exemplo: '001' },
-      { nome: 'x_prod',             tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
-      { nome: 'ncm',                tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
-      { nome: 'cest',               tipo: 'texto',   obrigatorio: false, exemplo: '' },
-      { nome: 'cfop',               tipo: 'texto',   obrigatorio: true,  exemplo: '5102' },
-      { nome: 'cst',                tipo: 'texto',   obrigatorio: false, exemplo: '07' },
-      { nome: 'csosn',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
-      { nome: 'orig',               tipo: 'texto',   obrigatorio: false, exemplo: '0' },
-      { nome: 'q_com',              tipo: 'decimal', obrigatorio: false, exemplo: '10.00' },
-      { nome: 'v_un_com',           tipo: 'decimal', obrigatorio: false, exemplo: '18.90' },
-      { nome: 'v_prod',             tipo: 'decimal', obrigatorio: true,  exemplo: '189.00' },
-      { nome: 'v_desc_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_icms_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_st',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_ipi_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_pis',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_pis_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_cofins',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_cofins_item',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'chave_nfe',         tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
+      { nome: 'tp_nf',             tipo: 'enum',    obrigatorio: true,  exemplo: '1', valores: ['0','1'] },
+      { nome: 'competencia',       tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_emitente',     tipo: 'texto',   obrigatorio: true,  exemplo: '14123456000189' },
+      { nome: 'cnpj_destinatario', tipo: 'texto',   obrigatorio: false, exemplo: '98765432000110' },
+      { nome: 'numero_nf',         tipo: 'texto',   obrigatorio: true,  exemplo: '000001' },
+      { nome: 'serie',             tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',      tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
+      { nome: 'nat_op',            tipo: 'texto',   obrigatorio: false, exemplo: 'Venda de mercadoria' },
+      { nome: 'v_nf',              tipo: 'decimal', obrigatorio: true,  exemplo: '1500.00' },
+      { nome: 'v_icms',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_st',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_frete',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_desc',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_iss',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'numero_item',       tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
+      { nome: 'c_prod',            tipo: 'texto',   obrigatorio: false, exemplo: '001' },
+      { nome: 'x_prod',            tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
+      { nome: 'ncm',               tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
+      { nome: 'cest',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'cfop',              tipo: 'texto',   obrigatorio: true,  exemplo: '5102' },
+      { nome: 'cst',               tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'csosn',             tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'orig',              tipo: 'texto',   obrigatorio: false, exemplo: '0' },
+      { nome: 'q_com',             tipo: 'decimal', obrigatorio: false, exemplo: '10.00' },
+      { nome: 'v_un_com',          tipo: 'decimal', obrigatorio: false, exemplo: '18.90' },
+      { nome: 'v_prod',            tipo: 'decimal', obrigatorio: true,  exemplo: '189.00' },
+      { nome: 'v_desc_item',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_item',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_st',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms_st',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_st',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_pis',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_pis',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_cofins',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_cofins',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins_item',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
     ],
   },
   'notas_entrada_v2.csv': {
-    descricao: 'Notas de Entrada v2 (com itens)',
-    tabela: '_csv_v2_motor', _v2: true, mapear: null,
+    descricao: 'Notas de Entrada v2 (com itens)', tabela: '_csv_v2_motor', _v2: true, mapear: null,
     colunas: [
-      { nome: 'chave_nfe',          tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
-      { nome: 'tp_nf',              tipo: 'enum',    obrigatorio: true,  exemplo: '0', valores: ['0','1'] },
-      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'cnpj_emitente',      tipo: 'texto',   obrigatorio: true,  exemplo: '11222333000144' },
-      { nome: 'cnpj_destinatario',  tipo: 'texto',   obrigatorio: false, exemplo: '14123456000189' },
-      { nome: 'numero_nf',          tipo: 'texto',   obrigatorio: true,  exemplo: '005001' },
-      { nome: 'serie',              tipo: 'texto',   obrigatorio: false, exemplo: '1' },
-      { nome: 'data_emissao',       tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-03' },
-      { nome: 'nat_op',             tipo: 'texto',   obrigatorio: false, exemplo: 'Compra de mercadoria' },
-      { nome: 'v_nf',               tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
-      { nome: 'v_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_st',               tipo: 'decimal', obrigatorio: false, exemplo: '224.00' },
-      { nome: 'v_ipi',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_frete',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_desc',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_iss',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'numero_item',        tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
-      { nome: 'c_prod',             tipo: 'texto',   obrigatorio: false, exemplo: '001' },
-      { nome: 'x_prod',             tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
-      { nome: 'ncm',                tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
-      { nome: 'cest',               tipo: 'texto',   obrigatorio: false, exemplo: '' },
-      { nome: 'cfop',               tipo: 'texto',   obrigatorio: true,  exemplo: '1102' },
-      { nome: 'cst',                tipo: 'texto',   obrigatorio: false, exemplo: '07' },
-      { nome: 'csosn',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
-      { nome: 'orig',               tipo: 'texto',   obrigatorio: false, exemplo: '0' },
-      { nome: 'q_com',              tipo: 'decimal', obrigatorio: false, exemplo: '50.00' },
-      { nome: 'v_un_com',           tipo: 'decimal', obrigatorio: false, exemplo: '56.00' },
-      { nome: 'v_prod',             tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
-      { nome: 'v_desc_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc',               tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_icms',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_icms_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_st',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_icms_st',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_ipi_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_pis',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_pis',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_pis_item',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_bc_cofins',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'p_cofins',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'v_cofins_item',      tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'chave_nfe',         tipo: 'texto',   obrigatorio: true,  exemplo: '35240114123456000189550010000001231234567890' },
+      { nome: 'tp_nf',             tipo: 'enum',    obrigatorio: true,  exemplo: '0', valores: ['0','1'] },
+      { nome: 'competencia',       tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_emitente',     tipo: 'texto',   obrigatorio: true,  exemplo: '11222333000144' },
+      { nome: 'cnpj_destinatario', tipo: 'texto',   obrigatorio: false, exemplo: '14123456000189' },
+      { nome: 'numero_nf',         tipo: 'texto',   obrigatorio: true,  exemplo: '005001' },
+      { nome: 'serie',             tipo: 'texto',   obrigatorio: false, exemplo: '1' },
+      { nome: 'data_emissao',      tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-03' },
+      { nome: 'nat_op',            tipo: 'texto',   obrigatorio: false, exemplo: 'Compra de mercadoria' },
+      { nome: 'v_nf',              tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
+      { nome: 'v_icms',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_st',              tipo: 'decimal', obrigatorio: false, exemplo: '224.00' },
+      { nome: 'v_ipi',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_frete',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_desc',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_iss',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'numero_item',       tipo: 'texto',   obrigatorio: true,  exemplo: '1' },
+      { nome: 'c_prod',            tipo: 'texto',   obrigatorio: false, exemplo: '001' },
+      { nome: 'x_prod',            tipo: 'texto',   obrigatorio: false, exemplo: 'Arroz Tipo 1 5kg' },
+      { nome: 'ncm',               tipo: 'texto',   obrigatorio: true,  exemplo: '10063021' },
+      { nome: 'cest',              tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'cfop',              tipo: 'texto',   obrigatorio: true,  exemplo: '1102' },
+      { nome: 'cst',               tipo: 'texto',   obrigatorio: false, exemplo: '07' },
+      { nome: 'csosn',             tipo: 'texto',   obrigatorio: false, exemplo: '' },
+      { nome: 'orig',              tipo: 'texto',   obrigatorio: false, exemplo: '0' },
+      { nome: 'q_com',             tipo: 'decimal', obrigatorio: false, exemplo: '50.00' },
+      { nome: 'v_un_com',          tipo: 'decimal', obrigatorio: false, exemplo: '56.00' },
+      { nome: 'v_prod',            tipo: 'decimal', obrigatorio: true,  exemplo: '2800.00' },
+      { nome: 'v_desc_item',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_item',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_st',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_icms_st',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_icms_st',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_ipi_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_pis',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_pis',             tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_pis_item',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_bc_cofins',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'p_cofins',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'v_cofins_item',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
     ],
   },
   'folha.csv': {
@@ -264,13 +262,13 @@ const LAYOUTS = {
   'pagamentos.csv': {
     descricao: 'Pagamentos', tabela: 'pagamentos',
     colunas: [
-      { nome: 'cnpj_empresa',         tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'data_pagamento',        tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
-      { nome: 'descricao',             tipo: 'texto',   obrigatorio: true,  exemplo: 'Aluguel janeiro' },
-      { nome: 'valor',                 tipo: 'decimal', obrigatorio: true,  exemplo: '4500.00' },
-      { nome: 'categoria',             tipo: 'texto',   obrigatorio: false, exemplo: 'Aluguel' },
-      { nome: 'cnpj_cpf_favorecido',   tipo: 'texto',   obrigatorio: false, exemplo: '33.000.118/0001-79' },
-      { nome: 'competencia',           tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cnpj_empresa',       tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'data_pagamento',      tipo: 'data',    obrigatorio: true,  exemplo: '2024-01-05' },
+      { nome: 'descricao',           tipo: 'texto',   obrigatorio: true,  exemplo: 'Aluguel janeiro' },
+      { nome: 'valor',               tipo: 'decimal', obrigatorio: true,  exemplo: '4500.00' },
+      { nome: 'categoria',           tipo: 'texto',   obrigatorio: false, exemplo: 'Aluguel' },
+      { nome: 'cnpj_cpf_favorecido', tipo: 'texto',   obrigatorio: false, exemplo: '33.000.118/0001-79' },
+      { nome: 'competencia',         tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, data_pagamento: row.data_pagamento, descricao: row.descricao, valor: parseFloat(row.valor), categoria: row.categoria||'', cnpj_cpf_favorecido: row.cnpj_cpf_favorecido||'', competencia: row.competencia }),
   },
@@ -318,28 +316,28 @@ const LAYOUTS = {
   'irrf.csv': {
     descricao: 'IRRF', tabela: 'irrf',
     colunas: [
-      { nome: 'cnpj_empresa',         tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'competencia',           tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'cpf_beneficiario',      tipo: 'texto',   obrigatorio: true,  exemplo: '987.654.321-00' },
-      { nome: 'natureza_rendimento',   tipo: 'texto',   obrigatorio: false, exemplo: 'Salário' },
-      { nome: 'valor_rendimento',      tipo: 'decimal', obrigatorio: false, exemplo: '1600.00' },
-      { nome: 'base_calculo',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'aliquota',              tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_irrf',            tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'data_recolhimento',     tipo: 'data',    obrigatorio: false, exemplo: '2024-02-20' },
+      { nome: 'cnpj_empresa',       tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'cpf_beneficiario',   tipo: 'texto',   obrigatorio: true,  exemplo: '987.654.321-00' },
+      { nome: 'natureza_rendimento',tipo: 'texto',   obrigatorio: false, exemplo: 'Salário' },
+      { nome: 'valor_rendimento',   tipo: 'decimal', obrigatorio: false, exemplo: '1600.00' },
+      { nome: 'base_calculo',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'aliquota',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_irrf',         tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'data_recolhimento',  tipo: 'data',    obrigatorio: false, exemplo: '2024-02-20' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, competencia: row.competencia, cpf_beneficiario: row.cpf_beneficiario, natureza_rendimento: row.natureza_rendimento||'', valor_rendimento: parseFloat(row.valor_rendimento||0), base_calculo: parseFloat(row.base_calculo||0), aliquota: parseFloat(row.aliquota||0), valor_irrf: parseFloat(row.valor_irrf||0), data_recolhimento: row.data_recolhimento||null }),
   },
   'dctfweb.csv': {
     descricao: 'DCTFWeb', tabela: 'dctfweb_lab',
     colunas: [
-      { nome: 'cnpj_empresa',      tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'competencia',       tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'total_debito',      tipo: 'decimal', obrigatorio: false, exemplo: '693.00' },
-      { nome: 'total_credito',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'total_recolher',    tipo: 'decimal', obrigatorio: false, exemplo: '693.00' },
-      { nome: 'data_transmissao',  tipo: 'data',    obrigatorio: false, exemplo: '2024-02-15' },
-      { nome: 'situacao',          tipo: 'enum',    obrigatorio: true,  exemplo: 'transmitida', valores: ['transmitida','pendente','retificada'] },
+      { nome: 'cnpj_empresa',     tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'competencia',      tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'total_debito',     tipo: 'decimal', obrigatorio: false, exemplo: '693.00' },
+      { nome: 'total_credito',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'total_recolher',   tipo: 'decimal', obrigatorio: false, exemplo: '693.00' },
+      { nome: 'data_transmissao', tipo: 'data',    obrigatorio: false, exemplo: '2024-02-15' },
+      { nome: 'situacao',         tipo: 'enum',    obrigatorio: true,  exemplo: 'transmitida', valores: ['transmitida','pendente','retificada'] },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, competencia: row.competencia, total_debito: parseFloat(row.total_debito||0), total_credito: parseFloat(row.total_credito||0), total_recolher: parseFloat(row.total_recolher||0), data_transmissao: row.data_transmissao||null, situacao: row.situacao }),
   },
@@ -374,19 +372,19 @@ const LAYOUTS = {
   'pis_cofins.csv': {
     descricao: 'PIS/COFINS', tabela: 'pis_cofins',
     colunas: [
-      { nome: 'cnpj_empresa',       tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'competencia',        tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'regime',             tipo: 'enum',    obrigatorio: true,  exemplo: 'cumulativo', valores: ['cumulativo','nao_cumulativo'] },
-      { nome: 'base_calculo_pis',   tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'aliquota_pis',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_pis',          tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'base_calculo_cofins',tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'aliquota_cofins',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'valor_cofins',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'creditos_pis',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'creditos_cofins',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'pis_recolher',       tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
-      { nome: 'cofins_recolher',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'cnpj_empresa',        tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'competencia',         tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'regime',              tipo: 'enum',    obrigatorio: true,  exemplo: 'cumulativo', valores: ['cumulativo','nao_cumulativo'] },
+      { nome: 'base_calculo_pis',    tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'aliquota_pis',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_pis',           tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'base_calculo_cofins', tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'aliquota_cofins',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'valor_cofins',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'creditos_pis',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'creditos_cofins',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'pis_recolher',        tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
+      { nome: 'cofins_recolher',     tipo: 'decimal', obrigatorio: false, exemplo: '0.00' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, competencia: row.competencia, regime: row.regime, base_calculo_pis: parseFloat(row.base_calculo_pis||0), aliquota_pis: parseFloat(row.aliquota_pis||0), valor_pis: parseFloat(row.valor_pis||0), base_calculo_cofins: parseFloat(row.base_calculo_cofins||0), aliquota_cofins: parseFloat(row.aliquota_cofins||0), valor_cofins: parseFloat(row.valor_cofins||0), creditos_pis: parseFloat(row.creditos_pis||0), creditos_cofins: parseFloat(row.creditos_cofins||0), pis_recolher: parseFloat(row.pis_recolher||0), cofins_recolher: parseFloat(row.cofins_recolher||0) }),
   },
@@ -428,25 +426,25 @@ const LAYOUTS = {
   'gabarito.csv': {
     descricao: 'Gabarito', tabela: 'gabarito',
     colunas: [
-      { nome: 'cnpj_empresa',   tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
-      { nome: 'competencia',    tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
-      { nome: 'tributo',        tipo: 'texto',   obrigatorio: true,  exemplo: 'DAS' },
-      { nome: 'valor_esperado', tipo: 'decimal', obrigatorio: true,  exemplo: '2250.00' },
-      { nome: 'tolerancia',     tipo: 'decimal', obrigatorio: false, exemplo: '0.01' },
-      { nome: 'descricao_teste',tipo: 'texto',   obrigatorio: false, exemplo: 'DAS Simples Nacional janeiro 2024' },
+      { nome: 'cnpj_empresa',    tipo: 'texto',   obrigatorio: true,  exemplo: '14.123.456/0001-89' },
+      { nome: 'competencia',     tipo: 'aaaa-mm', obrigatorio: true,  exemplo: '2024-01' },
+      { nome: 'tributo',         tipo: 'texto',   obrigatorio: true,  exemplo: 'DAS' },
+      { nome: 'valor_esperado',  tipo: 'decimal', obrigatorio: true,  exemplo: '2250.00' },
+      { nome: 'tolerancia',      tipo: 'decimal', obrigatorio: false, exemplo: '0.01' },
+      { nome: 'descricao_teste', tipo: 'texto',   obrigatorio: false, exemplo: 'DAS Simples Nacional janeiro 2024' },
     ],
     mapear: (row, uid) => ({ usuario_id: uid, cnpj_empresa: row.cnpj_empresa, competencia: row.competencia, tributo: row.tributo, valor_esperado: parseFloat(row.valor_esperado), tolerancia: parseFloat(row.tolerancia||0.01), descricao_teste: row.descricao_teste||'' }),
   },
 }
 
 const FORMATOS_FUTUROS = [
-  { label: 'Excel (.xlsx)',      status: 'Em breve', cor: '#16a34a' },
-  { label: 'SPED Fiscal (.txt)',  status: 'Em breve', cor: '#2563eb' },
-  { label: 'SPED Contribuições', status: 'Em breve', cor: '#2563eb' },
-  { label: 'ECD (.txt)',         status: 'Em breve', cor: '#7c3aed' },
-  { label: 'ECF (.txt)',         status: 'Em breve', cor: '#7c3aed' },
-  { label: 'XML NF-e',           status: 'Em breve', cor: '#d97706' },
-  { label: 'DCTF (.xml)',        status: 'Em breve', cor: '#d97706' },
+  { label: 'Excel (.xlsx)',       cor: '#16a34a' },
+  { label: 'SPED Fiscal (.txt)', cor: '#2563eb' },
+  { label: 'SPED Contribuições', cor: '#2563eb' },
+  { label: 'ECD (.txt)',         cor: '#7c3aed' },
+  { label: 'ECF (.txt)',         cor: '#7c3aed' },
+  { label: 'XML NF-e',           cor: '#d97706' },
+  { label: 'DCTF (.xml)',        cor: '#d97706' },
 ]
 
 function parseCSV(texto) {
@@ -468,28 +466,23 @@ function validarRow(row, layout, arquivo) {
   layout.colunas.forEach(col => {
     const val = row[col.nome]
     if (col.obrigatorio && (!val || val.toString().trim() === ''))
-      erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Campo obrigatório vazio` })
+      erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: 'Campo obrigatório vazio' })
     if (val && val !== '') {
       if (col.tipo === 'decimal') { const v = parseFloat(val.replace(',','.')); if (isNaN(v)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Valor numérico inválido: "${val}"` }) }
-      if (col.tipo === 'data')    { if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Data inválida: "${val}" — use AAAA-MM-DD` }) }
-      if (col.tipo === 'aaaa-mm') { if (!/^\d{4}-\d{2}$/.test(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Competência inválida: "${val}" — use AAAA-MM` }) }
-      if (col.tipo === 'texto2')  { if (val.length > 2) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `UF inválida: "${val}" — use 2 letras` }) }
-      if (col.tipo === 'enum' && col.valores) { if (!col.valores.includes(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Valor "${val}" inválido. Permitidos: ${col.valores.join(', ')}` }) }
+      if (col.tipo === 'data')    { if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Data inválida — use AAAA-MM-DD` }) }
+      if (col.tipo === 'aaaa-mm') { if (!/^\d{4}-\d{2}$/.test(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Competência inválida — use AAAA-MM` }) }
+      if (col.tipo === 'texto2')  { if (val.length > 2) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `UF inválida — use 2 letras` }) }
+      if (col.tipo === 'enum' && col.valores && !col.valores.includes(val)) erros.push({ arquivo, linha: row._linha, coluna: col.nome, motivo: `Valor "${val}" inválido. Permitidos: ${col.valores.join(', ')}` })
     }
   })
   return erros
 }
 
 function baixarModelo(nomeArquivo) {
-  const layout = LAYOUTS[nomeArquivo]
-  if (!layout) return
-  const cabecalho = layout.colunas.map(c => c.nome).join(';')
-  const exemplo   = layout.colunas.map(c => c.exemplo || '').join(';')
-  const blob = new Blob([`${cabecalho}\n${exemplo}\n`], { type: 'text/csv;charset=utf-8;' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href = url; a.download = nomeArquivo; a.click()
-  URL.revokeObjectURL(url)
+  const layout = LAYOUTS[nomeArquivo]; if (!layout) return
+  const blob = new Blob([`${layout.colunas.map(c=>c.nome).join(';')}\n${layout.colunas.map(c=>c.exemplo||'').join(';')}\n`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob); const a = document.createElement('a')
+  a.href = url; a.download = nomeArquivo; a.click(); URL.revokeObjectURL(url)
 }
 
 async function exportarCenario(uid, cnpjEmpresa, codigoCenario) {
@@ -504,14 +497,220 @@ async function exportarCenario(uid, cnpjEmpresa, codigoCenario) {
     const { data } = await supabase.from(t.tabela).select('*').eq(t.filtro.campo, t.filtro.valor).eq('usuario_id', uid)
     if (!data || data.length === 0) continue
     const cols = Object.keys(data[0]).filter(k => k !== 'id' && k !== 'usuario_id' && k !== 'created_at')
-    const linhas = data.map(row => cols.map(c => row[c] ?? '').join(';'))
-    const blob = new Blob([[cols.join(';'), ...linhas].join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `${codigoCenario}_${t.arquivo}`; a.click()
-    URL.revokeObjectURL(url)
+    const blob = new Blob([[cols.join(';'), ...data.map(row => cols.map(c => row[c]??'').join(';'))].join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `${codigoCenario}_${t.arquivo}`; a.click(); URL.revokeObjectURL(url)
     await new Promise(r => setTimeout(r, 300))
   }
+}
+
+// ─── PAINEL EXECUTIVO DO MOTOR ────────────────────────────────────────────────
+function PainelMotor({ motorInfo, cliente }) {
+  const [expandido, setExpandido] = useState(true)
+  const op = motorInfo?.resultadoCompleto?.consolidado?.oportunidades?.[0]
+  const diagnostico = motorInfo?.resultadoCompleto?.resultados?.[0]?.diagnostico
+  const calculos    = op?.calculos
+  const porComp     = Array.isArray(calculos?.porCompetencia) ? calculos.porCompetencia : []
+  const pendentePGDAS = porComp.some(c => c.pendentePGDAS) || motorInfo?.pendentePGDAS
+
+  const receitaTotal     = motorInfo?.receitaTotal     || 0
+  const receitaMono      = motorInfo?.receitaMonofasica || 0
+  const receitaNaoMono   = receitaTotal - receitaMono
+  const pctMono          = receitaTotal > 0 ? (receitaMono / receitaTotal * 100) : 0
+
+  const corStatus = pendentePGDAS ? '#d97706' : motorInfo?.temCredito ? '#16a34a' : '#64748b'
+  const bgStatus  = pendentePGDAS ? '#fffbeb' : motorInfo?.temCredito ? '#f0fdf4' : '#f8fafc'
+  const bdStatus  = pendentePGDAS ? '#fde68a' : motorInfo?.temCredito ? '#86efac' : '#e2e8f0'
+  const txtStatus = pendentePGDAS
+    ? '⚠️ OPORTUNIDADE POTENCIAL — Crédito pendente de apuração com PGDAS-D'
+    : motorInfo?.temCredito
+    ? '✅ TEM CRÉDITO'
+    : '— SEM OPORTUNIDADE IDENTIFICADA'
+
+  return (
+    <div style={{ background: '#fff', border: '2px solid #0B1F4D', borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
+
+      {/* Cabeçalho executivo */}
+      <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 10, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>FISCALTRIB — MOTOR DE INTELIGÊNCIA TRIBUTÁRIA</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>⚡ Relatório de Análise — {motorInfo?.arquivo}</div>
+          <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>
+            {cliente?.razao_social || 'Empresa'} · {cliente?.regime || ''} · {cliente?.cnpj || ''}
+          </div>
+        </div>
+        <button onClick={() => setExpandido(e => !e)}
+          style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          {expandido ? '▲ Recolher' : '▼ Expandir'}
+        </button>
+      </div>
+
+      {/* Status principal */}
+      <div style={{ background: bgStatus, border: `2px solid ${bdStatus}`, margin: '16px 20px', borderRadius: 10, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: corStatus }}>{txtStatus}</div>
+        {pendentePGDAS && (
+          <div style={{ fontSize: 12, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '4px 10px', fontWeight: 600 }}>
+            Próximo passo: importar PGDAS-D para calcular o crédito exato
+          </div>
+        )}
+      </div>
+
+      {expandido && (
+        <div style={{ padding: '0 20px 20px' }}>
+
+          {/* KPIs principais */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: 'NF-es analisadas',           valor: fmtN(motorInfo?.nfes || 0),             cor: '#0B1F4D', icon: '🧾' },
+              { label: 'Itens analisados',            valor: fmtN(motorInfo?.totalItens || 0),        cor: '#2563eb', icon: '📦' },
+              { label: 'Itens monofásicos',           valor: fmtN(motorInfo?.totalMonofasicos || 0),  cor: '#7c3aed', icon: '⚡' },
+              { label: 'Competências',                valor: fmtN(porComp.length || motorInfo?.competencias || 0), cor: '#d97706', icon: '📅' },
+            ].map((c,i) => (
+              <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>{c.icon} {c.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: c.cor }}>{c.valor}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Composição da receita */}
+          {receitaTotal > 0 && (
+            <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '14px 18px', marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1F4D', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>📊 Composição da Receita Analisada</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div style={{ background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>RECEITA TOTAL</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D' }}>{fmtR(receitaTotal)}</div>
+                </div>
+                <div style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px 14px', border: '1px solid #86efac' }}>
+                  <div style={{ fontSize: 10, color: '#166534', fontWeight: 600 }}>RECEITA MONOFÁSICA</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#16a34a' }}>{fmtR(receitaMono)}</div>
+                  <div style={{ fontSize: 10, color: '#16a34a', marginTop: 2 }}>{fmtPct(pctMono)} da receita total</div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>RECEITA NÃO MONOFÁSICA</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#64748b' }}>{fmtR(receitaNaoMono)}</div>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{fmtPct(100 - pctMono)} da receita total</div>
+                </div>
+              </div>
+              {/* Barra de composição */}
+              <div style={{ background: '#e2e8f0', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(90deg,#16a34a,#4ade80)', height: 10, width: `${pctMono}%`, borderRadius: 99, transition: 'width 0.5s' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>● Monofásica {fmtPct(pctMono)}</span>
+                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>● Não monofásica {fmtPct(100 - pctMono)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Tabela por competência */}
+          {porComp.length > 0 && (
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: 16 }}>
+              <div style={{ background: '#0B1F4D', padding: '10px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#7CC4FF', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  📅 Detalhamento por Competência
+                </div>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['Competência','NF-es','Itens Mono','Receita Monofásica','Crédito / Status'].map(h => (
+                      <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', borderBottom: '2px solid #e2e8f0', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {porComp.map((c, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0B1F4D' }}>{c.competencia}</td>
+                      <td style={{ padding: '10px 14px', color: '#374151' }}>{c.qtdNFes || c.totalNFes || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#7c3aed', fontWeight: 700 }}>{c.totalItemosMono || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: 700 }}>{fmtR(c.receitaMonofasica || 0)}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        {c.pendentePGDAS
+                          ? <span style={{ background: '#fef3c7', color: '#92400e', padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>⚠️ Pendente PGDAS-D</span>
+                          : c.credito > 0
+                          ? <span style={{ background: '#dcfce7', color: '#166534', padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>✅ {fmtR(c.credito)}</span>
+                          : <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#0B1F4D' }}>
+                    <td colSpan={3} style={{ padding: '10px 14px', color: '#7CC4FF', fontWeight: 700, fontSize: 12 }}>TOTAL CONSOLIDADO</td>
+                    <td style={{ padding: '10px 14px', color: '#4ade80', fontWeight: 900, fontSize: 14 }}>{fmtR(receitaMono)}</td>
+                    <td style={{ padding: '10px 14px', color: pendentePGDAS ? '#fbbf24' : '#4ade80', fontWeight: 900, fontSize: 13 }}>
+                      {pendentePGDAS ? '⚠️ Pendente PGDAS-D' : fmtR(motorInfo?.credito || 0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* Oportunidades identificadas */}
+          {motorInfo?.detalhes?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1F4D', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>⚡ Teses Identificadas</div>
+              {motorInfo.detalhes.map((d, i) => (
+                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #7c3aed', borderRadius: 8, padding: '12px 16px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 4 }}>⚡ {d.tese}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>Base legal: Lei 10.147/2000 · Regime monofásico PIS/COFINS</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>GRAU DE CONFIANÇA</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: d.grau === 'ALTO' ? '#16a34a' : d.grau === 'MEDIO' ? '#d97706' : '#dc2626' }}>
+                        {d.grau}
+                      </div>
+                    </div>
+                  </div>
+                  {pendentePGDAS && (
+                    <div style={{ marginTop: 10, background: '#fffbeb', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#92400e', border: '1px solid #fde68a' }}>
+                      <strong>Memória do cálculo:</strong> {fmtR(receitaMono)} de receita monofásica identificada em {porComp.length} competência(s).
+                      Crédito recuperável = receita monofásica × (% PIS + % COFINS dentro do DAS).
+                      Aguardando: RBT12 · Anexo/Faixa · Alíquota efetiva · Repartição PIS/COFINS · DAS pago.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Próximos passos */}
+          <div style={{ background: pendentePGDAS ? '#fffbeb' : '#f0fdf4', border: `1px solid ${pendentePGDAS ? '#fde68a' : '#86efac'}`, borderRadius: 10, padding: '14px 18px' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: pendentePGDAS ? '#92400e' : '#166534', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+              {pendentePGDAS ? '📋 Próximos Passos para Apuração do Crédito' : '✅ Análise Concluída'}
+            </div>
+            {pendentePGDAS ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { n: '1', txt: 'Importar PGDAS-D de cada competência' },
+                  { n: '2', txt: 'Confirmar RBT12 e faixa do Simples Nacional' },
+                  { n: '3', txt: 'Verificar alíquota efetiva e repartição de PIS/COFINS' },
+                  { n: '4', txt: 'Calcular DAS correto excluindo receita monofásica' },
+                  { n: '5', txt: 'Apurar diferença recuperável por competência' },
+                  { n: '6', txt: 'Emitir PER/DCOMP para recuperação administrativa' },
+                ].map((p, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#78350f' }}>
+                    <span style={{ background: '#d97706', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{p.n}</span>
+                    {p.txt}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#166534' }}>Nenhuma oportunidade de monofásicos identificada nas NF-es analisadas. Análise concluída.</div>
+            )}
+          </div>
+
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
@@ -531,6 +730,7 @@ export default function Laboratorio() {
   const [historico,       setHistorico]       = useState([])
   const [limpando,        setLimpando]        = useState(false)
   const [cnpjAtivo,       setCnpjAtivo]       = useState('')
+  const [clienteAtivo,    setClienteAtivo]    = useState(null)
   const [novoCenario,     setNovoCenario]     = useState({ codigo: '', nome: '' })
   const [exportando,      setExportando]      = useState(false)
   const [motorResultados, setMotorResultados] = useState([])
@@ -551,21 +751,20 @@ export default function Laboratorio() {
     const periodoInicio = competencias[0] || ''
     const periodoFim    = competencias[competencias.length - 1] || ''
     const totalNfes     = nfes.length
-
     if (oportunidades.length === 0) {
       await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: periodoFim || new Date().toISOString().slice(0,7), tributo: 'CSV_V2 importado', credito: 0, tipo_oportunidade: '', risco: 'baixo', periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes }, { onConflict: 'cliente_id,competencia,tributo' })
       return
     }
     for (const op of oportunidades) {
-      const porCompetencia = op.calculos?.porCompetencia || []
+      const porComp = op.calculos?.porCompetencia || []
       const risco = op.grauConfianca === 'ALTO' ? 'baixo' : op.grauConfianca === 'MEDIO' ? 'medio' : 'alto'
       const tese  = op.tese || 'Oportunidade identificada'
-      if (!Array.isArray(porCompetencia) || porCompetencia.length === 0) {
-        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: periodoFim, tributo: tese, credito: op.calculos?.creditoTotal || 0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes }, { onConflict: 'cliente_id,competencia,tributo' })
+      if (!Array.isArray(porComp) || porComp.length === 0) {
+        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: periodoFim, tributo: tese, credito: op.calculos?.creditoTotal||0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: totalNfes }, { onConflict: 'cliente_id,competencia,tributo' })
         continue
       }
-      for (const dadosComp of porCompetencia) {
-        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: dadosComp.competencia, tributo: tese, credito: dadosComp.creditoTotal || 0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: dadosComp.qtdNFes || 0 }, { onConflict: 'cliente_id,competencia,tributo' })
+      for (const dadosComp of porComp) {
+        await supabase.from('entradas').upsert({ cliente_id: clienteId, usuario_id: usuarioId, competencia: dadosComp.competencia, tributo: tese, credito: dadosComp.creditoTotal||0, tipo_oportunidade: tese, risco, periodo_inicio: periodoInicio, periodo_fim: periodoFim, nfes_analisadas: dadosComp.qtdNFes||0 }, { onConflict: 'cliente_id,competencia,tributo' })
       }
     }
   }
@@ -584,7 +783,7 @@ export default function Laboratorio() {
     })
 
     setProgresso({ atual: 0, total: filesOrdenados.length, arquivo: '' })
-    let cnpjDetectado = ''; let clienteIdDetectado = null
+    let cnpjDetectado = ''; let clienteIdDetectado = null; let clienteDataDetectada = null
 
     for (let fi = 0; fi < filesOrdenados.length; fi++) {
       const file = filesOrdenados[fi]
@@ -602,41 +801,78 @@ export default function Laboratorio() {
         if (colsFaltando.length > 0) { novosResultados.push({ arquivo: file.name, status: 'erro', motivo: `Colunas faltando: ${colsFaltando.join(', ')}`, importados: 0, rejeitados: rows.length, erros: [], total: rows.length }); continue }
       }
 
-      if (nomeArquivo === 'empresa.csv' && rows.length > 0) { cnpjDetectado = rows[0].cnpj || ''; setCnpjAtivo(cnpjDetectado) }
+      if (nomeArquivo === 'empresa.csv' && rows.length > 0) {
+        cnpjDetectado = rows[0].cnpj || ''
+        setCnpjAtivo(cnpjDetectado)
+      }
 
+      // ── BUG FIX: busca o cliente IMEDIATAMENTE após processar empresa.csv ──
       let clienteId = clienteIdDetectado
-      if (['notas_saida.csv','notas_entrada.csv','oportunidades.csv','notas_saida_v2.csv','notas_entrada_v2.csv'].includes(nomeArquivo) && !clienteId && cnpjDetectado) {
-        const { data: cli } = await supabase.from('clientes').select('id').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
-        clienteId = cli?.id || null; clienteIdDetectado = clienteId
+      const precisaCliente = ['notas_saida.csv','notas_entrada.csv','oportunidades.csv','notas_saida_v2.csv','notas_entrada_v2.csv'].includes(nomeArquivo)
+      if (precisaCliente && !clienteId && cnpjDetectado) {
+        const { data: cli } = await supabase.from('clientes').select('*').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
+        if (cli) { clienteId = cli.id; clienteIdDetectado = cli.id; clienteDataDetectada = cli; setClienteAtivo(cli) }
       }
 
       let importados = 0; let rejeitados = 0; const errosArquivo = []
 
-      // ── V2 → Motor ──────────────────────────────────────────────────────
+      // ── V2 → Motor ──────────────────────────────────────────────────────────
       if (layout._v2) {
         const { nfes: nfesCSV, erros: errosCSV, avisos, rejeitadas } = parseCSVNFeV2(texto, file.name)
         errosCSV.forEach(e => { errosArquivo.push(e); todosErros.push(e) })
         avisos.forEach(a => todosAvisos.push(a))
 
         if (nfesCSV.length === 0) {
-          novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: 'erro', motivo: errosCSV.length > 0 ? 'Nenhuma NF-e válida — veja erros abaixo' : 'Arquivo sem dados válidos', importados: 0, rejeitados: rejeitadas.length, erros: errosArquivo, total: rows.length })
+          novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: 'erro', motivo: errosCSV.length > 0 ? 'Nenhuma NF-e válida — veja erros abaixo' : 'Arquivo sem dados válidos', importados: 0, rejeitados: rejeitadas?.length||0, erros: errosArquivo, total: rows.length })
           continue
         }
 
         if (clienteId) {
           try {
-            const { data: cliData } = await supabase.from('clientes').select('*').eq('id', clienteId).single()
-            const resultadoMotor    = await MotorInteligenciaTributaria.analisar(nfesCSV, cliData)
-            const oportunidades     = resultadoMotor?.consolidado?.oportunidades || []
-            const creditoTotal      = oportunidades.reduce((s,o) => s+(o.calculos?.creditoTotal||0), 0)
+            const cliData = clienteDataDetectada || (await supabase.from('clientes').select('*').eq('id', clienteId).single()).data
+            const resultadoMotor = await MotorInteligenciaTributaria.analisar(nfesCSV, cliData)
+            const oportunidades  = resultadoMotor?.consolidado?.oportunidades || []
+            const creditoTotal   = oportunidades.reduce((s,o) => s+(o.calculos?.creditoTotal||0), 0)
+
+            // Calcular receita monofásica total das NF-es
+            const todasNFesSaida  = nfesCSV.filter(n => !n.tpNF || n.tpNF === '1')
+            const receitaTotal    = todasNFesSaida.reduce((s,n) => s+(n.vNF||0), 0)
+            const receitaMono     = oportunidades.reduce((s,o) => s+(o.calculos?.receitaMonofasica||0), 0)
+            const totalItens      = todasNFesSaida.reduce((s,n) => s+(n.itens?.length||0), 0)
+            const totalMono       = oportunidades.reduce((s,o) => s+(o.calculos?.totalItensMonofasicos||0), 0) || resultadoMotor?.resultados?.[0]?.diagnostico?.totalItensMonofasicos || 0
+            const porComp         = oportunidades[0]?.calculos?.porCompetencia || []
+            const pendentePGDAS   = Array.isArray(porComp) ? porComp.some(c => c.pendentePGDAS) : false
+
             await salvarOportunidadesEmEntradas_lab({ clienteId, usuarioId: uid, resultadoMotor, nfes: nfesCSV })
-            const motorInfo = { arquivo: file.name, nfes: nfesCSV.length, oportunidades: oportunidades.length, credito: creditoTotal, avisos: avisos.length, temCredito: creditoTotal > 0, detalhes: oportunidades.map(o => ({ tese: o.tese, credito: o.calculos?.creditoTotal||0, grau: o.grauConfianca })) }
+
+            const motorInfo = {
+              arquivo:           file.name,
+              nfes:              nfesCSV.length,
+              oportunidades:     oportunidades.length,
+              credito:           creditoTotal,
+              avisos:            avisos.length,
+              temCredito:        creditoTotal > 0,
+              pendentePGDAS,
+              receitaTotal,
+              receitaMonofasica: receitaMono,
+              totalItens,
+              totalMonofasicos:  totalMono,
+              competencias:      porComp.length,
+              detalhes:          oportunidades.map(o => ({ tese: o.tese, credito: o.calculos?.creditoTotal||0, grau: o.grauConfianca })),
+              resultadoCompleto: resultadoMotor,
+            }
             novosMotorRes.push(motorInfo)
-            novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: rejeitadas.length===0?'sucesso':'parcial', importados: nfesCSV.length, rejeitados: rejeitadas.length, erros: errosArquivo, total: nfesCSV.length+rejeitadas.length, _motorInfo: motorInfo })
+            novosResultados.push({
+              arquivo: file.name, descricao: layout.descricao, tabela: 'Motor',
+              status: rejeitadas?.length===0 ? 'sucesso' : 'parcial',
+              importados: nfesCSV.length, rejeitados: rejeitadas?.length||0,
+              erros: errosArquivo, total: nfesCSV.length+(rejeitadas?.length||0),
+              _motorInfo: motorInfo, _cliente: cliData,
+            })
           } catch(e) {
             errosArquivo.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: '+e.message })
             todosErros.push({ arquivo: file.name, linha: '-', coluna: '-', motivo: 'Erro no Motor: '+e.message })
-            novosResultados.push({ arquivo: file.name, status: 'erro', motivo: 'Erro ao executar o Motor', importados: 0, rejeitados: rows.length, erros: errosArquivo, total: rows.length })
+            novosResultados.push({ arquivo: file.name, status: 'erro', motivo: 'Erro ao executar o Motor: '+e.message, importados: 0, rejeitados: rows.length, erros: errosArquivo, total: rows.length })
           }
         } else {
           novosResultados.push({ arquivo: file.name, descricao: layout.descricao, tabela: 'Motor', status: 'parcial', motivo: 'NF-es parseadas mas sem cliente ativo — importe empresa.csv primeiro', importados: nfesCSV.length, rejeitados: 0, erros: [], total: nfesCSV.length })
@@ -645,7 +881,7 @@ export default function Laboratorio() {
         continue
       }
 
-      // ── Arquivos normais ────────────────────────────────────────────────
+      // ── Arquivos normais ─────────────────────────────────────────────────────
       for (const row of rows) {
         const erros = validarRow(row, layout, file.name)
         if (erros.length > 0) { errosArquivo.push(...erros); todosErros.push(...erros); rejeitados++; continue }
@@ -657,9 +893,10 @@ export default function Laboratorio() {
         } catch(e) { errosArquivo.push({ arquivo: file.name, linha: row._linha, coluna: '-', motivo: e.message }); rejeitados++ }
       }
 
+      // ── BUG FIX: busca cliente logo após gravar empresa.csv ─────────────────
       if (nomeArquivo === 'empresa.csv' && cnpjDetectado && !clienteIdDetectado) {
-        const { data: cli } = await supabase.from('clientes').select('id').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
-        clienteIdDetectado = cli?.id || null
+        const { data: cli } = await supabase.from('clientes').select('*').eq('cnpj', cnpjDetectado).eq('usuario_id', uid).single()
+        if (cli) { clienteIdDetectado = cli.id; clienteDataDetectada = cli; setClienteAtivo(cli) }
       }
 
       await supabase.from('log_importacao').insert({ usuario_id: uid, arquivo: file.name, tabela: layout.tabela, total_linhas: rows.length, importados, rejeitados, erros: errosArquivo, tempo_ms: Date.now()-inicio })
@@ -675,12 +912,14 @@ export default function Laboratorio() {
   async function carregarResumo(uid, cnpj) {
     const { data: emp } = await supabase.from('clientes').select('*').eq('cnpj', cnpj).eq('usuario_id', uid).single()
     if (!emp) return
-    const { data: funcs } = await supabase.from('funcionarios').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const { data: clis  } = await supabase.from('fornecedores').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const { data: prods } = await supabase.from('produtos').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const { data: nfes  } = await supabase.from('entradas').select('receita_bruta,tributo,tributo_pago').eq('cliente_id', emp.id).eq('usuario_id', uid)
-    const { data: folhas} = await supabase.from('folha').select('id,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
-    const { data: tribs } = await supabase.from('tributos_lab').select('tributo,valor_pago,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid)
+    const [{ data: funcs },{ data: clis },{ data: prods },{ data: nfes },{ data: folhas },{ data: tribs }] = await Promise.all([
+      supabase.from('funcionarios').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid),
+      supabase.from('fornecedores').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid),
+      supabase.from('produtos').select('id').eq('cnpj_empresa', cnpj).eq('usuario_id', uid),
+      supabase.from('entradas').select('receita_bruta,tributo,tributo_pago').eq('cliente_id', emp.id).eq('usuario_id', uid),
+      supabase.from('folha').select('id,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid),
+      supabase.from('tributos_lab').select('tributo,valor_pago,competencia').eq('cnpj_empresa', cnpj).eq('usuario_id', uid),
+    ])
     const nfSaida   = (nfes||[]).filter(n=>n.tributo==='NF-e Saída')
     const nfEntrada = (nfes||[]).filter(n=>n.tributo==='NF-e Entrada')
     setResumo({ emp, qtd_funcionarios: (funcs||[]).length, qtd_clientes: (clis||[]).length, qtd_produtos: (prods||[]).length, qtd_nf_saida: nfSaida.length, qtd_nf_entrada: nfEntrada.length, qtd_folhas: [...new Set((folhas||[]).map(f=>f.competencia))].length, receita_bruta: nfSaida.reduce((s,n)=>s+(n.receita_bruta||0),0), tributos_total: (tribs||[]).reduce((s,t)=>s+(t.valor_pago||0),0), tributos: tribs||[] })
@@ -689,10 +928,12 @@ export default function Laboratorio() {
   async function compararGabarito() {
     setComparando(true); setComparacao([])
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: gab   } = await supabase.from('gabarito').select('*').eq('usuario_id', user.id)
+    const [{ data: gab },{ data: tribs },{ data: ents }] = await Promise.all([
+      supabase.from('gabarito').select('*').eq('usuario_id', user.id),
+      supabase.from('tributos_lab').select('*').eq('usuario_id', user.id),
+      supabase.from('entradas').select('*').eq('usuario_id', user.id),
+    ])
     if (!gab||gab.length===0) { setComparando(false); return }
-    const { data: tribs } = await supabase.from('tributos_lab').select('*').eq('usuario_id', user.id)
-    const { data: ents  } = await supabase.from('entradas').select('*').eq('usuario_id', user.id)
     const res = gab.map(g => {
       let valorCalculado = 0
       const t = (tribs||[]).find(x=>x.cnpj_empresa===g.cnpj_empresa&&x.competencia===g.competencia&&x.tributo===g.tributo)
@@ -713,7 +954,7 @@ export default function Laboratorio() {
     for (const t of ['funcionarios','socios','fornecedores','produtos','folha','pagamentos','recebimentos','tributos_lab','fgts','irrf','dctfweb_lab','esocial','efd_reinf','pis_cofins','irpj_csll','gabarito','log_importacao'])
       await supabase.from(t).delete().eq('usuario_id', uid)
     if (cnpjAtivo) await supabase.from('clientes').delete().eq('cnpj', cnpjAtivo).eq('usuario_id', uid)
-    setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setHistorico([]); setMotorResultados([])
+    setResultados([]); setErroGlobal([]); setAvisoGlobal([]); setResumo(null); setComparacao([]); setCnpjAtivo(''); setClienteAtivo(null); setHistorico([]); setMotorResultados([])
     setLimpando(false)
     alert('✅ Cenário limpo! Pronto para um novo cenário.')
   }
@@ -728,14 +969,12 @@ export default function Laboratorio() {
 
   const totalImportados = resultados.reduce((s,r)=>s+r.importados,0)
   const totalRejeitados = resultados.reduce((s,r)=>s+r.rejeitados,0)
-  const aprovados   = comparacao.filter(c=>c.aprovado).length
-  const reprovados  = comparacao.filter(c=>!c.aprovado).length
+  const aprovados    = comparacao.filter(c=>c.aprovado).length
+  const reprovados   = comparacao.filter(c=>!c.aprovado).length
   const conformidade = comparacao.length > 0 ? (aprovados/comparacao.length*100).toFixed(2) : null
-  const temCredito  = motorResultados.some(m => m.temCredito)
-  const semCredito  = motorResultados.length > 0 && !temCredito
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 64 }}>
+    <div style={{ maxWidth: 1060, margin: '0 auto', paddingBottom: 64 }}>
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius: 16, padding: '24px 28px', marginBottom: 24, color: '#fff' }}>
@@ -757,19 +996,11 @@ export default function Laboratorio() {
           </div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input value={novoCenario.codigo} onChange={e=>setNovoCenario(p=>({...p,codigo:e.target.value}))}
-            placeholder="Código (ex: FT-001)"
-            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 140, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
-          />
-          <input value={novoCenario.nome} onChange={e=>setNovoCenario(p=>({...p,nome:e.target.value}))}
-            placeholder="Nome do cenário"
-            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 200, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
-          />
-          {cnpjAtivo && (
-            <div style={{ background: 'rgba(74,222,128,0.2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', fontWeight: 600, border: '1px solid rgba(74,222,128,0.4)' }}>
-              🏢 CNPJ ativo: {cnpjAtivo}
-            </div>
-          )}
+          <input value={novoCenario.codigo} onChange={e=>setNovoCenario(p=>({...p,codigo:e.target.value}))} placeholder="Código (ex: FT-001)"
+            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 140, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }} />
+          <input value={novoCenario.nome} onChange={e=>setNovoCenario(p=>({...p,nome:e.target.value}))} placeholder="Nome do cenário"
+            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', fontSize: 12, width: 200, background: 'rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }} />
+          {cnpjAtivo && <div style={{ background: 'rgba(74,222,128,0.2)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#fff', fontWeight: 600, border: '1px solid rgba(74,222,128,0.4)' }}>🏢 {cnpjAtivo}</div>}
         </div>
       </div>
 
@@ -793,7 +1024,7 @@ export default function Laboratorio() {
             onDrop={e=>{ e.preventDefault(); e.currentTarget.style.background='#f0fdf4'; processarArquivos(e.dataTransfer.files) }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#166534', marginBottom: 4 }}>Selecionar Pasta</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Empresa001/ com todos os CSVs</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>FT-MONO-001/ com todos os CSVs</div>
             <input ref={inputPasta} type="file" webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => processarArquivos(e.target.files)} />
           </div>
           <div onClick={() => inputRef.current.click()}
@@ -808,11 +1039,10 @@ export default function Laboratorio() {
           </div>
         </div>
 
-        {/* Progresso */}
         {processando && (
           <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #bfdbfe', padding: '18px 22px', marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>⏳ {progresso.arquivo}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>⏳ Processando: {progresso.arquivo}</div>
               <div style={{ fontSize: 12, color: '#64748b' }}>{progresso.atual}/{progresso.total}</div>
             </div>
             <div style={{ background: '#e2e8f0', borderRadius: 99, height: 8, overflow: 'hidden' }}>
@@ -821,19 +1051,18 @@ export default function Laboratorio() {
           </div>
         )}
 
-        {/* Resultado */}
         {resultados.length > 0 && !processando && (
           <div>
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
               {[
-                { label:'Arquivos',   valor: resultados.length,   cor:'#0B1F4D' },
-                { label:'Importados', valor: fmtN(totalImportados), cor:'#16a34a' },
-                { label:'Rejeitados', valor: fmtN(totalRejeitados), cor:'#dc2626' },
-                { label:'Sucesso',    valor: totalImportados+totalRejeitados>0?`${Math.round(totalImportados/(totalImportados+totalRejeitados)*100)}%`:'—', cor:'#2563eb' },
+                { label:'Arquivos processados', valor: resultados.length,    cor:'#0B1F4D' },
+                { label:'Registros importados', valor: fmtN(totalImportados), cor:'#16a34a' },
+                { label:'Rejeitados',            valor: fmtN(totalRejeitados), cor:'#dc2626' },
+                { label:'Taxa de sucesso',       valor: totalImportados+totalRejeitados>0?`${Math.round(totalImportados/(totalImportados+totalRejeitados)*100)}%`:'—', cor:'#2563eb' },
               ].map((c,i) => (
-                <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'12px 16px' }}>
-                  <div style={{ fontSize:20, fontWeight:800, color:c.cor }}>{c.valor}</div>
+                <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'14px 16px' }}>
+                  <div style={{ fontSize:22, fontWeight:800, color:c.cor }}>{c.valor}</div>
                   <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{c.label}</div>
                 </div>
               ))}
@@ -841,75 +1070,46 @@ export default function Laboratorio() {
 
             {/* Resultado por arquivo */}
             <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden', marginBottom:16 }}>
-              <div style={{ padding:'14px 20px', borderBottom:'1px solid #e2e8f0', fontSize:15, fontWeight:700, color:'#0B1F4D' }}>📊 Resultado por arquivo</div>
+              <div style={{ padding:'14px 20px', borderBottom:'2px solid #e2e8f0', fontSize:14, fontWeight:700, color:'#0B1F4D', background:'#f8fafc' }}>
+                📊 Resultado por arquivo
+              </div>
               {resultados.map((r,i) => (
                 <div key={i} style={{ borderBottom: i<resultados.length-1?'1px solid #f1f5f9':'none' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 20px', background:'#fff' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 20px' }}>
                     <div style={{ fontSize:18 }}>{r.status==='sucesso'?'✅':r.status==='erro'?'❌':r.status==='ignorado'?'⏭️':'⚠️'}</div>
                     <div style={{ flex:1 }}>
-                      <span style={{ fontSize:15, fontWeight:700, color:'#1e293b' }}>{r.arquivo}</span>
-                      {r.motivo && <span style={{ fontSize:13, color:'#dc2626', marginLeft:10 }}>{r.motivo}</span>}
+                      <span style={{ fontSize:14, fontWeight:700, color:'#1e293b' }}>{r.arquivo}</span>
+                      {r.descricao && <span style={{ fontSize:12, color:'#94a3b8', marginLeft:8 }}>{r.descricao}</span>}
+                      {r.motivo && <div style={{ fontSize:12, color:'#dc2626', marginTop:2 }}>⚠️ {r.motivo}</div>}
                     </div>
-                    {r.status!=='ignorado' && (
-                      <div style={{ fontSize:13, textAlign:'right' }}>
-                        {r.importados>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>→ {fmtN(r.importados)} importado(s)</span>}
-                        {r.rejeitados>0 && <span style={{ color:'#dc2626', fontWeight:700, marginLeft:8 }}>{fmtN(r.rejeitados)} rejeitado(s)</span>}
-                      </div>
-                    )}
+                    <div style={{ fontSize:13, textAlign:'right', flexShrink:0 }}>
+                      {r.importados>0 && <div style={{ color:'#16a34a', fontWeight:700 }}>→ {fmtN(r.importados)} registro(s)</div>}
+                      {r.rejeitados>0 && <div style={{ color:'#dc2626', fontWeight:700 }}>{fmtN(r.rejeitados)} rejeitado(s)</div>}
+                    </div>
                   </div>
-                  {/* Painel Motor v2 */}
+                  {/* Painel executivo do Motor */}
                   {r._motorInfo && (
-                    <div style={{ background:'#fff', borderTop:'2px solid #e2e8f0', padding:'20px 24px' }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:12 }}>
-                        <div>
-                          <div style={{ fontSize:16, fontWeight:800, color:'#1e293b', marginBottom:4 }}>
-                            ⚡ Motor executado — {r._motorInfo.nfes} NF-e(s) · {r._motorInfo.oportunidades} oportunidade(s)
-                            {r._motorInfo.avisos > 0 && <span style={{ color:'#d97706', marginLeft:8, fontSize:13 }}>⚠️ {r._motorInfo.avisos} aviso(s)</span>}
-                          </div>
-                          <div style={{ fontSize:22, fontWeight:900, color: r._motorInfo.temCredito ? '#16a34a' : '#dc2626' }}>
-                            {fmtR(r._motorInfo.credito)}
-                          </div>
-                        </div>
-                        {r._motorInfo.temCredito ? (
-                          <button style={{ padding:'10px 24px', background:'#16a34a', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:700, cursor:'default' }}>
-                            ✅ TEM CRÉDITO
-                          </button>
-                        ) : (
-                          <button style={{ padding:'10px 24px', background:'#dc2626', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:700, cursor:'default' }}>
-                            ❌ SEM CRÉDITO
-                          </button>
-                        )}
-                      </div>
-                      {r._motorInfo.detalhes?.map((d,j) => (
-                        <div key={j} style={{ fontSize:14, color:'#374151', marginBottom:4, paddingLeft:4, borderLeft:'3px solid #e2e8f0', paddingLeft:12 }}>
-                          ✓ <strong>{d.tese}</strong> — {fmtR(d.credito)} <span style={{ color:'#94a3b8', fontSize:12 }}>({d.grau})</span>
-                        </div>
-                      ))}
+                    <div style={{ padding:'0 20px 16px' }}>
+                      <PainelMotor motorInfo={r._motorInfo} cliente={r._cliente || clienteAtivo} />
                     </div>
                   )}
                 </div>
               ))}
             </div>
 
-            {/* Avisos */}
             {avisoGlobal.length > 0 && (
               <div style={{ background:'#fffbeb', borderRadius:12, border:'2px solid #fde68a', padding:'16px 20px', marginBottom:16 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:'#92400e', marginBottom:8 }}>⚠️ Avisos ({avisoGlobal.length})</div>
-                {avisoGlobal.map((a,i) => (
-                  <div key={i} style={{ fontSize:13, color:'#78350f', marginBottom:4 }}>
-                    {a.arquivo} — {a.chave_nfe ? `NF-e ${a.chave_nfe.slice(-6)}` : ''}: {a.motivo}
-                  </div>
-                ))}
+                {avisoGlobal.map((a,i) => <div key={i} style={{ fontSize:13, color:'#78350f', marginBottom:4 }}>{a.arquivo} — {a.chave_nfe?`NF-e ...${a.chave_nfe.slice(-6)}`:''}: {a.motivo}</div>)}
               </div>
             )}
 
-            {/* Erros */}
             {erroGlobal.length > 0 && (
-              <div style={{ background:'#fff', borderRadius:12, border:'2px solid #fecdd3', overflow:'hidden', marginBottom:16 }}>
+              <div style={{ background:'#fff', borderRadius:12, border:'2px solid #fecdd3', overflow:'hidden' }}>
                 <div style={{ padding:'14px 20px', borderBottom:'1px solid #fecdd3', fontSize:14, fontWeight:700, color:'#dc2626' }}>❌ Erros de validação ({erroGlobal.length})</div>
                 <div style={{ maxHeight:280, overflowY:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-                    <thead><tr style={{ background:'#fff1f2' }}>{['Arquivo','Linha','Coluna','Motivo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:12, fontWeight:600, color:'#dc2626', borderBottom:'1px solid #fecdd3' }}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{ background:'#fff1f2' }}>{['Arquivo','Linha','Coluna','Motivo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#dc2626', borderBottom:'1px solid #fecdd3' }}>{h}</th>)}</tr></thead>
                     <tbody>{erroGlobal.map((e,i)=>(
                       <tr key={i} style={{ borderBottom:'1px solid #fff1f2' }}>
                         <td style={{ padding:'9px 14px', color:'#374151' }}>{e.arquivo}</td>
@@ -927,7 +1127,7 @@ export default function Laboratorio() {
 
         {resultados.length===0 && !processando && (
           <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', padding:'18px 22px' }}>
-            <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>📋 {Object.keys(LAYOUTS).length} arquivos suportados — clique em "Modelos CSV" para baixar os templates</div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:10 }}>📋 {Object.keys(LAYOUTS).length} arquivos suportados</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.keys(LAYOUTS).map(nome=>(
                 <span key={nome} style={{ background: nome.includes('_v2')?'#f0fdf4':'#f1f5f9', border:`1px solid ${nome.includes('_v2')?'#86efac':'#e2e8f0'}`, borderRadius:6, padding:'3px 10px', fontSize:11, color: nome.includes('_v2')?'#166534':'#475569', fontWeight: nome.includes('_v2')?700:500 }}>
@@ -935,9 +1135,7 @@ export default function Laboratorio() {
                 </span>
               ))}
             </div>
-            <div style={{ marginTop:10, fontSize:12, color:'#64748b' }}>
-              ⚡ Arquivos <strong>_v2</strong> passam pelo Motor de Inteligência Tributária automaticamente
-            </div>
+            <div style={{ marginTop:10, fontSize:12, color:'#64748b' }}>⚡ Arquivos <strong>_v2</strong> passam pelo Motor de Inteligência Tributária automaticamente e geram relatório executivo completo.</div>
           </div>
         )}
       </>}
@@ -947,11 +1145,11 @@ export default function Laboratorio() {
         <div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', marginBottom:16 }}>
             <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:4 }}>📥 Baixar modelos CSV oficiais</div>
-            <div style={{ fontSize:13, color:'#64748b' }}>Cada modelo contém o cabeçalho correto e uma linha de exemplo. Use-o para criar seus arquivos sem erro de importação.</div>
+            <div style={{ fontSize:13, color:'#64748b' }}>Cabeçalho correto com linha de exemplo. Separador: ponto e vírgula (;). Codificação: UTF-8.</div>
           </div>
           <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'14px 18px', marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#166534', marginBottom:4 }}>⚡ Novos formatos v2 — com itens de NF-e para o Motor</div>
-            <div style={{ fontSize:12, color:'#64748b' }}>Os arquivos <strong>notas_saida_v2.csv</strong> e <strong>notas_entrada_v2.csv</strong> contêm uma linha por item de produto com todos os campos tributários. Ao importá-los, o Motor é executado automaticamente.</div>
+            <div style={{ fontSize:13, fontWeight:700, color:'#166534', marginBottom:4 }}>⚡ Formatos v2 — passam pelo Motor automaticamente</div>
+            <div style={{ fontSize:12, color:'#64748b' }}><strong>notas_saida_v2.csv</strong> e <strong>notas_entrada_v2.csv</strong> — uma linha por item de produto, com NCM, CFOP, CST, PIS, COFINS e todos os campos tributários. Ao importar, o Motor executa e gera o relatório executivo completo.</div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {Object.entries(LAYOUTS).map(([nome, layout]) => (
@@ -959,7 +1157,7 @@ export default function Laboratorio() {
                 <div>
                   <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D' }}>{nome.includes('_v2')?'⚡ ':''}{nome}</div>
                   <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{layout.descricao} · {layout.colunas.length} colunas{nome.includes('_v2')?' · Motor':` · tabela: ${layout.tabela}`}</div>
-                  <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>Obrigatórios: {layout.colunas.filter(c=>c.obrigatorio).map(c=>c.nome).join(', ')}</div>
+                  <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>Obrig.: {layout.colunas.filter(c=>c.obrigatorio).map(c=>c.nome).join(', ')}</div>
                 </div>
                 <button onClick={() => baixarModelo(nome)}
                   style={{ padding:'7px 14px', background: nome.includes('_v2')?'#16a34a':'#0B1F4D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
@@ -1041,7 +1239,7 @@ export default function Laboratorio() {
             <div style={{ fontSize:14, color:'#64748b', marginTop:4 }}>{aprovados} de {comparacao.length} testes aprovados</div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:16 }}>
-            {[{ label:'Total de testes', valor:comparacao.length, cor:'#0B1F4D' },{ label:'✅ Aprovados', valor:aprovados, cor:'#16a34a' },{ label:'❌ Reprovados', valor:reprovados, cor:'#dc2626' }].map((c,i)=>(
+            {[{ label:'Total', valor:comparacao.length, cor:'#0B1F4D' },{ label:'✅ Aprovados', valor:aprovados, cor:'#16a34a' },{ label:'❌ Reprovados', valor:reprovados, cor:'#dc2626' }].map((c,i)=>(
               <div key={i} style={{ background:'#fff', borderRadius:10, border:'2px solid #e2e8f0', padding:'14px', textAlign:'center' }}>
                 <div style={{ fontSize:24, fontWeight:800, color:c.cor }}>{c.valor}</div>
                 <div style={{ fontSize:12, color:'#64748b', marginTop:3 }}>{c.label}</div>
@@ -1057,7 +1255,7 @@ export default function Laboratorio() {
                   <td style={{ padding:'9px 14px', fontWeight:600, color:'#0B1F4D' }}>{c.tributo}</td>
                   <td style={{ padding:'9px 14px', color:'#16a34a', fontWeight:700 }}>{fmtR(c.valor_esperado)}</td>
                   <td style={{ padding:'9px 14px', color:c.aprovado?'#16a34a':'#dc2626', fontWeight:700 }}>{fmtR(c.valor_calculado)}</td>
-                  <td style={{ padding:'9px 14px', color:c.aprovado?'#94a3b8':'#dc2626', fontWeight:c.aprovado?400:700 }}>{fmtR(c.diferenca)}</td>
+                  <td style={{ padding:'9px 14px', color:c.aprovado?'#94a3b8':'#dc2626' }}>{fmtR(c.diferenca)}</td>
                   <td style={{ padding:'9px 14px' }}><span style={{ background:c.aprovado?'#dcfce7':'#fee2e2', color:c.aprovado?'#166534':'#991b1b', padding:'2px 10px', borderRadius:99, fontSize:11, fontWeight:700 }}>{c.aprovado?'✅ OK':'❌ Divergente'}</span></td>
                 </tr>
               ))}</tbody>
@@ -1075,9 +1273,9 @@ export default function Laboratorio() {
           </div>
         ) : (
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', overflow:'hidden' }}>
-            <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>📋 Histórico completo de importações</div>
+            <div style={{ padding:'12px 16px', borderBottom:'1px solid #e2e8f0', fontSize:13, fontWeight:700, color:'#0B1F4D' }}>📋 Histórico completo</div>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-              <thead><tr style={{ background:'#f8fafc' }}>{['Data','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background:'#f8fafc' }}>{['Data/Hora','Arquivo','Tabela','Importados','Rejeitados','Tempo'].map(h=><th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:11, fontWeight:600, color:'#64748b', borderBottom:'1px solid #e2e8f0' }}>{h}</th>)}</tr></thead>
               <tbody>{historico.map((l,i)=>(
                 <tr key={i} style={{ borderBottom:'1px solid #f1f5f9' }}>
                   <td style={{ padding:'9px 14px', color:'#64748b' }}>{new Date(l.created_at).toLocaleString('pt-BR')}</td>
@@ -1107,8 +1305,7 @@ export default function Laboratorio() {
             </div>
           </div>
           <div style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:4 }}>🔮 Em desenvolvimento</div>
-            <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Arquitetura preparada para receber novos formatos sem alterar a estrutura principal.</div>
+            <div style={{ fontSize:13, fontWeight:700, color:'#0B1F4D', marginBottom:14 }}>🔮 Em desenvolvimento</div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {FORMATOS_FUTUROS.map((f,i)=>(
                 <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
