@@ -887,7 +887,12 @@ export default function Laboratorio() {
         if (erros.length > 0) { errosArquivo.push(...erros); todosErros.push(...erros); rejeitados++; continue }
         try {
           const payload = layout.mapear(row, uid, clienteId)
-          const { error } = await supabase.from(layout.tabela).insert(payload)
+          const { data: insertData, error } = await supabase.from(layout.tabela).insert(payload).select('id').single()
+        if (!error && insertData?.id && nomeArquivo === 'empresa.csv') {
+          clienteIdDetectado = insertData.id
+          clienteDataDetectada = { ...payload, id: insertData.id }
+          setClienteAtivo({ ...payload, id: insertData.id })
+}
           if (error) { errosArquivo.push({ arquivo: file.name, linha: row._linha, coluna: '-', motivo: error.message }); rejeitados++ }
           else importados++
         } catch(e) { errosArquivo.push({ arquivo: file.name, linha: row._linha, coluna: '-', motivo: e.message }); rejeitados++ }
