@@ -91,7 +91,11 @@ function detectarTipoArquivo(nomeArquivo) {
 // ─── Conversão de número BR para float ───────────────────────────────────────
 function toFloat(v) {
   if (!v || v === '') return 0
-  return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0
+  const s = String(v).trim()
+  // Formato BR: 1.234,56 → remove ponto, troca vírgula por ponto
+  if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0
+  // Formato US/padrão: 1234.56 → usa direto
+  return parseFloat(s) || 0
 }
 
 // ─── Montagem do objeto NF-e normalizado ──────────────────────────────────────
