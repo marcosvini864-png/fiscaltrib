@@ -201,7 +201,6 @@ function analisarCDA(cda) {
   return { conclusao:'cda_vicio', titulo:'⚠️ Possíveis vícios na CDA', cor:'#DC2626', passos, teses, justificativa:`Foram identificados ${problemas.length} ponto(s): ${problemas.join('; ')}.` }
 }
 
-// ── Elegibilidade para Transação Tributária — consome o Core (motor_regras) ──
 function analisarElegibilidadeTransacao(cda, regraCapag) {
   const valor = totalInscricoes(cda)
   const condicao = regraCapag?.condicao || {
@@ -437,6 +436,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [simResult, setSimResult] = useState(null)
   const [regraCapag, setRegraCapag] = useState(null)
   const [teseTransacao, setTeseTransacao] = useState(null)
+  const [sisparDados, setSisparDados] = useState([])
+  const [sisparLoading, setSisparLoading] = useState(false)
 
   useEffect(()=>{
     async function carregarCore() {
@@ -449,6 +450,23 @@ export default function DiagnosticoDividaAtiva({ active }) {
     }
     carregarCore()
   },[])
+
+  async function carregarSispar() {
+    setSisparLoading(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data, error } = await supabase.from('cdas').select('*').eq('usuario_id', user.id).order('created_at', { ascending: false })
+      if(error) throw error
+      setSisparDados(data || [])
+    } catch(e) {
+      setSisparDados([])
+    }
+    setSisparLoading(false)
+  }
+
+  useEffect(() => {
+    if(aba === 7) carregarSispar()
+  }, [aba])
 
   async function carregarHistorico() {
     setLoadingHist(true)
@@ -575,7 +593,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   function gerarRelatorio() {
     if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnóstico antes.');return}
-    const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
+    const linhas=['╔══════════════════════════════════════════════════════════════╗','║      FISCALTRIB — PARECER TÉCNICO — DÍVIDA ATIVA (PGFN)     ║','╚══════════════════════════════════════════════════════════════╝','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','═══ PARECER FINAL ══════════════════════════════════════════════',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'⚠️':'ℹ️'} ${p.msg}`),'']
     analisesCDA.forEach((a,i)=>{
       const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'—'}] (${fmtR(parseValor(ins.valor))})`).join(' / ')
       linhas.push(`═══ ${rotuloCDA(a.cda, i)} ═══`)
@@ -642,7 +660,37 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setCdas(novo)
   }
 
-  const ABAS = ['📋 Visão Geral','🔍 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer']
+  const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer','📊 Relatório SISPAR']
+
+  // Cálculos SISPAR
+  const sisparTotais = sisparDados.reduce((acc, r) => {
+    acc.totalSemDesconto += parseValor(r.valor_total_sem_desconto || r.valor_total || 0)
+    acc.totalDesconto    += parseValor(r.valor_desconto || 0)
+    acc.totalAPagar      += parseValor(r.valor_a_pagar || r.valor_total || 0)
+    acc.totalEntrada     += parseValor(r.valor_entrada || 0)
+    acc.count            += 1
+    return acc
+  }, { totalSemDesconto:0, totalDesconto:0, totalAPagar:0, totalEntrada:0, count:0 })
+
+  const thSispar = {
+    background:'#0B1F4D', color:'#fff', fontSize:10, fontWeight:700,
+    padding:'5px 7px', textAlign:'center', border:'1px solid #1e3a6e',
+    whiteSpace:'nowrap', letterSpacing:0.3
+  }
+  const tdSispar = (align='center') => ({
+    fontSize:10, padding:'4px 7px', border:'1px solid #C8D0DC',
+    textAlign:align, color:'#1E293B', whiteSpace:'nowrap'
+  })
+  const tdSisparNum = {
+    fontSize:10, padding:'4px 7px', border:'1px solid #C8D0DC',
+    textAlign:'right', color:'#1E293B', fontVariantNumeric:'tabular-nums',
+    whiteSpace:'nowrap'
+  }
+  const tdTotal = {
+    fontSize:10, padding:'5px 7px', border:'1px solid #8899bb',
+    textAlign:'right', fontWeight:700, color:'#0B1F4D',
+    background:'#dce6f7', whiteSpace:'nowrap'
+  }
 
   return (
     <div style={{maxWidth:960,margin:'0 auto',position:'relative'}}>
@@ -1035,6 +1083,146 @@ export default function DiagnosticoDividaAtiva({ active }) {
           </>}
         </div>
       </>}
+
+      {aba===7&&<>
+        {/* Cabeçalho SISPAR */}
+        <div style={{background:'#0B1F4D',borderRadius:10,padding:'14px 20px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:10,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:4}}>FISCALTRIB — DÍVIDA ATIVA</div>
+            <div style={{fontSize:15,fontWeight:900,color:'#fff'}}>📊 Relatório Executivo — Padrão SISPAR</div>
+            <div style={{fontSize:11,color:'#93c5fd',marginTop:2}}>Negociação e Regularização de Débitos Inscritos em Dívida Ativa</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:10,color:'#7CC4FF',marginBottom:2}}>Gerado em</div>
+            <div style={{fontSize:12,fontWeight:700,color:'#fff'}}>{new Date().toLocaleDateString('pt-BR')}</div>
+            <button onClick={carregarSispar} style={{marginTop:8,padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>
+              🔄 Atualizar
+            </button>
+          </div>
+        </div>
+
+        {sisparLoading ? (
+          <div style={{textAlign:'center',padding:48,color:C.muted}}>
+            <div style={{fontSize:32,marginBottom:12}}>⏳</div>
+            <div style={{fontSize:14}}>Carregando dados...</div>
+          </div>
+        ) : sisparDados.length === 0 ? (
+          <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
+            <div style={{fontSize:40,marginBottom:12}}>📋</div>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum registro na tabela CDAs</div>
+            <div style={{fontSize:13,color:C.muted}}>Cadastre CDAs na aba "Dados da Dívida" e execute o diagnóstico para populá-las.</div>
+          </div>
+        ) : (
+          <>
+            {/* KPIs consolidados */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+              {[
+                {label:'Total de Registros', valor:sisparTotais.count, fmt:'num', cor:'#0B1F4D', bg:'#EFF6FF'},
+                {label:'Total s/ Desconto',  valor:sisparTotais.totalSemDesconto, fmt:'brl', cor:'#DC2626', bg:'#FEF2F2'},
+                {label:'Total Desconto',     valor:sisparTotais.totalDesconto,    fmt:'brl', cor:'#16A34A', bg:'#F0FDF4'},
+                {label:'Total a Pagar',      valor:sisparTotais.totalAPagar,      fmt:'brl', cor:'#0B1F4D', bg:'#EFF6FF'},
+              ].map((k,i)=>(
+                <div key={i} style={{background:k.bg,borderRadius:8,padding:'12px 14px',border:`1px solid ${k.cor}22`}}>
+                  <div style={{fontSize:10,color:k.cor,fontWeight:700,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{k.label}</div>
+                  <div style={{fontSize:k.fmt==='num'?22:16,fontWeight:900,color:k.cor}}>
+                    {k.fmt==='brl' ? fmtR(k.valor) : k.valor}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabela SISPAR principal */}
+            <div style={{overflowX:'auto',marginBottom:16}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,minWidth:900}}>
+                <thead>
+                  <tr>
+                    <th style={{...thSispar,textAlign:'left',width:140}}>Empresa / CNPJ</th>
+                    <th style={thSispar}>Tipo</th>
+                    <th style={thSispar}>Modalidade</th>
+                    <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
+                    <th style={{...thSispar,background:'#1a3566'}}>Desconto R$</th>
+                    <th style={{...thSispar,background:'#1a3566'}}>Prov. Econ. %</th>
+                    <th style={{...thSispar,background:'#163b5c'}}>Total a Pagar</th>
+                    <th style={thSispar}>Qt Entrada</th>
+                    <th style={thSispar}>Vl Entrada</th>
+                    <th style={thSispar}>Qt Parcela</th>
+                    <th style={thSispar}>Vl Parcela</th>
+                    <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sisparDados.map((r, idx) => {
+                    const vTotal    = parseValor(r.valor_total_sem_desconto || r.valor_total || 0)
+                    const vDesc     = parseValor(r.valor_desconto || 0)
+                    const vPagar    = parseValor(r.valor_a_pagar || r.valor_total || 0)
+                    const vEntrada  = parseValor(r.valor_entrada || 0)
+                    const vParcela  = parseValor(r.valor_parcela || 0)
+                    const qtEntrada = r.quantidade_entrada || (vEntrada > 0 ? 1 : 0)
+                    const qtParcela = r.quantidade_parcelas || 0
+                    const provEcon  = vTotal > 0 ? ((vDesc / vTotal) * 100).toFixed(1) + '%' : '—'
+                    const zebra     = idx % 2 === 0 ? '#fff' : '#F8FAFC'
+                    return (
+                      <tr key={r.id} style={{background:zebra}}>
+                        <td style={{...tdSispar('left'),fontWeight:600,maxWidth:140}}>
+                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10}}>{r.razao_social || r.empresa || '—'}</div>
+                          <div style={{color:'#64748B',fontSize:9}}>{r.cnpj || '—'}</div>
+                        </td>
+                        <td style={tdSispar()}>
+                          <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
+                            {TIPOS_CREDITO.find(t=>t.key===r.tipo_credito)?.label || r.tipo_credito || 'Federal'}
+                          </span>
+                        </td>
+                        <td style={tdSispar()}>
+                          <span style={{background:'#F0FDF4',color:'#166534',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
+                            {MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade || '—'}
+                          </span>
+                        </td>
+                        <td style={{...tdSisparNum,background:'#fafbff'}}>{fmtR(vTotal)}</td>
+                        <td style={{...tdSisparNum,color:'#16A34A',background:'#fafbff'}}>{vDesc > 0 ? fmtR(vDesc) : '—'}</td>
+                        <td style={{...tdSispar(),color:'#16A34A',fontWeight:700,background:'#fafbff'}}>{provEcon}</td>
+                        <td style={{...tdSisparNum,fontWeight:700,color:'#0B1F4D',background:'#EFF6FF'}}>{fmtR(vPagar)}</td>
+                        <td style={tdSispar()}>{qtEntrada > 0 ? qtEntrada : '—'}</td>
+                        <td style={tdSisparNum}>{vEntrada > 0 ? fmtR(vEntrada) : '—'}</td>
+                        <td style={tdSispar()}>{qtParcela > 0 ? qtParcela : '—'}</td>
+                        <td style={tdSisparNum}>{vParcela > 0 ? fmtR(vParcela) : '—'}</td>
+                        <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
+                          {r.socios || r.observacoes || '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:'#dce6f7'}}>
+                    <td colSpan={3} style={{...tdTotal,textAlign:'left',fontSize:11}}>TOTAIS CONSOLIDADOS</td>
+                    <td style={tdTotal}>{fmtR(sisparTotais.totalSemDesconto)}</td>
+                    <td style={{...tdTotal,color:'#16A34A'}}>{fmtR(sisparTotais.totalDesconto)}</td>
+                    <td style={tdTotal}>
+                      {sisparTotais.totalSemDesconto > 0
+                        ? ((sisparTotais.totalDesconto / sisparTotais.totalSemDesconto) * 100).toFixed(1) + '%'
+                        : '—'}
+                    </td>
+                    <td style={{...tdTotal,color:'#0B1F4D'}}>{fmtR(sisparTotais.totalAPagar)}</td>
+                    <td colSpan={4} style={tdTotal}></td>
+                    <td style={tdTotal}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Notas de rodapé */}
+            <div style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:8,padding:'12px 16px',fontSize:10,color:C.muted,lineHeight:1.8}}>
+              <div style={{fontWeight:700,color:C.navy,marginBottom:6,fontSize:11}}>📌 Notas</div>
+              <div>• Valores apurados com base nos registros cadastrados na tabela CDAs do FiscalTrib.</div>
+              <div>• "Prov. Econ. %" = Provimento Econômico: percentual de desconto efetivo sobre o valor sem desconto.</div>
+              <div>• Modalidades e descontos sujeitos a alteração conforme editais vigentes da PGFN.</div>
+              <div>• Relatório gerado em {new Date().toLocaleString('pt-BR')} · FiscalTrib — fiscaltrib.com.br</div>
+              <div style={{marginTop:6,color:'#DC2626',fontWeight:600}}>⚠️ Relatório preliminar — não substitui análise jurídica profissional.</div>
+            </div>
+          </>
+        )}
+      </>}
+
     </div>
   )
 }
