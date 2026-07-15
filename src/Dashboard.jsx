@@ -18,6 +18,7 @@ import CentralTributaria from './CentralTributaria'
 import Admin from './Admin'
 import Laboratorio from './Laboratorio'
 import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
+import ImportarCDA from './ImportarCDA'
 import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 
@@ -52,7 +53,7 @@ const MODULES = {
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
-  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:[] },
+  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:['⚖️ Diagnóstico','📄 Importar CDA'] },
   prospeccao:   { label:'Prospecção',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rápidas',       icon:'⚡', tabs:[] },
 }
@@ -721,7 +722,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='relatorios' && activeTab===1 && <ScoreFiscal />}
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
-            {module==='divida' && <DiagnosticoDividaAtiva active={active} />}
+            {module==='divida' && activeTab===0 && <DiagnosticoDividaAtiva active={active} />}
+            {module==='divida' && activeTab===1 && <ImportarCDA onSalvo={()=>navigateTo('divida',0)} />}
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
