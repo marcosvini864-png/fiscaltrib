@@ -119,27 +119,29 @@ export default function ImportarCDA({ onSalvo }) {
   const inputRef = useRef()
 
   async function handleArquivo(file) {
-    if (!file || file.type !== 'application/pdf') {
-      setErro('Selecione um arquivo PDF válido.')
-      return
-    }
-    setArquivo(file)
-    setErro('')
-    setExtraindo(true)
-    try {
-      const texto = await extrairTextoPDF(file)
-      const dados = await analisarComIA(texto)
-      setCampos(prev => ({
-        ...prev,
-        ...dados,
-        total_sem_desconto: dados.valor_total || 0,
-      }))
-      setEtapa('revisao')
-    } catch(e) {
-      setErro('Erro ao processar PDF: ' + e.message)
-    }
-    setExtraindo(false)
+  if (!file || file.type !== 'application/pdf') {
+    setErro('Selecione um arquivo PDF válido.')
+    return
   }
+     setArquivo(file)
+     setErro('')
+     setExtraindo(true)
+     try {
+    const texto = await extrairTextoPDF(file)
+    console.log('TEXTO EXTRAÍDO:', texto.slice(0, 500))
+    alert('Primeiros 300 chars:\n' + texto.slice(0, 300))
+    const dados = await analisarComIA(texto)
+    setCampos(prev => ({
+      ...prev,
+      ...dados,
+      total_sem_desconto: dados.valor_total || 0,
+    }))
+    setEtapa('revisao')
+  } catch(e) {
+    setErro('Erro ao processar PDF: ' + e.message)
+  }
+  setExtraindo(false)
+}
 
   async function salvar() {
     setSalvando(true)
