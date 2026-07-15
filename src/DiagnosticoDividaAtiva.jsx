@@ -766,25 +766,23 @@ export default function DiagnosticoDividaAtiva({ active }) {
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
       </div>
 
-      <div style={{marginBottom:20}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`2px solid ${C.border}`,marginBottom:0}}>
-      <div style={{display:'flex',gap:4,flexWrap:'nowrap',overflowX:'auto'}}>
+      <div style={{marginBottom:4}}>
+      <button onClick={()=>setAba(7)}
+      style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',
+      background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',
+      border:`2px solid #0B1F4D`,borderRadius:8,marginBottom:10}}>
+    📊 Relatório SISPAR
+      {aba===7&&<span style={{background:'rgba(255,255,255,0.2)',borderRadius:4,padding:'1px 6px',fontSize:10}}>ATIVO</span>}
+      </button>
+      <div style={{borderBottom:`2px solid ${C.border}`}}>
       {ABAS.map((t,i)=>(
-        <button key={i} onClick={()=>setAba(i)}
-          style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
-          {t}
-        </button>
+      <button key={i} onClick={()=>setAba(i)}
+        style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
+        {t}
+      </button>
       ))}
-     </div>
-     <button onClick={()=>setAba(7)}
-      style={{padding:'6px 14px',fontSize:12,fontWeight:aba===7?700:500,cursor:'pointer',whiteSpace:'nowrap',marginBottom:-2,
-        background:aba===7?C.navy:'#EFF6FF',color:aba===7?'#fff':'#1E40AF',
-        border:`2px solid ${aba===7?C.navy:'#BFDBFE'}`,borderBottom:`2px solid ${aba===7?C.navy:'transparent'}`,
-        borderRadius:'6px 6px 0 0',marginLeft:8}}>
-      📊 Relatório SISPAR
-     </button>
-     </div>
-     </div>
+      </div>
+      </div>
 
       {aba===0&&<>
         {!diagnostico?(
