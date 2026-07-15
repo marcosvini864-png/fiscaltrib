@@ -53,7 +53,7 @@ const MODULES = {
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
-  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:['⚖️ Diagnóstico','📄 Importar CDA'] },
+  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:['⚖️ Diagnóstico','📄 Importar CDA PDF'] },
   prospeccao:   { label:'Prospecção',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rápidas',       icon:'⚡', tabs:[] },
 }
