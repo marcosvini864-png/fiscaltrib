@@ -35,12 +35,12 @@ const TIPOS_DEBITO = [
 ]
 
 const MODALIDADES = [
-  { key:'transacao_excepcional', label:'Transação Excepcional' },
-  { key:'transacao_individual',  label:'Transação Individual' },
-  { key:'transacao_edital',      label:'Transação por Edital' },
-  { key:'prdi',                  label:'PRDI' },
-  { key:'parcelamento_ordinario',label:'Parcelamento Ordinário' },
-  { key:'njp',                   label:'Negócio Jurídico Processual' },
+  { key:'transacao_excepcional', label:'Transação Excepcional',       desconto_multa:100, desconto_juros:100, entrada_pct:0,  parcelas_max:60  },
+  { key:'transacao_individual',  label:'Transação Individual',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:84  },
+  { key:'transacao_edital',      label:'Transação por Edital',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:60  },
+  { key:'prdi',                  label:'PRDI',                        desconto_multa:70,  desconto_juros:70,  entrada_pct:0,  parcelas_max:84  },
+  { key:'parcelamento_ordinario',label:'Parcelamento Ordinário',      desconto_multa:0,   desconto_juros:0,   entrada_pct:0,  parcelas_max:60  },
+  { key:'njp',                   label:'Negócio Jurídico Processual', desconto_multa:40,  desconto_juros:40,  entrada_pct:10, parcelas_max:60  },
 ]
 
 async function extrairPaginasPDF(file) {
@@ -226,16 +226,44 @@ export default function ImportarCDA({ onSalvo }) {
   )
 
   const sel = (k, label, opcoes) => (
-    <div>
-      <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
-      <select
-        value={campos[k]||''}
-        onChange={e=>setCampos(p=>({...p,[k]:e.target.value}))}
-        style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
-        {opcoes.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
-      </select>
-    </div>
-  )
+  <div>
+    <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
+    <select
+      value={campos[k]||''}
+      onChange={e => {
+        const val = e.target.value
+        if (k === 'modalidade_transacao') {
+          const mod = MODALIDADES.find(m => m.key === val)
+          if (mod) {
+            const vTotal = parseFloat(campos.valor_total) || 0
+            const vMulta = vTotal * 0.20
+            const vJuros = vTotal * 0.30
+            const descMultaVal = vMulta * (mod.desconto_multa / 100)
+            const descJurosVal = vJuros * (mod.desconto_juros / 100)
+            const totalDesc = descMultaVal + descJurosVal
+            const vFinal = vTotal - totalDesc
+            const vEntrada = vFinal * (mod.entrada_pct / 100)
+            const saldo = vFinal - vEntrada
+            const vParcela = mod.parcelas_max > 1 ? saldo / (mod.parcelas_max - 1) : saldo
+            setCampos(p => ({
+              ...p,
+              modalidade_transacao: val,
+              desconto_percentual: mod.desconto_multa,
+              desconto_valor: totalDesc.toFixed(2),
+              valor_entrada: vEntrada.toFixed(2),
+              qt_parcelas: mod.parcelas_max,
+              valor_parcela: vParcela.toFixed(2),
+            }))
+            return
+          }
+        }
+        setCampos(p => ({...p, [k]: val}))
+      }}
+      style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
+      {opcoes.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
+    </select>
+  </div>
+)
 
   return (
     <div style={{maxWidth:860,margin:'0 auto'}}>
