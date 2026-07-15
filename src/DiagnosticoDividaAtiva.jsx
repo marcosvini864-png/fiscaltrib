@@ -664,9 +664,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
 
   // Cálculos SISPAR
   const sisparTotais = sisparDados.reduce((acc, r) => {
-    acc.totalSemDesconto += parseValor(r.valor_total_sem_desconto || r.valor_total || 0)
-    acc.totalDesconto    += parseValor(r.valor_desconto || 0)
-    acc.totalAPagar      += parseValor(r.valor_a_pagar || r.valor_total || 0)
+    const _t = parseValor(r.total_sem_desconto || 0)
+    const _d = parseValor(r.desconto_valor || 0)
+    acc.totalSemDesconto += _t
+    acc.totalDesconto    += _d
+    acc.totalAPagar      += (_t - _d)
     acc.totalEntrada     += parseValor(r.valor_entrada || 0)
     acc.count            += 1
     return acc
@@ -1168,29 +1170,29 @@ export default function DiagnosticoDividaAtiva({ active }) {
                 </thead>
                 <tbody>
                   {sisparDados.map((r, idx) => {
-                    const vTotal    = parseValor(r.valor_total_sem_desconto || r.valor_total || 0)
-                    const vDesc     = parseValor(r.valor_desconto || 0)
-                    const vPagar    = parseValor(r.valor_a_pagar || r.valor_total || 0)
+                    const vTotal    = parseValor(r.total_sem_desconto || 0)
+                    const vDesc     = parseValor(r.desconto_valor || 0)
+                    const vPagar    = vTotal - vDesc
                     const vEntrada  = parseValor(r.valor_entrada || 0)
                     const vParcela  = parseValor(r.valor_parcela || 0)
-                    const qtEntrada = r.quantidade_entrada || (vEntrada > 0 ? 1 : 0)
-                    const qtParcela = r.quantidade_parcelas || 0
+                    const qtEntrada = vEntrada > 0 ? 1 : 0
+                    const qtParcela = r.qt_parcelas || 0
                     const provEcon  = vTotal > 0 ? ((vDesc / vTotal) * 100).toFixed(1) + '%' : '—'
                     const zebra     = idx % 2 === 0 ? '#fff' : '#F8FAFC'
                     return (
                       <tr key={r.id} style={{background:zebra}}>
                         <td style={{...tdSispar('left'),fontWeight:600,maxWidth:140}}>
-                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10}}>{r.razao_social || r.empresa || '—'}</div>
-                          <div style={{color:'#64748B',fontSize:9}}>{r.cnpj || '—'}</div>
+                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10}}>{r.numero_cda || '—'}</div>
+                          <div style={{color:'#64748B',fontSize:9}}>{r.tipo_debito || '—'}</div>
                         </td>
                         <td style={tdSispar()}>
                           <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
-                            {TIPOS_CREDITO.find(t=>t.key===r.tipo_credito)?.label || r.tipo_credito || 'Federal'}
+                            {TIPOS_CREDITO.find(t=>t.key===r.tipo_credito)?.label || r.tipo_debito || '—'}
                           </span>
                         </td>
                         <td style={tdSispar()}>
                           <span style={{background:'#F0FDF4',color:'#166534',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
-                            {MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade || '—'}
+                            {MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade_transacao || '—'}
                           </span>
                         </td>
                         <td style={{...tdSisparNum,background:'#fafbff'}}>{fmtR(vTotal)}</td>
@@ -1202,7 +1204,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                         <td style={tdSispar()}>{qtParcela > 0 ? qtParcela : '—'}</td>
                         <td style={tdSisparNum}>{vParcela > 0 ? fmtR(vParcela) : '—'}</td>
                         <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
-                          {r.socios || r.observacoes || '—'}
+                          {[r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ') || r.observacoes || '—'}
                         </td>
                       </tr>
                     )
