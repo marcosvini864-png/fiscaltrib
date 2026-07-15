@@ -43,74 +43,91 @@ const MODALIDADES = [
   { key:'njp',                   label:'Negócio Jurídico Processual' },
 ]
 
-async function extrairTextoPDF(file) {
+async function extrairPaginasPDF(file) {
   const PDFJS_VERSION = '3.11.174'
-  const pdfjsLib = await import(`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`)
-  const pdfjs = window['pdfjs-dist/build/pdf'] || pdfjsLib
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
-  let texto = ''
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    texto += content.items.map(item => item.str).join(' ') + '\n'
+  if (!window['pdfjs-dist/build/pdf']) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`
+      script.onload = resolve
+      script.onerror = reject
+      document.head.appendChild(script)
+    })
   }
-  return texto
+  const pdfjsLib = window['pdfjs-dist/build/pdf']
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const paginas = []
+  for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
+    const page = await pdf.getPage(i)
+    const scale = 2.0
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')
+    await page.render({ canvasContext: ctx, viewport }).promise
+    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
+    paginas.push(base64)
+  }
+  return paginas
 }
 
-async function analisarComIA(texto) {
-  const prompt = `Você é um especialista em Certidões de Dívida Ativa (CDA) da PGFN brasileira.
-
-Analise o texto abaixo extraído de uma CDA e retorne APENAS um JSON válido com os campos identificados.
-
-TEXTO DA CDA:
-${texto.slice(0, 4000)}
-
-Retorne APENAS este JSON (sem explicações, sem markdown):
-{
-  "numero_cda": "",
-  "devedor": "",
-  "cnpj_devedor": "",
-  "pgfn_origem": "",
-  "livro_folha": "",
-  "processo_administrativo": "",
-  "data_inscricao": "",
-  "periodo_divida_inicio": "",
-  "periodo_divida_fim": "",
-  "valor_originario": 0,
-  "principal_atualizado": 0,
-  "juros": 0,
-  "multa": 0,
-  "valor_total": 0,
-  "data_calculo": "",
-  "fundamento_legal": "",
-  "municipio": "",
-  "uf": "",
-  "tipo_debito": "previdenciario"
-}`
-
+async function analisarComIA(paginas) {
   const { data: { session } } = await supabase.auth.getSession()
-  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+  let textoConsolidado = ''
+
+  for (let i = 0; i < paginas.length; i++) {
+    try {
+      const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece, sem interpretar ou resumir.',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: `Transcreva todo o texto visível nesta página ${i+1} da CDA (Certidão de Dívida Ativa da PGFN):` },
+              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${paginas[i]}` } }
+            ]
+          }]
+        })
+      })
+      const data = await resp.json()
+      textoConsolidado += `\n--- PÁGINA ${i+1} ---\n` + (data.resposta || '')
+    } catch(e) {
+      console.error(`Erro página ${i+1}:`, e)
+    }
+  }
+
+  const resp2 = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
-      system: 'Você é um extrator de dados de CDA. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-      messages: [{ role: 'user', content: prompt }]
+      system: 'Você é um extrator de dados de CDA da PGFN brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações, sem texto adicional.',
+      messages: [{
+        role: 'user',
+        content: `Analise o texto abaixo extraído de uma CDA da PGFN e retorne APENAS este JSON preenchido:\n{\n  "numero_cda": "",\n  "devedor": "",\n  "cnpj_devedor": "",\n  "pgfn_origem": "",\n  "livro_folha": "",\n  "processo_administrativo": "",\n  "data_inscricao": "",\n  "periodo_divida_inicio": "",\n  "periodo_divida_fim": "",\n  "valor_originario": 0,\n  "principal_atualizado": 0,\n  "juros": 0,\n  "multa": 0,\n  "valor_total": 0,\n  "data_calculo": "",\n  "fundamento_legal": "",\n  "municipio": "",\n  "uf": "",\n  "tipo_debito": "previdenciario"\n}\n\nTEXTO DA CDA:\n${textoConsolidado.slice(0, 8000)}`
+      }]
     })
   })
-  const data = await resp.json()
-  const resposta = data.resposta || ''
+  const data2 = await resp2.json()
+  const resposta = data2.resposta || ''
   const jsonMatch = resposta.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('IA não retornou JSON válido')
   return JSON.parse(jsonMatch[0])
 }
 
 export default function ImportarCDA({ onSalvo }) {
-  const [etapa, setEtapa] = useState('upload') // upload | revisao | sucesso
+  const [etapa, setEtapa] = useState('upload')
   const [arquivo, setArquivo] = useState(null)
   const [extraindo, setExtraindo] = useState(false)
   const [campos, setCampos] = useState({...CAMPOS_VAZIOS})
@@ -119,29 +136,27 @@ export default function ImportarCDA({ onSalvo }) {
   const inputRef = useRef()
 
   async function handleArquivo(file) {
-  if (!file || file.type !== 'application/pdf') {
-    setErro('Selecione um arquivo PDF válido.')
-    return
+    if (!file || file.type !== 'application/pdf') {
+      setErro('Selecione um arquivo PDF válido.')
+      return
+    }
+    setArquivo(file)
+    setErro('')
+    setExtraindo(true)
+    try {
+      const paginas = await extrairPaginasPDF(file)
+      const dados = await analisarComIA(paginas)
+      setCampos(prev => ({
+        ...prev,
+        ...dados,
+        total_sem_desconto: dados.valor_total || 0,
+      }))
+      setEtapa('revisao')
+    } catch(e) {
+      setErro('Erro ao processar PDF: ' + e.message)
+    }
+    setExtraindo(false)
   }
-     setArquivo(file)
-     setErro('')
-     setExtraindo(true)
-     try {
-    const texto = await extrairTextoPDF(file)
-    console.log('TEXTO EXTRAÍDO:', texto.slice(0, 500))
-    alert('Primeiros 300 chars:\n' + texto.slice(0, 300))
-    const dados = await analisarComIA(texto)
-    setCampos(prev => ({
-      ...prev,
-      ...dados,
-      total_sem_desconto: dados.valor_total || 0,
-    }))
-    setEtapa('revisao')
-  } catch(e) {
-    setErro('Erro ao processar PDF: ' + e.message)
-  }
-  setExtraindo(false)
-}
 
   async function salvar() {
     setSalvando(true)
@@ -225,7 +240,6 @@ export default function ImportarCDA({ onSalvo }) {
   return (
     <div style={{maxWidth:860,margin:'0 auto'}}>
 
-      {/* Header */}
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:14,padding:'24px 28px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:10,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
         <h2 style={{fontSize:20,fontWeight:900,margin:'0 0 6px',color:'#fff'}}>📄 Importar CDA via PDF</h2>
@@ -238,7 +252,6 @@ export default function ImportarCDA({ onSalvo }) {
         </div>
       )}
 
-      {/* ETAPA 1 — Upload */}
       {etapa === 'upload' && (
         <div
           onClick={()=>inputRef.current?.click()}
@@ -251,7 +264,7 @@ export default function ImportarCDA({ onSalvo }) {
             <>
               <div style={{fontSize:48,marginBottom:16}}>⏳</div>
               <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
-              <div style={{fontSize:13,color:C.muted}}>Extraindo texto e analisando com IA tributária</div>
+              <div style={{fontSize:13,color:C.muted}}>Convertendo páginas e analisando com IA Vision</div>
             </>
           ) : (
             <>
@@ -266,14 +279,12 @@ export default function ImportarCDA({ onSalvo }) {
         </div>
       )}
 
-      {/* ETAPA 2 — Revisão */}
       {etapa === 'revisao' && (
         <>
           <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#166534'}}>
             ✅ <strong>Dados extraídos com sucesso!</strong> Revise os campos abaixo e corrija se necessário antes de salvar.
           </div>
 
-          {/* Identificação */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>🔖 Identificação da CDA</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
@@ -286,7 +297,6 @@ export default function ImportarCDA({ onSalvo }) {
             </div>
           </div>
 
-          {/* Devedor */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>👤 Devedor</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
@@ -297,7 +307,6 @@ export default function ImportarCDA({ onSalvo }) {
             </div>
           </div>
 
-          {/* Período e valores */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>💰 Período e Valores</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
@@ -312,18 +321,15 @@ export default function ImportarCDA({ onSalvo }) {
             </div>
             <div style={{marginTop:14,padding:'12px 16px',background:'#EFF6FF',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontSize:13,fontWeight:700,color:C.navy}}>Valor Total da CDA</span>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <input
-                  type="number"
-                  value={campos.valor_total||''}
-                  onChange={e=>setCampos(p=>({...p,valor_total:e.target.value,total_sem_desconto:e.target.value}))}
-                  style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:15,fontWeight:700,width:160,textAlign:'right'}}
-                />
-              </div>
+              <input
+                type="number"
+                value={campos.valor_total||''}
+                onChange={e=>setCampos(p=>({...p,valor_total:e.target.value,total_sem_desconto:e.target.value}))}
+                style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:15,fontWeight:700,width:160,textAlign:'right'}}
+              />
             </div>
           </div>
 
-          {/* Natureza e negociação */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Natureza e Negociação</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
@@ -341,7 +347,6 @@ export default function ImportarCDA({ onSalvo }) {
             </div>
           </div>
 
-          {/* Sócios */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>👥 Sócios / Responsáveis</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14}}>
@@ -351,7 +356,6 @@ export default function ImportarCDA({ onSalvo }) {
             </div>
           </div>
 
-          {/* Fundamento legal */}
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>📋 Fundamento Legal / Observações</div>
             <div style={{marginBottom:12}}>
@@ -379,7 +383,6 @@ export default function ImportarCDA({ onSalvo }) {
         </>
       )}
 
-      {/* ETAPA 3 — Sucesso */}
       {etapa === 'sucesso' && (
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'48px 32px',textAlign:'center'}}>
           <div style={{fontSize:56,marginBottom:16}}>✅</div>
