@@ -660,7 +660,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setCdas(novo)
   }
 
-  const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer','📊 Relatório SISPAR']
+  const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer']
 
   // Cálculos SISPAR
   const sisparTotais = sisparDados.reduce((acc, r) => {
@@ -766,7 +766,25 @@ export default function DiagnosticoDividaAtiva({ active }) {
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
       </div>
 
-      <TabInterna tabs={ABAS} active={aba} onTab={setAba}/>
+      <div style={{marginBottom:20}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`2px solid ${C.border}`,marginBottom:0}}>
+      <div style={{display:'flex',gap:4,flexWrap:'nowrap',overflowX:'auto'}}>
+      {ABAS.map((t,i)=>(
+        <button key={i} onClick={()=>setAba(i)}
+          style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
+          {t}
+        </button>
+      ))}
+     </div>
+     <button onClick={()=>setAba(7)}
+      style={{padding:'6px 14px',fontSize:12,fontWeight:aba===7?700:500,cursor:'pointer',whiteSpace:'nowrap',marginBottom:-2,
+        background:aba===7?C.navy:'#EFF6FF',color:aba===7?'#fff':'#1E40AF',
+        border:`2px solid ${aba===7?C.navy:'#BFDBFE'}`,borderBottom:`2px solid ${aba===7?C.navy:'transparent'}`,
+        borderRadius:'6px 6px 0 0',marginLeft:8}}>
+      📊 Relatório SISPAR
+     </button>
+     </div>
+     </div>
 
       {aba===0&&<>
         {!diagnostico?(
