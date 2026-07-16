@@ -259,8 +259,8 @@ export default function ImportarCDA({ active, onSalvo }) {
   const inputRef = useRef()
 
   // ── cliente efetivo: prop active ou selecionado internamente ──
-  const [clienteEfetivo, setClienteEfetivo] = useState(active || null)
-  useEffect(() => { setClienteEfetivo(active || null) }, [active])
+  const [clienteEfetivo, setClienteEfetivo] = useState(active?.id ? active : null)
+  useEffect(() => { setClienteEfetivo(active?.id ? active : null) }, [active])
 
   async function handleArquivo(file) {
     if (!file || file.type !== 'application/pdf') {
