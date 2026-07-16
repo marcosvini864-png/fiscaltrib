@@ -20,6 +20,13 @@ const parseValor = v => {
   return parseFloat(s) || 0
 }
 
+function converterDataBR(d) {
+  if (!d) return ''
+  const partes = d.split('/')
+  if (partes.length === 3) return `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`
+  return ''
+}
+
 function migrarCDA(cda) {
   let migrada = cda
   if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
@@ -428,7 +435,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
   )
 }
 
-export default function DiagnosticoDividaAtiva({ active }) {
+export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onCdaConsumed }) {
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
   const [aba, setAba] = useState(0)
   const [historico, setHistorico] = useState([])
@@ -462,6 +469,61 @@ export default function DiagnosticoDividaAtiva({ active }) {
     }
     carregarCore()
   },[])
+  
+  useEffect(() => {
+    if (!cdaParaDiagnostico) return
+    const { campos, clienteEfetivo } = cdaParaDiagnostico
+
+    if (clienteEfetivo?.id) {
+      setClienteAtual({ id: clienteEfetivo.id, razao_social: clienteEfetivo.razao_social, cnpj: clienteEfetivo.cnpj || '' })
+    }
+
+    const tipoCredito = campos.tipo_debito || 'tributario_federal'
+    const cdaDiag = {
+      ...CDA_VAZIA,
+      numero_cda: campos.numero_cda || '',
+      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
+      situacao: 'Ativa',
+      modalidade_lancamento: 'oficio',
+      data_inscricao: converterDataBR(campos.data_inscricao),
+    }
+
+    setDados(d => ({
+      ...d,
+      cnpj: campos.cnpj_devedor || clienteEfetivo?.cnpj || '',
+      valor_total: campos.valor_total || '',
+      orgao_credor: 'PGFN',
+    }))
+    setCdas([cdaDiag])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+
+    if (onCdaConsumed) onCdaConsumed()
+
+    setTimeout(() => {
+      const resultados = [cdaDiag].map(cda => ({
+        cda,
+        decadencia: analisarDecadencia(cda),
+        prescricao: analisarPrescricao(cda),
+        prescricaoIntercorrente: analisarPrescricaoIntercorrente(cda),
+        validadeCDA: analisarCDA(cda),
+      }))
+      const { parecer, urgente } = gerarParecer(resultados)
+      let score = 50
+      resultados.forEach(r => {
+        if(r.decadencia.conclusao==='ha_decadencia') score+=25
+        if(r.prescricao.conclusao==='ha_prescricao') score+=25
+        if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
+        if(r.validadeCDA.conclusao==='cda_vicio') score+=10
+      })
+      score = Math.min(100, score)
+      const diagNovo = { parecer, urgente, score, valor:0, data: new Date().toISOString() }
+      setAnalisesCDA(resultados)
+      setDiagnostico(diagNovo)
+      setAba(1)
+    }, 100)
+  }, [cdaParaDiagnostico])
 
   // ─── CORREÇÃO 4: carregarSispar usa clienteAtual.id ou active.id de forma confiável ───
   async function carregarSispar() {
@@ -1121,7 +1183,21 @@ export default function DiagnosticoDividaAtiva({ active }) {
             <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',fontSize:12,color:'#92400E',marginBottom:16}}>
               ⚠️ Parecer preliminar — não substitui análise jurídica profissional.
             </div>
-            <button onClick={gerarRelatorio} style={btnPrimary}>⬇️ Baixar parecer (.txt)</button>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <button onClick={gerarRelatorio} style={btnPrimary}>⬇️ Baixar parecer (.txt)</button>
+              <button onClick={()=>{
+                if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnóstico antes.');return}
+                const w=window.open('','_blank')
+                const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Parecer</title><style>body{font-family:Arial,sans-serif;font-size:12px;margin:24px}h1{font-size:15px;color:#0B1F4D}h2{font-size:12px;color:#0B1F4D;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}.danger{background:#FEF2F2;border-left:4px solid #DC2626;padding:8px 12px;margin:6px 0}.ok{background:#F0FDF4;border-left:4px solid #16A34A;padding:8px 12px;margin:6px 0}.indef{background:#FFFBEB;border-left:4px solid #D97706;padding:8px 12px;margin:6px 0}.tese{display:inline-block;background:#EFF6FF;color:#1E40AF;padding:2px 7px;border-radius:10px;font-size:10px;margin:2px}.aviso{background:#FFFBEB;border:1px solid #FCD34D;border-radius:4px;padding:8px;font-size:11px;color:#92400E;margin-top:16px}</style></head><body>
+                <h1>⚖️ FISCALTRIB — Parecer Técnico — Dívida Ativa</h1>
+                <p><strong>Cliente:</strong> ${clienteAtual?.razao_social||dados.cnpj} | <strong>CNPJ:</strong> ${dados.cnpj} | <strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')} | <strong>Score:</strong> ${diagnostico.score}/100</p>
+                <h2>Parecer Final</h2>${diagnostico.parecer.map(p=>`<div class="${p.tipo==='danger'?'danger':'indef'}">• ${p.msg}</div>`).join('')}
+                ${analisesCDA.map((a,i)=>{const tipo=tipoReferenciaCDA(a.cda);const gc=c=>c.conclusao.includes('ha_')||c.conclusao==='cda_vicio'?'danger':c.conclusao==='indefinida'?'indef':'ok';return`<h2>${rotuloCDA(a.cda,i)} — ${tipo.label}</h2><p>Valor: ${fmtR(totalInscricoes(a.cda))} | Situação: ${a.cda.situacao}</p><div class="${gc(a.decadencia)}"><strong>Decadência:</strong> ${a.decadencia.titulo}<br><small>${a.decadencia.justificativa}</small></div><div class="${gc(a.prescricao)}"><strong>Prescrição:</strong> ${a.prescricao.titulo}<br><small>${a.prescricao.justificativa}</small></div><div class="${gc(a.prescricaoIntercorrente)}"><strong>Prescrição Intercorrente:</strong> ${a.prescricaoIntercorrente.titulo}<br><small>${a.prescricaoIntercorrente.justificativa}</small></div><div class="${gc(a.validadeCDA)}"><strong>Validade CDA:</strong> ${a.validadeCDA.titulo}<br><small>${a.validadeCDA.justificativa}</small></div><p>${tesesReferenciaCDA(a.cda).map(t=>`<span class="tese">${t}</span>`).join(' ')}</p>`}).join('')}
+                <div class="aviso">⚠️ Parecer preliminar — FiscalTrib ${new Date().toLocaleString('pt-BR')} — não substitui análise jurídica profissional.</div>
+                <script>window.onload=()=>window.print()</script></body></html>`
+                w.document.write(html);w.document.close()
+              }} style={btnOutline}>🖨️ Imprimir parecer</button>
+            </div>
           </>}
         </div>
       </>}
@@ -1144,9 +1220,11 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:10,color:'#7CC4FF',marginBottom:2}}>Gerado em</div>
             <div style={{fontSize:12,fontWeight:700,color:'#fff'}}>{new Date().toLocaleDateString('pt-BR')}</div>
-            <button onClick={carregarSispar} style={{marginTop:8,padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>
-              🔄 Atualizar
-            </button>
+            <div style={{display:'flex',gap:6,marginTop:8,justifyContent:'flex-end'}}>
+              <button onClick={carregarSispar} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🔄 Atualizar</button>
+              <button onClick={()=>window.print()} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🖨️ Imprimir</button>
+            </div>
+              
           </div>
         </div>
 
