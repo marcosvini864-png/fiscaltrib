@@ -89,12 +89,9 @@ function TabBar({ tabs, activeTab, onTab }) {
 
 function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   if (isMobile && !menuAberto) return null
-
   const modulosVisiveis = Object.entries(MODULES).filter(([key]) => isAdmin || moduloPermitido(key))
-
   return (
     <>
-      {/* Overlay mobile */}
       {isMobile && (
         <div onClick={() => setMenuAberto(false)}
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99 }} />
@@ -103,10 +100,7 @@ function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAd
         width: 220, minHeight:'100%', background:C.sidebar,
         borderRight:`1px solid ${C.sidebarBorder}`,
         display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto',
-        ...(isMobile ? {
-          position:'fixed', top:0, left:0, height:'100vh', zIndex:100,
-          boxShadow:'4px 0 20px rgba(0,0,0,0.2)'
-        } : {})
+        ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.2)' } : {})
       }}>
         {isMobile && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:`1px solid ${C.sidebarBorder}` }}>
@@ -241,6 +235,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [loading,     setLoading]     = useState(true)
   const [salvando,    setSalvando]    = useState(false)
 
+  // ── NOVO: estado para passar CDA importada ao Diagnóstico ──
+  const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
+
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
@@ -256,7 +253,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     return ()=>clearInterval(interval)
   },[])
 
-  // Se o módulo atual for bloqueado pelas permissões, redireciona para o primeiro módulo liberado
   useEffect(() => {
     if (onAdmin) return
     if (!permissoesModulos) return
@@ -405,7 +401,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
-      {/* HEADER */}
       <div style={{background:C.navy,display:'flex',alignItems:'center',padding:'0 16px',height:52,flexShrink:0,gap:10}}>
         {isMobile && (
           <button onClick={() => setMenuAberto(true)} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', padding:'4px 8px', flexShrink:0 }}>☰</button>
@@ -432,7 +427,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
           <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding,background:C.bg,minWidth:0}}>
 
-            {/* ── PAINEL ── */}
             {module==='painel' && <>
               <div style={{marginBottom:16}}>
                 <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text}}>Painel Geral</div>
@@ -493,7 +487,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               )}
             </>}
 
-            {/* ── CLIENTES ── */}
             {module==='clientes' && activeTab===0 && <>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
                 <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
@@ -604,7 +597,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               </div>
             </>}
 
-            {/* ── ANÁLISE FISCAL ── */}
             {module==='analise' && activeTab===0 && <>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
                 <div>
@@ -639,51 +631,51 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   </table>
                 </div>
               ) : ents.length>0 ? (
-      <div>
-      <div style={{background:'#FFF7ED',borderRadius:12,border:'2px solid #F97316',padding:'24px 28px',marginBottom:16}}>
-      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-        <div style={{fontSize:40}}>⚠️</div>
-        <div>
-          <div style={{fontSize:18,fontWeight:900,color:'#C2410C',marginBottom:4}}>Nenhuma oportunidade de recuperação identificada</div>
-          <div style={{fontSize:13,color:'#9A3412'}}>O Motor de Inteligência Tributária analisou os dados deste cliente e não encontrou hipóteses de recuperação.</div>
-        </div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}}>
-        {[
-          {label:'Registros analisados', valor:ents.length, cor:'#C2410C'},
-          {label:'Competências', valor:[...new Set(ents.map(e=>e.competencia).filter(Boolean))].length, cor:'#C2410C'},
-          {label:'Período início', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort()[0]||'—'), cor:'#C2410C'},
-          {label:'Período fim', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort().slice(-1)[0]||'—'), cor:'#C2410C'},
-        ].map((k,i)=>(
-          <div key={i} style={{background:'#FFEDD5',borderRadius:8,padding:'12px 16px',border:'1px solid #FDBA74'}}>
-            <div style={{fontSize:16,fontWeight:800,color:k.cor}}>{k.valor}</div>
-            <div style={{fontSize:11,color:'#9A3412',marginTop:2}}>{k.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{background:'#FFEDD5',borderRadius:8,padding:'14px 18px',border:'1px solid #FDBA74',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:'#9A3412',marginBottom:8}}>📋 HIPÓTESES VERIFICADAS PELO MOTOR</div>
-        {[
-          {icon:'💊',tese:'Receitas Monofásicas (PIS/COFINS)',motivo:'Nenhum NCM monofásico identificado nas NF-es importadas'},
-          {icon:'🏷️',tese:'ICMS-ST na Base do Simples',motivo:'Nenhum item com CST de substituição tributária e valor de ST > 0'},
-          {icon:'📊',tese:'Segregação de Receitas por Anexo',motivo:'Não identificado mix de mercadorias e serviços'},
-          {icon:'🔄',tese:'Fator R — Migração Anexo V→III',motivo:'Não identificado como prestador de serviços elegível'},
-          {icon:'📋',tese:'PIS/COFINS — Alíquota Incorreta',motivo:'Nenhum item com alíquota acima do permitido'},
-        ].map((h,i)=>(
-          <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 0',borderBottom:i<4?'1px solid #FED7AA':'none'}}>
-            <span style={{fontSize:18,flexShrink:0}}>{h.icon}</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700,color:'#C2410C'}}>{h.tese}</div>
-              <div style={{fontSize:12,color:'#9A3412'}}>{h.motivo}</div>
-            </div>
-            <span style={{fontSize:11,fontWeight:700,background:'#FEF3C7',color:'#92400E',padding:'2px 8px',borderRadius:99,flexShrink:0,whiteSpace:'nowrap'}}>✗ Não aplicável</span>
-          </div>
-        ))}
-      </div>
-      <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:12}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
-      <button onClick={()=>navigateTo('clientes',3)} style={{padding:'10px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
-    </div>
-  </div>
+                <div>
+                  <div style={{background:'#FFF7ED',borderRadius:12,border:'2px solid #F97316',padding:'24px 28px',marginBottom:16}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+                      <div style={{fontSize:40}}>⚠️</div>
+                      <div>
+                        <div style={{fontSize:18,fontWeight:900,color:'#C2410C',marginBottom:4}}>Nenhuma oportunidade de recuperação identificada</div>
+                        <div style={{fontSize:13,color:'#9A3412'}}>O Motor de Inteligência Tributária analisou os dados deste cliente e não encontrou hipóteses de recuperação.</div>
+                      </div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}}>
+                      {[
+                        {label:'Registros analisados', valor:ents.length, cor:'#C2410C'},
+                        {label:'Competências', valor:[...new Set(ents.map(e=>e.competencia).filter(Boolean))].length, cor:'#C2410C'},
+                        {label:'Período início', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort()[0]||'—'), cor:'#C2410C'},
+                        {label:'Período fim', valor:([...new Set(ents.map(e=>e.competencia).filter(Boolean))].sort().slice(-1)[0]||'—'), cor:'#C2410C'},
+                      ].map((k,i)=>(
+                        <div key={i} style={{background:'#FFEDD5',borderRadius:8,padding:'12px 16px',border:'1px solid #FDBA74'}}>
+                          <div style={{fontSize:16,fontWeight:800,color:k.cor}}>{k.valor}</div>
+                          <div style={{fontSize:11,color:'#9A3412',marginTop:2}}>{k.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{background:'#FFEDD5',borderRadius:8,padding:'14px 18px',border:'1px solid #FDBA74',marginBottom:12}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'#9A3412',marginBottom:8}}>📋 HIPÓTESES VERIFICADAS PELO MOTOR</div>
+                      {[
+                        {icon:'💊',tese:'Receitas Monofásicas (PIS/COFINS)',motivo:'Nenhum NCM monofásico identificado nas NF-es importadas'},
+                        {icon:'🏷️',tese:'ICMS-ST na Base do Simples',motivo:'Nenhum item com CST de substituição tributária e valor de ST > 0'},
+                        {icon:'📊',tese:'Segregação de Receitas por Anexo',motivo:'Não identificado mix de mercadorias e serviços'},
+                        {icon:'🔄',tese:'Fator R — Migração Anexo V→III',motivo:'Não identificado como prestador de serviços elegível'},
+                        {icon:'📋',tese:'PIS/COFINS — Alíquota Incorreta',motivo:'Nenhum item com alíquota acima do permitido'},
+                      ].map((h,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 0',borderBottom:i<4?'1px solid #FED7AA':'none'}}>
+                          <span style={{fontSize:18,flexShrink:0}}>{h.icon}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,fontWeight:700,color:'#C2410C'}}>{h.tese}</div>
+                            <div style={{fontSize:12,color:'#9A3412'}}>{h.motivo}</div>
+                          </div>
+                          <span style={{fontSize:11,fontWeight:700,background:'#FEF3C7',color:'#92400E',padding:'2px 8px',borderRadius:99,flexShrink:0,whiteSpace:'nowrap'}}>✗ Não aplicável</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:12,color:'#C2410C',fontWeight:600,marginBottom:12}}>⚡ Isso indica que os produtos deste cliente não se enquadram nas hipóteses mapeadas — não é um erro do sistema.</div>
+                    <button onClick={()=>navigateTo('clientes',3)} style={{padding:'10px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>📥 Importar mais XMLs</button>
+                  </div>
+                </div>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:12}}>🔍</div>
@@ -692,6 +684,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               )}
             </>}
+
             {module==='analise' && activeTab===1 && <AnaliseFiscal clienteAtivo={activeId} />}
             {module==='analise' && activeTab===2 && <TesesTributarias />}
             {module==='analise' && activeTab===3 && <Simuladores />}
@@ -722,8 +715,26 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='relatorios' && activeTab===1 && <ScoreFiscal />}
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
-            {module==='divida' && activeTab===0 && <DiagnosticoDividaAtiva active={active} />}
-            {module==='divida' && activeTab===1 && <ImportarCDA active={active} onSalvo={()=>navigateTo('divida',0)} />}
+
+            {/* ── DÍVIDA ATIVA — com integração CDA → Diagnóstico ── */}
+            {module==='divida' && activeTab===0 && (
+              <DiagnosticoDividaAtiva
+                active={active}
+                cdaParaDiagnostico={cdaParaDiagnostico}
+                onCdaConsumed={() => setCdaParaDiagnostico(null)}
+              />
+            )}
+            {module==='divida' && activeTab===1 && (
+              <ImportarCDA
+                active={active}
+                onSalvo={() => navigateTo('divida', 0)}
+                onDiagnostico={({ campos, clienteEfetivo }) => {
+                  setCdaParaDiagnostico({ campos, clienteEfetivo })
+                  navigateTo('divida', 0)
+                }}
+              />
+            )}
+
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
