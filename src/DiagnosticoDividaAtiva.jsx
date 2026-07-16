@@ -700,7 +700,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   }
 
   return (
-    <div style={{maxWidth:960,margin:'0 auto',position:'relative'}}>
+    <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
