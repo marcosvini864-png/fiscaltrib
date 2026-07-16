@@ -8,7 +8,12 @@ const C = {
 }
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-const fmtVal = v => parseFloat(String(v||0).replace(/\./g,'').replace(',','.'))||0
+const fmtVal = v => {
+  const s = String(v||0)
+  if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0
+  if (s.includes(',')) return parseFloat(s.replace(',','.')) || 0
+  return parseFloat(s) || 0
+}
 
 const CAMPOS_VAZIOS = {
   numero_cda:'', devedor:'', cnpj_devedor:'',
