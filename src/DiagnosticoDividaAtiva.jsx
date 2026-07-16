@@ -317,6 +317,7 @@ function ScoreDividaAtiva({ score }) {
   )
 }
 
+// ─── CORREÇÃO 1: SeletorCliente agora passa o objeto completo incluindo id ───
 function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
@@ -359,7 +360,8 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
       const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:'', cnpj:novoCnpj, regime:'Simples Nacional', municipio:'', uf:'', cnae_principal:'', competencia_inicio:'', competencia_fim:'', responsavel_contabil:'', observacoes:'' }]).select()
       if(error) throw error
       if(data?.[0]) {
-        onCadastrarNovo({ razao_social:data[0].razao_social, cnpj:data[0].cnpj })
+        // Passa objeto completo com id
+        onCadastrarNovo({ id: data[0].id, razao_social: data[0].razao_social, cnpj: data[0].cnpj })
         setModoNovo(false); setNovoNome(''); setNovoCnpj(''); setAberto(false)
       }
     } catch(e){ alert('Erro ao cadastrar cliente: '+e.message) }
@@ -390,7 +392,9 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
                 ):filtrados.length===0?(
                   <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Nenhum cliente encontrado.</div>
                 ):filtrados.map(c=>(
-                  <div key={c.id} onClick={()=>{ onSelecionar({razao_social:c.razao_social,cnpj:c.cnpj}); setAberto(false); setBusca('') }}
+                  <div key={c.id}
+                    // ─── CORREÇÃO 2: passa id junto com razao_social e cnpj ───
+                    onClick={()=>{ onSelecionar({ id: c.id, razao_social: c.razao_social, cnpj: c.cnpj }); setAberto(false); setBusca('') }}
                     style={{padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13}}
                     onMouseEnter={e=>e.currentTarget.style.background='#F1F5F9'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -434,7 +438,10 @@ export default function DiagnosticoDividaAtiva({ active }) {
   const [analisesCDA, setAnalisesCDA] = useState([])
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
-  const [clienteAtual, setClienteAtual] = useState(active?{ razao_social:active.razao_social, cnpj:active.cnpj }:null)
+  // ─── CORREÇÃO 3: clienteAtual agora inclui id quando vem do prop active ───
+  const [clienteAtual, setClienteAtual] = useState(
+    active ? { id: active.id || null, razao_social: active.razao_social, cnpj: active.cnpj } : null
+  )
   const [dados, setDados] = useState({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
@@ -456,22 +463,26 @@ export default function DiagnosticoDividaAtiva({ active }) {
     carregarCore()
   },[])
 
+  // ─── CORREÇÃO 4: carregarSispar usa clienteAtual.id ou active.id de forma confiável ───
   async function carregarSispar() {
     setSisparLoading(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const { data, error } = await supabase.from('cdas').select('*').eq('usuario_id', user.id).order('created_at', { ascending: false })
+      const clienteId = clienteAtual?.id || active?.id || null
+      let query = supabase.from('cdas').select('*').eq('usuario_id', user.id)
+      if (clienteId) {
+        query = query.eq('cliente_id', clienteId)
+      }
+      const { data, error } = await query.order('created_at', { ascending: false })
       if(error) throw error
       setSisparDados(data || [])
-    } catch(e) {
-      setSisparDados([])
-    }
+    } catch(e) { setSisparDados([]) }
     setSisparLoading(false)
   }
 
   useEffect(() => {
     if(aba === 7) carregarSispar()
-  }, [aba])
+  }, [aba, clienteAtual])
 
   async function carregarHistorico() {
     setLoadingHist(true)
@@ -535,7 +546,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
   }
 
   function abrirRegistro(reg) {
-    setClienteAtual({ razao_social:reg.razao_social, cnpj:reg.cnpj })
+    setClienteAtual({ id: reg.cliente_id || null, razao_social: reg.razao_social, cnpj: reg.cnpj })
     setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
     setCdas(migrarListaCDAs(reg.cdas))
     setDiagnostico(reg.diagnostico||null)
@@ -555,8 +566,9 @@ export default function DiagnosticoDividaAtiva({ active }) {
     setAba(0)
   }
 
+  // ─── CORREÇÃO 5: selecionarCliente recebe e armazena o id ───
   function selecionarCliente(c) {
-    setClienteAtual(c)
+    setClienteAtual({ id: c.id || null, razao_social: c.razao_social, cnpj: c.cnpj || '' })
     setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
     setCdas([{...CDA_VAZIA}])
     setDiagnostico(null)
@@ -774,21 +786,21 @@ export default function DiagnosticoDividaAtiva({ active }) {
       </div>
 
       <div style={{marginBottom:4}}>
-      <button onClick={()=>setAba(7)}
-      style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',
-      background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',
-      border:`2px solid #0B1F4D`,borderRadius:8,marginBottom:10}}>
-    📊 Relatório SISPAR
-      {aba===7&&<span style={{background:'rgba(255,255,255,0.2)',borderRadius:4,padding:'1px 6px',fontSize:10}}>ATIVO</span>}
-      </button>
-      <div style={{borderBottom:`2px solid ${C.border}`}}>
-      {ABAS.map((t,i)=>(
-      <button key={i} onClick={()=>setAba(i)}
-        style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
-        {t}
-      </button>
-      ))}
-      </div>
+        <button onClick={()=>setAba(7)}
+          style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',
+          background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',
+          border:`2px solid #0B1F4D`,borderRadius:8,marginBottom:10}}>
+          📊 Relatório SISPAR
+          {aba===7&&<span style={{background:'rgba(255,255,255,0.2)',borderRadius:4,padding:'1px 6px',fontSize:10}}>ATIVO</span>}
+        </button>
+        <div style={{borderBottom:`2px solid ${C.border}`}}>
+          {ABAS.map((t,i)=>(
+            <button key={i} onClick={()=>setAba(i)}
+              style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
       {aba===0&&<>
@@ -1113,7 +1125,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
           <div>
             <div style={{fontSize:10,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:4}}>FISCALTRIB — DÍVIDA ATIVA</div>
             <div style={{fontSize:15,fontWeight:900,color:'#fff'}}>📊 Relatório Executivo — Padrão SISPAR</div>
-            <div style={{fontSize:11,color:'#93c5fd',marginTop:2}}>Negociação e Regularização de Débitos Inscritos em Dívida Ativa</div>
+            <div style={{fontSize:11,color:'#93c5fd',marginTop:2}}>
+              Negociação e Regularização de Débitos Inscritos em Dívida Ativa
+              {clienteAtual && (
+                <span style={{marginLeft:12,background:'rgba(255,255,255,0.15)',borderRadius:4,padding:'2px 8px',fontSize:10,fontWeight:700}}>
+                  👤 {clienteAtual.razao_social}{clienteAtual.cnpj ? ' · '+clienteAtual.cnpj : ''}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:10,color:'#7CC4FF',marginBottom:2}}>Gerado em</div>
@@ -1132,8 +1151,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
         ) : sisparDados.length === 0 ? (
           <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
             <div style={{fontSize:40,marginBottom:12}}>📋</div>
-            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum registro na tabela CDAs</div>
-            <div style={{fontSize:13,color:C.muted}}>Cadastre CDAs na aba "Dados da Dívida" e execute o diagnóstico para populá-las.</div>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>
+              {clienteAtual ? `Nenhuma CDA encontrada para ${clienteAtual.razao_social}` : 'Nenhum registro na tabela CDAs'}
+            </div>
+            <div style={{fontSize:13,color:C.muted}}>
+              {clienteAtual
+                ? 'Importe uma CDA para este cliente via "Importar CDA" para visualizá-la aqui.'
+                : 'Selecione um cliente ou cadastre CDAs para populá-las.'}
+            </div>
           </div>
         ) : (
           <>
@@ -1159,7 +1184,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,minWidth:900}}>
                 <thead>
                   <tr>
-                    <th style={{...thSispar,textAlign:'left',width:140}}>Empresa / CNPJ</th>
+                    {/* ─── CORREÇÃO 6: cabeçalho atualizado ─── */}
+                    <th style={{...thSispar,textAlign:'left',width:200}}>Nº CDA / Devedor / CNPJ</th>
                     <th style={thSispar}>Tipo</th>
                     <th style={thSispar}>Modalidade</th>
                     <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
@@ -1186,9 +1212,21 @@ export default function DiagnosticoDividaAtiva({ active }) {
                     const zebra     = idx % 2 === 0 ? '#fff' : '#F8FAFC'
                     return (
                       <tr key={r.id} style={{background:zebra}}>
-                        <td style={{...tdSispar('left'),fontWeight:600,maxWidth:140}}>
-                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10}}>{r.numero_cda || '—'}</div>
-                          <div style={{color:'#64748B',fontSize:9}}>{r.tipo_debito || '—'}</div>
+                        {/* ─── CORREÇÃO 7: célula com numero_cda, devedor e cnpj_devedor empilhados ─── */}
+                        <td style={{...tdSispar('left'),maxWidth:200}}>
+                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10,lineHeight:1.4}}>
+                            {r.numero_cda || '—'}
+                          </div>
+                          {r.devedor && (
+                            <div style={{color:'#1E293B',fontSize:9,lineHeight:1.4,marginTop:1}}>
+                              {r.devedor}
+                            </div>
+                          )}
+                          {r.cnpj_devedor && (
+                            <div style={{color:'#64748B',fontSize:9,lineHeight:1.4}}>
+                              {r.cnpj_devedor}
+                            </div>
+                          )}
                         </td>
                         <td style={tdSispar()}>
                           <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>

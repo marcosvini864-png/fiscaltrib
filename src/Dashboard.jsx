@@ -723,7 +723,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
             {module==='divida' && activeTab===0 && <DiagnosticoDividaAtiva active={active} />}
-            {module==='divida' && activeTab===1 && <ImportarCDA onSalvo={()=>navigateTo('divida',0)} />}
+            {module==='divida' && activeTab===1 && <ImportarCDA active={active} onSalvo={()=>navigateTo('divida',0)} />}
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}

@@ -1,0 +1,1040 @@
+﻿import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
+
+const C = {
+  navy:'#0B1F4D', white:'#FFFFFF',
+  bg:'#E4E7EC', border:'#C8D0DC',
+  text:'#1E293B', muted:'#64748B',
+}
+
+const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+const fmtData = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : 'NÃ£o informada'
+const diasEntre = (d1,d2) => d1&&d2 ? Math.floor((new Date(d2+'T00:00:00')-new Date(d1+'T00:00:00'))/(1000*60*60*24)) : null
+const addAnos = (d,anos) => { if(!d) return null; const dt=new Date(d+'T00:00:00'); dt.setFullYear(dt.getFullYear()+anos); return dt.toISOString().slice(0,10) }
+const hoje = new Date().toISOString().slice(0,10)
+const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : 'â€”'
+const parseValor = v => parseFloat(String(v||'').replace(/\./g,'').replace(',','.')) || 0
+
+function migrarCDA(cda) {
+  let migrada = cda
+  if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
+
+  if (migrada.inscricoes && migrada.inscricoes.length>0 && 'tipo_credito' in (migrada.inscricoes[0]||{})) return migrada
+  const tipoPadrao = migrada.tipo_credito || 'tributario_federal'
+  if (migrada.inscricoes) {
+    return { ...migrada, inscricoes: migrada.inscricoes.map(ins=>({...ins, tipo_credito: ins.tipo_credito||tipoPadrao})) }
+  }
+  if (migrada.numeros) {
+    return { ...migrada, inscricoes: migrada.numeros.map(n=>({numero:n,valor:'',tipo_credito:tipoPadrao})) }
+  }
+  const { numero } = migrada
+  return { ...migrada, inscricoes: [{numero: numero||'', valor:'', tipo_credito:tipoPadrao}] }
+}
+function migrarListaCDAs(lista) {
+  if (!lista || lista.length===0) return [{...CDA_VAZIA}]
+  return lista.map(migrarCDA)
+}
+
+const TIPOS_CREDITO = [
+  { key:'tributario_federal',    label:'TributÃ¡rio Federal',              legislacao:'CTN + Lei 6.830/80',            exemplos:'IRPJ, CSLL, PIS, COFINS, IPI, IOF' },
+  { key:'previdenciario',        label:'PrevidenciÃ¡rio',                  legislacao:'Lei 8.212/91 + CTN',            exemplos:'INSS empresa, retenÃ§Ãµes, contribuiÃ§Ãµes sociais' },
+  { key:'fgts',                  label:'FGTS',                           legislacao:'Lei 8.036/90 + RE 709.212 STF', exemplos:'DepÃ³sitos FGTS nÃ£o recolhidos' },
+  { key:'simples_nacional',      label:'Simples Nacional',                legislacao:'LC 123/2006 + CTN',             exemplos:'DAS nÃ£o pagos, diferenÃ§as apuradas' },
+  { key:'multa_tributaria',      label:'Multa TributÃ¡ria',                legislacao:'CTN + Lei 9.430/96',            exemplos:'Multa de ofÃ­cio, multa isolada, multa acessÃ³ria' },
+  { key:'multa_trabalhista',     label:'Multa Trabalhista',               legislacao:'CLT + Lei 6.830/80',            exemplos:'AutuaÃ§Ãµes da InspeÃ§Ã£o do Trabalho' },
+  { key:'multa_ambiental',       label:'Multa Ambiental',                legislacao:'Lei 9.605/98 + Decreto 6.514',  exemplos:'AutuaÃ§Ãµes IBAMA, ICMBio e Ã³rgÃ£os ambientais' },
+  { key:'nao_tributario',        label:'CrÃ©dito NÃ£o TributÃ¡rio',         legislacao:'Decreto 20.910/32 + Lei 6.830', exemplos:'Multas administrativas, ressarcimentos' },
+  { key:'agencia_reguladora',    label:'CrÃ©dito de AgÃªncia Reguladora',  legislacao:'Lei especÃ­fica da agÃªncia',     exemplos:'ANATEL, ANEEL, ANS, ANVISA, ANP' },
+  { key:'autarquia',             label:'CrÃ©dito de Autarquia/FundaÃ§Ã£o',  legislacao:'Lei especÃ­fica + Decreto 20.910',exemplos:'CREA, CRM, OAB, INMETRO' },
+  { key:'estados_df',            label:'Estados/Distrito Federal',       legislacao:'LegislaÃ§Ã£o estadual + CTN',     exemplos:'ICMS, IPVA, ITCMD e demais tributos estaduais' },
+  { key:'outro',                 label:'Outro',                          legislacao:'LegislaÃ§Ã£o especÃ­fica',          exemplos:'Outros crÃ©ditos da UniÃ£o' },
+]
+
+const TESES_POR_TIPO = {
+  tributario_federal: ['DecadÃªncia (art. 173 ou 150 CTN)','PrescriÃ§Ã£o (art. 174 CTN)','PrescriÃ§Ã£o intercorrente (art. 40 Lei 6.830)','Nulidade da CDA (art. 202 CTN)','Juros SELIC inconstitucionais (RE 1.346.152)','Multa confiscatÃ³ria (art. 150, IV CF)'],
+  previdenciario:     ['DecadÃªncia (art. 173 CTN)','PrescriÃ§Ã£o (art. 174 CTN)','LanÃ§amento de ofÃ­cio â€” prazo especial','ContribuiÃ§Ãµes sobre verbas indenizatÃ³rias','Nulidade da CDA por ausÃªncia de fundamentaÃ§Ã£o'],
+  fgts:               ['PrescriÃ§Ã£o trintenÃ¡ria vs. quinquenal (RE 709.212 STF)','PrescriÃ§Ã£o de atos anteriores a 13/11/2014','Nulidade da CDA por vÃ­cio formal','Multa mora â€” limitaÃ§Ã£o legal'],
+  simples_nacional:   ['DecadÃªncia (LC 123/2006 + CTN)','PrescriÃ§Ã£o (art. 174 CTN)','SegregaÃ§Ã£o de receitas â€” cÃ¡lculo incorreto','Fator R â€” enquadramento indevido','SubstituiÃ§Ã£o tributÃ¡ria â€” recolhimento em duplicidade'],
+  multa_tributaria:   ['Proporcionalidade â€” confisco (art. 150, IV CF)','Multa qualificada â€” dolo nÃ£o comprovado','Retroatividade da lei mais benÃ©fica (art. 106, II CTN)','DenÃºncia espontÃ¢nea (art. 138 CTN)'],
+  multa_trabalhista:  ['PrescriÃ§Ã£o quinquenal (Decreto 20.910/32)','Nulidade do auto de infraÃ§Ã£o','Proporcionalidade da multa','ReincidÃªncia â€” vedaÃ§Ã£o bis in idem'],
+  multa_ambiental:    ['PrescriÃ§Ã£o quinquenal (Decreto 20.910/32 ou Lei 9.873/99)','Nulidade por vÃ­cio formal','Proporcionalidade','CompetÃªncia â€” conflito entre Ã³rgÃ£os'],
+  nao_tributario:     ['PrescriÃ§Ã£o quinquenal (Decreto 20.910/32)','Nulidade por ausÃªncia de processo administrativo','DecadÃªncia do direito de constituir o crÃ©dito','AusÃªncia de liquidez e certeza'],
+  agencia_reguladora: ['PrescriÃ§Ã£o quinquenal (Decreto 20.910/32)','Nulidade do processo administrativo','Proporcionalidade da sanÃ§Ã£o','CompetÃªncia regulatÃ³ria'],
+  autarquia:          ['PrescriÃ§Ã£o quinquenal (Decreto 20.910/32)','Nulidade por vÃ­cio formal','AusÃªncia de tÃ­tulo executivo vÃ¡lido','InscriÃ§Ã£o em DA sem processo administrativo regular'],
+  estados_df:         ['DecadÃªncia (art. 173 CTN)','PrescriÃ§Ã£o (art. 174 CTN)','Guerra fiscal â€” benefÃ­cios inconstitucionais (ICMS)','Nulidade da CDA por vÃ­cio formal'],
+  outro:              ['PrescriÃ§Ã£o aplicÃ¡vel','Nulidade formal','Proporcionalidade','Liquidez e certeza do crÃ©dito'],
+}
+
+const CDA_VAZIA = {
+  numero_cda:'',
+  inscricoes:[{numero:'',valor:'',tipo_credito:'tributario_federal'}],
+  situacao:'Ativa',
+  modalidade_lancamento:'oficio',
+  data_fato_gerador:'', data_constituicao:'', data_inscricao:'',
+  data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'',
+  possui_parcelamento:false, possui_suspensao:false, possui_garantia:false,
+  possui_penhora:false, possui_embargos:false,
+}
+
+const MODALIDADES_PGFN = [
+  { key:'transacao_excepcional', label:'TransaÃ§Ã£o Excepcional',       desconto_multa:[50,100], desconto_juros:[50,100], entrada_min:0,  parcelas_max:60, elegibilidade:'CAPAG D ou insuficiÃªncia de recursos comprovada.' },
+  { key:'transacao_individual',  label:'TransaÃ§Ã£o Individual',        desconto_multa:[0,50],   desconto_juros:[0,50],   entrada_min:5,  parcelas_max:84, elegibilidade:'DÃ­vida ativa superior a R$ 10 milhÃµes.' },
+  { key:'transacao_edital',      label:'TransaÃ§Ã£o por Edital',        desconto_multa:[0,50],   desconto_juros:[0,50],   entrada_min:5,  parcelas_max:60, elegibilidade:'DÃ­vida inscrita hÃ¡ mais de 1 ano, sem garantia integral.' },
+  { key:'prdi',                  label:'PRDI',                        desconto_multa:[50,70],  desconto_juros:[50,70],  entrada_min:0,  parcelas_max:84, elegibilidade:'Empresa em recuperaÃ§Ã£o judicial.' },
+  { key:'parcelamento_ordinario',label:'Parcelamento OrdinÃ¡rio',      desconto_multa:[0,0],    desconto_juros:[0,0],    entrada_min:0,  parcelas_max:60, elegibilidade:'Qualquer contribuinte com dÃ­vida inscrita.' },
+  { key:'njp',                   label:'NegÃ³cio JurÃ­dico Processual', desconto_multa:[0,40],   desconto_juros:[0,40],   entrada_min:10, parcelas_max:60, elegibilidade:'ExecuÃ§Ã£o fiscal em andamento com penhora ou garantia.' },
+]
+
+function totalInscricoes(cda) {
+  return (cda.inscricoes||[]).reduce((s,ins)=>s+parseValor(ins.valor),0)
+}
+
+function tipoReferenciaCDA(cda) {
+  const primeira = (cda.inscricoes||[])[0]
+  const key = primeira?.tipo_credito || 'tributario_federal'
+  return TIPOS_CREDITO.find(t=>t.key===key) || TIPOS_CREDITO[0]
+}
+function tesesReferenciaCDA(cda) {
+  const primeira = (cda.inscricoes||[])[0]
+  const key = primeira?.tipo_credito || 'tributario_federal'
+  return TESES_POR_TIPO[key] || TESES_POR_TIPO.outro
+}
+
+function rotuloCDA(cda, indice) {
+  if (cda.numero_cda && cda.numero_cda.trim()) return `CDA ${cda.numero_cda}`
+  const inscricoesTxt = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>ins.numero).join(' / ')
+  return `CDA ${indice+1}${inscricoesTxt?` (${inscricoesTxt})`:''}`
+}
+
+function analisarDecadencia(cda) {
+  const tipo = tipoReferenciaCDA(cda)
+  const { data_fato_gerador, data_constituicao, modalidade_lancamento } = cda
+  if (!data_fato_gerador && !data_constituicao) return { conclusao:'indefinida', titulo:'DecadÃªncia â€” AnÃ¡lise inconclusiva', cor:'#D97706', passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data do fato gerador e da constituiÃ§Ã£o definitiva.'}], justificativa:'NÃ£o foi possÃ­vel concluir porque nÃ£o foram informadas a data do fato gerador nem a data da constituiÃ§Ã£o definitiva do crÃ©dito.' }
+  const artigo = modalidade_lancamento==='homologacao' ? 'art. 150, Â§4Âº do CTN' : 'art. 173, I do CTN'
+  const limite = addAnos(data_fato_gerador, 5)
+  const diasConst = diasEntre(data_fato_gerador, data_constituicao)
+  const prazoExcedido = data_constituicao && limite && data_constituicao > limite
+  const passos = [
+    { label:'Natureza de referÃªncia (1Âª inscriÃ§Ã£o)', valor:tipo.label,    obs:`LegislaÃ§Ã£o: ${tipo.legislacao}` },
+    { label:'Modalidade do lanÃ§amento',     valor:modalidade_lancamento==='homologacao'?'Por homologaÃ§Ã£o':'De ofÃ­cio / DeclaraÃ§Ã£o', obs:artigo },
+    { label:'Data do fato gerador',         valor:fmtData(data_fato_gerador), obs:'Marco inicial' },
+    { label:'Prazo legal',                  valor:'5 anos', obs:artigo },
+    { label:'Data-limite para constituiÃ§Ã£o',valor:fmtData(limite), obs:'ApÃ³s essa data, o crÃ©dito Ã© decadente' },
+    { label:'Data da constituiÃ§Ã£o',         valor:fmtData(data_constituicao), obs:diasConst!==null?`${diasConst} dias apÃ³s o fato gerador`:'NÃ£o informada' },
+    { label:'SituaÃ§Ã£o',                     valor:!data_constituicao?'NÃ£o verificÃ¡vel':prazoExcedido?'âš ï¸ FORA DO PRAZO':'âœ… Dentro do prazo', obs:'' },
+  ]
+  if (!data_constituicao) return { conclusao:'indefinida', titulo:'DecadÃªncia â€” AnÃ¡lise inconclusiva', cor:'#D97706', passos, justificativa:'NÃ£o foi possÃ­vel concluir a existÃªncia de decadÃªncia porque nÃ£o foi informada a data da constituiÃ§Ã£o definitiva do crÃ©dito.' }
+  if (prazoExcedido) return { conclusao:'ha_decadencia', titulo:'âš ï¸ HÃ¡ decadÃªncia', cor:'#DC2626', passos, justificativa:`O crÃ©dito foi constituÃ­do em ${fmtData(data_constituicao)}, apÃ³s o tÃ©rmino do prazo decadencial de 5 anos previsto no ${artigo}, cujo limite era ${fmtData(limite)}.` }
+  return { conclusao:'sem_decadencia', titulo:'âœ… NÃ£o hÃ¡ decadÃªncia', cor:'#16A34A', passos, justificativa:`O lanÃ§amento foi constituÃ­do em ${fmtData(data_constituicao)}, dentro do prazo previsto no ${artigo}.` }
+}
+
+function analisarPrescricao(cda) {
+  const tipo = tipoReferenciaCDA(cda)
+  const { data_constituicao, data_ajuizamento, data_citacao, possui_parcelamento, possui_suspensao } = cda
+  if (!data_constituicao) return { conclusao:'indefinida', titulo:'PrescriÃ§Ã£o â€” AnÃ¡lise inconclusiva', cor:'#D97706', passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data da constituiÃ§Ã£o definitiva.'}], justificativa:'NÃ£o foi possÃ­vel concluir porque nÃ£o foi informada a data da constituiÃ§Ã£o definitiva do crÃ©dito.' }
+  const limite = addAnos(data_constituicao, 5)
+  const prescrito = !data_ajuizamento && !data_citacao && !possui_parcelamento && !possui_suspensao && hoje > limite
+  const interrompidoCitacao = data_citacao && data_citacao <= limite
+  const interrompidoAjuizamento = data_ajuizamento && data_ajuizamento <= limite
+  const suspenso = possui_parcelamento || possui_suspensao
+  const passos = [
+    { label:'Natureza de referÃªncia (1Âª inscriÃ§Ã£o)', valor:tipo.label,    obs:`LegislaÃ§Ã£o: ${tipo.legislacao}` },
+    { label:'ConstituiÃ§Ã£o definitiva',   valor:fmtData(data_constituicao), obs:'Marco inicial (art. 174 CTN)' },
+    { label:'Prazo legal',               valor:'5 anos', obs:'Art. 174 CTN' },
+    { label:'Data-limite',               valor:fmtData(limite), obs:'ApÃ³s essa data, sem interrupÃ§Ã£o, o crÃ©dito Ã© prescrito' },
+    { label:'Data do ajuizamento',       valor:fmtData(data_ajuizamento)||'NÃ£o localizado', obs:interrompidoAjuizamento?'âœ… Interrompe a prescriÃ§Ã£o':'NÃ£o localizado dentro do prazo' },
+    { label:'Data da citaÃ§Ã£o vÃ¡lida',    valor:fmtData(data_citacao)||'NÃ£o localizada', obs:interrompidoCitacao?'âœ… Interrompe (art. 174, pÃº., I)':'NÃ£o localizada' },
+    { label:'Parcelamento',              valor:possui_parcelamento?'Sim':'NÃ£o', obs:possui_parcelamento?'âœ… Suspende (art. 151, VI CTN)':'NÃ£o localizado' },
+    { label:'SuspensÃ£o',                 valor:possui_suspensao?'Sim':'NÃ£o', obs:possui_suspensao?'âœ… Suspende o prazo':'NÃ£o localizada' },
+    { label:'SituaÃ§Ã£o atual',            valor:prescrito?'âš ï¸ CRÃ‰DITO PRESCRITO':suspenso||interrompidoCitacao||interrompidoAjuizamento?'âœ… Interrompido/Suspenso':'âœ… Dentro do prazo', obs:'' },
+  ]
+  if (prescrito) return { conclusao:'ha_prescricao', titulo:'âš ï¸ HÃ¡ prescriÃ§Ã£o', cor:'#DC2626', passos, justificativa:`Transcorreram mais de 5 anos entre a constituiÃ§Ã£o definitiva (${fmtData(data_constituicao)}) e a data atual, sem citaÃ§Ã£o vÃ¡lida, parcelamento ou suspensÃ£o. Data-limite: ${fmtData(limite)}.` }
+  if (interrompidoCitacao) return { conclusao:'sem_prescricao', titulo:'âœ… NÃ£o hÃ¡ prescriÃ§Ã£o', cor:'#16A34A', passos, justificativa:`O prazo prescricional foi interrompido pela citaÃ§Ã£o vÃ¡lida em ${fmtData(data_citacao)}, nos termos do art. 174, parÃ¡grafo Ãºnico, I do CTN.` }
+  if (suspenso) return { conclusao:'sem_prescricao', titulo:'âœ… NÃ£o hÃ¡ prescriÃ§Ã£o', cor:'#16A34A', passos, justificativa:`O prazo prescricional encontra-se suspenso em razÃ£o de ${possui_parcelamento?'parcelamento ativo (art. 151, VI CTN)':'suspensÃ£o da exigibilidade'}.` }
+  if (!data_citacao && !data_ajuizamento) return { conclusao:'indefinida', titulo:'PrescriÃ§Ã£o â€” AnÃ¡lise inconclusiva', cor:'#D97706', passos, justificativa:'NÃ£o foi possÃ­vel concluir porque nÃ£o foram informadas a data da citaÃ§Ã£o vÃ¡lida nem do ajuizamento.' }
+  return { conclusao:'sem_prescricao', titulo:'âœ… NÃ£o hÃ¡ prescriÃ§Ã£o', cor:'#16A34A', passos, justificativa:`O crÃ©dito estÃ¡ dentro do prazo prescricional de 5 anos. Data-limite: ${fmtData(limite)}.` }
+}
+
+function analisarPrescricaoIntercorrente(cda) {
+  const { data_ajuizamento, data_ultima_movimentacao, possui_embargos, possui_penhora } = cda
+  if (!data_ajuizamento) return { conclusao:'indefinida', titulo:'PrescriÃ§Ã£o Intercorrente â€” Inconclusiva', cor:'#D97706', passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data do ajuizamento.'}], justificativa:'NÃ£o foi possÃ­vel concluir porque nÃ£o foi informada a data do ajuizamento da execuÃ§Ã£o fiscal.' }
+  const ref = data_ultima_movimentacao || data_ajuizamento
+  const limite = addAnos(ref, 5)
+  const diasParado = diasEntre(ref, hoje)
+  const prescritoInt = !possui_embargos && !possui_penhora && hoje > limite
+  const passos = [
+    { label:'Data do ajuizamento',        valor:fmtData(data_ajuizamento), obs:'InÃ­cio da execuÃ§Ã£o fiscal' },
+    { label:'Ãšltima movimentaÃ§Ã£o',        valor:fmtData(data_ultima_movimentacao)||'NÃ£o informada', obs:'Marco da paralisaÃ§Ã£o' },
+    { label:'PerÃ­odo de paralisaÃ§Ã£o',     valor:diasParado!==null?`${diasParado} dias`:'NÃ£o calculÃ¡vel', obs:'Art. 40 Lei 6.830/80 â€” SÃºmula 314 STJ' },
+    { label:'Data-limite (5 anos)',       valor:fmtData(limite), obs:'ApÃ³s esse prazo sem movimentaÃ§Ã£o Ãºtil' },
+    { label:'Penhora de bens',            valor:possui_penhora?'Sim':'NÃ£o', obs:possui_penhora?'âœ… MovimentaÃ§Ã£o ativa':'NÃ£o localizada' },
+    { label:'Embargos Ã  execuÃ§Ã£o',        valor:possui_embargos?'Sim':'NÃ£o', obs:possui_embargos?'âœ… Impulso processual':'NÃ£o localizados' },
+    { label:'SituaÃ§Ã£o',                   valor:prescritoInt?'âš ï¸ POSSÃVEL PRESCRIÃ‡ÃƒO INTERCORRENTE':'âœ… Sem prescriÃ§Ã£o intercorrente', obs:'' },
+  ]
+  if (prescritoInt) return { conclusao:'ha_prescricao_intercorrente', titulo:'âš ï¸ PossÃ­vel prescriÃ§Ã£o intercorrente', cor:'#DC2626', passos, justificativa:`Processo sem movimentaÃ§Ã£o Ãºtil por mais de 5 anos desde ${fmtData(ref)}, sem atos processuais capazes de interromper o prazo (art. 40 da Lei 6.830/80 e SÃºmula 314 STJ).` }
+  return { conclusao:'sem_prescricao_intercorrente', titulo:'âœ… Sem prescriÃ§Ã£o intercorrente', cor:'#16A34A', passos, justificativa:`NÃ£o foi identificada prescriÃ§Ã£o intercorrente porque ${possui_penhora||possui_embargos?'o processo apresenta movimentaÃ§Ã£o ativa':'o processo estÃ¡ dentro do prazo legal'}.` }
+}
+
+function analisarCDA(cda) {
+  const tipo = tipoReferenciaCDA(cda)
+  const teses = tesesReferenciaCDA(cda)
+  const problemas = []
+  const inscricoesValidas = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim())
+  if (!cda.numero_cda || !cda.numero_cda.trim()) problemas.push('NÃºmero da CDA nÃ£o informado')
+  if (inscricoesValidas.length===0) problemas.push('Nenhum nÃºmero de inscriÃ§Ã£o informado')
+  if (totalInscricoes(cda)<=0) problemas.push('Valor nÃ£o informado')
+  if (!cda.data_constituicao) problemas.push('Data de constituiÃ§Ã£o nÃ£o informada')
+  if (!cda.data_inscricao) problemas.push('Data de inscriÃ§Ã£o nÃ£o informada')
+  if (!cda.data_fato_gerador) problemas.push('Data do fato gerador nÃ£o informada')
+  const tiposDistintos = [...new Set((cda.inscricoes||[]).map(ins=>ins.tipo_credito))].length
+  const passos = [
+    { label:'NÃºmero da CDA',           valor:cda.numero_cda&&cda.numero_cda.trim()?cda.numero_cda:'NÃ£o informado', obs:cda.numero_cda&&cda.numero_cda.trim()?'âœ… Informado (art. 202, I CTN)':'âš ï¸ Ausente (art. 202, I CTN)' },
+    { label:'Natureza de referÃªncia',  valor:tipo.label,                    obs:`LegislaÃ§Ã£o: ${tipo.legislacao}` },
+    { label:'Tipos distintos na CDA',  valor:`${tiposDistintos} tipo(s)`,    obs:tiposDistintos>1?'âš ï¸ CDA com mais de um tipo de crÃ©dito â€” anÃ¡lise usa a 1Âª inscriÃ§Ã£o como referÃªncia':'Tipo Ãºnico nesta CDA' },
+    { label:'NÃºmeros de inscriÃ§Ã£o', valor:inscricoesValidas.length>0?`${inscricoesValidas.length} informado(s)`:'Nenhum informado',   obs:inscricoesValidas.length>0?inscricoesValidas.map(i=>i.numero).join(', '):'âš ï¸ Ausente' },
+    { label:'Valor total',          valor:totalInscricoes(cda)>0?fmtR(totalInscricoes(cda)):'NÃ£o informado', obs:totalInscricoes(cda)>0?'âœ… Informado':'âš ï¸ Ausente' },
+    { label:'Data de constituiÃ§Ã£o', valor:fmtData(cda.data_constituicao),obs:cda.data_constituicao?'âœ… Informada':'âš ï¸ Ausente' },
+    { label:'Teses aplicÃ¡veis',     valor:`${teses.length} identificadas`,obs:teses.slice(0,2).join('; ')+'...' },
+    { label:'Problemas',            valor:`${problemas.length} item(ns)`, obs:problemas.join('; ')||'Nenhum problema identificado' },
+  ]
+  if (problemas.length===0) return { conclusao:'cda_ok', titulo:'âœ… CDA sem vÃ­cios aparentes', cor:'#16A34A', passos, teses, justificativa:'A CDA apresenta todos os requisitos formais verificÃ¡veis com base nos dados informados.' }
+  return { conclusao:'cda_vicio', titulo:'âš ï¸ PossÃ­veis vÃ­cios na CDA', cor:'#DC2626', passos, teses, justificativa:`Foram identificados ${problemas.length} ponto(s): ${problemas.join('; ')}.` }
+}
+
+// â”€â”€ Elegibilidade para TransaÃ§Ã£o TributÃ¡ria â€” consome o Core (motor_regras) â”€â”€
+function analisarElegibilidadeTransacao(cda, regraCapag) {
+  const valor = totalInscricoes(cda)
+  const condicao = regraCapag?.condicao || {
+    valor_consolidado_maximo: 45000000,
+    data_inscricao_limite: '2026-03-03',
+  }
+  const problemas = []
+  if (valor > condicao.valor_consolidado_maximo) problemas.push(`Valor consolidado (${fmtR(valor)}) excede o limite de ${fmtR(condicao.valor_consolidado_maximo)}`)
+  if (cda.data_inscricao && cda.data_inscricao > condicao.data_inscricao_limite) problemas.push(`InscriÃ§Ã£o em ${fmtData(cda.data_inscricao)} Ã© posterior ao limite de ${fmtData(condicao.data_inscricao_limite)}`)
+  if (!cda.data_inscricao) problemas.push('Data de inscriÃ§Ã£o nÃ£o informada')
+  if (cda.possui_garantia) problemas.push('CDA possui garantia prestada â€” verificar modalidade especÃ­fica para dÃ©bitos garantidos')
+  if (cda.possui_parcelamento) problemas.push('CDA jÃ¡ estÃ¡ parcelada â€” nÃ£o elegÃ­vel nesta modalidade')
+
+  const passos = [
+    { label:'Valor consolidado da CDA', valor:fmtR(valor), obs:`Limite: ${fmtR(condicao.valor_consolidado_maximo)}` },
+    { label:'Data de inscriÃ§Ã£o', valor:fmtData(cda.data_inscricao), obs:`Limite: ${fmtData(condicao.data_inscricao_limite)}` },
+    { label:'Garantia prestada', valor:cda.possui_garantia?'Sim':'NÃ£o', obs:cda.possui_garantia?'âš ï¸ Verificar modalidade de dÃ©bitos garantidos':'â€”' },
+    { label:'Parcelamento ativo', valor:cda.possui_parcelamento?'Sim':'NÃ£o', obs:cda.possui_parcelamento?'âš ï¸ Impede adesÃ£o nesta modalidade':'â€”' },
+    { label:'SituaÃ§Ã£o', valor:problemas.length===0?'âœ… ELEGÃVEL':'âš ï¸ NÃƒO ELEGÃVEL (verificar pontos)', obs:'' },
+  ]
+
+  if (problemas.length===0) return { conclusao:'elegivel', titulo:'âœ… ElegÃ­vel Ã  TransaÃ§Ã£o por Capacidade de Pagamento', cor:'#16A34A', passos, justificativa:`A CDA atende aos critÃ©rios de elegibilidade do Edital PGDAU 6/2026 para a modalidade de capacidade de pagamento: valor dentro do limite e inscriÃ§Ã£o dentro do prazo, sem garantia ou parcelamento que impeÃ§am a adesÃ£o.` }
+  return { conclusao:'nao_elegivel', titulo:'âš ï¸ PossÃ­vel inelegibilidade', cor:'#D97706', passos, justificativa:`Foram identificados ${problemas.length} ponto(s) que podem impedir ou exigir modalidade diferente: ${problemas.join('; ')}.` }
+}
+
+function gerarParecer(resultados) {
+  const parecer = []; let urgente = false
+  resultados.forEach((a,i) => {
+    const num = rotuloCDA(a.cda, i)
+    if(a.decadencia.conclusao==='ha_decadencia')                            { parecer.push({tipo:'danger',msg:`${num}: DecadÃªncia identificada â€” crÃ©dito potencialmente extinto.`}); urgente=true }
+    if(a.prescricao.conclusao==='ha_prescricao')                            { parecer.push({tipo:'danger',msg:`${num}: PrescriÃ§Ã£o identificada â€” execuÃ§Ã£o potencialmente extinta.`}); urgente=true }
+    if(a.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') { parecer.push({tipo:'danger',msg:`${num}: PrescriÃ§Ã£o intercorrente â€” verificar imediatamente.`}); urgente=true }
+    if(a.validadeCDA.conclusao==='cda_vicio')   parecer.push({tipo:'warning',msg:`${num}: PossÃ­veis vÃ­cios formais na CDA.`})
+    if(a.decadencia.conclusao==='indefinida')   parecer.push({tipo:'warning',msg:`${num}: DecadÃªncia inconclusiva â€” complementar dados.`})
+    if(a.prescricao.conclusao==='indefinida')   parecer.push({tipo:'warning',msg:`${num}: PrescriÃ§Ã£o inconclusiva â€” informar citaÃ§Ã£o e ajuizamento.`})
+  })
+  return { parecer, urgente }
+}
+
+function ResultadoAnalise({ resultado }) {
+  const [expandido, setExpandido] = useState(false)
+  if (!resultado) return null
+  const isNeg = resultado.conclusao.includes('ha_')||resultado.conclusao==='cda_vicio'||resultado.conclusao==='nao_elegivel'
+  const isIndef = resultado.conclusao==='indefinida'
+  return (
+    <div style={{background:isNeg?'#FEF2F2':isIndef?'#FFFBEB':'#F0FDF4',border:`1px solid ${resultado.cor}33`,borderLeft:`4px solid ${resultado.cor}`,borderRadius:10,padding:'14px 18px',marginBottom:10}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}} onClick={()=>setExpandido(!expandido)}>
+        <span style={{fontSize:14,fontWeight:700,color:resultado.cor}}>{resultado.titulo}</span>
+        <span style={{fontSize:12,color:C.muted}}>{expandido?'â–² Ocultar':'â–¼ Ver raciocÃ­nio'}</span>
+      </div>
+      {resultado.justificativa&&<div style={{fontSize:13,color:C.text,marginTop:8,lineHeight:1.7}}>{resultado.justificativa}</div>}
+      {resultado.teses&&resultado.teses.length>0&&(
+        <div style={{marginTop:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:1}}>Teses aplicÃ¡veis</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {resultado.teses.map((t,i)=><span key={i} style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:11,fontWeight:500}}>{t}</span>)}
+          </div>
+        </div>
+      )}
+      {expandido&&resultado.passos&&(
+        <div style={{marginTop:12,background:'rgba(255,255,255,0.7)',borderRadius:8,padding:'12px 16px'}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:10,textTransform:'uppercase',letterSpacing:1}}>RaciocÃ­nio jurÃ­dico aplicado</div>
+          {resultado.passos.map((p,i)=>(
+            <div key={i} style={{display:'grid',gridTemplateColumns:'180px 1fr 1fr',gap:8,padding:'6px 0',borderBottom:i<resultado.passos.length-1?`1px solid ${C.border}33`:'none',fontSize:12}}>
+              <span style={{color:C.muted,fontWeight:500}}>{p.label}</span>
+              <span style={{color:C.text,fontWeight:600}}>{p.valor}</span>
+              <span style={{color:C.muted,fontStyle:'italic'}}>{p.obs}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TabInterna({ tabs, active, onTab }) {
+  return (
+    <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`2px solid ${C.border}`}}>
+      {tabs.map((t,i)=>(
+        <button key={i} onClick={()=>onTab(i)}
+          style={{padding:'8px 16px',fontSize:13,fontWeight:active===i?600:400,color:active===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${active===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
+          {t}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ScoreDividaAtiva({ score }) {
+  const cor = score>=70?'#16A34A':score>=40?'#D97706':'#DC2626'
+  const label = score>=70?'Alto potencial de regularizaÃ§Ã£o':score>=40?'Potencial moderado':'SituaÃ§Ã£o crÃ­tica'
+  return (
+    <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Score da DÃ­vida Ativa</div>
+      <div style={{display:'flex',alignItems:'center',gap:20}}>
+        <div style={{position:'relative',width:80,height:80,flexShrink:0}}>
+          <svg viewBox="0 0 80 80" style={{width:80,height:80,transform:'rotate(-90deg)'}}>
+            <circle cx="40" cy="40" r="32" fill="none" stroke={C.border} strokeWidth="8"/>
+            <circle cx="40" cy="40" r="32" fill="none" stroke={cor} strokeWidth="8" strokeDasharray={`${score*2.01} 201`} strokeLinecap="round"/>
+          </svg>
+          <div style={{position:'absolute',top:0,left:0,width:80,height:80,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:cor}}>{score}</div>
+        </div>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:cor,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:12,color:C.muted}}>Baseado em risco jurÃ­dico, situaÃ§Ã£o processual e potencial de negociaÃ§Ã£o.</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
+  const [aberto, setAberto] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [clientes, setClientes] = useState([])
+  const [carregando, setCarregando] = useState(false)
+  const [modoNovo, setModoNovo] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoCnpj, setNovoCnpj] = useState('')
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
+
+  useEffect(()=>{ if(aberto) carregarClientes() },[aberto])
+
+  async function carregarClientes() {
+    setCarregando(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data } = await supabase.from('clientes').select('id,razao_social,nome_fantasia,cnpj').eq('usuario_id',user.id).order('razao_social')
+      if(data) setClientes(data)
+    } catch(e){}
+    setCarregando(false)
+  }
+
+  const filtrados = clientes.filter(c =>
+    (c.razao_social||'').toLowerCase().includes(busca.toLowerCase()) ||
+    (c.nome_fantasia||'').toLowerCase().includes(busca.toLowerCase()) ||
+    (c.cnpj||'').includes(busca)
+  )
+
+  function maskCnpj(v) {
+    v = v.replace(/\D/g,'').slice(0,14)
+    v = v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3/$4').replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/,'$1.$2.$3/$4-$5')
+    return v
+  }
+
+  async function salvarNovoCliente() {
+    if(!novoNome.trim()) { alert('Informe a razÃ£o social.'); return }
+    setSalvandoNovo(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:'', cnpj:novoCnpj, regime:'Simples Nacional', municipio:'', uf:'', cnae_principal:'', competencia_inicio:'', competencia_fim:'', responsavel_contabil:'', observacoes:'' }]).select()
+      if(error) throw error
+      if(data?.[0]) {
+        onCadastrarNovo({ razao_social:data[0].razao_social, cnpj:data[0].cnpj })
+        setModoNovo(false); setNovoNome(''); setNovoCnpj(''); setAberto(false)
+      }
+    } catch(e){ alert('Erro ao cadastrar cliente: '+e.message) }
+    setSalvandoNovo(false)
+  }
+
+  return (
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setAberto(!aberto)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 14px',color:'#fff',fontSize:13,cursor:'pointer',width:340}}>
+        <span>ðŸ‘¤ {clienteAtual ? `${clienteAtual.razao_social}${clienteAtual.cnpj?' Â· '+clienteAtual.cnpj:''}` : 'Selecionar cliente...'}</span>
+        <span>â–¼</span>
+      </button>
+
+      {aberto&&(
+        <div style={{position:'absolute',top:'110%',left:0,width:380,background:C.white,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 8px 24px rgba(0,0,0,0.18)',zIndex:50,padding:14}}>
+          {!modoNovo ? (
+            <>
+              <input
+                autoFocus
+                value={busca}
+                onChange={e=>setBusca(e.target.value)}
+                placeholder="Buscar por nome ou CNPJ..."
+                style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}
+              />
+              <div style={{maxHeight:220,overflowY:'auto'}}>
+                {carregando?(
+                  <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Carregando...</div>
+                ):filtrados.length===0?(
+                  <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Nenhum cliente encontrado.</div>
+                ):filtrados.map(c=>(
+                  <div key={c.id} onClick={()=>{ onSelecionar({razao_social:c.razao_social,cnpj:c.cnpj}); setAberto(false); setBusca('') }}
+                    style={{padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13}}
+                    onMouseEnter={e=>e.currentTarget.style.background='#F1F5F9'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{fontWeight:600,color:C.text}}>{c.razao_social}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{c.cnpj||'CNPJ nÃ£o informado'}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>setModoNovo(true)} style={{width:'100%',marginTop:10,padding:'8px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>
+                + Cadastrar novo cliente
+              </button>
+            </>
+          ):(
+            <>
+              <div style={{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}}>Novo cliente</div>
+              <label style={{fontSize:12,color:C.muted,display:'block',marginBottom:4}}>RazÃ£o Social / Nome</label>
+              <input value={novoNome} onChange={e=>setNovoNome(e.target.value)} placeholder="Ex: Empresa XYZ Ltda" style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}/>
+              <label style={{fontSize:12,color:C.muted,display:'block',marginBottom:4}}>CNPJ</label>
+              <input value={novoCnpj} onChange={e=>setNovoCnpj(maskCnpj(e.target.value))} placeholder="00.000.000/0001-00" style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:12,boxSizing:'border-box'}}/>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>setModoNovo(false)} style={{flex:1,padding:'8px 10px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:6,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                <button onClick={salvarNovoCliente} disabled={salvandoNovo} style={{flex:1,padding:'8px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600,opacity:salvandoNovo?0.7:1}}>
+                  {salvandoNovo?'Salvando...':'Salvar cliente'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DiagnosticoDividaAtiva({ active }) {
+  const [mostrarHistorico, setMostrarHistorico] = useState(false)
+  const [aba, setAba] = useState(0)
+  const [historico, setHistorico] = useState([])
+  const [loadingHist, setLoadingHist] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const [registroId, setRegistroId] = useState(null)
+  const [analisesCDA, setAnalisesCDA] = useState([])
+  const [diagnostico, setDiagnostico] = useState(null)
+  const [analisando, setAnalisando] = useState(false)
+  const [clienteAtual, setClienteAtual] = useState(active?{ razao_social:active.razao_social, cnpj:active.cnpj }:null)
+  const [dados, setDados] = useState({ cnpj:active?.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+  const [cdas, setCdas] = useState([{...CDA_VAZIA}])
+  const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
+  const [simResult, setSimResult] = useState(null)
+  const [regraCapag, setRegraCapag] = useState(null)
+  const [teseTransacao, setTeseTransacao] = useState(null)
+
+  useEffect(()=>{
+    async function carregarCore() {
+      try {
+        const { data: regra } = await supabase.from('motor_regras').select('*').eq('nome_regra','Elegibilidade para TransaÃ§Ã£o por Capacidade de Pagamento (Edital PGDAU 6/2026)').single()
+        if(regra) setRegraCapag(regra)
+        const { data: tese } = await supabase.from('base_teses').select('*').eq('nome_tese','TransaÃ§Ã£o TributÃ¡ria - EstratÃ©gia de AdesÃ£o').single()
+        if(tese) setTeseTransacao(tese)
+      } catch(e){}
+    }
+    carregarCore()
+  },[])
+
+  async function carregarHistorico() {
+    setLoadingHist(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const { data, error } = await supabase.from('divida_ativa').select('*').eq('usuario_id',user.id).order('created_at',{ascending:false})
+      if(error) throw error
+      if(data) setHistorico(data)
+    } catch(e){ alert('Erro ao carregar anÃ¡lises: '+e.message) }
+    setLoadingHist(false)
+  }
+
+  function abrirPainelHistorico() {
+    setMostrarHistorico(true)
+    carregarHistorico()
+  }
+
+  async function salvar(diagOverride, analisesOverride) {
+    setSalvando(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const diagFinal = diagOverride ?? diagnostico
+      const payload = {
+        usuario_id: user.id,
+        razao_social: clienteAtual?.razao_social || dados.cnpj,
+        cnpj: dados.cnpj,
+        valor_total: dados.valor_total,
+        orgao_credor: dados.orgao_credor,
+        processo_execucao: dados.processo_execucao,
+        possui_parcelamento: dados.possui_parcelamento,
+        possui_transacao_anterior: dados.possui_transacao_anterior,
+        possui_garantia: dados.possui_garantia,
+        possui_penhora: dados.possui_penhora,
+        possui_bloqueio: dados.possui_bloqueio,
+        possui_embargos: dados.possui_embargos,
+        observacoes: dados.observacoes,
+        cdas,
+        diagnostico: diagFinal,
+        score: diagFinal?.score || null,
+        updated_at: new Date().toISOString()
+      }
+      if(registroId) {
+        const { error } = await supabase.from('divida_ativa').update(payload).eq('id',registroId)
+        if(error) throw error
+      } else {
+        const { data, error } = await supabase.from('divida_ativa').insert([payload]).select()
+        if(error) throw error
+        if(data?.[0]) setRegistroId(data[0].id)
+      }
+    } catch(e){ alert('Erro ao salvar: '+e.message) }
+    setSalvando(false)
+  }
+
+  async function excluirRegistro(id) {
+    if(!window.confirm('Excluir este diagnÃ³stico?')) return
+    try {
+      const { error } = await supabase.from('divida_ativa').delete().eq('id',id)
+      if(error) throw error
+      await carregarHistorico()
+    } catch(e){ alert('Erro ao excluir: '+e.message) }
+  }
+
+  function abrirRegistro(reg) {
+    setClienteAtual({ razao_social:reg.razao_social, cnpj:reg.cnpj })
+    setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
+    setCdas(migrarListaCDAs(reg.cdas))
+    setDiagnostico(reg.diagnostico||null)
+    setAnalisesCDA([])
+    setRegistroId(reg.id)
+    setAba(reg.diagnostico?0:1)
+    setMostrarHistorico(false)
+  }
+
+  function novaAnalise() {
+    setClienteAtual(null)
+    setDados({ cnpj:'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+    setCdas([{...CDA_VAZIA}])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+    setAba(0)
+  }
+
+  function selecionarCliente(c) {
+    setClienteAtual(c)
+    setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
+    setCdas([{...CDA_VAZIA}])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+    setAba(0)
+  }
+
+  function executarDiagnostico() {
+    setAnalisando(true)
+    const resultados = cdas.map(cda=>({ cda, decadencia:analisarDecadencia(cda), prescricao:analisarPrescricao(cda), prescricaoIntercorrente:analisarPrescricaoIntercorrente(cda), validadeCDA:analisarCDA(cda) }))
+    const { parecer, urgente } = gerarParecer(resultados)
+    let score = 50
+    resultados.forEach(r=>{
+      if(r.decadencia.conclusao==='ha_decadencia') score+=25
+      if(r.prescricao.conclusao==='ha_prescricao') score+=25
+      if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
+      if(r.validadeCDA.conclusao==='cda_vicio') score+=10
+    })
+    score = Math.min(100,score)
+    const diagNovo = { parecer, urgente, score, valor:parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0, data:new Date().toISOString() }
+    setTimeout(()=>{
+      setAnalisesCDA(resultados)
+      setDiagnostico(diagNovo)
+      setAnalisando(false)
+      setAba(2)
+      salvar(diagNovo, resultados)
+    },1500)
+  }
+
+  function calcularSimulacao() {
+    const valor=parseFloat(sim.valor)||0; const multa=valor*(sim.multa_pct/100); const juros=valor*(sim.juros_pct/100)
+    const descMulta=multa*(sim.desconto_multa/100); const descJuros=juros*(sim.desconto_juros/100)
+    const totalDesconto=descMulta+descJuros; const valorFinal=valor-totalDesconto
+    const entrada=valorFinal*(sim.entrada_pct/100); const saldo=valorFinal-entrada
+    const parcela=sim.parcelas>1?saldo/(sim.parcelas-1):saldo
+    setSimResult({multa,juros,descMulta,descJuros,totalDesconto,valorFinal,entrada,parcela,economia:totalDesconto})
+  }
+
+  function gerarRelatorio() {
+    if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnÃ³stico antes.');return}
+    const linhas=['â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—','â•‘      FISCALTRIB â€” PARECER TÃ‰CNICO â€” DÃVIDA ATIVA (PGFN)     â•‘','â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•','',`Cliente: ${clienteAtual?.razao_social||dados.cnpj}`,`CNPJ: ${dados.cnpj}`,`Data: ${new Date().toLocaleDateString('pt-BR')}`,`Score: ${diagnostico.score}/100`,'','â•â•â• PARECER FINAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•',...diagnostico.parecer.map(p=>`${p.tipo==='danger'?'âš ï¸':'â„¹ï¸'} ${p.msg}`),'']
+    analisesCDA.forEach((a,i)=>{
+      const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'â€”'}] (${fmtR(parseValor(ins.valor))})`).join(' / ')
+      linhas.push(`â•â•â• ${rotuloCDA(a.cda, i)} â•â•â•`)
+      linhas.push(`NÃºmero da CDA: ${a.cda.numero_cda&&a.cda.numero_cda.trim()?a.cda.numero_cda:'NÃ£o informado'}`)
+      linhas.push(`InscriÃ§Ãµes: ${inscricoesTxt||'Sem nÃºmero'}`)
+      linhas.push(`Valor total: ${fmtR(totalInscricoes(a.cda))}`)
+      linhas.push('',`â”€â”€ DECADÃŠNCIA: ${a.decadencia.titulo}`,a.decadencia.justificativa||'')
+      linhas.push('',`â”€â”€ PRESCRIÃ‡ÃƒO: ${a.prescricao.titulo}`,a.prescricao.justificativa||'')
+      linhas.push('',`â”€â”€ PRESCRIÃ‡ÃƒO INTERCORRENTE: ${a.prescricaoIntercorrente.titulo}`,a.prescricaoIntercorrente.justificativa||'')
+      linhas.push('',`â”€â”€ VALIDADE DA CDA: ${a.validadeCDA.titulo}`,a.validadeCDA.justificativa||'')
+      linhas.push('','â”€â”€ TESES APLICÃVEIS (referÃªncia da 1Âª inscriÃ§Ã£o):',...(tesesReferenciaCDA(a.cda)||[]).map(t=>`  â€¢ ${t}`))
+      linhas.push('','â”€â”€ RACIOCÃNIO â€” DECADÃŠNCIA:',...(a.decadencia.passos||[]).map(p=>`  ${p.label}: ${p.valor} â€” ${p.obs}`))
+      linhas.push('','â”€â”€ RACIOCÃNIO â€” PRESCRIÃ‡ÃƒO:',...(a.prescricao.passos||[]).map(p=>`  ${p.label}: ${p.valor} â€” ${p.obs}`),'')
+    })
+    linhas.push('Gerado por FiscalTrib â€” fiscaltrib.com.br','Parecer preliminar â€” nÃ£o substitui anÃ¡lise jurÃ­dica profissional.')
+    const blob=new Blob([linhas.join('\n')],{type:'text/plain;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a')
+    a.href=url; a.download=`Parecer_DividaAtiva_${dados.cnpj||'cliente'}_${hoje}.txt`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  const btnPrimary={padding:'10px 20px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
+  const btnOutline={padding:'10px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
+  const btnDanger ={padding:'6px 12px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:8,fontSize:12,cursor:'pointer'}
+
+  const inp = (k,ph,tp='text') => {
+    const handleChange = e => {
+      let v=e.target.value
+      if(k==='cnpj'){ v=v.replace(/\D/g,'').slice(0,14); v=v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3/$4').replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/,'$1.$2.$3/$4-$5') }
+      if(k==='processo_execucao'){ v=v.replace(/\D/g,'').slice(0,20); v=v.replace(/^(\d{7})(\d)/,'$1-$2').replace(/^(\d{7})-(\d{2})(\d)/,'$1-$2.$3').replace(/^(\d{7})-(\d{2})\.(\d{4})(\d)/,'$1-$2.$3.$4').replace(/^(\d{7})-(\d{2})\.(\d{4})\.(\d{1})(\d)/,'$1-$2.$3.$4.$5') }
+      setDados({...dados,[k]:v})
+    }
+    const handleBlur = e => { if(k==='valor_total'){ const raw=e.target.value.replace(/\./g,'').replace(',','.'); const n=parseFloat(raw)||0; if(n>0) setDados(d=>({...d,valor_total:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})})) } }
+    return <input value={dados[k]} onChange={handleChange} onBlur={handleBlur} placeholder={ph} type={tp} style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+  }
+
+  const addCDA = () => setCdas([...cdas,{...CDA_VAZIA}])
+  const removeCDA = i => setCdas(cdas.filter((_,idx)=>idx!==i))
+  const updateCDA = (i,k,v) => { const novo=[...cdas]; novo[i]={...novo[i],[k]:v}; setCdas(novo) }
+
+  const addInscricao = (i) => {
+    const novo=[...cdas]
+    novo[i]={...novo[i],inscricoes:[...(novo[i].inscricoes||[]),{numero:'',valor:'',tipo_credito:'tributario_federal'}]}
+    setCdas(novo)
+  }
+  const removeInscricao = (i,j) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    lista.splice(j,1)
+    novo[i]={...novo[i],inscricoes:lista.length>0?lista:[{numero:'',valor:'',tipo_credito:'tributario_federal'}]}
+    setCdas(novo)
+  }
+  const updateInscricao = (i,j,campo,v) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    lista[j]={...lista[j],[campo]:v}
+    novo[i]={...novo[i],inscricoes:lista}
+    setCdas(novo)
+  }
+  const blurInscricaoValor = (i,j) => {
+    const novo=[...cdas]
+    const lista=[...(novo[i].inscricoes||[])]
+    const n = parseValor(lista[j].valor)
+    if(n>0) lista[j]={...lista[j],valor:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+    novo[i]={...novo[i],inscricoes:lista}
+    setCdas(novo)
+  }
+
+  const ABAS = ['ðŸ“‹ VisÃ£o Geral','ðŸ” Dados da DÃ­vida','ðŸ§  DiagnÃ³stico Inteligente','âš¡ EstratÃ©gias','ðŸ’° TransaÃ§Ã£o TributÃ¡ria','ðŸ“Š Simulador','ðŸ“„ Parecer']
+
+  return (
+    <div style={{maxWidth:960,margin:'0 auto',position:'relative'}}>
+
+      <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
+          <div>
+            <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB â€” DIAGNÃ“STICO</div>
+            <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>âš–ï¸ DiagnÃ³stico da DÃ­vida Ativa</h1>
+            <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligÃªncia jurÃ­dica Â· DecadÃªncia Â· PrescriÃ§Ã£o Â· Validade da CDA</p>
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              + Nova anÃ¡lise
+            </button>
+            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              ðŸ“‚ AnÃ¡lises salvas
+            </button>
+          </div>
+        </div>
+        <div style={{marginTop:16}}>
+          <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
+        </div>
+      </div>
+
+      {mostrarHistorico&&(
+        <div onClick={()=>setMostrarHistorico(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:14,maxWidth:780,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <div style={{fontSize:16,fontWeight:700,color:C.navy}}>ðŸ“‚ AnÃ¡lises salvas</div>
+              <button onClick={()=>setMostrarHistorico(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.muted}}>âœ•</button>
+            </div>
+            {loadingHist?(
+              <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
+            ):historico.length===0?(
+              <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
+                <div style={{fontSize:32,marginBottom:8}}>âš–ï¸</div>
+                <div style={{fontSize:14}}>Nenhuma anÃ¡lise salva ainda.</div>
+              </div>
+            ):(
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#F1F5F9'}}>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>RazÃ£o Social</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>CNPJ</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Data</th>
+                    <th style={{textAlign:'center',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>AÃ§Ãµes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historico.map((reg,idx)=>(
+                    <tr key={reg.id} style={{background:idx%2===0?C.white:'#F8FAFC',borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:'10px 14px',color:C.text,fontWeight:600}}>{reg.razao_social||'â€”'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{reg.cnpj||'â€”'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{fmtDateTime(reg.created_at)}</td>
+                      <td style={{padding:'10px 14px',textAlign:'center'}}>
+                        <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+                          <button onClick={()=>abrirRegistro(reg)} style={{padding:'5px 16px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>ðŸ“‚ Abrir</button>
+                          <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>ðŸ—‘ï¸ Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+        <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'ðŸ’¾ Salvando...':'ðŸ’¾ Salvar'}</button>
+        {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>âœ… Salvo</span>}
+      </div>
+
+      <TabInterna tabs={ABAS} active={aba} onTab={setAba}/>
+
+      {aba===0&&<>
+        {!diagnostico?(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
+            <div style={{fontSize:48,marginBottom:12}}>âš–ï¸</div>
+            <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum diagnÃ³stico realizado ainda</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Acesse "Dados da DÃ­vida", preencha os dados e execute o diagnÃ³stico.</div>
+            <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados â†’</button>
+          </div>
+        ):<>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+            <ScoreDividaAtiva score={diagnostico.score}/>
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Resumo</div>
+              {[['Valor total',dados.valor_total||'â€”','#DC2626'],['CDAs analisadas',cdas.length,'#0B1F4D'],['Ã“rgÃ£o',dados.orgao_credor,'#0B1F4D'],['Data da anÃ¡lise',new Date(diagnostico.data).toLocaleDateString('pt-BR'),'#0B1F4D']].map(([lb,val,cor])=>(
+                <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:13,color:C.muted}}>{lb}</span>
+                  <span style={{fontSize:14,fontWeight:700,color:cor}}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {diagnostico.parecer.length>0&&<div style={{marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>ðŸ“‹ Parecer Final</div>
+            {diagnostico.parecer.map((p,i)=>(
+              <div key={i} style={{background:p.tipo==='danger'?'#FEF2F2':'#FFFBEB',border:`1px solid ${p.tipo==='danger'?'#FECACA':'#FCD34D'}`,borderRadius:8,padding:'10px 16px',marginBottom:8,fontSize:13,color:p.tipo==='danger'?'#991B1B':'#92400E'}}>{p.msg}</div>
+            ))}
+          </div>}
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>setAba(2)} style={btnPrimary}>Ver diagnÃ³stico completo â†’</button>
+            <button onClick={()=>setAba(6)} style={btnOutline}>ðŸ“„ Gerar parecer</button>
+          </div>
+        </>}
+      </>}
+
+      {aba===1&&<>
+        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
+          â„¹ï¸ <strong>Modo manual.</strong> Preencha o mÃ¡ximo de campos possÃ­vel para anÃ¡lise mais precisa.
+        </div>
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>ðŸ“‹ Dados Gerais</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>CNPJ</label>{inp('cnpj','00.000.000/0001-00')}</div>
+            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total da dÃ­vida (R$)</label>{inp('valor_total','Ex: 250.000,00')}</div>
+            <div>
+              <label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Ã“rgÃ£o credor</label>
+              <select value={dados.orgao_credor} onChange={e=>setDados({...dados,orgao_credor:e.target.value})} style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>
+                <option>PGFN</option><option>Receita Federal</option><option>Estado</option><option>MunicÃ­pio</option><option>Outro</option>
+              </select>
+            </div>
+            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Processo de execuÃ§Ã£o fiscal</label>{inp('processo_execucao','Ex: 0001234-56.2019.4.03.6100')}</div>
+          </div>
+        </div>
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>ðŸ“„ CDAs â€” CertidÃµes de DÃ­vida Ativa</div>
+            <button onClick={addCDA} style={{...btnPrimary,padding:'6px 14px',fontSize:12}}>+ Adicionar CDA</button>
+          </div>
+          {cdas.map((cda,i)=>(
+            <div key={i} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.navy}}>CDA {i+1}</div>
+                {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>ðŸ—‘ï¸ Remover CDA</button>}
+              </div>
+
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>NÃºmero da CDA</label>
+                <input value={cda.numero_cda||''} onChange={e=>updateCDA(i,'numero_cda',e.target.value)} placeholder="Ex: 80.6.18.123456-78" style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',maxWidth:320,boxSizing:'border-box'}}/>
+              </div>
+
+              <div style={{marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                  <label style={{fontSize:12,fontWeight:500,color:C.text}}>InscriÃ§Ãµes desta CDA â€” nÃºmero, tipo de crÃ©dito e valor</label>
+                  <button onClick={()=>addInscricao(i)} style={{padding:'3px 10px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:11,cursor:'pointer',fontWeight:600}}>+ Adicionar inscriÃ§Ã£o</button>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(cda.inscricoes||[]).map((ins,j)=>{
+                    const tipoInfo = TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)
+                    return (
+                    <div key={j} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+                        <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="NÃºmero da inscriÃ§Ã£o" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
+                        <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
+                        {(cda.inscricoes||[]).length>1&&(
+                          <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>ðŸ—‘ï¸</button>
+                        )}
+                      </div>
+                      <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                        {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                      </select>
+                      {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>ðŸ“– {tipoInfo.legislacao}</div>}
+                    </div>
+                  )})}
+                </div>
+                <div style={{marginTop:8,display:'flex',justifyContent:'flex-end',fontSize:12,color:C.navy,fontWeight:700}}>
+                  Total das inscriÃ§Ãµes: {fmtR(totalInscricoes(cda))}
+                </div>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Modalidade do lanÃ§amento</label>
+                  <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                    <option value="oficio">De ofÃ­cio / DeclaraÃ§Ã£o (art. 173 CTN)</option>
+                    <option value="homologacao">Por homologaÃ§Ã£o (art. 150 CTN)</option>
+                  </select>
+                </div>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data do fato gerador</label><input type="date" value={cda.data_fato_gerador} onChange={e=>updateCDA(i,'data_fato_gerador',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da constituiÃ§Ã£o definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data de inscriÃ§Ã£o em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da citaÃ§Ã£o vÃ¡lida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da Ãºltima movimentaÃ§Ã£o</label><input type="date" value={cda.data_ultima_movimentacao} onChange={e=>updateCDA(i,'data_ultima_movimentacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>SituaÃ§Ã£o</label>
+                  <select value={cda.situacao} onChange={e=>updateCDA(i,'situacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                    <option>Ativa</option><option>Garantida</option><option>Parcelada</option><option>Suspensa</option><option>Extinta</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                {[['possui_parcelamento','Parcelamento ativo'],['possui_suspensao','SuspensÃ£o da exigibilidade'],['possui_garantia','Garantia prestada'],['possui_penhora','Penhora de bens'],['possui_embargos','Embargos Ã  execuÃ§Ã£o']].map(([k,lb])=>(
+                  <label key={k} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:C.text,cursor:'pointer'}}>
+                    <input type="checkbox" checked={cda[k]} onChange={e=>updateCDA(i,k,e.target.checked)} style={{accentColor:C.navy,width:14,height:14}}/>{lb}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>ðŸ“ ObservaÃ§Ãµes</div>
+          <textarea value={dados.observacoes} onChange={e=>setDados({...dados,observacoes:e.target.value})} placeholder="InformaÃ§Ãµes complementares..." style={{width:'100%',padding:'10px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,minHeight:80,resize:'vertical',boxSizing:'border-box'}}/>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={executarDiagnostico} disabled={analisando} style={{...btnPrimary,opacity:analisando?0.7:1}}>{analisando?'ðŸ”„ Analisando...':'ðŸ§  Executar diagnÃ³stico inteligente â†’'}</button>
+          <button onClick={()=>salvar()} disabled={salvando} style={btnOutline}>{salvando?'Salvando...':'ðŸ’¾ Salvar'}</button>
+        </div>
+      </>}
+
+      {aba===2&&<>
+        {analisesCDA.length===0?(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
+            <div style={{fontSize:40,marginBottom:12}}>ðŸ§ </div>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>DiagnÃ³stico nÃ£o executado</div>
+            <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados â†’</button>
+          </div>
+        ):<>
+          {analisesCDA.map((a,i)=>{
+            const tipo = tipoReferenciaCDA(a.cda)
+            return (
+            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
+                <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{tipo.label} (referÃªncia)</span>
+              </div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{fmtR(totalInscricoes(a.cda))} Â· {a.cda.situacao}</div>
+              <ResultadoAnalise resultado={a.decadencia}/>
+              <ResultadoAnalise resultado={a.prescricao}/>
+              <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
+              <ResultadoAnalise resultado={{...a.validadeCDA,teses:tesesReferenciaCDA(a.cda)}}/>
+            </div>
+          )})}
+          <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
+            ðŸ’¡ Clique em "â–¼ Ver raciocÃ­nio" para ver o passo a passo do raciocÃ­nio jurÃ­dico aplicado.
+          </div>
+          <button onClick={()=>setAba(6)} style={btnPrimary}>ðŸ“„ Gerar parecer tÃ©cnico â†’</button>
+        </>}
+      </>}
+
+      {aba===3&&<>
+        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
+          âœ… Modalidades baseadas nas regras vigentes da PGFN â€” Portaria 6.757/2022 e editais em vigor.
+        </div>
+        {MODALIDADES_PGFN.map(m=>(
+          <div key={m.key} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,borderLeft:'5px solid #0B1F4D',padding:'18px 22px',marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:8}}>{m.label}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:10}}>
+              {[['Desconto multa',`${m.desconto_multa[0]}â€“${m.desconto_multa[1]}%`,'#7C3AED'],['Desconto juros',`${m.desconto_juros[0]}â€“${m.desconto_juros[1]}%`,'#0D9488'],['Entrada mÃ­nima',`${m.entrada_min}%`,'#D97706'],['Parcelas mÃ¡x.',`${m.parcelas_max}x`,'#2563EB']].map(([lb,val,cor])=>(
+                <div key={lb} style={{background:'#F8FAFC',borderRadius:8,padding:'8px 10px',textAlign:'center'}}>
+                  <div style={{fontSize:14,fontWeight:700,color:cor}}>{val}</div>
+                  <div style={{fontSize:10,color:C.muted}}>{lb}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'6px 10px'}}>ðŸ“‹ {m.elegibilidade}</div>
+          </div>
+        ))}
+      </>}
+
+      {aba===4&&<>
+        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
+          â„¹ï¸ AnÃ¡lise baseada no Core de InteligÃªncia Fiscal e TributÃ¡ria â€” {regraCapag?'regra carregada da base jurÃ­dica viva':'carregando regra...'}.
+        </div>
+        {cdas.map((cda,i)=>{
+          const elegibilidade = analisarElegibilidadeTransacao(cda, regraCapag)
+          return (
+            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
+              <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:12}}>{rotuloCDA(cda,i)}</div>
+              <ResultadoAnalise resultado={elegibilidade}/>
+            </div>
+          )
+        })}
+        {teseTransacao&&(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginTop:8}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>ðŸ“š Tese aplicÃ¡vel â€” {teseTransacao.nome_tese}</div>
+            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>Requisitos:</strong> {teseTransacao.requisitos}</div>
+            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>ExceÃ§Ãµes:</strong> {teseTransacao.excecoes}</div>
+            <div style={{fontSize:13,color:C.text,lineHeight:1.7}}><strong>EstratÃ©gia recomendada:</strong> {teseTransacao.estrategia_recomendada}</div>
+          </div>
+        )}
+      </>}
+
+      {aba===5&&<>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>âš™ï¸ ParÃ¢metros</div>
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total (R$)</label><input value={sim.valor} onChange={e=>setSim({...sim,valor:e.target.value})} type="number" placeholder="Ex: 500000" style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/></div>
+              <div>
+                <label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Modalidade</label>
+                <select value={sim.modalidade} onChange={e=>{const m=MODALIDADES_PGFN.find(x=>x.key===e.target.value);setSim({...sim,modalidade:e.target.value,desconto_multa:m.desconto_multa[1],desconto_juros:m.desconto_juros[1],entrada_pct:m.entrada_min||5,parcelas:m.parcelas_max})}} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>
+                  {MODALIDADES_PGFN.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}
+                </select>
+              </div>
+              {[['% multa','multa_pct',0,80],['% juros','juros_pct',0,80],['Desconto multa (%)','desconto_multa',0,100],['Desconto juros (%)','desconto_juros',0,100],['Entrada (%)','entrada_pct',0,30],['Parcelas','parcelas',1,120]].map(([lb,k,min,max])=>(
+                <div key={k}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
+                    <span style={{fontSize:13,fontWeight:700,color:C.navy}}>{sim[k]}{k==='parcelas'?'x':'%'}</span>
+                  </div>
+                  <input type="range" min={min} max={max} value={sim[k]} onChange={e=>setSim({...sim,[k]:parseInt(e.target.value)})} style={{width:'100%',accentColor:C.navy}}/>
+                </div>
+              ))}
+              <button onClick={calcularSimulacao} style={btnPrimary}>ðŸ“Š Simular â†’</button>
+            </div>
+          </div>
+          <div>
+            {!simResult?(
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                <div style={{fontSize:40,marginBottom:12}}>ðŸ“Š</div>
+                <div style={{fontSize:14,color:C.muted}}>Preencha os parÃ¢metros e clique em Simular</div>
+              </div>
+            ):(
+              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>ðŸ“Š Resultado</div>
+                {[['Valor original',fmtR(parseFloat(sim.valor)||0),'#DC2626'],['Multa ('+sim.multa_pct+'%)',fmtR(simResult.multa),'#D97706'],['Juros ('+sim.juros_pct+'%)',fmtR(simResult.juros),'#D97706'],['Desconto multa','-'+fmtR(simResult.descMulta),'#16A34A'],['Desconto juros','-'+fmtR(simResult.descJuros),'#16A34A']].map(([lb,val,cor])=>(
+                  <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${C.border}`,fontSize:13}}>
+                    <span style={{color:C.muted}}>{lb}</span><span style={{fontWeight:600,color:cor}}>{val}</span>
+                  </div>
+                ))}
+                <div style={{background:'#F0FDF4',borderRadius:10,padding:'14px 16px',marginTop:14,marginBottom:14}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:14,fontWeight:700,color:C.text}}>Valor final</span><span style={{fontSize:18,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.valorFinal)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Economia total</span><span style={{fontSize:14,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.economia)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Entrada ({sim.entrada_pct}%)</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.entrada)}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:13,color:C.muted}}>{sim.parcelas>1?sim.parcelas-1:'1'} parcela(s) de</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.parcela)}</span></div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </>}
+
+      {aba===6&&<>
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'24px',marginBottom:16}}>
+          <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:4}}>ðŸ“„ Parecer TÃ©cnico â€” DÃ­vida Ativa (PGFN)</div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString('pt-BR')} Â· {clienteAtual?.razao_social||dados.cnpj}</div>
+          {!diagnostico||analisesCDA.length===0?(
+            <div style={{textAlign:'center',padding:'32px 0'}}>
+              <div style={{fontSize:32,marginBottom:8}}>âš ï¸</div>
+              <div style={{fontSize:14,color:C.muted,marginBottom:16}}>Execute o diagnÃ³stico antes de gerar o parecer.</div>
+              <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados â†’</button>
+            </div>
+          ):<>
+            <div style={{background:diagnostico.urgente?'#FEF2F2':'#F0FDF4',border:`1px solid ${diagnostico.urgente?'#FECACA':'#86EFAC'}`,borderRadius:10,padding:'16px 20px',marginBottom:20}}>
+              <div style={{fontSize:14,fontWeight:700,color:diagnostico.urgente?'#991B1B':'#166534',marginBottom:10}}>
+                {diagnostico.urgente?'âš ï¸ Irregularidades identificadas â€” aÃ§Ã£o urgente recomendada':'âœ… Sem irregularidades graves identificadas'}
+              </div>
+              {diagnostico.parecer.map((p,i)=>(
+                <div key={i} style={{fontSize:13,color:p.tipo==='danger'?'#991B1B':'#92400E',marginBottom:4}}>â€¢ {p.msg}</div>
+              ))}
+            </div>
+            {analisesCDA.map((a,i)=>{
+              const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'â€”'}]`).join(' / ')
+              const tipo = tipoReferenciaCDA(a.cda)
+              return (
+              <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
+                <div style={{fontSize:12,color:'#1E40AF',marginBottom:8}}>{tipo.label} (referÃªncia) Â· {tipo.legislacao}</div>
+                <div style={{fontSize:12,color:C.muted,marginBottom:12}}>InscriÃ§Ãµes: {inscricoesTxt||'Sem nÃºmero'}</div>
+                {[['DecadÃªncia',a.decadencia],['PrescriÃ§Ã£o',a.prescricao],['PrescriÃ§Ã£o Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
+                  <div key={titulo} style={{marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{titulo}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:res.cor,marginBottom:4}}>{res.titulo}</div>
+                    <div style={{fontSize:13,color:C.text,lineHeight:1.7}}>{res.justificativa}</div>
+                  </div>
+                ))}
+                <div style={{marginTop:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:0.5}}>Teses aplicÃ¡veis</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {tesesReferenciaCDA(a.cda).map((t,j)=><span key={j} style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:11,fontWeight:500}}>{t}</span>)}
+                  </div>
+                </div>
+              </div>
+            )})}
+            <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',fontSize:12,color:'#92400E',marginBottom:16}}>
+              âš ï¸ Parecer preliminar â€” nÃ£o substitui anÃ¡lise jurÃ­dica profissional.
+            </div>
+            <button onClick={gerarRelatorio} style={btnPrimary}>â¬‡ï¸ Baixar parecer (.txt)</button>
+          </>}
+        </div>
+      </>}
+    </div>
+  )
+}
