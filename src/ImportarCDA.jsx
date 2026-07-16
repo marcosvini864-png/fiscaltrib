@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const C = {
@@ -14,7 +14,6 @@ const fmtVal = v => {
   if (s.includes(',')) return parseFloat(s.replace(',','.')) || 0
   return parseFloat(s) || 0
 }
-// Formata número bruto para exibição pt-BR
 const fmtExibir = v => {
   const n = parseFloat(v) || 0
   if (n === 0) return ''
@@ -193,6 +192,63 @@ ${textoConsolidado.slice(0, 8000)}`
   return JSON.parse(jsonMatch[0])
 }
 
+// ── Seletor de cliente interno ──
+function SeletorClienteInterno({ onSelecionar }) {
+  const [clientes, setClientes] = useState([])
+  const [clienteSelecionado, setClienteSelecionado] = useState('')
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    async function carregar() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data } = await supabase.from('clientes').select('id,razao_social,cnpj').eq('usuario_id', user.id).order('razao_social')
+        if (data) setClientes(data)
+      } catch(e) {}
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  function confirmar() {
+    const c = clientes.find(x => x.id.toString() === clienteSelecionado)
+    if (c) onSelecionar(c)
+  }
+
+  return (
+    <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
+      <div style={{fontSize:13,fontWeight:700,color:'#92400E',marginBottom:10}}>
+        ⚠️ Nenhum cliente ativo — selecione o cliente para vincular esta CDA:
+      </div>
+      {carregando ? (
+        <div style={{fontSize:13,color:C.muted}}>Carregando clientes...</div>
+      ) : clientes.length === 0 ? (
+        <div style={{fontSize:13,color:C.muted}}>Nenhum cliente cadastrado. Cadastre um cliente primeiro.</div>
+      ) : (
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+          <select
+            value={clienteSelecionado}
+            onChange={e => setClienteSelecionado(e.target.value)}
+            style={{flex:1,minWidth:220,padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
+            <option value=''>— Selecione o cliente —</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id.toString()}>
+                {c.razao_social}{c.cnpj ? ' · '+c.cnpj : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={confirmar}
+            disabled={!clienteSelecionado}
+            style={{padding:'8px 18px',background:clienteSelecionado?C.navy:'#94a3b8',color:'#fff',border:'none',borderRadius:6,fontSize:13,fontWeight:600,cursor:clienteSelecionado?'pointer':'not-allowed'}}>
+            Confirmar
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ImportarCDA({ active, onSalvo }) {
   const [etapa, setEtapa] = useState('upload')
   const [arquivo, setArquivo] = useState(null)
@@ -201,6 +257,10 @@ export default function ImportarCDA({ active, onSalvo }) {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const inputRef = useRef()
+
+  // ── cliente efetivo: prop active ou selecionado internamente ──
+  const [clienteEfetivo, setClienteEfetivo] = useState(active || null)
+  useEffect(() => { setClienteEfetivo(active || null) }, [active])
 
   async function handleArquivo(file) {
     if (!file || file.type !== 'application/pdf') {
@@ -216,18 +276,16 @@ export default function ImportarCDA({ active, onSalvo }) {
       const vTotal = parseFloat(dados.valor_total) || 0
       const modalidadeKey = dados.modalidade_transacao || 'transacao_edital'
       const negociacao = calcularNegociacao(vTotal, modalidadeKey)
-
-      // ── CORREÇÃO: formatar todos os valores numéricos ao popular os campos ──
       setCampos(prev => ({
         ...prev,
         ...dados,
-        valor_originario:      fmtExibir(dados.valor_originario),
-        principal_atualizado:  fmtExibir(dados.principal_atualizado),
-        juros:                 fmtExibir(dados.juros),
-        multa:                 fmtExibir(dados.multa),
-        valor_total:           fmtExibir(vTotal),
-        total_sem_desconto:    vTotal,
-        modalidade_transacao:  modalidadeKey,
+        valor_originario:     fmtExibir(dados.valor_originario),
+        principal_atualizado: fmtExibir(dados.principal_atualizado),
+        juros:                fmtExibir(dados.juros),
+        multa:                fmtExibir(dados.multa),
+        valor_total:          fmtExibir(vTotal),
+        total_sem_desconto:   vTotal,
+        modalidade_transacao: modalidadeKey,
         ...negociacao,
       }))
       setEtapa('revisao')
@@ -238,13 +296,17 @@ export default function ImportarCDA({ active, onSalvo }) {
   }
 
   async function salvar() {
+    if (!clienteEfetivo) {
+      setErro('Selecione um cliente antes de salvar.')
+      return
+    }
     setSalvando(true)
     setErro('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const payload = {
         usuario_id: user.id,
-        cliente_id: active?.id || null,
+        cliente_id: clienteEfetivo?.id || null,
         numero_cda: campos.numero_cda,
         devedor: campos.devedor,
         cnpj_devedor: campos.cnpj_devedor,
@@ -345,22 +407,27 @@ export default function ImportarCDA({ active, onSalvo }) {
   return (
     <div style={{maxWidth:860,margin:'0 auto'}}>
 
+      {/* Cabeçalho */}
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:14,padding:'24px 28px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:10,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
         <h2 style={{fontSize:20,fontWeight:900,margin:'0 0 6px',color:'#fff'}}>📄 Importar CDA via PDF</h2>
         <p style={{fontSize:13,color:'#cbd5e1',margin:0}}>Faça upload do PDF da Certidão de Dívida Ativa — a IA extrai os dados automaticamente</p>
-        {active && (
-          <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff'}}>
-            👤 <strong>{active.razao_social}</strong>
-            {active.cnpj && <span style={{marginLeft:10,color:'#94a3b8'}}>{active.cnpj}</span>}
-          </div>
-        )}
-        {!active && (
-          <div style={{marginTop:12,background:'rgba(255,165,0,0.2)',border:'1px solid rgba(255,165,0,0.4)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fcd34d'}}>
-            ⚠️ Nenhum cliente selecionado — selecione um cliente no menu lateral antes de importar.
+        {clienteEfetivo && (
+          <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span>👤 <strong>{clienteEfetivo.razao_social}</strong>{clienteEfetivo.cnpj && <span style={{marginLeft:10,color:'#94a3b8'}}>{clienteEfetivo.cnpj}</span>}</span>
+            {!active && (
+              <button onClick={()=>setClienteEfetivo(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:4,padding:'2px 8px',color:'#fff',fontSize:11,cursor:'pointer'}}>
+                Trocar
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Seletor interno quando não há cliente ativo */}
+      {!clienteEfetivo && (
+        <SeletorClienteInterno onSelecionar={c => setClienteEfetivo(c)} />
+      )}
 
       {erro && (
         <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:13,color:'#991B1B'}}>
@@ -515,7 +582,7 @@ export default function ImportarCDA({ active, onSalvo }) {
           <div style={{fontSize:56,marginBottom:16}}>✅</div>
           <div style={{fontSize:18,fontWeight:700,color:C.navy,marginBottom:8}}>CDA salva com sucesso!</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:24}}>
-            {campos.devedor} — CDA {campos.numero_cda}<br/>
+            {clienteEfetivo?.razao_social} — CDA {campos.numero_cda}<br/>
             Valor total: {fmtR(fmtVal(campos.valor_total))}
           </div>
           <div style={{display:'flex',gap:12,justifyContent:'center'}}>
