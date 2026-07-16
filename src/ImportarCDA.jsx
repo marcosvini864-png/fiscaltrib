@@ -14,6 +14,12 @@ const fmtVal = v => {
   if (s.includes(',')) return parseFloat(s.replace(',','.')) || 0
   return parseFloat(s) || 0
 }
+// Formata número bruto para exibição pt-BR
+const fmtExibir = v => {
+  const n = parseFloat(v) || 0
+  if (n === 0) return ''
+  return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+}
 
 const CAMPOS_VAZIOS = {
   numero_cda:'', devedor:'', cnpj_devedor:'',
@@ -61,11 +67,11 @@ function calcularNegociacao(vTotal, modalidadeKey) {
   const saldo = vFinal - vEntrada
   const vParcela = mod.parcelas_max > 1 ? saldo / (mod.parcelas_max - 1) : saldo
   return {
-    desconto_valor: totalDesc.toFixed(2),
+    desconto_valor: fmtExibir(totalDesc),
     desconto_percentual: mod.desconto_multa,
-    valor_entrada: vEntrada.toFixed(2),
+    valor_entrada: fmtExibir(vEntrada),
     qt_parcelas: mod.parcelas_max,
-    valor_parcela: vParcela.toFixed(2),
+    valor_parcela: fmtExibir(vParcela),
   }
 }
 
@@ -210,11 +216,18 @@ export default function ImportarCDA({ active, onSalvo }) {
       const vTotal = parseFloat(dados.valor_total) || 0
       const modalidadeKey = dados.modalidade_transacao || 'transacao_edital'
       const negociacao = calcularNegociacao(vTotal, modalidadeKey)
+
+      // ── CORREÇÃO: formatar todos os valores numéricos ao popular os campos ──
       setCampos(prev => ({
         ...prev,
         ...dados,
-        total_sem_desconto: vTotal,
-        modalidade_transacao: modalidadeKey,
+        valor_originario:      fmtExibir(dados.valor_originario),
+        principal_atualizado:  fmtExibir(dados.principal_atualizado),
+        juros:                 fmtExibir(dados.juros),
+        multa:                 fmtExibir(dados.multa),
+        valor_total:           fmtExibir(vTotal),
+        total_sem_desconto:    vTotal,
+        modalidade_transacao:  modalidadeKey,
         ...negociacao,
       }))
       setEtapa('revisao')
@@ -322,7 +335,7 @@ export default function ImportarCDA({ active, onSalvo }) {
         onChange={e=>setCampos(p=>({...p,[k]:e.target.value}))}
         onBlur={e=>{
           const n = fmtVal(e.target.value)
-          if(n>0) setCampos(p=>({...p,[k]:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}))
+          if(n>0) setCampos(p=>({...p,[k]:fmtExibir(n)}))
         }}
         style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,boxSizing:'border-box'}}
       />
@@ -431,7 +444,7 @@ export default function ImportarCDA({ active, onSalvo }) {
                 onBlur={e=>{
                   const n = fmtVal(e.target.value)
                   if(n>0){
-                    const fmt = n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+                    const fmt = fmtExibir(n)
                     const neg = calcularNegociacao(n, campos.modalidade_transacao)
                     setCampos(p=>({...p,valor_total:fmt,total_sem_desconto:n,...neg}))
                   }

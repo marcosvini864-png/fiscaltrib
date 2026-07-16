@@ -479,7 +479,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
     } catch(e) { setSisparDados([]) }
     setSisparLoading(false)
   }
-
+ async function deletarCDA(id) {
+  if (!window.confirm('Excluir este registro da CDA?')) return
+  try {
+    const { error } = await supabase.from('cdas').delete().eq('id', id)
+    if (error) throw error
+    await carregarSispar()
+  } catch(e) { alert('Erro ao excluir: ' + e.message) }
+ }
   useEffect(() => {
     if(aba === 7) carregarSispar()
   }, [aba, clienteAtual])
@@ -1197,7 +1204,8 @@ export default function DiagnosticoDividaAtiva({ active }) {
                     <th style={thSispar}>Qt Parcela</th>
                     <th style={thSispar}>Vl Parcela</th>
                     <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
-                  </tr>
+                    <th style={{...thSispar, width:40}}></th>
+				  </tr>
                 </thead>
                 <tbody>
                   {sisparDados.map((r, idx) => {
@@ -1249,6 +1257,14 @@ export default function DiagnosticoDividaAtiva({ active }) {
                         <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
                           {[r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ') || r.observacoes || '—'}
                         </td>
+						<td style={{...tdSispar(), width:40}}>
+                        <button
+                        onClick={() => deletarCDA(r.id)}
+                          title="Excluir registro"
+                          style={{background:'#fff1f2',border:'1px solid #fecdd3',borderRadius:6,padding:'3px 7px',cursor:'pointer',fontSize:12,color:'#dc2626',lineHeight:1}}>
+                          🗑️
+                        </button>
+                      </td>
                       </tr>
                     )
                   })}
@@ -1264,7 +1280,7 @@ export default function DiagnosticoDividaAtiva({ active }) {
                         : '—'}
                     </td>
                     <td style={{...tdTotal,color:'#0B1F4D'}}>{fmtR(sisparTotais.totalAPagar)}</td>
-                    <td colSpan={4} style={tdTotal}></td>
+                    <td colSpan={5} style={tdTotal}></td>
                     <td style={tdTotal}></td>
                   </tr>
                 </tfoot>
