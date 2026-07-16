@@ -8,6 +8,7 @@ const C = {
 }
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+const fmtVal = v => parseFloat(String(v||0).replace(/\./g,'').replace(',','.'))||0
 
 const CAMPOS_VAZIOS = {
   numero_cda:'', devedor:'', cnpj_devedor:'',
@@ -35,13 +36,33 @@ const TIPOS_DEBITO = [
 ]
 
 const MODALIDADES = [
-  { key:'transacao_excepcional', label:'Transação Excepcional',       desconto_multa:100, desconto_juros:100, entrada_pct:0,  parcelas_max:60  },
-  { key:'transacao_individual',  label:'Transação Individual',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:84  },
-  { key:'transacao_edital',      label:'Transação por Edital',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:60  },
-  { key:'prdi',                  label:'PRDI',                        desconto_multa:70,  desconto_juros:70,  entrada_pct:0,  parcelas_max:84  },
-  { key:'parcelamento_ordinario',label:'Parcelamento Ordinário',      desconto_multa:0,   desconto_juros:0,   entrada_pct:0,  parcelas_max:60  },
-  { key:'njp',                   label:'Negócio Jurídico Processual', desconto_multa:40,  desconto_juros:40,  entrada_pct:10, parcelas_max:60  },
+  { key:'transacao_excepcional', label:'Transação Excepcional',       desconto_multa:100, desconto_juros:100, entrada_pct:0,  parcelas_max:60 },
+  { key:'transacao_individual',  label:'Transação Individual',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:84 },
+  { key:'transacao_edital',      label:'Transação por Edital',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:60 },
+  { key:'prdi',                  label:'PRDI',                        desconto_multa:70,  desconto_juros:70,  entrada_pct:0,  parcelas_max:84 },
+  { key:'parcelamento_ordinario',label:'Parcelamento Ordinário',      desconto_multa:0,   desconto_juros:0,   entrada_pct:0,  parcelas_max:60 },
+  { key:'njp',                   label:'Negócio Jurídico Processual', desconto_multa:40,  desconto_juros:40,  entrada_pct:10, parcelas_max:60 },
 ]
+
+function calcularNegociacao(vTotal, modalidadeKey) {
+  const mod = MODALIDADES.find(m => m.key === modalidadeKey) || MODALIDADES[2]
+  const vMulta = vTotal * 0.20
+  const vJuros = vTotal * 0.30
+  const descMultaVal = vMulta * (mod.desconto_multa / 100)
+  const descJurosVal = vJuros * (mod.desconto_juros / 100)
+  const totalDesc = descMultaVal + descJurosVal
+  const vFinal = vTotal - totalDesc
+  const vEntrada = vFinal * (mod.entrada_pct / 100)
+  const saldo = vFinal - vEntrada
+  const vParcela = mod.parcelas_max > 1 ? saldo / (mod.parcelas_max - 1) : saldo
+  return {
+    desconto_valor: totalDesc.toFixed(2),
+    desconto_percentual: mod.desconto_multa,
+    valor_entrada: vEntrada.toFixed(2),
+    qt_parcelas: mod.parcelas_max,
+    valor_parcela: vParcela.toFixed(2),
+  }
+}
 
 async function extrairPaginasPDF(file) {
   const PDFJS_VERSION = '3.11.174'
@@ -112,10 +133,44 @@ async function analisarComIA(paginas) {
       'Authorization': `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
-      system: 'Você é um extrator de dados de CDA da PGFN brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações, sem texto adicional.',
+      system: 'Você é um extrator de dados de CDA da PGFN brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
       messages: [{
         role: 'user',
-        content: `Analise o texto abaixo extraído de uma CDA da PGFN e retorne APENAS este JSON preenchido:\n{\n  "numero_cda": "",\n  "devedor": "",\n  "cnpj_devedor": "",\n  "pgfn_origem": "",\n  "livro_folha": "",\n  "processo_administrativo": "",\n  "data_inscricao": "",\n  "periodo_divida_inicio": "",\n  "periodo_divida_fim": "",\n  "valor_originario": 0,\n  "principal_atualizado": 0,\n  "juros": 0,\n  "multa": 0,\n  "valor_total": 0,\n  "data_calculo": "",\n  "fundamento_legal": "",\n  "municipio": "",\n  "uf": "",\n  "tipo_debito": "previdenciario"\n}\n\nTEXTO DA CDA:\n${textoConsolidado.slice(0, 8000)}`
+        content: `Analise o texto abaixo de uma CDA da PGFN e retorne APENAS este JSON.
+
+ATENÇÃO — regras importantes:
+- "numero_cda" = campo "Nm.Inscrição Dívida Ativa" (ex: 13.775.238-5) — NÃO confundir com PGFN de Origem
+- "pgfn_origem" = campo "PGFN de Origem" (ex: 21.200.800)
+- "valor_originario", "principal_atualizado", "juros", "multa", "valor_total" = números sem formatação (ex: 16227.82)
+- "data_inscricao" = data no formato DD/MM/AAAA
+- "periodo_divida_inicio" e "periodo_divida_fim" = formato MM/AAAA
+- "cnpj_devedor" = campo CGC ou CNPJ
+
+JSON a retornar:
+{
+  "numero_cda": "",
+  "devedor": "",
+  "cnpj_devedor": "",
+  "pgfn_origem": "",
+  "livro_folha": "",
+  "processo_administrativo": "",
+  "data_inscricao": "",
+  "periodo_divida_inicio": "",
+  "periodo_divida_fim": "",
+  "valor_originario": 0,
+  "principal_atualizado": 0,
+  "juros": 0,
+  "multa": 0,
+  "valor_total": 0,
+  "data_calculo": "",
+  "fundamento_legal": "",
+  "municipio": "",
+  "uf": "",
+  "tipo_debito": "previdenciario"
+}
+
+TEXTO DA CDA:
+${textoConsolidado.slice(0, 8000)}`
       }]
     })
   })
@@ -146,10 +201,15 @@ export default function ImportarCDA({ onSalvo }) {
     try {
       const paginas = await extrairPaginasPDF(file)
       const dados = await analisarComIA(paginas)
+      const vTotal = parseFloat(dados.valor_total) || 0
+      const modalidadeKey = dados.modalidade_transacao || 'transacao_edital'
+      const negociacao = calcularNegociacao(vTotal, modalidadeKey)
       setCampos(prev => ({
         ...prev,
         ...dados,
-        total_sem_desconto: dados.valor_total || 0,
+        total_sem_desconto: vTotal,
+        modalidade_transacao: modalidadeKey,
+        ...negociacao,
       }))
       setEtapa('revisao')
     } catch(e) {
@@ -174,17 +234,17 @@ export default function ImportarCDA({ onSalvo }) {
         data_inscricao: campos.data_inscricao || null,
         periodo_divida_inicio: campos.periodo_divida_inicio,
         periodo_divida_fim: campos.periodo_divida_fim,
-        valor_originario: parseFloat(campos.valor_originario)||0,
-        principal_atualizado: parseFloat(campos.principal_atualizado)||0,
-        juros: parseFloat(campos.juros)||0,
-        multa: parseFloat(campos.multa)||0,
-        valor_total: parseFloat(campos.valor_total)||0,
-        total_sem_desconto: parseFloat(campos.total_sem_desconto||campos.valor_total)||0,
-        desconto_valor: parseFloat(campos.desconto_valor)||0,
-        desconto_percentual: parseFloat(campos.desconto_percentual)||0,
-        valor_entrada: parseFloat(campos.valor_entrada)||0,
+        valor_originario: fmtVal(campos.valor_originario),
+        principal_atualizado: fmtVal(campos.principal_atualizado),
+        juros: fmtVal(campos.juros),
+        multa: fmtVal(campos.multa),
+        valor_total: fmtVal(campos.valor_total),
+        total_sem_desconto: fmtVal(campos.total_sem_desconto||campos.valor_total),
+        desconto_valor: fmtVal(campos.desconto_valor),
+        desconto_percentual: fmtVal(campos.desconto_percentual),
+        valor_entrada: fmtVal(campos.valor_entrada),
         qt_parcelas: parseInt(campos.qt_parcelas)||0,
-        valor_parcela: parseFloat(campos.valor_parcela)||0,
+        valor_parcela: fmtVal(campos.valor_parcela),
         data_calculo: campos.data_calculo || null,
         fundamento_legal: campos.fundamento_legal,
         municipio: campos.municipio,
@@ -226,44 +286,41 @@ export default function ImportarCDA({ onSalvo }) {
   )
 
   const sel = (k, label, opcoes) => (
-  <div>
-    <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
-    <select
-      value={campos[k]||''}
-      onChange={e => {
-        const val = e.target.value
-        if (k === 'modalidade_transacao') {
-          const mod = MODALIDADES.find(m => m.key === val)
-          if (mod) {
+    <div>
+      <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
+      <select
+        value={campos[k]||''}
+        onChange={e => {
+          const val = e.target.value
+          if (k === 'modalidade_transacao') {
             const vTotal = parseFloat(campos.valor_total) || 0
-            const vMulta = vTotal * 0.20
-            const vJuros = vTotal * 0.30
-            const descMultaVal = vMulta * (mod.desconto_multa / 100)
-            const descJurosVal = vJuros * (mod.desconto_juros / 100)
-            const totalDesc = descMultaVal + descJurosVal
-            const vFinal = vTotal - totalDesc
-            const vEntrada = vFinal * (mod.entrada_pct / 100)
-            const saldo = vFinal - vEntrada
-            const vParcela = mod.parcelas_max > 1 ? saldo / (mod.parcelas_max - 1) : saldo
-            setCampos(p => ({
-              ...p,
-              modalidade_transacao: val,
-              desconto_percentual: mod.desconto_multa,
-              desconto_valor: totalDesc.toFixed(2),
-              valor_entrada: vEntrada.toFixed(2),
-              qt_parcelas: mod.parcelas_max,
-              valor_parcela: vParcela.toFixed(2),
-            }))
+            const negociacao = calcularNegociacao(vTotal, val)
+            setCampos(p => ({ ...p, modalidade_transacao: val, ...negociacao }))
             return
           }
-        }
-        setCampos(p => ({...p, [k]: val}))
-      }}
-      style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
-      {opcoes.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
-    </select>
-  </div>
-)
+          setCampos(p => ({...p, [k]: val}))
+        }}
+        style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
+        {opcoes.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+
+  const inpValor = (k, label) => (
+    <div>
+      <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
+      <input
+        type="text"
+        value={campos[k]||''}
+        onChange={e=>setCampos(p=>({...p,[k]:e.target.value}))}
+        onBlur={e=>{
+          const n = fmtVal(e.target.value)
+          if(n>0) setCampos(p=>({...p,[k]:n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}))
+        }}
+        style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,boxSizing:'border-box'}}
+      />
+    </div>
+  )
 
   return (
     <div style={{maxWidth:860,margin:'0 auto'}}>
@@ -338,22 +395,30 @@ export default function ImportarCDA({ onSalvo }) {
           <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>💰 Período e Valores</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
-              {inp('periodo_divida_inicio','Período Início (AAAA-MM)')}
-              {inp('periodo_divida_fim','Período Fim (AAAA-MM)')}
+              {inp('periodo_divida_inicio','Período Início (MM/AAAA)')}
+              {inp('periodo_divida_fim','Período Fim (MM/AAAA)')}
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
-              {inp('valor_originario','Valor Originário','number')}
-              {inp('principal_atualizado','Princ. Atualizado','number')}
-              {inp('juros','Juros','number')}
-              {inp('multa','Multa','number')}
+              {inpValor('valor_originario','Valor Originário')}
+              {inpValor('principal_atualizado','Princ. Atualizado')}
+              {inpValor('juros','Juros')}
+              {inpValor('multa','Multa')}
             </div>
             <div style={{marginTop:14,padding:'12px 16px',background:'#EFF6FF',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontSize:13,fontWeight:700,color:C.navy}}>Valor Total da CDA</span>
               <input
-                type="number"
+                type="text"
                 value={campos.valor_total||''}
                 onChange={e=>setCampos(p=>({...p,valor_total:e.target.value,total_sem_desconto:e.target.value}))}
-                style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:15,fontWeight:700,width:160,textAlign:'right'}}
+                onBlur={e=>{
+                  const n = fmtVal(e.target.value)
+                  if(n>0){
+                    const fmt = n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+                    const neg = calcularNegociacao(n, campos.modalidade_transacao)
+                    setCampos(p=>({...p,valor_total:fmt,total_sem_desconto:n,...neg}))
+                  }
+                }}
+                style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:15,fontWeight:700,width:180,textAlign:'right'}}
               />
             </div>
           </div>
@@ -364,14 +429,17 @@ export default function ImportarCDA({ onSalvo }) {
               {sel('tipo_debito','Tipo de Débito',TIPOS_DEBITO)}
               {sel('modalidade_transacao','Modalidade de Transação',MODALIDADES)}
             </div>
+            <div style={{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',marginBottom:14,fontSize:12,color:C.muted}}>
+              💡 Valores calculados automaticamente com base na modalidade selecionada (estimativa sobre multa 20% + juros 30% do total).
+            </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
-              {inp('desconto_valor','Desconto R$','number')}
+              {inpValor('desconto_valor','Desconto R$')}
               {inp('desconto_percentual','Desconto %','number')}
-              {inp('valor_entrada','Valor Entrada','number')}
+              {inpValor('valor_entrada','Valor Entrada')}
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
               {inp('qt_parcelas','Qtd. Parcelas','number')}
-              {inp('valor_parcela','Valor Parcela','number')}
+              {inpValor('valor_parcela','Valor Parcela')}
             </div>
           </div>
 
@@ -417,7 +485,7 @@ export default function ImportarCDA({ onSalvo }) {
           <div style={{fontSize:18,fontWeight:700,color:C.navy,marginBottom:8}}>CDA salva com sucesso!</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:24}}>
             {campos.devedor} — CDA {campos.numero_cda}<br/>
-            Valor total: {fmtR(campos.valor_total)}
+            Valor total: {fmtR(fmtVal(campos.valor_total))}
           </div>
           <div style={{display:'flex',gap:12,justifyContent:'center'}}>
             <button onClick={novaImportacao}
