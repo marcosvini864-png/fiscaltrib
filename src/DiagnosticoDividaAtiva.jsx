@@ -13,7 +13,12 @@ const diasEntre = (d1,d2) => d1&&d2 ? Math.floor((new Date(d2+'T00:00:00')-new D
 const addAnos = (d,anos) => { if(!d) return null; const dt=new Date(d+'T00:00:00'); dt.setFullYear(dt.getFullYear()+anos); return dt.toISOString().slice(0,10) }
 const hoje = new Date().toISOString().slice(0,10)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : '—'
-const parseValor = v => parseFloat(String(v||'').replace(/\./g,'').replace(',','.')) || 0
+const parseValor = v => {
+  const s = String(v||0)
+  if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0
+  if (s.includes(',')) return parseFloat(s.replace(',','.')) || 0
+  return parseFloat(s) || 0
+}
 
 function migrarCDA(cda) {
   let migrada = cda
