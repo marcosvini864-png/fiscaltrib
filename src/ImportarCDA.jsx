@@ -388,7 +388,7 @@ function imprimirCDA(campos, clienteEfetivo) {
   w.document.close()
 }
 
-export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
+  export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }) {
   const [etapa, setEtapa] = useState('upload')
   const [extraindo, setExtraindo] = useState(false)
   const [campos, setCampos] = useState({...CAMPOS_VAZIOS})
@@ -574,7 +574,13 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
         )}
       </div>
 
-      {!clienteEfetivo && <SeletorClienteInterno onSelecionar={c=>setClienteEfetivo(c)}/>}
+      <div style={{marginBottom:12}}>
+      <button onClick={()=>{ if(onVoltar) onVoltar() }}
+       style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:'1.5px solid #C8D0DC',borderRadius:8,color:'#64748B',fontSize:13,cursor:'pointer'}}>
+      ← Voltar ao Diagnóstico
+     </button>
+     </div>
+	  {!clienteEfetivo && <SeletorClienteInterno onSelecionar={c=>setClienteEfetivo(c)}/>}
       {erro && <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:13,color:'#991B1B'}}>⚠️ {erro}</div>}
 
       {etapa==='upload' && (

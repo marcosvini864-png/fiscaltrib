@@ -726,13 +726,14 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
             {module==='divida' && activeTab===1 && (
               <ImportarCDA
-                active={active}
-                onSalvo={() => navigateTo('divida', 0)}
-                onDiagnostico={({ campos, clienteEfetivo }) => {
-                  setCdaParaDiagnostico({ campos, clienteEfetivo })
-                  navigateTo('divida', 0)
-                }}
-              />
+              active={active}
+              onSalvo={()=>navigateTo('divida',0)}
+              onDiagnostico={({campos,clienteEfetivo})=>{
+              setCdaParaDiagnostico({campos,clienteEfetivo})
+              navigateTo('divida',0)
+            }}
+             onVoltar={()=>navigateTo('divida',0)}
+            />
             )}
 
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
