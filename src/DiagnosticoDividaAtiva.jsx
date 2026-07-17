@@ -33,13 +33,6 @@ function normalizarData(d) {
   return converterDataBR(d)
 }
 
-function converterDataBR(d) {
-  if (!d) return ''
-  const partes = d.split('/')
-  if (partes.length === 3) return `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`
-  return ''
-}
-
 function migrarCDA(cda) {
   let migrada = cda
   if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
@@ -993,7 +986,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
          <div>
          <label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Modalidade do lançamento</label>
-        <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}>
+      <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}>
         <option value="oficio">De ofício / Declaração (art. 173 CTN)</option>
         <option value="homologacao">Por homologação (art. 150 CTN)</option>
         </select>
