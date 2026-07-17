@@ -477,6 +477,19 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
         socio_2: campos.socio_2,
         socio_3: campos.socio_3,
         observacoes: campos.observacoes,
+		modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
+        data_fato_gerador: campos.data_fato_gerador || null,
+        data_constituicao_definitiva: campos.data_constituicao_definitiva || null,
+        data_ajuizamento: campos.data_ajuizamento || null,
+        data_citacao: campos.data_citacao || null,
+        data_ultima_movimentacao: campos.data_ultima_movimentacao || null,
+        numero_processo_execucao: campos.numero_processo_execucao || '',
+        trf_regiao: campos.trf_regiao || '',
+        vara_execucao: campos.vara_execucao || '',
+        ufir_conversao: campos.ufir_conversao || '',
+        orgao_origem: campos.orgao_origem || '',
+        documento_origem: campos.documento_origem || '',
+        data_referencia_valores: campos.data_referencia_valores || '',
       }
       const { data, error } = await supabase.from('cdas').insert([payload]).select()
       if (error) throw error
