@@ -463,6 +463,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [teseTransacao, setTeseTransacao] = useState(null)
   const [sisparDados, setSisparDados] = useState([])
   const [sisparLoading, setSisparLoading] = useState(false)
+  const [cdasSalvas, setCdasSalvas] = useState([])
+  const [mostrarCdasSalvas, setMostrarCdasSalvas] = useState(false)
+  const [loadingCdas, setLoadingCdas] = useState(false)
 
   useEffect(()=>{
     async function carregarCore() {
@@ -551,6 +554,62 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       setSisparDados(data || [])
     } catch(e) { setSisparDados([]) }
     setSisparLoading(false)
+  }
+  async function carregarCdasSalvas() {
+    setLoadingCdas(true)
+    try {
+      const { data:{ user } } = await supabase.auth.getUser()
+      const clienteId = clienteAtual?.id || active?.id || null
+      let query = supabase.from('cdas').select('*').eq('usuario_id', user.id)
+      if (clienteId) query = query.eq('cliente_id', clienteId)
+      const { data, error } = await query.order('created_at', { ascending: false })
+      if (error) throw error
+      setCdasSalvas(data || [])
+    } catch(e) { setCdasSalvas([]) }
+    setLoadingCdas(false)
+  }
+
+  function abrirCdaParaDiagnostico(cda) {
+    const tipoCredito = cda.tipo_debito || 'tributario_federal'
+    const cdaDiag = {
+      ...CDA_VAZIA,
+      numero_cda:               cda.numero_cda || '',
+      inscricoes: [{ numero: cda.numero_cda || '', valor: String(cda.valor_total || 0), tipo_credito: tipoCredito }],
+      situacao:                 'Ativa',
+      modalidade_lancamento:    cda.modalidade_lancamento || 'homologacao',
+      data_fato_gerador:        normalizarData(cda.data_fato_gerador) || '',
+      data_constituicao:        normalizarData(cda.data_constituicao_definitiva) || normalizarData(cda.data_inscricao) || '',
+      data_inscricao:           normalizarData(cda.data_inscricao) || '',
+      data_ajuizamento:         normalizarData(cda.data_ajuizamento) || '',
+      data_citacao:             normalizarData(cda.data_citacao) || '',
+      data_ultima_movimentacao: normalizarData(cda.data_ultima_movimentacao) || '',
+      possui_parcelamento: false, possui_suspensao: false, possui_garantia: false,
+      possui_penhora: false, possui_embargos: false,
+    }
+    if (cda.cliente_id) {
+      setClienteAtual({ id: cda.cliente_id, razao_social: cda.devedor || '', cnpj: cda.cnpj_devedor || '' })
+    }
+    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? String(cda.valor_total) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
+    setCdas([cdaDiag])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
+    setMostrarCdasSalvas(false)
+    setTimeout(() => {
+      const resultados = [cdaDiag].map(c => ({ cda:c, decadencia:analisarDecadencia(c), prescricao:analisarPrescricao(c), prescricaoIntercorrente:analisarPrescricaoIntercorrente(c), validadeCDA:analisarCDA(c) }))
+      const { parecer, urgente } = gerarParecer(resultados)
+      let score = 50
+      resultados.forEach(r => {
+        if(r.decadencia.conclusao==='ha_decadencia') score+=25
+        if(r.prescricao.conclusao==='ha_prescricao') score+=25
+        if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
+        if(r.validadeCDA.conclusao==='cda_vicio') score+=10
+      })
+      score = Math.min(100, score)
+      setAnalisesCDA(resultados)
+      setDiagnostico({ parecer, urgente, score, valor: parseFloat(cda.valor_total)||0, data: new Date().toISOString() })
+      setAba(1)
+    }, 150)
   }
  async function deletarCDA(id) {
   if (!window.confirm('Excluir este registro da CDA?')) return
@@ -808,6 +867,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
               📂 Análises salvas
             </button>
+			<button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+            style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+           📋 CDAs Salvas
+           </button>
           </div>
         </div>
         <div style={{marginTop:16}}>
@@ -859,6 +922,64 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           </div>
         </div>
       )}
+	  
+	  {mostrarCdasSalvas && (
+      <div onClick={()=>setMostrarCdasSalvas(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,maxWidth:900,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D'}}>📋 CDAs Salvas — {clienteAtual?.razao_social||'Todos os clientes'}</div>
+            <button onClick={()=>setMostrarCdasSalvas(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#64748B'}}>✕</button>
+          </div>
+          {loadingCdas?(
+            <div style={{textAlign:'center',padding:32,color:'#64748B'}}>Carregando...</div>
+          ):cdasSalvas.length===0?(
+            <div style={{textAlign:'center',padding:'32px 0',color:'#64748B'}}>
+              <div style={{fontSize:32,marginBottom:8}}>📋</div>
+              <div style={{fontSize:14}}>Nenhuma CDA salva ainda.</div>
+            </div>
+          ):(
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead>
+                  <tr style={{background:'#0B1F4D'}}>
+                    {['Nº CDA','Devedor','CNPJ','Período','Valor Total','Tipo','Data Inscrição','Ações'].map(h=>(
+                      <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cdasSalvas.map((cda,idx)=>(
+                    <tr key={cda.id} style={{background:idx%2===0?'#fff':'#F8FAFC',borderBottom:'1px solid #E2E8F0'}}>
+                      <td style={{padding:'10px 12px',fontWeight:700,color:'#0B1F4D'}}>{cda.numero_cda||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#1E293B'}}>{cda.devedor||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11}}>{cda.cnpj_devedor||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>{cda.periodo_divida_inicio||'—'} a {cda.periodo_divida_fim||'—'}</td>
+                      <td style={{padding:'10px 12px',fontWeight:600,color:'#DC2626',whiteSpace:'nowrap'}}>R$ {parseFloat(cda.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:600}}>{cda.tipo_debito||'—'}</span>
+                      </td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>{cda.data_inscricao||'—'}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>abrirCdaParaDiagnostico(cda)}
+                            style={{padding:'5px 10px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:6,fontSize:11,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                            🧠 Diagnóstico
+                          </button>
+                          <button onClick={()=>deletarCDA(cda.id)}
+                            style={{padding:'5px 8px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:11,cursor:'pointer'}}>
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
         <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'💾 Salvando...':'💾 Salvar'}</button>
@@ -1233,7 +1354,11 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <div style={{fontSize:10,color:'#7CC4FF',marginBottom:2}}>Gerado em</div>
             <div style={{fontSize:12,fontWeight:700,color:'#fff'}}>{new Date().toLocaleDateString('pt-BR')}</div>
             <div style={{display:'flex',gap:6,marginTop:8,justifyContent:'flex-end'}}>
-              <button onClick={carregarSispar} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🔄 Atualizar</button>
+              <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+              style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>
+              📋 CDAs
+            </button>
+			  <button onClick={carregarSispar} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🔄 Atualizar</button>
               <button onClick={()=>window.print()} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🖨️ Imprimir</button>
             </div>
               
