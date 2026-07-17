@@ -591,7 +591,7 @@ function imprimirCDA(campos, clienteEfetivo) {
           style={{background:C.white,borderRadius:12,border:`2px dashed ${C.border}`,padding:'60px 32px',textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}>
           <input ref={inputRef} type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleArquivo(e.target.files[0])}/>
           {extraindo ? (
-            <><div style={{fontSize:48,marginBottom:16}}>⏳</div>
+            <><div style={{marginBottom:16,display:'flex',justifyContent:'center'}}><div style={{width:48,height:48,border:'5px solid #e2e8f0',borderTop:'5px solid #1e3a5f',borderRadius:'50%',animation:'spin 0.9s linear infinite'}}/></div>
             <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
             <div style={{fontSize:13,color:C.muted}}>Analisando CDA, Execução Fiscal e Discriminativo com IA Vision</div></>
           ) : (
