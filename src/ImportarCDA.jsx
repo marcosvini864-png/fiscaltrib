@@ -252,7 +252,7 @@ function SeletorClienteInterno({ onSelecionar }) {
   }
 
   return (
-  <>
+  <React.Fragment>
   <style dangerouslySetInnerHTML={{__html:'@keyframes spin{to{transform:rotate(360deg)}}'}} />
 	<div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
       <div style={{fontSize:13,fontWeight:700,color:'#92400E',marginBottom:10}}>
