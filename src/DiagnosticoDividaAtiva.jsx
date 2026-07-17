@@ -27,6 +27,19 @@ function converterDataBR(d) {
   return ''
 }
 
+function normalizarData(d) {
+  if (!d) return ''
+  if (d.includes('-') && d.length === 10) return d
+  return converterDataBR(d)
+}
+
+function converterDataBR(d) {
+  if (!d) return ''
+  const partes = d.split('/')
+  if (partes.length === 3) return `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`
+  return ''
+}
+
 function migrarCDA(cda) {
   let migrada = cda
   if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
@@ -485,12 +498,12 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
     situacao: 'Ativa',
     modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
-    data_fato_gerador:     campos.data_fato_gerador || '',
-    data_constituicao:     campos.data_constituicao_definitiva || campos.data_inscricao_iso || '',
-    data_inscricao:        campos.data_inscricao_iso || converterDataBR(campos.data_inscricao) || '',
-    data_ajuizamento:      campos.data_ajuizamento || '',
-    data_citacao:          campos.data_citacao || '',
-    data_ultima_movimentacao: campos.data_ultima_movimentacao || '',
+    data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
+    data_constituicao:        normalizarData(campos.data_constituicao_definitiva) || normalizarData(campos.data_inscricao) || '',
+    data_inscricao:           normalizarData(campos.data_inscricao) || '',
+    data_ajuizamento:         normalizarData(campos.data_ajuizamento) || '',
+    data_citacao:             normalizarData(campos.data_citacao) || '',
+    data_ultima_movimentacao: normalizarData(campos.data_ultima_movimentacao) || '',
     }
 
     setDados(d => ({
@@ -975,22 +988,23 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 </div>
               </div>
 
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-                <div>
-                  <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Modalidade do lançamento</label>
-                  <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
-                    <option value="oficio">De ofício / Declaração (art. 173 CTN)</option>
-                    <option value="homologacao">Por homologação (art. 150 CTN)</option>
-                  </select>
-                </div>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data do fato gerador</label><input type="date" value={cda.data_fato_gerador} onChange={e=>updateCDA(i,'data_fato_gerador',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da constituição definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data de inscrição em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da citação válida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
-              </div>
+              <div style={{background:'#F8F5FF',border:'1.5px solid #7C3AED',borderRadius:8,padding:'14px 16px',marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#7C3AED',marginBottom:10}}>📅 Datas Jurídicas — Essenciais para Diagnóstico Conclusivo</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+         <div>
+         <label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Modalidade do lançamento</label>
+        <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}>
+        <option value="oficio">De ofício / Declaração (art. 173 CTN)</option>
+        <option value="homologacao">Por homologação (art. 150 CTN)</option>
+        </select>
+         </div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do fato gerador (1º período)</label><input type="date" value={cda.data_fato_gerador} onChange={e=>updateCDA(i,'data_fato_gerador',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da constituição definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data de inscrição em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+          <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da citação válida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         </div>
+        </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
                 <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da última movimentação</label><input type="date" value={cda.data_ultima_movimentacao} onChange={e=>updateCDA(i,'data_ultima_movimentacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
                 <div>
