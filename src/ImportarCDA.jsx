@@ -168,9 +168,9 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 6. "cnpj_devedor" = campo CGC, CNPJ ou Identificacao do devedor
 7. TODOS os valores numéricos sem formatação (ex: 16227.82 não 16.227,82)
 8. "data_inscricao" = campo "Data de Inscricao" — formato DD/MM/AAAA
-9. "data_calculo" = campo "Data do Cálculo" ou "Data de Cálculo dos Débitos" ou "Calculado em" — formato DD/MM/AAAA
+9. "data_calculo" = campo "Calculo" — formato DD/MM/AAAA
 10. "data_referencia_valores" = data para a qual os valores foram atualizados (ex: "01/2022")
-11. "ufir_conversao" = valor numérico da UFIR mencionado na CDA para conversão de valores (ex: 0.9108) — procure por "UFIR" ou "Unidade Fiscal" no documento
+11. "ufir_conversao" = valor da UFIR de conversão mencionado no discriminativo (ex: 0.9108)
 12. "periodo_divida_inicio" = primeiro mês/ano do período da dívida — formato MM/AAAA
 13. "periodo_divida_fim" = último mês/ano do período da dívida — formato MM/AAAA
 14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD (use dia 01)
@@ -252,7 +252,9 @@ function SeletorClienteInterno({ onSelecionar }) {
   }
 
   return (
-    <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
+  <>
+  <style dangerouslySetInnerHTML={{__html:'@keyframes spin{to{transform:rotate(360deg)}}'}} />
+	<div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
       <div style={{fontSize:13,fontWeight:700,color:'#92400E',marginBottom:10}}>
         ⚠️ Nenhum cliente ativo — selecione o cliente para vincular esta CDA:
       </div>
@@ -276,7 +278,8 @@ function SeletorClienteInterno({ onSelecionar }) {
         </div>
       )}
     </div>
-  )
+  </>
+)
 }
 
 function imprimirCDA(campos, clienteEfetivo) {
@@ -591,7 +594,13 @@ function imprimirCDA(campos, clienteEfetivo) {
           style={{background:C.white,borderRadius:12,border:`2px dashed ${C.border}`,padding:'60px 32px',textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}>
           <input ref={inputRef} type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleArquivo(e.target.files[0])}/>
           {extraindo ? (
-            <><div style={{marginBottom:16,display:'flex',justifyContent:'center'}}><div style={{width:48,height:48,border:'5px solid #e2e8f0',borderTop:'5px solid #1e3a5f',borderRadius:'50%',animation:'spin 0.9s linear infinite'}}/></div>
+            <><div style={{marginBottom:16,display:'flex',justifyContent:'center'}}>
+            <div style={{
+          width:48,height:48,border:'5px solid #e2e8f0',
+          borderTop:'5px solid #1e3a5f',borderRadius:'50%',
+          animation:'spin 0.9s linear infinite'
+        }}/>
+        </div>
             <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
             <div style={{fontSize:13,color:C.muted}}>Analisando CDA, Execução Fiscal e Discriminativo com IA Vision</div></>
           ) : (
@@ -788,7 +797,7 @@ function imprimirCDA(campos, clienteEfetivo) {
               🧠 Ver Diagnóstico Jurídico
             </button>
             <button onClick={()=>imprimirCDA(campos,clienteEfetivo)}
-              style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              style={{padding:'12px 20px',background:C.white,color:C.navy,border:'1.5px solid '+C.navy,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}
               🖨️ Imprimir CDA
             </button>
             <button onClick={novaImportacao}
@@ -799,5 +808,6 @@ function imprimirCDA(campos, clienteEfetivo) {
         </div>
       )}
     </div>
-  )
+  </>
+)
 }
