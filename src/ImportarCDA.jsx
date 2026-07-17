@@ -252,9 +252,7 @@ function SeletorClienteInterno({ onSelecionar }) {
   }
 
   return (
-  <>
-  <style dangerouslySetInnerHTML={{__html:'@keyframes spin{to{transform:rotate(360deg)}}'}} />
-	<div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
+    <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:10,padding:'16px 20px',marginBottom:20}}>
       <div style={{fontSize:13,fontWeight:700,color:'#92400E',marginBottom:10}}>
         ⚠️ Nenhum cliente ativo — selecione o cliente para vincular esta CDA:
       </div>
@@ -278,8 +276,7 @@ function SeletorClienteInterno({ onSelecionar }) {
         </div>
       )}
     </div>
-  </>
-)
+  )
 }
 
 function imprimirCDA(campos, clienteEfetivo) {
@@ -594,13 +591,7 @@ function imprimirCDA(campos, clienteEfetivo) {
           style={{background:C.white,borderRadius:12,border:`2px dashed ${C.border}`,padding:'60px 32px',textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}>
           <input ref={inputRef} type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleArquivo(e.target.files[0])}/>
           {extraindo ? (
-            <><div style={{marginBottom:16,display:'flex',justifyContent:'center'}}>
-            <div style={{
-          width:48,height:48,border:'5px solid #e2e8f0',
-          borderTop:'5px solid #1e3a5f',borderRadius:'50%',
-          animation:'spin 0.9s linear infinite'
-        }}/>
-        </div>
+            <><div style={{fontSize:48,marginBottom:16}}>⏳</div>
             <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
             <div style={{fontSize:13,color:C.muted}}>Analisando CDA, Execução Fiscal e Discriminativo com IA Vision</div></>
           ) : (
@@ -797,8 +788,8 @@ function imprimirCDA(campos, clienteEfetivo) {
               🧠 Ver Diagnóstico Jurídico
             </button>
             <button onClick={()=>imprimirCDA(campos,clienteEfetivo)}
-              style={{padding:'12px 20px',background:C.white,color:C.navy,border:'1.5px solid '+C.navy,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}
-              Imprimir CDA
+              style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              🖨️ Imprimir CDA
             </button>
             <button onClick={novaImportacao}
               style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:'pointer'}}>
@@ -808,6 +799,5 @@ function imprimirCDA(campos, clienteEfetivo) {
         </div>
       )}
     </div>
-  </>
-)
+  )
 }
