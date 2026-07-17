@@ -725,16 +725,16 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               />
             )}
             {module==='divida' && activeTab===1 && (
-              <ImportarCDA
-              active={active}
-              onSalvo={()=>navigateTo('divida',0)}
-              onDiagnostico={({campos,clienteEfetivo})=>{
+            <ImportarCDA
+            active={active}
+            onSalvo={()=>navigateTo('divida',0)}
+            onDiagnostico={({campos,clienteEfetivo})=>{
               setCdaParaDiagnostico({campos,clienteEfetivo})
               navigateTo('divida',0)
             }}
-             onVoltar={()=>navigateTo('divida',0)}
-            />
-            )}
+            onVoltar={()=>navigateTo('divida',0)}
+          />
+        )}
 
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
