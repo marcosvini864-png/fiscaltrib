@@ -797,7 +797,7 @@ function imprimirCDA(campos, clienteEfetivo) {
               🧠 Ver Diagnóstico Jurídico
             </button>
             <button onClick={()=>imprimirCDA(campos,clienteEfetivo)}
-              style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              style={{padding:'12px 20px',background:C.white,color:C.navy,border:'1.5px solid '+C.navy,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}
               🖨️ Imprimir CDA
             </button>
             <button onClick={novaImportacao}
