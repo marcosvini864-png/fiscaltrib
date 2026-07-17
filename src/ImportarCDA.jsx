@@ -168,9 +168,9 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 6. "cnpj_devedor" = campo CGC, CNPJ ou Identificacao do devedor
 7. TODOS os valores numéricos sem formatação (ex: 16227.82 não 16.227,82)
 8. "data_inscricao" = campo "Data de Inscricao" — formato DD/MM/AAAA
-9. "data_calculo" = campo "Calculo" — formato DD/MM/AAAA
+9. "data_calculo" = campo "Data do Cálculo" ou "Data de Cálculo dos Débitos" ou "Calculado em" — formato DD/MM/AAAA
 10. "data_referencia_valores" = data para a qual os valores foram atualizados (ex: "01/2022")
-11. "ufir_conversao" = valor da UFIR de conversão mencionado no discriminativo (ex: 0.9108)
+11. "ufir_conversao" = valor numérico da UFIR mencionado na CDA para conversão de valores (ex: 0.9108) — procure por "UFIR" ou "Unidade Fiscal" no documento
 12. "periodo_divida_inicio" = primeiro mês/ano do período da dívida — formato MM/AAAA
 13. "periodo_divida_fim" = último mês/ano do período da dívida — formato MM/AAAA
 14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD (use dia 01)
