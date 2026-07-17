@@ -480,12 +480,17 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
     const tipoCredito = campos.tipo_debito || 'tributario_federal'
     const cdaDiag = {
-      ...CDA_VAZIA,
-      numero_cda: campos.numero_cda || '',
-      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
-      situacao: 'Ativa',
-      modalidade_lancamento: 'oficio',
-      data_inscricao: converterDataBR(campos.data_inscricao),
+    ...CDA_VAZIA,
+    numero_cda: campos.numero_cda || '',
+    inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
+    situacao: 'Ativa',
+    modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
+    data_fato_gerador:     campos.data_fato_gerador || '',
+    data_constituicao:     campos.data_constituicao_definitiva || campos.data_inscricao_iso || '',
+    data_inscricao:        campos.data_inscricao_iso || converterDataBR(campos.data_inscricao) || '',
+    data_ajuizamento:      campos.data_ajuizamento || '',
+    data_citacao:          campos.data_citacao || '',
+    data_ultima_movimentacao: campos.data_ultima_movimentacao || '',
     }
 
     setDados(d => ({

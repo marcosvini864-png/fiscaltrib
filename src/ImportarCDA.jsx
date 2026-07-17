@@ -23,15 +23,19 @@ const fmtExibir = v => {
 const CAMPOS_VAZIOS = {
   numero_cda:'', devedor:'', cnpj_devedor:'',
   pgfn_origem:'', livro_folha:'', processo_administrativo:'',
-  data_inscricao:'', periodo_divida_inicio:'', periodo_divida_fim:'',
+  documento_origem:'', orgao_origem:'', ufir_conversao:'',
+  data_inscricao:'', data_calculo:'', data_referencia_valores:'',
+  periodo_divida_inicio:'', periodo_divida_fim:'',
+  data_fato_gerador:'', data_constituicao_definitiva:'',
+  data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'',
   valor_originario:'', principal_atualizado:'', juros:'', multa:'', valor_total:'',
-  total_sem_desconto:'', data_calculo:'', fundamento_legal:'',
+  total_sem_desconto:'', fundamento_legal:'',
   municipio:'', uf:'', tipo_debito:'previdenciario',
+  modalidade_lancamento:'oficio',
   modalidade_transacao:'transacao_edital',
   desconto_valor:'', desconto_percentual:'',
   valor_entrada:'', qt_parcelas:'', valor_parcela:'',
   socio_1:'', socio_2:'', socio_3:'',
-  // execução fiscal
   possui_execucao_fiscal: false,
   numero_processo_execucao:'',
   trf_regiao:'',
@@ -50,6 +54,11 @@ const TIPOS_DEBITO = [
   { key:'outro',                label:'Outro' },
 ]
 
+const MODALIDADES_LANCAMENTO = [
+  { key:'oficio',      label:'De ofício / Declaração (art. 173 CTN)' },
+  { key:'homologacao', label:'Por homologação (art. 150 CTN)' },
+]
+
 const MODALIDADES = [
   { key:'transacao_excepcional', label:'Transação Excepcional',       desconto_multa:100, desconto_juros:100, entrada_pct:0,  parcelas_max:60 },
   { key:'transacao_individual',  label:'Transação Individual',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:84 },
@@ -60,7 +69,7 @@ const MODALIDADES = [
 ]
 
 const TRF_REGIOES = [
-  { key:'',    label:'— Selecione o TRF —' },
+  { key:'',     label:'— Selecione o TRF —' },
   { key:'TRF1', label:'TRF 1ª Região — DF, GO, MT, PA, AM, RO, AC, RR, AP, MA, PI, BA, MG, TO' },
   { key:'TRF2', label:'TRF 2ª Região — RJ, ES' },
   { key:'TRF3', label:'TRF 3ª Região — SP, MS' },
@@ -105,7 +114,7 @@ async function extrairPaginasPDF(file) {
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const paginas = []
-  for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
+  for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
     const page = await pdf.getPage(i)
     const scale = 2.0
     const viewport = page.getViewport({ scale })
@@ -131,9 +140,9 @@ async function analisarComIA(paginas) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
           model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece, sem interpretar ou resumir.',
+          system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece, sem interpretar ou resumir. Preserve todos os números, datas, valores e códigos exatamente como estão.',
           messages: [{ role: 'user', content: [
-            { type: 'text', text: `Transcreva todo o texto visível nesta página ${i+1} da CDA (Certidão de Dívida Ativa da PGFN):` },
+            { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN (CDA, Execução Fiscal ou Discriminativo de Crédito), preservando todos os valores, datas, competências e códigos:` },
             { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${paginas[i]}` } }
           ]}]
         })
@@ -147,18 +156,31 @@ async function analisarComIA(paginas) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({
-      system: 'Você é um extrator de dados de CDA da PGFN brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-      messages: [{ role: 'user', content: `Analise o texto abaixo de uma CDA da PGFN e retorne APENAS este JSON.
+      system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações. Seja preciso com datas e valores.',
+      messages: [{ role: 'user', content: `Analise o texto abaixo de documentos da PGFN (CDA + Petição Inicial de Execução Fiscal + Discriminativo de Crédito) e retorne APENAS este JSON completo.
 
-ATENÇÃO — regras importantes:
-- "numero_cda" = campo "Nm.Inscrição Dívida Ativa" (ex: 13.775.238-5) — NÃO confundir com PGFN de Origem
-- "pgfn_origem" = campo "PGFN de Origem" (ex: 21.200.800)
-- "devedor" = nome completo do devedor
-- "cnpj_devedor" = campo CGC ou CNPJ do devedor
-- valores numéricos sem formatação (ex: 16227.82)
-- "data_inscricao" = formato DD/MM/AAAA
-- "periodo_divida_inicio" e "periodo_divida_fim" = formato MM/AAAA
-- "socio_1", "socio_2", "socio_3" = nomes dos sócios/responsáveis solidários mencionados no documento (deixar vazio se não encontrado)
+REGRAS CRÍTICAS DE EXTRAÇÃO:
+1. "numero_cda" = campo "Nm.Inscrição Dívida Ativa" ou "Credito" (ex: 13.775.238-5) — NUNCA confundir com PGFN de Origem
+2. "pgfn_origem" = campo "PGFN de Origem" ou "Tramitacao" (ex: 21.200.800)
+3. "orgao_origem" = campo "Orgao de Origem" (ex: 21.200.010)
+4. "documento_origem" = campo "Documento Original" (ex: DCGB - DCG BATCH)
+5. "devedor" = nome completo do devedor/executado
+6. "cnpj_devedor" = campo CGC, CNPJ ou Identificacao do devedor
+7. TODOS os valores numéricos sem formatação (ex: 16227.82 não 16.227,82)
+8. "data_inscricao" = campo "Data de Inscricao" — formato DD/MM/AAAA
+9. "data_calculo" = campo "Calculo" — formato DD/MM/AAAA
+10. "data_referencia_valores" = data para a qual os valores foram atualizados (ex: "01/2022")
+11. "ufir_conversao" = valor da UFIR de conversão mencionado no discriminativo (ex: 0.9108)
+12. "periodo_divida_inicio" = primeiro mês/ano do período da dívida — formato MM/AAAA
+13. "periodo_divida_fim" = último mês/ano do período da dívida — formato MM/AAAA
+14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD (use dia 01)
+15. "data_constituicao_definitiva" = data da inscrição em dívida ativa (pois a inscrição constitui definitivamente o crédito previdenciário)
+16. "data_ajuizamento" = data da petição inicial da execução fiscal ou data do protocolo — formato AAAA-MM-DD
+17. "data_citacao" = data de citação do executado se mencionada — formato AAAA-MM-DD
+18. "modalidade_lancamento" = se o documento mencionar "SIMPLES" ou "homologação" use "homologacao"; caso contrário use "oficio"
+19. "tipo_debito" = baseie-se no fundamento legal: Lei 8.212/91 = "previdenciario"; LC 123/2006 = "simples_nacional"; Lei 8.036/90 = "fgts"; outros tributos federais = "tributario_federal"
+20. "fundamento_legal" = códigos F.Legal e descrições encontrados na CDA (ex: "041.00, 088.00, 089.00...")
+21. "socio_1", "socio_2", "socio_3" = nomes de sócios/responsáveis solidários se mencionados
 
 JSON a retornar:
 {
@@ -166,28 +188,38 @@ JSON a retornar:
   "devedor": "",
   "cnpj_devedor": "",
   "pgfn_origem": "",
+  "orgao_origem": "",
+  "documento_origem": "",
   "livro_folha": "",
   "processo_administrativo": "",
   "data_inscricao": "",
+  "data_calculo": "",
+  "data_referencia_valores": "",
+  "ufir_conversao": "",
   "periodo_divida_inicio": "",
   "periodo_divida_fim": "",
+  "data_fato_gerador": "",
+  "data_constituicao_definitiva": "",
+  "data_ajuizamento": "",
+  "data_citacao": "",
+  "data_ultima_movimentacao": "",
   "valor_originario": 0,
   "principal_atualizado": 0,
   "juros": 0,
   "multa": 0,
   "valor_total": 0,
-  "data_calculo": "",
   "fundamento_legal": "",
   "municipio": "",
   "uf": "",
   "tipo_debito": "previdenciario",
+  "modalidade_lancamento": "oficio",
   "socio_1": "",
   "socio_2": "",
   "socio_3": ""
 }
 
-TEXTO DA CDA:
-${textoConsolidado.slice(0, 8000)}` }]
+TEXTO DOS DOCUMENTOS:
+${textoConsolidado.slice(0, 12000)}` }]
     })
   })
   const data2 = await resp2.json()
@@ -252,16 +284,14 @@ function imprimirCDA(campos, clienteEfetivo) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>CDA ${campos.numero_cda}</title>
   <style>
     body{font-family:Arial,sans-serif;font-size:11px;color:#1E293B;margin:20px}
-    h1{font-size:15px;color:#0B1F4D;margin-bottom:4px}
-    h2{font-size:12px;color:#0B1F4D;margin:16px 0 6px;border-bottom:1px solid #C8D0DC;padding-bottom:4px}
+    h2{font-size:12px;color:#0B1F4D;margin:14px 0 6px;border-bottom:1px solid #C8D0DC;padding-bottom:4px}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:8px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 20px;margin-bottom:8px}
     .campo{margin-bottom:4px}
     .label{font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px}
     .valor{font-size:11px;color:#1E293B;font-weight:500}
     .valor-destaque{font-size:13px;font-weight:700;color:#0B1F4D}
     .header{background:#0B1F4D;color:#fff;padding:12px 16px;border-radius:6px;margin-bottom:16px}
-    .header-sub{font-size:9px;color:#93c5fd;letter-spacing:2px}
-    .header-title{font-size:16px;font-weight:900}
     .aviso{background:#FFFBEB;border:1px solid #FCD34D;border-radius:4px;padding:8px 10px;font-size:10px;color:#92400E;margin-top:16px}
     table{width:100%;border-collapse:collapse;font-size:10px}
     th{background:#0B1F4D;color:#fff;padding:5px 8px;text-align:left}
@@ -269,8 +299,8 @@ function imprimirCDA(campos, clienteEfetivo) {
     @media print{body{margin:10px}}
   </style></head><body>
   <div class="header">
-    <div class="header-sub">FISCALTRIB — DÍVIDA ATIVA</div>
-    <div class="header-title">📄 Certidão de Dívida Ativa — CDA</div>
+    <div style="font-size:9px;color:#93c5fd;letter-spacing:2px">FISCALTRIB — DÍVIDA ATIVA</div>
+    <div style="font-size:16px;font-weight:900">📄 Certidão de Dívida Ativa — CDA</div>
     <div style="font-size:11px;color:#93c5fd;margin-top:4px">${clienteEfetivo?.razao_social||''} ${clienteEfetivo?.cnpj?'· '+clienteEfetivo.cnpj:''}</div>
   </div>
 
@@ -278,10 +308,14 @@ function imprimirCDA(campos, clienteEfetivo) {
   <div class="grid">
     <div class="campo"><div class="label">Nº Inscrição Dívida Ativa</div><div class="valor-destaque">${campos.numero_cda||'—'}</div></div>
     <div class="campo"><div class="label">PGFN de Origem</div><div class="valor">${campos.pgfn_origem||'—'}</div></div>
+    <div class="campo"><div class="label">Órgão de Origem</div><div class="valor">${campos.orgao_origem||'—'}</div></div>
+    <div class="campo"><div class="label">Documento de Origem</div><div class="valor">${campos.documento_origem||'—'}</div></div>
     <div class="campo"><div class="label">Livro / Folha</div><div class="valor">${campos.livro_folha||'—'}</div></div>
     <div class="campo"><div class="label">Processo Administrativo</div><div class="valor">${campos.processo_administrativo||'—'}</div></div>
     <div class="campo"><div class="label">Data de Inscrição</div><div class="valor">${campos.data_inscricao||'—'}</div></div>
     <div class="campo"><div class="label">Data do Cálculo</div><div class="valor">${campos.data_calculo||'—'}</div></div>
+    <div class="campo"><div class="label">Data Referência Valores</div><div class="valor">${campos.data_referencia_valores||'—'}</div></div>
+    <div class="campo"><div class="label">UFIR de Conversão</div><div class="valor">${campos.ufir_conversao||'—'}</div></div>
   </div>
 
   <h2>👤 Devedor</h2>
@@ -290,6 +324,16 @@ function imprimirCDA(campos, clienteEfetivo) {
     <div class="campo"><div class="label">CNPJ / CPF</div><div class="valor">${campos.cnpj_devedor||'—'}</div></div>
     <div class="campo"><div class="label">Município</div><div class="valor">${campos.municipio||'—'}</div></div>
     <div class="campo"><div class="label">UF</div><div class="valor">${campos.uf||'—'}</div></div>
+  </div>
+
+  <h2>📅 Datas Jurídicas</h2>
+  <div class="grid3">
+    <div class="campo"><div class="label">Fato Gerador (1º período)</div><div class="valor">${campos.data_fato_gerador||'—'}</div></div>
+    <div class="campo"><div class="label">Constituição Definitiva</div><div class="valor">${campos.data_constituicao_definitiva||'—'}</div></div>
+    <div class="campo"><div class="label">Data de Inscrição DA</div><div class="valor">${campos.data_inscricao||'—'}</div></div>
+    <div class="campo"><div class="label">Data do Ajuizamento</div><div class="valor">${campos.data_ajuizamento||'—'}</div></div>
+    <div class="campo"><div class="label">Data da Citação</div><div class="valor">${campos.data_citacao||'—'}</div></div>
+    <div class="campo"><div class="label">Modalidade Lançamento</div><div class="valor">${campos.modalidade_lancamento==='homologacao'?'Por homologação (art. 150 CTN)':'De ofício / Declaração (art. 173 CTN)'}</div></div>
   </div>
 
   <h2>💰 Período e Valores</h2>
@@ -311,7 +355,7 @@ function imprimirCDA(campos, clienteEfetivo) {
   <h2>⚖️ Negociação</h2>
   <div class="grid">
     <div class="campo"><div class="label">Tipo de Débito</div><div class="valor">${campos.tipo_debito||'—'}</div></div>
-    <div class="campo"><div class="label">Modalidade</div><div class="valor">${campos.modalidade_transacao||'—'}</div></div>
+    <div class="campo"><div class="label">Modalidade Transação</div><div class="valor">${campos.modalidade_transacao||'—'}</div></div>
     <div class="campo"><div class="label">Desconto R$</div><div class="valor">${campos.desconto_valor||'—'}</div></div>
     <div class="campo"><div class="label">Valor Entrada</div><div class="valor">${campos.valor_entrada||'—'}</div></div>
     <div class="campo"><div class="label">Qtd. Parcelas</div><div class="valor">${campos.qt_parcelas||'—'}</div></div>
@@ -320,7 +364,7 @@ function imprimirCDA(campos, clienteEfetivo) {
 
   ${campos.possui_execucao_fiscal ? `
   <h2>⚖️ Execução Fiscal</h2>
-  <div class="grid">
+  <div class="grid3">
     <div class="campo"><div class="label">Nº Processo</div><div class="valor">${campos.numero_processo_execucao||'—'}</div></div>
     <div class="campo"><div class="label">TRF</div><div class="valor">${campos.trf_regiao||'—'}</div></div>
     <div class="campo"><div class="label">Vara</div><div class="valor">${campos.vara_execucao||'—'}</div></div>
@@ -328,14 +372,14 @@ function imprimirCDA(campos, clienteEfetivo) {
 
   ${(campos.socio_1||campos.socio_2||campos.socio_3) ? `
   <h2>👥 Sócios / Responsáveis</h2>
-  <div class="grid">
+  <div class="grid3">
     ${campos.socio_1?`<div class="campo"><div class="label">Sócio 1</div><div class="valor">${campos.socio_1}</div></div>`:''}
     ${campos.socio_2?`<div class="campo"><div class="label">Sócio 2</div><div class="valor">${campos.socio_2}</div></div>`:''}
     ${campos.socio_3?`<div class="campo"><div class="label">Sócio 3</div><div class="valor">${campos.socio_3}</div></div>`:''}
   </div>` : ''}
 
-  ${campos.fundamento_legal ? `<h2>📋 Fundamento Legal</h2><p style="font-size:11px;line-height:1.6">${campos.fundamento_legal}</p>` : ''}
-  ${campos.observacoes ? `<h2>📝 Observações</h2><p style="font-size:11px;line-height:1.6">${campos.observacoes}</p>` : ''}
+  ${campos.fundamento_legal ? `<h2>📋 Fundamento Legal</h2><p style="font-size:10px;line-height:1.6">${campos.fundamento_legal}</p>` : ''}
+  ${campos.observacoes ? `<h2>📝 Observações</h2><p style="font-size:10px;line-height:1.6">${campos.observacoes}</p>` : ''}
 
   <div class="aviso">⚠️ Documento gerado pelo FiscalTrib em ${new Date().toLocaleString('pt-BR')} · fiscaltrib.com.br · Relatório preliminar — não substitui análise jurídica profissional.</div>
   <script>window.onload=()=>{window.print()}</script>
@@ -368,16 +412,26 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
       const negociacao = calcularNegociacao(vTotal, modalidadeKey)
       setCampos(prev => ({
         ...prev, ...dados,
-        valor_originario:     fmtExibir(dados.valor_originario),
-        principal_atualizado: fmtExibir(dados.principal_atualizado),
-        juros:                fmtExibir(dados.juros),
-        multa:                fmtExibir(dados.multa),
-        valor_total:          fmtExibir(vTotal),
-        total_sem_desconto:   vTotal,
-        modalidade_transacao: modalidadeKey,
-        socio_1: dados.socio_1 || '',
-        socio_2: dados.socio_2 || '',
-        socio_3: dados.socio_3 || '',
+        valor_originario:           fmtExibir(dados.valor_originario),
+        principal_atualizado:       fmtExibir(dados.principal_atualizado),
+        juros:                      fmtExibir(dados.juros),
+        multa:                      fmtExibir(dados.multa),
+        valor_total:                fmtExibir(vTotal),
+        total_sem_desconto:         vTotal,
+        modalidade_transacao:       modalidadeKey,
+        modalidade_lancamento:      dados.modalidade_lancamento || 'oficio',
+        socio_1:                    dados.socio_1 || '',
+        socio_2:                    dados.socio_2 || '',
+        socio_3:                    dados.socio_3 || '',
+        documento_origem:           dados.documento_origem || '',
+        orgao_origem:               dados.orgao_origem || '',
+        ufir_conversao:             dados.ufir_conversao || '',
+        data_referencia_valores:    dados.data_referencia_valores || '',
+        data_fato_gerador:          dados.data_fato_gerador || '',
+        data_constituicao_definitiva: dados.data_constituicao_definitiva || '',
+        data_ajuizamento:           dados.data_ajuizamento || '',
+        data_citacao:               dados.data_citacao || '',
+        data_ultima_movimentacao:   dados.data_ultima_movimentacao || '',
         ...negociacao,
       }))
       setEtapa('revisao')
@@ -450,6 +504,15 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
     </div>
   )
 
+  const inpDate = (k, label) => (
+    <div>
+      <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
+      <input type="date" value={campos[k]||''}
+        onChange={e=>setCampos(p=>({...p,[k]:e.target.value}))}
+        style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,boxSizing:'border-box'}}/>
+    </div>
+  )
+
   const sel = (k, label, opcoes) => (
     <div>
       <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
@@ -475,13 +538,21 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
     </div>
   )
 
+  // Alerta de campos críticos para diagnóstico
+  const camposCriticosFaltando = [
+    !campos.data_fato_gerador && 'Data do Fato Gerador',
+    !campos.data_constituicao_definitiva && 'Data da Constituição Definitiva',
+    !campos.data_inscricao && 'Data de Inscrição',
+    !campos.data_ajuizamento && 'Data do Ajuizamento',
+  ].filter(Boolean)
+
   return (
-    <div style={{maxWidth:860,margin:'0 auto'}}>
+    <div style={{maxWidth:900,margin:'0 auto'}}>
 
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:14,padding:'24px 28px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:10,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
         <h2 style={{fontSize:20,fontWeight:900,margin:'0 0 6px',color:'#fff'}}>📄 Importar CDA via PDF</h2>
-        <p style={{fontSize:13,color:'#cbd5e1',margin:0}}>Faça upload do PDF da Certidão de Dívida Ativa — a IA extrai os dados automaticamente</p>
+        <p style={{fontSize:13,color:'#cbd5e1',margin:0}}>Faça upload do PDF completo — CDA + Execução Fiscal + Discriminativo de Crédito para diagnóstico completo</p>
         {clienteEfetivo && (
           <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <span>👤 <strong>{clienteEfetivo.razao_social}</strong>{clienteEfetivo.cnpj&&<span style={{marginLeft:10,color:'#94a3b8'}}>{clienteEfetivo.cnpj}</span>}</span>
@@ -491,7 +562,6 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
       </div>
 
       {!clienteEfetivo && <SeletorClienteInterno onSelecionar={c=>setClienteEfetivo(c)}/>}
-
       {erro && <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:13,color:'#991B1B'}}>⚠️ {erro}</div>}
 
       {etapa==='upload' && (
@@ -504,11 +574,12 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
           {extraindo ? (
             <><div style={{fontSize:48,marginBottom:16}}>⏳</div>
             <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
-            <div style={{fontSize:13,color:C.muted}}>Convertendo páginas e analisando com IA Vision</div></>
+            <div style={{fontSize:13,color:C.muted}}>Analisando CDA, Execução Fiscal e Discriminativo com IA Vision</div></>
           ) : (
             <><div style={{fontSize:48,marginBottom:16}}>📄</div>
-            <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Clique ou arraste o PDF da CDA aqui</div>
-            <div style={{fontSize:13,color:C.muted,marginBottom:16}}>Certidão de Dívida Ativa emitida pela PGFN</div>
+            <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Clique ou arraste o PDF completo aqui</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:8}}>CDA + Petição Inicial da Execução Fiscal + Discriminativo de Crédito</div>
+            <div style={{fontSize:12,color:'#7C3AED',marginBottom:16,fontWeight:600}}>💡 Quanto mais páginas do processo, mais completo o diagnóstico</div>
             <div style={{display:'inline-block',background:C.navy,color:'#fff',padding:'10px 24px',borderRadius:8,fontSize:13,fontWeight:600}}>Selecionar PDF</div></>
           )}
         </div>
@@ -516,8 +587,17 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
 
       {etapa==='revisao' && (<>
         <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:13,color:'#166534'}}>
-          ✅ <strong>Dados extraídos com sucesso!</strong> Revise os campos abaixo e corrija se necessário antes de salvar.
+          ✅ <strong>Dados extraídos!</strong> Revise todos os campos — especialmente as datas jurídicas — antes de salvar.
         </div>
+
+        {camposCriticosFaltando.length > 0 && (
+          <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#991B1B'}}>
+            ⚠️ <strong>Campos críticos para diagnóstico não encontrados no PDF — preencha manualmente:</strong>
+            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap'}}>
+              {camposCriticosFaltando.map(c=><span key={c} style={{background:'#FEE2E2',padding:'2px 8px',borderRadius:4,fontWeight:600}}>{c}</span>)}
+            </div>
+          </div>
+        )}
 
         {/* Identificação */}
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
@@ -525,10 +605,14 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             {inp('numero_cda','Nº Inscrição Dívida Ativa')}
             {inp('pgfn_origem','PGFN de Origem')}
+            {inp('orgao_origem','Órgão de Origem')}
+            {inp('documento_origem','Documento de Origem')}
             {inp('livro_folha','Livro / Folha')}
             {inp('processo_administrativo','Processo Administrativo')}
-            {inp('data_inscricao','Data de Inscrição')}
-            {inp('data_calculo','Data do Cálculo')}
+            {inp('data_inscricao','Data de Inscrição (DD/MM/AAAA)')}
+            {inp('data_calculo','Data do Cálculo (DD/MM/AAAA)')}
+            {inp('data_referencia_valores','Referência dos Valores (MM/AAAA)')}
+            {inp('ufir_conversao','UFIR de Conversão')}
           </div>
         </div>
 
@@ -540,6 +624,29 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
             {inp('cnpj_devedor','CNPJ / CPF')}
             {inp('municipio','Município')}
             {inp('uf','UF')}
+          </div>
+        </div>
+
+        {/* Datas jurídicas — seção crítica */}
+        <div style={{background:'#F8F5FF',borderRadius:12,border:'2px solid #7C3AED',padding:24,marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:'#7C3AED',marginBottom:4}}>📅 Datas Jurídicas — Essenciais para o Diagnóstico</div>
+          <div style={{fontSize:12,color:'#64748B',marginBottom:16}}>Sem essas datas o diagnóstico de decadência, prescrição e prescrição intercorrente ficará inconclusivo.</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
+            {inpDate('data_fato_gerador','Data do Fato Gerador (1º período)')}
+            {inpDate('data_constituicao_definitiva','Data da Constituição Definitiva')}
+            {inpDate('data_ajuizamento','Data do Ajuizamento')}
+            {inpDate('data_citacao','Data da Citação Válida')}
+            {inpDate('data_ultima_movimentacao','Última Movimentação Processual')}
+            <div>
+              <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>Modalidade do Lançamento</label>
+              <select value={campos.modalidade_lancamento||'oficio'} onChange={e=>setCampos(p=>({...p,modalidade_lancamento:e.target.value}))}
+                style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
+                {MODALIDADES_LANCAMENTO.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{background:'#EDE9FE',borderRadius:8,padding:'10px 14px',fontSize:11,color:'#5B21B6'}}>
+            💡 <strong>Dica para esta CDA:</strong> Período 11/2012 → fato gerador = 2012-11-01 · Empresa no Simples = homologação (art. 150 CTN) · Inscrição 23/09/2017 = constituição definitiva · Ajuizamento = data da petição inicial (19/01/2022)
           </div>
         </div>
 
@@ -573,7 +680,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
             {sel('modalidade_transacao','Modalidade de Transação',MODALIDADES)}
           </div>
           <div style={{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',marginBottom:14,fontSize:12,color:C.muted}}>
-            💡 Valores calculados automaticamente com base na modalidade selecionada (estimativa sobre multa 20% + juros 30% do total).
+            💡 Valores calculados automaticamente com base na modalidade selecionada.
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
             {inpValor('desconto_valor','Desconto R$')}
@@ -588,7 +695,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
 
         {/* Execução Fiscal */}
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Execução Fiscal</div>
+          <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>🏛️ Execução Fiscal</div>
           <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.text,cursor:'pointer',marginBottom:16}}>
             <input type="checkbox" checked={campos.possui_execucao_fiscal||false}
               onChange={e=>setCampos(p=>({...p,possui_execucao_fiscal:e.target.checked}))}
@@ -613,7 +720,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico }) {
         {/* Sócios */}
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
           <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:6}}>👥 Sócios / Responsáveis</div>
-          <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Extraídos automaticamente pelo IA — corrija se necessário</div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Extraídos automaticamente — corrija se necessário</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14}}>
             {inp('socio_1','Sócio 1')}
             {inp('socio_2','Sócio 2')}
