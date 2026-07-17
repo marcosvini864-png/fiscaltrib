@@ -156,7 +156,8 @@ async function analisarComIA(paginas) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({
-      system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações. Seja preciso com datas e valores.',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações. Sej
       messages: [{ role: 'user', content: `Analise o texto abaixo de documentos da PGFN (CDA + Petição Inicial de Execução Fiscal + Discriminativo de Crédito) e retorne APENAS este JSON completo.
 
 REGRAS CRÍTICAS DE EXTRAÇÃO:
