@@ -225,6 +225,7 @@ ${textoConsolidado.slice(0, 12000)}` }]
   })
   const data2 = await resp2.json()
   const resposta = data2.resposta || ''
+  console.log('RESPOSTA IA:', resposta)
   const jsonMatch = resposta.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('IA não retornou JSON válido')
   return JSON.parse(jsonMatch[0])
