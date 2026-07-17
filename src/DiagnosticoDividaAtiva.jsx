@@ -986,7 +986,15 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
         {registroId&&<span style={{fontSize:12,color:'#16A34A',alignSelf:'center'}}>✅ Salvo</span>}
       </div>
 
-      <div style={{marginBottom:4}}>
+      {aba !== 0 && (
+      <div style={{marginBottom:12}}>
+      <button onClick={()=>setAba(0)}
+      style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:`1.5px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:13,cursor:'pointer'}}>
+      ← Voltar à Visão Geral
+      </button>
+      </div>
+     )}
+	  <div style={{marginBottom:4}}>
         <button onClick={()=>setAba(7)}
           style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',
           background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',
