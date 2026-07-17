@@ -589,7 +589,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     if (cda.cliente_id) {
       setClienteAtual({ id: cda.cliente_id, razao_social: cda.devedor || '', cnpj: cda.cnpj_devedor || '' })
     }
-    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? String(cda.valor_total) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
+    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? parseFloat(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
     setCdas([cdaDiag])
     setDiagnostico(null)
     setAnalisesCDA([])
