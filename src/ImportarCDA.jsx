@@ -278,7 +278,8 @@ function SeletorClienteInterno({ onSelecionar }) {
         </div>
       )}
     </div>
-  )
+  </>
+)
 }
 
 function imprimirCDA(campos, clienteEfetivo) {
