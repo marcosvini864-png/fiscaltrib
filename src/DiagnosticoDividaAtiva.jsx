@@ -1280,22 +1280,25 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <div style={{overflowX:'auto',marginBottom:16}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,minWidth:900}}>
                 <thead>
-                  <tr>
-                    {/* ─── CORREÇÃO 6: cabeçalho atualizado ─── */}
-                    <th style={{...thSispar,textAlign:'left',width:200}}>Nº CDA / Devedor / CNPJ</th>
-                    <th style={thSispar}>Tipo</th>
-                    <th style={thSispar}>Modalidade</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Desconto R$</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Prov. Econ. %</th>
-                    <th style={{...thSispar,background:'#163b5c'}}>Total a Pagar</th>
-                    <th style={thSispar}>Qt Entrada</th>
-                    <th style={thSispar}>Vl Entrada</th>
-                    <th style={thSispar}>Qt Parcela</th>
-                    <th style={thSispar}>Vl Parcela</th>
-                    <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
-                    <th style={{...thSispar, width:40}}></th>
-				  </tr>
+              <tr>
+                 <th style={{...thSispar,width:40,textAlign:'center'}}>Item</th>
+                 <th style={{...thSispar,textAlign:'left',width:200}}>Nº CDA / Devedor / CNPJ</th>
+                 <th style={thSispar}>Tipo</th>
+                 <th style={thSispar}>Modalidade</th>
+                 <th style={thSispar}>Data Cálculo</th>
+                 <th style={thSispar}>UFIR</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Desconto R$</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Prov. Econ. %</th>
+                 <th style={{...thSispar,background:'#163b5c'}}>Total a Pagar</th>
+                 <th style={thSispar}>Qt Entrada</th>
+                 <th style={thSispar}>Vl Entrada</th>
+                 <th style={thSispar}>Qt Parcela</th>
+                 <th style={thSispar}>Vl Parcela</th>
+                 <th style={{...thSispar,textAlign:'left'}}>Processo / TRF / Vara</th>
+                 <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
+                 <th style={{...thSispar,width:40}}></th>
+                 </tr>
                 </thead>
                 <tbody>
                   {sisparDados.map((r, idx) => {
@@ -1310,6 +1313,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                     const zebra     = idx % 2 === 0 ? '#fff' : '#F8FAFC'
                     return (
                       <tr key={r.id} style={{background:zebra}}>
+					  <td style={{...tdSispar(),width:40,fontWeight:700,color:'#0B1F4D',textAlign:'center'}}>{idx+1}</td>
                         {/* ─── CORREÇÃO 7: célula com numero_cda, devedor e cnpj_devedor empilhados ─── */}
                         <td style={{...tdSispar('left'),maxWidth:200}}>
                           <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10,lineHeight:1.4}}>
@@ -1336,7 +1340,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                             {MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade_transacao || '—'}
                           </span>
                         </td>
-                        <td style={{...tdSisparNum,background:'#fafbff'}}>{fmtR(vTotal)}</td>
+                        <td style={tdSispar()}>{r.data_calculo ? new Date(r.data_calculo+'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                        <td style={tdSispar()}>{r.ufir_conversao || '—'}</td>
+						<td style={{...tdSisparNum,background:'#fafbff'}}>{fmtR(vTotal)}</td>
                         <td style={{...tdSisparNum,color:'#16A34A',background:'#fafbff'}}>{vDesc > 0 ? fmtR(vDesc) : '—'}</td>
                         <td style={{...tdSispar(),color:'#16A34A',fontWeight:700,background:'#fafbff'}}>{provEcon}</td>
                         <td style={{...tdSisparNum,fontWeight:700,color:'#0B1F4D',background:'#EFF6FF'}}>{fmtR(vPagar)}</td>
@@ -1344,8 +1350,14 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                         <td style={tdSisparNum}>{vEntrada > 0 ? fmtR(vEntrada) : '—'}</td>
                         <td style={tdSispar()}>{qtParcela > 0 ? qtParcela : '—'}</td>
                         <td style={tdSisparNum}>{vParcela > 0 ? fmtR(vParcela) : '—'}</td>
-                        <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
-                          {[r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ') || r.observacoes || '—'}
+                        <td style={{...tdSispar('left'),maxWidth:150,fontSize:9}}>
+                        {r.numero_processo_execucao && <div style={{fontWeight:600,color:'#0B1F4D'}}>{r.numero_processo_execucao}</div>}
+                        {r.trf_regiao && <div style={{color:'#64748B'}}>{r.trf_regiao}</div>}
+                        {r.vara_execucao && <div style={{color:'#64748B'}}>{r.vara_execucao}</div>}
+                        {!r.numero_processo_execucao && !r.trf_regiao && '—'}
+                         </td>
+                         <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
+                        {[r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ')||r.observacoes||'—'}
                         </td>
 						<td style={{...tdSispar(), width:40}}>
                         <button
@@ -1361,7 +1373,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 </tbody>
                 <tfoot>
                   <tr style={{background:'#dce6f7'}}>
-                    <td colSpan={3} style={{...tdTotal,textAlign:'left',fontSize:11}}>TOTAIS CONSOLIDADOS</td>
+                    <td colSpan={5} style={{...tdTotal,textAlign:'left',fontSize:11}}>TOTAIS CONSOLIDADOS</td>
                     <td style={tdTotal}>{fmtR(sisparTotais.totalSemDesconto)}</td>
                     <td style={{...tdTotal,color:'#16A34A'}}>{fmtR(sisparTotais.totalDesconto)}</td>
                     <td style={tdTotal}>
@@ -1370,7 +1382,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                         : '—'}
                     </td>
                     <td style={{...tdTotal,color:'#0B1F4D'}}>{fmtR(sisparTotais.totalAPagar)}</td>
-                    <td colSpan={5} style={tdTotal}></td>
+                    <td colSpan={7} style={tdTotal}></td>
                     <td style={tdTotal}></td>
                   </tr>
                 </tfoot>
