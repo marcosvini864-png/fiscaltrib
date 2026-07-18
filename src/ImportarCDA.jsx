@@ -220,10 +220,25 @@ JSON a retornar:
 }
 
 TEXTO DOS DOCUMENTOS:
-${textoConsolidado.slice(0, 12000)}` }]
+${textoConsolidado.slice(0, 6000)}` }]
     })
   })
   const data2 = await resp2.json()
+ const erroAPI = data2?.error
+   if (!resp2.ok || erroAPI) {
+   const mensagemAPI =
+    typeof erroAPI === 'string'
+      ? erroAPI
+      : erroAPI?.message || `Erro HTTP ${resp2.status}`
+
+  console.error('ERRO RETORNADO PELA API:', data2)
+
+  throw new Error(
+    mensagemAPI.includes('Request too large')
+      ? 'O PDF gerou texto demais para a IA. Tente importar menos páginas ou um arquivo menor.'
+      : 'Erro na IA: ' + mensagemAPI
+  )
+}
  const resposta =
   data2?.resposta ??
   data2?.resultado ??
