@@ -115,57 +115,28 @@ async function extrairPaginasPDF(file) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const paginas = []
   for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+    const page = await pdf.getPage(i)
     const textContent = await page.getTextContent()
     const texto = textContent.items.map(item => item.str).join(' ')
     paginas.push(texto)
   }
   return paginas
-    for (let i = 0; i < paginas.length; i++) {
-    try {
-    const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível exatamente como aparece, sem interpretar ou resumir. Preserve todos os números, datas, valores e códigos exatamente.',
-        messages: [{ role: 'user', content: `Transcreva TODO o texto visível na página ${i+1} do documento da PGFN (CDA, Execução Fiscal ou Discriminativo de Crédito), preservando todos os valores, datas, competências e códigos:\n\n${paginas[i]}` }]
-      })
-    })
-    const data = await resp.json()
-    if (!resp.ok || data?.error) {
-      const mensagemErro =
-        typeof data?.error === 'string'
-          ? data.error
-          : data?.error?.message || `Erro HTTP ${resp.status}`
-      throw new Error(`Falha ao ler a página ${i + 1}: ${mensagemErro}`)
-    }
-
-  data?.resposta ??
-  data?.resultado ??
-  data?.content ??
-  ''
-
-if (!String(textoPagina).trim()) {
-  throw new Error(
-    `A IA não extraiu nenhum texto da página ${i + 1}`
-  )
 }
 
-textoConsolidado +=
-  `\n--- PÁGINA ${i + 1} ---\n${textoPagina}`
-  } catch (e) {
-  console.error(`Erro página ${i + 1}:`, e)
-  throw e
-}
+async function analisarComIA(paginas) {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  let textoConsolidado = ''
+  for (let i = 0; i < paginas.length; i++) {
+    const texto = String(paginas[i] || '').trim()
+    if (texto) textoConsolidado += `\n--- PÁGINA ${i + 1} ---\n${texto}`
   }
 
-if (!textoConsolidado.trim()) {
-  throw new Error(
-    'Nenhuma página do PDF foi lida pela IA. O processamento foi interrompido.'
-  )
-}
+  if (!textoConsolidado.trim()) {
+    throw new Error('Nenhum texto encontrado no PDF. O arquivo pode ser uma imagem escaneada sem texto pesquisável.')
+  }
 
-  const resp2 = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
     body: JSON.stringify({
@@ -182,19 +153,19 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 6. "cnpj_devedor" = campo CGC, CNPJ ou Identificacao do devedor
 7. TODOS os valores numéricos sem formatação (ex: 16227.82 não 16.227,82)
 8. "data_inscricao" = campo "Data de Inscricao" — formato DD/MM/AAAA
-9. "data_calculo" = campo "Data do Calculo" ou "Data de Calculo dos Debitos" ou "Calculado em" — formato DD/MM/AAAA
+9. "data_calculo" = campo "Data do Calculo" ou "Calculado em" — formato DD/MM/AAAA
 10. "data_referencia_valores" = data para a qual os valores foram atualizados (ex: "01/2022")
-11. "ufir_conversao" = valor numérico da UFIR mencionado na CDA para conversão de valores (ex: 0.9108) — procure por "UFIR" ou "Unidade Fiscal" no documento
+11. "ufir_conversao" = valor numérico da UFIR mencionado na CDA (ex: 0.9108)
 12. "periodo_divida_inicio" = primeiro mês/ano do período da dívida — formato MM/AAAA
 13. "periodo_divida_fim" = último mês/ano do período da dívida — formato MM/AAAA
-14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD (use dia 01)
+14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD
 15. "data_constituicao_definitiva" = data da inscrição em dívida ativa — formato AAAA-MM-DD
-16. "data_ajuizamento" = data da petição inicial da execução fiscal ou data do protocolo — formato AAAA-MM-DD
-17. "data_citacao" = data de citação do executado se mencionada — formato AAAA-MM-DD
-18. "modalidade_lancamento" = se mencionar "SIMPLES" ou "homologação" use "homologacao"; caso contrário use "oficio"
+16. "data_ajuizamento" = data da petição inicial da execução fiscal — formato AAAA-MM-DD
+17. "data_citacao" = data de citação do executado — formato AAAA-MM-DD
+18. "modalidade_lancamento" = se mencionar "homologação" use "homologacao"; caso contrário use "oficio"
 19. "tipo_debito" = Lei 8.212/91 = "previdenciario"; LC 123/2006 = "simples_nacional"; Lei 8.036/90 = "fgts"; outros = "tributario_federal"
-20. "fundamento_legal" = códigos F.Legal encontrados na CDA (ex: "041.00, 088.00, 089.00...")
-21. "socio_1", "socio_2", "socio_3" = nomes de sócios/responsáveis solidários se mencionados
+20. "fundamento_legal" = códigos F.Legal encontrados na CDA
+21. "socio_1", "socio_2", "socio_3" = nomes de sócios/responsáveis solidários
 
 JSON a retornar:
 {
@@ -236,67 +207,36 @@ TEXTO DOS DOCUMENTOS:
 ${textoConsolidado.slice(0, 12000)}` }]
     })
   })
-  const data2 = await resp2.json()
- const erroAPI = data2?.error
-   if (!resp2.ok || erroAPI) {
-   const mensagemAPI =
-    typeof erroAPI === 'string'
-      ? erroAPI
-      : erroAPI?.message || `Erro HTTP ${resp2.status}`
 
-  console.error('ERRO RETORNADO PELA API:', data2)
+  const data = await resp.json()
+  const erroAPI = data?.error
+  if (!resp.ok || erroAPI) {
+    const mensagemAPI = typeof erroAPI === 'string' ? erroAPI : erroAPI?.message || `Erro HTTP ${resp.status}`
+    console.error('ERRO RETORNADO PELA API:', data)
+    throw new Error('Erro na IA: ' + mensagemAPI)
+  }
 
-  throw new Error(
-    mensagemAPI.includes('Request too large')
-      ? 'O PDF gerou texto demais para a IA. Tente importar menos páginas ou um arquivo menor.'
-      : 'Erro na IA: ' + mensagemAPI
-  )
-}
- const resposta =
-  data2?.resposta ??
-  data2?.resultado ??
-  data2?.content ??
-  ''
+  const resposta = data?.resposta ?? data?.resultado ?? data?.content ?? ''
+  console.log('RESPOSTA COMPLETA DA API:', data)
+  console.log('RESPOSTA IA:', resposta)
 
-console.log('RESPOSTA COMPLETA DA API:', data2)
-console.log('RESPOSTA IA:', resposta)
+  if (resposta && typeof resposta === 'object') return resposta
 
-// Se a API já devolveu um objeto, não precisa converter novamente
-if (resposta && typeof resposta === 'object') {
-  return resposta
-}
+  const textoLimpo = String(resposta).replace(/```json/gi, '').replace(/```/g, '').trim()
+  const inicioJSON = textoLimpo.indexOf('{')
+  const fimJSON = textoLimpo.lastIndexOf('}')
 
-// Remove marcações ```json e ```
-const textoLimpo = String(resposta)
-  .replace(/```json/gi, '')
-  .replace(/```/g, '')
-  .trim()
+  if (inicioJSON === -1 || fimJSON === -1 || fimJSON <= inicioJSON) {
+    console.error('Resposta sem objeto JSON:', textoLimpo)
+    throw new Error('IA não retornou nenhum objeto JSON')
+  }
 
-// Localiza o objeto JSON dentro da resposta
-const inicioJSON = textoLimpo.indexOf('{')
-const fimJSON = textoLimpo.lastIndexOf('}')
-
-if (
-  inicioJSON === -1 ||
-  fimJSON === -1 ||
-  fimJSON <= inicioJSON
-) {
-  console.error('Resposta sem objeto JSON:', textoLimpo)
-  throw new Error('IA não retornou nenhum objeto JSON')
-}
-
-const jsonTexto = textoLimpo.slice(inicioJSON, fimJSON + 1)
-
-try {
-  return JSON.parse(jsonTexto)
-} catch (erroJSON) {
-  console.error('JSON malformado recebido da IA:', jsonTexto)
-  console.error('Erro do JSON.parse:', erroJSON)
-
-  throw new Error(
-    'IA retornou JSON malformado: ' + erroJSON.message
-  )
-}
+  try {
+    return JSON.parse(textoLimpo.slice(inicioJSON, fimJSON + 1))
+  } catch (erroJSON) {
+    console.error('JSON malformado:', textoLimpo)
+    throw new Error('IA retornou JSON malformado: ' + erroJSON.message)
+  }
 }
 
 function SeletorClienteInterno({ onSelecionar }) {
