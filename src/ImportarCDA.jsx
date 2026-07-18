@@ -98,7 +98,7 @@ function calcularNegociacao(vTotal, modalidadeKey) {
   }
 }
 
-async function extrairPaginasPDF(file) {
+async function carregarPDFJS() {
   const PDFJS_VERSION = '3.11.174'
   if (!window['pdfjs-dist/build/pdf']) {
     await new Promise((resolve, reject) => {
@@ -111,38 +111,44 @@ async function extrairPaginasPDF(file) {
   }
   const pdfjsLib = window['pdfjs-dist/build/pdf']
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+  return pdfjsLib
+}
+
+async function extrairTextoPDF(file) {
+  const pdfjsLib = await carregarPDFJS()
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  let textoTotal = ''
+  for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+    const page = await pdf.getPage(i)
+    const textContent = await page.getTextContent()
+    const texto = textContent.items.map(item => item.str).join(' ')
+    if (texto.trim()) textoTotal += `\n--- PÁGINA ${i} ---\n${texto}`
+  }
+  return textoTotal
+}
+
+async function extrairPaginasPDF(file) {
+  const pdfjsLib = await carregarPDFJS()
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const paginas = []
   for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
     const page = await pdf.getPage(i)
-    const textContent = await page.getTextContent()
-    const texto = textContent.items.map(item => item.str).join(' ')
-    paginas.push(texto)
+    const scale = 2.0
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')
+    await page.render({ canvasContext: ctx, viewport }).promise
+    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
+    paginas.push(base64)
   }
   return paginas
 }
 
-async function analisarComIA(paginas) {
-  const { data: { session } } = await supabase.auth.getSession()
-
-  let textoConsolidado = ''
-  for (let i = 0; i < paginas.length; i++) {
-    const texto = String(paginas[i] || '').trim()
-    if (texto) textoConsolidado += `\n--- PÁGINA ${i + 1} ---\n${texto}`
-  }
-
-  if (!textoConsolidado.trim()) {
-    throw new Error('Nenhum texto encontrado no PDF. O arquivo pode ser uma imagem escaneada sem texto pesquisável.')
-  }
-
-  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-      messages: [{ role: 'user', content: `Analise o texto abaixo de documentos da PGFN (CDA + Petição Inicial de Execução Fiscal + Discriminativo de Crédito) e retorne APENAS este JSON completo.
+const PROMPT_JSON = `Analise o texto abaixo de documentos da PGFN (CDA + Petição Inicial de Execução Fiscal + Discriminativo de Crédito) e retorne APENAS este JSON completo.
 
 REGRAS CRÍTICAS DE EXTRAÇÃO:
 1. "numero_cda" = campo "Nm.Inscrição Dívida Ativa" ou "Credito" (ex: 13.775.238-5) — NUNCA confundir com PGFN de Origem
@@ -201,42 +207,75 @@ JSON a retornar:
   "socio_1": "",
   "socio_2": "",
   "socio_3": ""
+}`
+
+async function parsearJSON(resposta) {
+  if (resposta && typeof resposta === 'object') return resposta
+  const textoLimpo = String(resposta).replace(/```json/gi, '').replace(/```/g, '').trim()
+  const ini = textoLimpo.indexOf('{')
+  const fim = textoLimpo.lastIndexOf('}')
+  if (ini === -1 || fim === -1 || fim <= ini) throw new Error('IA não retornou nenhum objeto JSON')
+  try { return JSON.parse(textoLimpo.slice(ini, fim + 1)) }
+  catch (e) { throw new Error('IA retornou JSON malformado: ' + e.message) }
 }
 
-TEXTO DOS DOCUMENTOS:
-${textoConsolidado.slice(0, 12000)}` }]
-    })
+async function chamarIA(session, body) {
+  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify(body)
   })
-
   const data = await resp.json()
-  const erroAPI = data?.error
-  if (!resp.ok || erroAPI) {
-    const mensagemAPI = typeof erroAPI === 'string' ? erroAPI : erroAPI?.message || `Erro HTTP ${resp.status}`
-    console.error('ERRO RETORNADO PELA API:', data)
-    throw new Error('Erro na IA: ' + mensagemAPI)
+  if (!resp.ok || data?.error) {
+    const msg = typeof data?.error === 'string' ? data.error : data?.error?.message || `Erro HTTP ${resp.status}`
+    console.error('ERRO API:', data)
+    throw new Error('Erro na IA: ' + msg)
   }
+  console.log('RESPOSTA API:', data)
+  return data?.resposta ?? data?.resultado ?? data?.content ?? ''
+}
 
-  const resposta = data?.resposta ?? data?.resultado ?? data?.content ?? ''
-  console.log('RESPOSTA COMPLETA DA API:', data)
-  console.log('RESPOSTA IA:', resposta)
+async function analisarTextoComIA(texto, session) {
+  const resposta = await chamarIA(session, {
+    model: 'llama-3.3-70b-versatile',
+    system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
+    messages: [{ role: 'user', content: `${PROMPT_JSON}\n\nTEXTO DOS DOCUMENTOS:\n${texto.slice(0, 12000)}` }]
+  })
+  return parsearJSON(resposta)
+}
 
-  if (resposta && typeof resposta === 'object') return resposta
-
-  const textoLimpo = String(resposta).replace(/```json/gi, '').replace(/```/g, '').trim()
-  const inicioJSON = textoLimpo.indexOf('{')
-  const fimJSON = textoLimpo.lastIndexOf('}')
-
-  if (inicioJSON === -1 || fimJSON === -1 || fimJSON <= inicioJSON) {
-    console.error('Resposta sem objeto JSON:', textoLimpo)
-    throw new Error('IA não retornou nenhum objeto JSON')
+async function analisarImagensComIA(paginas, session) {
+  let textoConsolidado = ''
+  for (let i = 0; i < paginas.length; i++) {
+    try {
+      const resposta = await chamarIA(session, {
+        model: 'gemini-2.0-flash',
+        system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece.',
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN:` },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${paginas[i]}` } }
+        ]}]
+      })
+      if (String(resposta).trim()) textoConsolidado += `\n--- PÁGINA ${i+1} ---\n${resposta}`
+    } catch(e) {
+      console.error(`Erro página ${i+1}:`, e)
+    }
   }
+  if (!textoConsolidado.trim()) throw new Error('Não foi possível extrair texto das imagens do PDF.')
+  return analisarTextoComIA(textoConsolidado, session)
+}
 
-  try {
-    return JSON.parse(textoLimpo.slice(inicioJSON, fimJSON + 1))
-  } catch (erroJSON) {
-    console.error('JSON malformado:', textoLimpo)
-    throw new Error('IA retornou JSON malformado: ' + erroJSON.message)
+async function analisarComIA(file) {
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('Tentando extração de texto direto...')
+  const texto = await extrairTextoPDF(file)
+  if (texto && texto.trim().length >= 100) {
+    console.log('PDF com texto pesquisável — usando Groq textual')
+    return analisarTextoComIA(texto, session)
   }
+  console.log('PDF escaneado — acionando fallback com visão (Gemini)')
+  const paginas = await extrairPaginasPDF(file)
+  return analisarImagensComIA(paginas, session)
 }
 
 function SeletorClienteInterno({ onSelecionar }) {
@@ -415,8 +454,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
     setErro('')
     setExtraindo(true)
     try {
-      const paginas = await extrairPaginasPDF(file)
-      const dados = await analisarComIA(paginas)
+      const dados = await analisarComIA(file)
       const vTotal = parseFloat(dados.valor_total) || 0
       const modalidadeKey = dados.modalidade_transacao || 'transacao_edital'
       const negociacao = calcularNegociacao(vTotal, modalidadeKey)
