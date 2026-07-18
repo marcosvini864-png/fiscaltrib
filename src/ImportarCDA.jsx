@@ -148,9 +148,42 @@ async function analisarComIA(paginas) {
         })
       })
       const data = await resp.json()
-      textoConsolidado += `\n--- PÁGINA ${i+1} ---\n` + (data.resposta || '')
-    } catch(e) { console.error(`Erro página ${i+1}:`, e) }
+	  if (!resp.ok || data?.error) {
+  const mensagemErro =
+    typeof data?.error === 'string'
+      ? data.error
+      : data?.error?.message || `Erro HTTP ${resp.status}`
+
+  throw new Error(
+    `Falha ao ler a página ${i + 1}: ${mensagemErro}`
+  )
+}
+
+const textoPagina =
+  data?.resposta ??
+  data?.resultado ??
+  data?.content ??
+  ''
+
+if (!String(textoPagina).trim()) {
+  throw new Error(
+    `A IA não extraiu nenhum texto da página ${i + 1}`
+  )
+}
+
+textoConsolidado +=
+  `\n--- PÁGINA ${i + 1} ---\n${textoPagina}`
+  } catch (e) {
+  console.error(`Erro página ${i + 1}:`, e)
+  throw e
+}
   }
+
+if (!textoConsolidado.trim()) {
+  throw new Error(
+    'Nenhuma página do PDF foi lida pela IA. O processamento foi interrompido.'
+  )
+}
 
   const resp2 = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
     method: 'POST',
