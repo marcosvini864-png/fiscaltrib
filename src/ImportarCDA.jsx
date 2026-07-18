@@ -224,11 +224,51 @@ ${textoConsolidado.slice(0, 12000)}` }]
     })
   })
   const data2 = await resp2.json()
-  const resposta = data2.resposta || ''
-  console.log('RESPOSTA IA:', resposta)
-  const jsonMatch = resposta.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('IA não retornou JSON válido')
-  return JSON.parse(jsonMatch[0])
+ const resposta =
+  data2?.resposta ??
+  data2?.resultado ??
+  data2?.content ??
+  ''
+
+console.log('RESPOSTA COMPLETA DA API:', data2)
+console.log('RESPOSTA IA:', resposta)
+
+// Se a API já devolveu um objeto, não precisa converter novamente
+if (resposta && typeof resposta === 'object') {
+  return resposta
+}
+
+// Remove marcações ```json e ```
+const textoLimpo = String(resposta)
+  .replace(/```json/gi, '')
+  .replace(/```/g, '')
+  .trim()
+
+// Localiza o objeto JSON dentro da resposta
+const inicioJSON = textoLimpo.indexOf('{')
+const fimJSON = textoLimpo.lastIndexOf('}')
+
+if (
+  inicioJSON === -1 ||
+  fimJSON === -1 ||
+  fimJSON <= inicioJSON
+) {
+  console.error('Resposta sem objeto JSON:', textoLimpo)
+  throw new Error('IA não retornou nenhum objeto JSON')
+}
+
+const jsonTexto = textoLimpo.slice(inicioJSON, fimJSON + 1)
+
+try {
+  return JSON.parse(jsonTexto)
+} catch (erroJSON) {
+  console.error('JSON malformado recebido da IA:', jsonTexto)
+  console.error('Erro do JSON.parse:', erroJSON)
+
+  throw new Error(
+    'IA retornou JSON malformado: ' + erroJSON.message
+  )
+}
 }
 
 function SeletorClienteInterno({ onSelecionar }) {
