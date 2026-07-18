@@ -220,7 +220,7 @@ JSON a retornar:
 }
 
 TEXTO DOS DOCUMENTOS:
-${textoConsolidado.slice(0, 6000)}` }]
+${textoConsolidado.slice(0, 3000)}` }]
     })
   })
   const data2 = await resp2.json()
