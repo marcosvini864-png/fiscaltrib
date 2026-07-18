@@ -115,20 +115,13 @@ async function extrairPaginasPDF(file) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const paginas = []
   for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
-    const page = await pdf.getPage(i)
-    const scale = 2.0
-    const viewport = page.getViewport({ scale })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const ctx = canvas.getContext('2d')
-    await page.render({ canvasContext: ctx, viewport }).promise
-    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
-    paginas.push(base64)
+    const textContent = await page.getTextContent()
+    const texto = textContent.items.map(item => item.str).join(' ')
+    paginas.push(texto)
   }
   return paginas
-for (let i = 0; i < paginas.length; i++) {
-  try {
+    for (let i = 0; i < paginas.length; i++) {
+    try {
     const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -147,7 +140,6 @@ for (let i = 0; i < paginas.length; i++) {
       throw new Error(`Falha ao ler a página ${i + 1}: ${mensagemErro}`)
     }
 
-  const textoPagina =
   data?.resposta ??
   data?.resultado ??
   data?.content ??
