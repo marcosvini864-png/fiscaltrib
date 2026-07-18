@@ -127,32 +127,25 @@ async function extrairPaginasPDF(file) {
     paginas.push(base64)
   }
   return paginas
-}
-
-async function analisarComIA(paginas) {
-  const { data: { session } } = await supabase.auth.getSession()
-  let textoConsolidado = ''
-
-  for (let i = 0; i < paginas.length; i++) {
-    try {
-      const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          model: 'gemini-2.0-flash',
-          system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece, sem interpretar ou resumir. Preserve todos os números, datas, valores e códigos exatamente como estão.',
-          messages: [{ role: 'user', content: [
-            { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN (CDA, Execução Fiscal ou Discriminativo de Crédito), preservando todos os valores, datas, competências e códigos:` },
-            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${paginas[i]}` } }
-          ]}]
-        })
+for (let i = 0; i < paginas.length; i++) {
+  try {
+    const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível exatamente como aparece, sem interpretar ou resumir. Preserve todos os números, datas, valores e códigos exatamente.',
+        messages: [{ role: 'user', content: `Transcreva TODO o texto visível na página ${i+1} do documento da PGFN (CDA, Execução Fiscal ou Discriminativo de Crédito), preservando todos os valores, datas, competências e códigos:\n\n${paginas[i]}` }]
       })
-      const data = await resp.json()
-	  if (!resp.ok || data?.error) {
-  const mensagemErro =
-    typeof data?.error === 'string'
-      ? data.error
-      : data?.error?.message || `Erro HTTP ${resp.status}`
+    })
+    const data = await resp.json()
+    if (!resp.ok || data?.error) {
+      const mensagemErro =
+        typeof data?.error === 'string'
+          ? data.error
+          : data?.error?.message || `Erro HTTP ${resp.status}`
+      throw new Error(`Falha ao ler a página ${i + 1}: ${mensagemErro}`)
+    }
 
   throw new Error(
     `Falha ao ler a página ${i + 1}: ${mensagemErro}`
