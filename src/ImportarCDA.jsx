@@ -139,7 +139,7 @@ async function analisarComIA(paginas) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: 'qwen/qwen3.6-27b',
           system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece, sem interpretar ou resumir. Preserve todos os números, datas, valores e códigos exatamente como estão.',
           messages: [{ role: 'user', content: [
             { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN (CDA, Execução Fiscal ou Discriminativo de Crédito), preservando todos os valores, datas, competências e códigos:` },
