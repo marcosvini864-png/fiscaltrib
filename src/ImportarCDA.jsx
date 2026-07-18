@@ -147,12 +147,7 @@ for (let i = 0; i < paginas.length; i++) {
       throw new Error(`Falha ao ler a página ${i + 1}: ${mensagemErro}`)
     }
 
-  throw new Error(
-    `Falha ao ler a página ${i + 1}: ${mensagemErro}`
-  )
-}
-
-const textoPagina =
+  const textoPagina =
   data?.resposta ??
   data?.resultado ??
   data?.content ??
