@@ -249,7 +249,7 @@ async function analisarImagensComIA(paginas, session) {
   for (let i = 0; i < paginas.length; i++) {
     try {
       const resposta = await chamarIA(session, {
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece.',
         messages: [{ role: 'user', content: [
           { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN:` },
