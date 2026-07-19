@@ -240,7 +240,7 @@ async function analisarPDFEscaneadoComGemini(file, session) {
   console.log('PDF escaneado — enviando PDF completo ao Gemini...')
   const base64 = await pdfParaBase64(file)
   const resposta = await chamarIA(session, {
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash-preview-05-20',
     system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
     messages: [{
       role: 'user',
