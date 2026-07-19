@@ -135,14 +135,14 @@ async function extrairPaginasPDF(file) {
   const paginas = []
   for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
     const page = await pdf.getPage(i)
-    const scale = 2.0
+    const scale = 1.5
     const viewport = page.getViewport({ scale })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height
     const ctx = canvas.getContext('2d')
     await page.render({ canvasContext: ctx, viewport }).promise
-    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
+    const base64 = canvas.toDataURL('image/jpeg', 0.70).split(',')[1]
     paginas.push(base64)
   }
   return paginas
@@ -245,25 +245,90 @@ async function analisarTextoComIA(texto, session) {
 }
 
 async function analisarImagensComIA(paginas, session) {
-  let textoConsolidado = ''
-  for (let i = 0; i < paginas.length; i++) {
-    try {
-      const resposta = await chamarIA(session, {
-        model: 'gemini-3.5-flash',
-        system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece.',
-        messages: [{ role: 'user', content: [
-          { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN:` },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${paginas[i]}` } }
-        ]}]
+  const textosPorPagina = []
+  const TAMANHO_LOTE = 2
+
+  for (
+    let inicio = 0;
+    inicio < paginas.length;
+    inicio += TAMANHO_LOTE
+  ) {
+    const lote = paginas.slice(
+      inicio,
+      inicio + TAMANHO_LOTE
+    )
+
+    const resultados = await Promise.all(
+      lote.map(async (pagina, indiceLote) => {
+        const numeroPagina = inicio + indiceLote + 1
+
+        try {
+          const resposta = await chamarIA(session, {
+            model: 'gemini-3.5-flash',
+            system:
+              'Você é um leitor de documentos oficiais brasileiros. Retorne somente o texto visível da imagem, sem introdução, sem comentários e sem markdown.',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text:
+                      `Transcreva somente o texto visível da página ${numeroPagina}. ` +
+                      'Não escreva introduções como "aqui está a transcrição".'
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:image/jpeg;base64,${pagina}`
+                    }
+                  }
+                ]
+              }
+            ]
+          })
+
+          const texto = String(resposta || '').trim()
+
+          if (
+            !texto ||
+            texto.toLowerCase() === 'sem resposta.' ||
+            texto.toLowerCase() === 'sem resposta'
+          ) {
+            return ''
+          }
+
+          return (
+            `\n--- PÁGINA ${numeroPagina} ---\n` +
+            texto
+          )
+        } catch (e) {
+          console.error(
+            `Erro página ${numeroPagina}:`,
+            e
+          )
+          throw e
+        }
       })
-      if (String(resposta).trim()) textoConsolidado += `\n--- PÁGINA ${i+1} ---\n${resposta}`
-    } catch (e) {
-    console.error(`Erro página ${i + 1}:`, e)
-    throw e
-}
+    )
+
+    textosPorPagina.push(...resultados)
   }
-  if (!textoConsolidado.trim()) throw new Error('Não foi possível extrair texto das imagens do PDF.')
-  return analisarTextoComIA(textoConsolidado, session)
+
+  const textoConsolidado = textosPorPagina
+    .filter(Boolean)
+    .join('')
+
+  if (!textoConsolidado.trim()) {
+    throw new Error(
+      'Não foi possível extrair texto das imagens do PDF.'
+    )
+  }
+
+  return analisarTextoComIA(
+    textoConsolidado,
+    session
+  )
 }
 
 async function analisarComIA(file) {
