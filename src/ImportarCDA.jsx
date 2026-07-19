@@ -249,7 +249,7 @@ async function analisarImagensComIA(paginas, session) {
   for (let i = 0; i < paginas.length; i++) {
     try {
       const resposta = await chamarIA(session, {
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         system: 'Você é um leitor de documentos oficiais brasileiros. Transcreva todo o texto visível na imagem exatamente como aparece.',
         messages: [{ role: 'user', content: [
           { type: 'text', text: `Transcreva TODO o texto visível nesta página ${i+1} do documento da PGFN:` },
@@ -257,9 +257,10 @@ async function analisarImagensComIA(paginas, session) {
         ]}]
       })
       if (String(resposta).trim()) textoConsolidado += `\n--- PÁGINA ${i+1} ---\n${resposta}`
-    } catch(e) {
-      console.error(`Erro página ${i+1}:`, e)
-    }
+    } catch (e) {
+    console.error(`Erro página ${i + 1}:`, e)
+    throw e
+}
   }
   if (!textoConsolidado.trim()) throw new Error('Não foi possível extrair texto das imagens do PDF.')
   return analisarTextoComIA(textoConsolidado, session)
