@@ -128,16 +128,24 @@ async function extrairTextoPDF(file) {
   return textoTotal
 }
 
-async function pdfParaBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1]
-      resolve(base64)
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
+async function extrairPaginasPDF(file) {
+  const pdfjsLib = await carregarPDFJS()
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const paginas = []
+  for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+    const page = await pdf.getPage(i)
+    const scale = 1.5
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')
+    await page.render({ canvasContext: ctx, viewport }).promise
+    const base64 = canvas.toDataURL('image/jpeg', 0.70).split(',')[1]
+    paginas.push(base64)
+  }
+  return paginas
 }
 
 const PROMPT_JSON = `Analise o texto abaixo de documentos da PGFN (CDA + Petição Inicial de Execução Fiscal + Discriminativo de Crédito) e retorne APENAS este JSON completo.
@@ -236,30 +244,91 @@ async function analisarTextoComIA(texto, session) {
   return parsearJSON(resposta)
 }
 
-async function analisarPDFEscaneadoComGemini(file, session) {
-  console.log('PDF escaneado — enviando PDF completo ao Gemini...')
-  const base64 = await pdfParaBase64(file)
-  const resposta = await chamarIA(session, {
-    model: 'gemini-2.0-flash',
-    system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-    messages: [{
-      role: 'user',
-      content: [
-        {
-          type: 'inline_data',
-          inline_data: {
-            mime_type: 'application/pdf',
-            data: base64
+async function analisarImagensComIA(paginas, session) {
+  const textosPorPagina = []
+  const TAMANHO_LOTE = 2
+
+  for (
+    let inicio = 0;
+    inicio < paginas.length;
+    inicio += TAMANHO_LOTE
+  ) {
+    const lote = paginas.slice(
+      inicio,
+      inicio + TAMANHO_LOTE
+    )
+
+    const resultados = await Promise.all(
+      lote.map(async (pagina, indiceLote) => {
+        const numeroPagina = inicio + indiceLote + 1
+
+        try {
+          const resposta = await chamarIA(session, {
+            model: 'gemini-3.5-flash',
+            system:
+              'Você é um leitor de documentos oficiais brasileiros. Retorne somente o texto visível da imagem, sem introdução, sem comentários e sem markdown.',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text:
+                      `Transcreva somente o texto visível da página ${numeroPagina}. ` +
+                      'Não escreva introduções como "aqui está a transcrição".'
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:image/jpeg;base64,${pagina}`
+                    }
+                  }
+                ]
+              }
+            ]
+          })
+
+          const texto = String(resposta || '').trim()
+
+          if (
+            !texto ||
+            texto.toLowerCase() === 'sem resposta.' ||
+            texto.toLowerCase() === 'sem resposta'
+          ) {
+            return ''
           }
-        },
-        {
-          type: 'text',
-          text: PROMPT_JSON
+
+          return (
+            `\n--- PÁGINA ${numeroPagina} ---\n` +
+            texto
+          )
+        } catch (e) {
+          console.error(
+            `Erro página ${numeroPagina}:`,
+            e
+          )
+          throw e
         }
-      ]
-    }]
-  })
-  return parsearJSON(resposta)
+      })
+    )
+
+    textosPorPagina.push(...resultados)
+  }
+
+  const textoConsolidado = textosPorPagina
+    .filter(Boolean)
+    .join('')
+
+  if (!textoConsolidado.trim()) {
+    throw new Error(
+      'Não foi possível extrair texto das imagens do PDF.'
+    )
+  }
+
+  return analisarTextoComIA(
+    textoConsolidado,
+    session
+  )
 }
 
 async function analisarComIA(file) {
@@ -270,8 +339,9 @@ async function analisarComIA(file) {
     console.log('PDF com texto pesquisável — usando Groq textual')
     return analisarTextoComIA(texto, session)
   }
-  console.log('PDF escaneado — enviando PDF completo ao Gemini (1 chamada)')
-  return analisarPDFEscaneadoComGemini(file, session)
+  console.log('PDF escaneado — acionando fallback com visão (Gemini)')
+  const paginas = await extrairPaginasPDF(file)
+  return analisarImagensComIA(paginas, session)
 }
 
 function SeletorClienteInterno({ onSelecionar }) {
