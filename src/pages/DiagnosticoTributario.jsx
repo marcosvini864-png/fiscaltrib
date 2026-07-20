@@ -192,6 +192,11 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     }
   }
 
+  async function excluirEntrada(id) {
+  if (!window.confirm('Excluir este registro do histórico?')) return
+  await supabase.from('entradas').delete().eq('id', id)
+  await carregarHistorico()
+}
   function imprimirRelatorio(dados, entradas) {
     const totalCredito = entradas.reduce((s, e) => s + (e.credito || 0), 0)
     const totalReceita = entradas.reduce((s, e) => s + (e.receita_bruta || 0), 0)
@@ -551,12 +556,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           </>
         )}
       </>}
-	  async function excluirEntrada(id) {
-      if (!window.confirm('Excluir este registro do histórico?')) return
-      await supabase.from('entradas').delete().eq('id', id)
-      await carregarHistorico()
-}
-
+	  
       {/* ABA HISTÓRICO */}
       {aba === 'historico' && (
         <div>
