@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import ImportarDadosFiscais from './ImportarDadosFiscais'
 import { supabase } from './supabase'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -90,6 +91,7 @@ export default function AnaliseFiscal({ clienteAtivo }) {
   const [loadingIA,     setLoadingIA]     = useState(false)
   const [mensagens,     setMensagens]     = useState([])
   const [pergunta,      setPergunta]      = useState('')
+  const [mostrarImportar, setMostrarImportar] = useState(false)
   const fimRef = useRef(null)
 
   useEffect(() => {
@@ -333,7 +335,40 @@ export default function AnaliseFiscal({ clienteAtivo }) {
           </div>
         </div>
       )}
+      {/* Botão importar */}
+{clienteId && (
+  <div style={{ textAlign: 'right', marginBottom: 16, marginTop: 8 }}>
+    <button
+      onClick={() => setMostrarImportar(true)}
+      style={{
+        padding: '10px 20px',
+        background: '#0B1F4D',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+      }}
+    >
+      + Adicionar dados fiscais
+    </button>
+  </div>
+  )}
 
+  {mostrarImportar && clienteId && (
+    <ImportarDadosFiscais
+    clienteId={clienteId}
+    clienteNome={cliente?.razao_social || ''}
+    regime={cliente?.regime || 'lucro_presumido'}
+    onConcluir={() => {
+      setMostrarImportar(false)
+      carregarDados(clienteId)
+    }}
+    onFechar={() => setMostrarImportar(false)}
+  />
+)}      
+	  
       <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginTop: 16, fontSize: 12, color: '#92400e' }}>
         ⚠️ A IA responde com base nos dados importados. Resultados são estimativas e não substituem análise profissional habilitada.
       </div>
