@@ -332,7 +332,10 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</span>
 </div>
 
-<script>window.onload = () => window.print()</script>
+<div style="position:fixed;top:12px;right:16px;z-index:999;display:flex;gap:8px">
+  <button onclick="window.print()" style="padding:8px 16px;background:#0B1F4D;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
+  <button onclick="window.close()" style="padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Fechar</button>
+</div>
 </body>
 </html>`
 
@@ -548,6 +551,11 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           </>
         )}
       </>}
+	  async function excluirEntrada(id) {
+      if (!window.confirm('Excluir este registro do histórico?')) return
+      await supabase.from('entradas').delete().eq('id', id)
+      await carregarHistorico()
+}
 
       {/* ABA HISTÓRICO */}
       {aba === 'historico' && (
@@ -613,11 +621,17 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                           <span style={{ background: e.risco === 'baixo' ? '#f0fdf4' : e.risco === 'medio' ? '#fefce8' : '#fef2f2', color: e.risco === 'baixo' ? C.green : e.risco === 'medio' ? '#ca8a04' : C.red, padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.risco}</span>
                         </td>
                         <td style={{ padding: '8px 10px' }}>
-                          <button onClick={() => imprimirRelatorio(null, [e])}
-                            style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                            🖨️
-                          </button>
-                        </td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => imprimirRelatorio(null, [e])}
+                         style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                         🖨️
+                         </button>
+                         <button onClick={() => excluirEntrada(e.id)}
+                         style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                         🗑️
+                         </button>
+                         </div>
+                         </td>
                       </tr>
                     ))}
                   </tbody>
