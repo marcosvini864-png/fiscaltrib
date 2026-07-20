@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import ImportarDadosFiscais from './ImportarDadosFiscais'
+import ImportarDadosFiscais from './pages/ImportarDadosFiscais'
 import { supabase } from './supabase'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
