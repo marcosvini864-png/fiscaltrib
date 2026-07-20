@@ -449,7 +449,13 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         </div>
       </div>
 
-      {/* Abas principais */}
+      <div style={{ marginBottom: 16 }}>
+      <button onClick={() => onNavegar('painel')}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'none', border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 13, cursor: 'pointer' }}>
+      ← Voltar ao Painel
+      </button>
+      </div>
+	  {/* Abas principais */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `2px solid ${C.border}` }}>
         {[['novo', '🔍 Novo Diagnóstico'], ['historico', `📋 Histórico (${historico.length})`]].map(([id, label]) => (
           <button key={id} onClick={() => setAba(id)}
