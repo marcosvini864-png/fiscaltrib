@@ -26,19 +26,18 @@ const C = {
 }
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-const fmtCNPJ = v => v ? v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : '—'
+const fmtData = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—'
 
 export default function DiagnosticoTributario({ clienteId, cliente, onNavegar }) {
   const [etapa, setEtapa] = useState('inicio')
-  const [aba, setAba] = useState('novo')
+  const [aba, setAba] = useState('novo') // novo | historico
   const [arquivos, setArquivos] = useState([])
   const [resultado, setResultado] = useState(null)
   const [historico, setHistorico] = useState([])
-  const [historicoNFes, setHistoricoNFes] = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
+  const [diagnosticoAberto, setDiagnosticoAberto] = useState(null)
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
-  const [abaHistorico, setAbaHistorico] = useState('competencias')
   const inputRef = useRef(null)
 
   const regime = cliente?.regime || 'Simples Nacional'
@@ -49,12 +48,12 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
-    const [{ data: ents }, { data: nfes }] = await Promise.all([
-      supabase.from('entradas').select('*').eq('cliente_id', clienteId).order('competencia', { ascending: false }),
-      supabase.from('entradas_nfe').select('*').eq('cliente_id', clienteId).order('data_emissao', { ascending: false }),
-    ])
-    setHistorico(ents || [])
-    setHistoricoNFes(nfes || [])
+    const { data } = await supabase
+      .from('entradas')
+      .select('*')
+      .eq('cliente_id', clienteId)
+      .order('competencia', { ascending: false })
+    setHistorico(data || [])
     setLoadingHistorico(false)
   }
 
@@ -151,7 +150,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         periodo_fim: comp.competencia + '-01',
       }))
 
-      setResultado({ totalNotas: notasXML.length, entradas: entradas.length, saidas: saidas.length, competencias, resumoCompetencias, monofasicos, exclusaoICMS, icmsST, retencoes, totalCredito, notasRaw: notasXML })
+      setResultado({ totalNotas: notasXML.length, entradas: entradas.length, saidas: saidas.length, competencias, resumoCompetencias, monofasicos, exclusaoICMS, icmsST, retencoes, totalCredito, dataAnalise: new Date().toISOString() })
       setEtapa('resultado')
     } catch (e) {
       setErro(e.message)
@@ -164,8 +163,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     setSalvando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-
-      // Salva competências na tabela entradas
       for (const comp of resultado.resumoCompetencias) {
         const creditoComp =
           resultado.exclusaoICMS.filter(o => o.competencia === comp.competencia).reduce((s, o) => s + o.credito, 0) +
@@ -180,48 +177,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           periodo_fim: comp.periodo_fim,
           tipo_oportunidade: resultado.monofasicos.length > 0 ? 'MONOFASICO' : resultado.exclusaoICMS.length > 0 ? 'EXCLUSAO_ICMS' : 'SEM_OPORTUNIDADE',
           risco: 'baixo',
-          documentos: JSON.stringify({ nfes: resultado.totalNotas }),
+          documentos: JSON.stringify({ nfes: resultado.totalNotas, teses: { monofasicos: resultado.monofasicos.length, exclusaoICMS: resultado.exclusaoICMS.length, icmsST: resultado.icmsST.length, retencoes: resultado.retencoes.length } }),
         }, { onConflict: 'cliente_id,competencia,tributo' })
       }
-
-      // Salva cada NF-e individualmente na tabela entradas_nfe
-      for (const nota of resultado.notasRaw) {
-        const teses = []
-        if (nota.itens.some(i => NCM_MONOFASICOS[i.ncm?.substring(0, 8)])) teses.push(regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO')
-        if (nota.totalICMS > 0 && (regime === 'Lucro Presumido' || regime === 'Lucro Real')) teses.push('EXCLUSAO_ICMS_TEMA69')
-        if (nota.totalST > 0 && regime === 'Lucro Real') teses.push('ICMS_ST')
-        if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1' && regime === 'Simples Nacional') teses.push('RETENCAO_INDEVIDA')
-
-        const creditoNota = teses.includes('MONOFASICO') ? nota.totalPIS + nota.totalCOFINS :
-          teses.includes('EXCLUSAO_ICMS_TEMA69') ? nota.totalICMS * (regime === 'Lucro Real' ? 0.0925 : 0.0365) :
-          teses.includes('RETENCAO_INDEVIDA') ? nota.totalPIS + nota.totalCOFINS : 0
-
-        try {
-          await supabase.from('entradas_nfe').upsert({
-            cliente_id: clienteId,
-            usuario_id: user.id,
-            chave_nfe: nota.chNFe || null,
-            numero_nf: nota.nNF,
-            serie: nota.serie || '1',
-            emitente_nome: nota.emitNome,
-            emitente_cnpj: nota.emitCNPJ,
-            competencia: nota.competencia,
-            data_emissao: nota.dhEmi || nota.competencia + '-01',
-            tipo: nota.tipo,
-            crt: nota.crt,
-            valor_produtos: nota.totalProd,
-            valor_pis: nota.totalPIS,
-            valor_cofins: nota.totalCOFINS,
-            valor_icms: nota.totalICMS,
-            valor_st: nota.totalST,
-            teses_identificadas: teses,
-            credito_identificado: creditoNota,
-          }, { onConflict: 'chave_nfe', ignoreDuplicates: true })
-        } catch (e) {
-          console.warn('NF-e duplicada ou erro:', e)
-        }
-      }
-
       await carregarHistorico()
       setEtapa('inicio')
       setResultado(null)
@@ -235,24 +193,18 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   }
 
   async function excluirEntrada(id) {
-    if (!window.confirm('Excluir este registro do histórico?')) return
-    await supabase.from('entradas').delete().eq('id', id)
-    await carregarHistorico()
-  }
-
-  async function excluirNFe(id) {
-    if (!window.confirm('Excluir esta NF-e do histórico?')) return
-    await supabase.from('entradas_nfe').delete().eq('id', id)
-    await carregarHistorico()
-  }
-
+  if (!window.confirm('Excluir este registro do histórico?')) return
+  await supabase.from('entradas').delete().eq('id', id)
+  await carregarHistorico()
+}
   function imprimirRelatorio(dados, entradas) {
-    const totalCredito = entradas.reduce((s, e) => s + (e.credito || e.credito_identificado || 0), 0)
-    const totalReceita = entradas.reduce((s, e) => s + (e.receita_bruta || e.valor_produtos || 0), 0)
-    const totalPago = entradas.reduce((s, e) => s + (e.tributo_pago || (e.valor_pis + e.valor_cofins) || 0), 0)
-    const teses = [...new Set(entradas.map(e => e.tipo_oportunidade || (e.teses_identificadas?.[0])).filter(Boolean))]
+    const totalCredito = entradas.reduce((s, e) => s + (e.credito || 0), 0)
+    const totalReceita = entradas.reduce((s, e) => s + (e.receita_bruta || 0), 0)
+    const totalPago = entradas.reduce((s, e) => s + (e.tributo_pago || 0), 0)
+    const teses = [...new Set(entradas.map(e => e.tipo_oportunidade).filter(Boolean))]
 
-    const html = `<!DOCTYPE html>
+    const html = `
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -263,8 +215,10 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   .header { background: #0B1F4D; color: #fff; padding: 20px 28px; margin-bottom: 20px; }
   .header h1 { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
   .header p { font-size: 11px; color: #93c5fd; }
+  .label { font-size: 9px; font-weight: 700; color: #64748B; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
   .section { margin: 0 28px 20px; }
   .section-title { font-size: 12px; font-weight: 700; color: #0B1F4D; border-bottom: 2px solid #0B1F4D; padding-bottom: 4px; margin-bottom: 10px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px; }
   .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
   .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; }
   .kpi-valor { font-size: 16px; font-weight: 800; color: #0B1F4D; }
@@ -281,22 +235,13 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   .footer { margin: 20px 28px 0; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
   .verde { color: #16a34a; font-weight: 700; }
   .aviso { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 8px 12px; font-size: 10px; color: #92400e; margin-bottom: 16px; }
-  .btn-bar { position: fixed; top: 12px; right: 16px; z-index: 999; display: flex; gap: 8px; }
-  .btn-print { padding: 8px 16px; background: #0B1F4D; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .btn-close { padding: 8px 16px; background: #dc2626; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
   @media print {
-    .btn-bar { display: none; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { margin: 10mm; size: A4; }
+    @page { margin: 0; size: A4; }
   }
 </style>
 </head>
 <body>
-
-<div class="btn-bar">
-  <button class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
-  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
-</div>
 
 <div class="header">
   <div style="font-size:9px;color:#7CC4FF;font-weight:700;letter-spacing:2px;margin-bottom:6px">FISCALTRIB — RELATÓRIO DE DIAGNÓSTICO TRIBUTÁRIO</div>
@@ -313,7 +258,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     <div style="font-size:10px;color:#64748B;margin-top:4px">Estimativa baseada nas NF-e analisadas · Sujeito a validação profissional</div>
   </div>
   <div class="grid-4">
-    <div class="kpi"><div class="kpi-valor">${entradas.length}</div><div class="kpi-label">Registros analisados</div></div>
+    <div class="kpi"><div class="kpi-valor">${entradas.length}</div><div class="kpi-label">Competências analisadas</div></div>
     <div class="kpi"><div class="kpi-valor">${fmtR(totalReceita)}</div><div class="kpi-label">Receita bruta total</div></div>
     <div class="kpi"><div class="kpi-valor">${fmtR(totalPago)}</div><div class="kpi-label">Tributos pagos</div></div>
     <div class="kpi"><div class="kpi-valor">${teses.length}</div><div class="kpi-label">Teses identificadas</div></div>
@@ -322,11 +267,13 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
 <div class="section">
   <div class="section-title">2. TESES TRIBUTÁRIAS IDENTIFICADAS</div>
-  ${teses.length > 0 ? teses.map(tese => `
+  ${teses.map(tese => `
   <div class="tese-card">
-    <div class="tese-nome">${tese === 'MONOFASICO' ? '💊 Monofásicos PIS/COFINS' : tese === 'SEGREGACAO_MONOFASICO' ? '💊 Segregação Monofásicos (Simples Nacional)' : tese === 'EXCLUSAO_ICMS' || tese === 'EXCLUSAO_ICMS_TEMA69' ? '⚖️ Exclusão ICMS da Base PIS/COFINS — STF Tema 69' : tese === 'ICMS_ST' ? '🔄 Crédito PIS/COFINS sobre ICMS-ST' : tese === 'RETENCAO_INDEVIDA' ? '🚫 Retenções Indevidas na Fonte' : tese}</div>
+    <div class="tese-nome">${tese === 'MONOFASICO' ? '💊 Monofásicos PIS/COFINS' : tese === 'SEGREGACAO_MONOFASICO' ? '💊 Segregação Monofásicos (Simples Nacional)' : tese === 'EXCLUSAO_ICMS' ? '⚖️ Exclusão ICMS da Base PIS/COFINS — STF Tema 69' : tese === 'ICMS_ST' ? '🔄 Crédito PIS/COFINS sobre ICMS-ST' : tese === 'RETENCAO_INDEVIDA' ? '🚫 Retenções Indevidas na Fonte' : tese}</div>
     <div class="tese-fund">${FUNDAMENTACAO[tese] || 'Fundamentação a detalhar.'}</div>
-  </div>`).join('') : '<div style="color:#64748B">Nenhuma tese identificada.</div>'}
+  </div>
+  `).join('')}
+  ${teses.length === 0 ? '<div style="color:#64748B;font-size:11px">Nenhuma tese identificada nos documentos analisados.</div>' : ''}
 </div>
 
 <div class="section">
@@ -347,15 +294,17 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       ${entradas.map(e => `
       <tr>
         <td style="font-weight:600">${e.competencia || '—'}</td>
-        <td>${e.nfes_analisadas || '1'}</td>
-        <td>${fmtR(e.receita_bruta || e.valor_produtos)}</td>
-        <td>${fmtR(e.tributo_pago || (e.valor_pis + e.valor_cofins))}</td>
-        <td class="${(e.receita_monofasica || 0) > 0 ? 'verde' : ''}">${fmtR(e.receita_monofasica || 0)}</td>
-        <td class="${(e.credito || e.credito_identificado || 0) > 0 ? 'verde' : ''}">${fmtR(e.credito || e.credito_identificado || 0)}</td>
-        <td>${e.tipo_oportunidade || (e.teses_identificadas?.join(', ')) || '—'}</td>
-      </tr>`).join('')}
+        <td>${e.nfes_analisadas || '—'}</td>
+        <td>${fmtR(e.receita_bruta)}</td>
+        <td>${fmtR(e.tributo_pago)}</td>
+        <td class="${e.receita_monofasica > 0 ? 'verde' : ''}">${fmtR(e.receita_monofasica)}</td>
+        <td class="${e.credito > 0 ? 'verde' : ''}">${fmtR(e.credito)}</td>
+        <td>${e.tipo_oportunidade || '—'}</td>
+      </tr>
+      `).join('')}
       <tr style="background:#f0fdf4;font-weight:700">
-        <td>TOTAL</td><td>—</td>
+        <td>TOTAL</td>
+        <td>—</td>
         <td>${fmtR(totalReceita)}</td>
         <td>${fmtR(totalPago)}</td>
         <td>—</td>
@@ -367,40 +316,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 </div>
 
 <div class="section">
-  <div class="section-title">4. NOTAS FISCAIS ANALISADAS</div>
-  <table>
-    <thead>
-      <tr>
-        <th>NF</th>
-        <th>Emitente</th>
-        <th>CNPJ Emitente</th>
-        <th>Competência</th>
-        <th>Tipo</th>
-        <th>Valor Produtos</th>
-        <th>PIS</th>
-        <th>COFINS</th>
-        <th>Teses</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${(resultado?.notasRaw || []).map(n => `
-      <tr>
-        <td>${n.nNF || '—'}</td>
-        <td>${n.emitNome || '—'}</td>
-        <td>${fmtCNPJ(n.emitCNPJ)}</td>
-        <td>${n.competencia || '—'}</td>
-        <td>${n.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
-        <td>${fmtR(n.totalProd)}</td>
-        <td>${fmtR(n.totalPIS)}</td>
-        <td>${fmtR(n.totalCOFINS)}</td>
-        <td>—</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title">5. PRÓXIMOS PASSOS RECOMENDADOS</div>
+  <div class="section-title">4. PRÓXIMOS PASSOS RECOMENDADOS</div>
   <table>
     <thead><tr><th>#</th><th>Ação</th><th>Prazo</th><th>Responsável</th></tr></thead>
     <tbody>
@@ -413,12 +329,17 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 </div>
 
 <div class="section">
-  <div class="aviso">⚠️ Este relatório é uma estimativa preliminar gerada pelo FiscalTrib com base nas informações fornecidas. Os valores apresentados não substituem análise profissional habilitada.</div>
+  <div class="aviso">⚠️ Este relatório é uma estimativa preliminar gerada pelo FiscalTrib com base nas informações fornecidas. Os valores apresentados não substituem análise profissional habilitada. Recomenda-se validação por contador e/ou advogado tributário antes de qualquer ação.</div>
 </div>
 
 <div class="footer">
   <span>FiscalTrib — Sistema de Inteligência Tributária · fiscaltrib.com.br</span>
   <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</span>
+</div>
+
+<div style="position:fixed;top:12px;right:16px;z-index:999;display:flex;gap:8px">
+  <button onclick="window.print()" style="padding:8px 16px;background:#0B1F4D;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
+  <button onclick="window.close()" style="padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Fechar</button>
 </div>
 </body>
 </html>`
@@ -439,6 +360,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
+      {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 24, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DIAGNÓSTICO TRIBUTÁRIO</div>
         <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>🔎 {cliente?.razao_social}</div>
@@ -449,7 +371,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         </div>
       </div>
 
-      {/* Abas principais */}
+      {/* Abas */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `2px solid ${C.border}` }}>
         {[['novo', '🔍 Novo Diagnóstico'], ['historico', `📋 Histórico (${historico.length})`]].map(([id, label]) => (
           <button key={id} onClick={() => setAba(id)}
@@ -461,11 +383,15 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
       {/* ABA NOVO DIAGNÓSTICO */}
       {aba === 'novo' && <>
+
         {etapa === 'inicio' && (
           <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 16 }}>📂 Importar documentos fiscais</div>
-            <div onDrop={onDrop} onDragOver={e => e.preventDefault()} onClick={() => inputRef.current?.click()}
-              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', marginBottom: 16 }}>
+            <div
+              onDrop={onDrop} onDragOver={e => e.preventDefault()}
+              onClick={() => inputRef.current?.click()}
+              style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', marginBottom: 16 }}
+            >
               <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 4 }}>Arraste ou clique para selecionar</div>
               <div style={{ fontSize: 13, color: C.muted }}>XML de NF-e · CSV · PDF (PGDAS, SPED)</div>
@@ -507,7 +433,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: aplicavel ? '#f0fdf4' : '#f8fafc', borderRadius: 8, border: `1px solid ${aplicavel ? '#86efac' : C.border}` }}>
                       <span>{t.icon}</span>
-                      <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 600, color: aplicavel ? C.green : C.muted }}>{t.tese}</div></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: aplicavel ? C.green : C.muted }}>{t.tese}</div>
+                      </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: aplicavel ? C.green : C.muted }}>{aplicavel ? '✓' : '—'}</span>
                     </div>
                   )
@@ -547,41 +475,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               {resultado.totalCredito === 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Nenhuma oportunidade identificada</div>}
             </div>
 
-            {/* NF-e analisadas */}
-            <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📄 NF-e Analisadas</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc' }}>
-                      {['NF', 'Emitente', 'CNPJ', 'Competência', 'Tipo', 'Valor', 'PIS', 'COFINS', 'ICMS'].map(h => (
-                        <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultado.notasRaw.map((n, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '6px 10px', fontWeight: 600 }}>{n.nNF || '—'}</td>
-                        <td style={{ padding: '6px 10px' }}>{n.emitNome || '—'}</td>
-                        <td style={{ padding: '6px 10px', fontSize: 11, color: C.muted }}>{fmtCNPJ(n.emitCNPJ)}</td>
-                        <td style={{ padding: '6px 10px' }}>{n.competencia}</td>
-                        <td style={{ padding: '6px 10px' }}>
-                          <span style={{ background: n.tipo === 'entrada' ? '#f0fdf4' : '#eff6ff', color: n.tipo === 'entrada' ? C.green : '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
-                            {n.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '6px 10px' }}>{fmtR(n.totalProd)}</td>
-                        <td style={{ padding: '6px 10px' }}>{fmtR(n.totalPIS)}</td>
-                        <td style={{ padding: '6px 10px' }}>{fmtR(n.totalCOFINS)}</td>
-                        <td style={{ padding: '6px 10px' }}>{fmtR(n.totalICMS)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
             {[
               { lista: resultado.monofasicos, titulo: '💊 Monofásicos PIS/COFINS', cor: '#7c3aed', campos: ['produto', 'ncm', 'vProd', 'credito'] },
               { lista: resultado.exclusaoICMS, titulo: '⚖️ Exclusão ICMS — STF Tema 69', cor: '#0891b2', campos: ['competencia', 'vICMS', 'credito'] },
@@ -590,6 +483,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             ].map((grupo, gi) => grupo.lista.length > 0 && (
               <div key={gi} style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: grupo.cor, marginBottom: 8 }}>{grupo.titulo}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>{FUNDAMENTACAO[resultado.monofasicos.length > 0 ? 'MONOFASICO' : grupo.lista[0]?.tese] || ''}</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: '#f8fafc' }}>
@@ -648,7 +542,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             <div style={{ display: 'flex', gap: 12 }}>
               <button onClick={() => imprimirRelatorio(resultado, resultado.resumoCompetencias)}
                 style={{ flex: 1, padding: 12, background: '#f0fdf4', color: C.green, border: `1.5px solid ${C.green}`, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                🖨️ Imprimir
+                🖨️ Imprimir Relatório
               </button>
               <button onClick={() => { setEtapa('inicio'); setResultado(null); setArquivos([]) }}
                 style={{ flex: 1, padding: 12, background: C.white, color: C.navy, border: `1.5px solid ${C.navy}`, borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -662,13 +556,13 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           </>
         )}
       </>}
-
+	  
       {/* ABA HISTÓRICO */}
       {aba === 'historico' && (
         <div>
           {loadingHistorico ? (
             <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Carregando histórico...</div>
-          ) : historico.length === 0 && historicoNFes.length === 0 ? (
+          ) : historico.length === 0 ? (
             <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: 40, textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 8 }}>Nenhum diagnóstico salvo</div>
@@ -678,11 +572,12 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             </div>
           ) : (
             <>
+              {/* Resumo do histórico */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
                 {[
                   { label: 'Competências salvas', valor: historico.length, cor: '#2563eb' },
                   { label: 'Potencial total', valor: fmtR(historico.reduce((s, e) => s + (e.credito || 0), 0)), cor: C.green },
-                  { label: 'NF-e registradas', valor: historicoNFes.length, cor: '#7c3aed' },
+                  { label: 'Receita analisada', valor: fmtR(historico.reduce((s, e) => s + (e.receita_bruta || 0), 0)), cor: '#7c3aed' },
                 ].map((k, i) => (
                   <div key={i} style={{ background: C.white, borderRadius: 10, padding: '14px 16px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
                     <div style={{ fontSize: i === 1 ? 16 : 22, fontWeight: 700, color: k.cor }}>{k.valor}</div>
@@ -691,109 +586,57 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                 ))}
               </div>
 
+              {/* Botão imprimir relatório completo */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                <button onClick={() => imprimirRelatorio(null, historico)}
+                <button
+                  onClick={() => imprimirRelatorio(null, historico)}
                   style={{ padding: '10px 20px', background: '#f0fdf4', color: C.green, border: `1.5px solid ${C.green}`, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   🖨️ Imprimir Relatório Completo
                 </button>
               </div>
 
-              {/* Sub-abas do histórico */}
-              <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: `1px solid ${C.border}` }}>
-                {[['competencias', `📅 Por Competência (${historico.length})`], ['nfes', `📄 NF-e Registradas (${historicoNFes.length})`]].map(([id, label]) => (
-                  <button key={id} onClick={() => setAbaHistorico(id)}
-                    style={{ padding: '8px 16px', fontSize: 12, fontWeight: abaHistorico === id ? 700 : 400, color: abaHistorico === id ? C.navy : C.muted, background: 'none', border: 'none', borderBottom: `2px solid ${abaHistorico === id ? C.navy : 'transparent'}`, marginBottom: -1, cursor: 'pointer' }}>
-                    {label}
-                  </button>
-                ))}
+              {/* Tabela histórico */}
+              <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['Competência', 'Tributo', 'Receita Bruta', 'Pago', 'Monofásico', 'Crédito', 'Oportunidade', 'Risco', ''].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historico.map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{e.competencia}</td>
+                        <td style={{ padding: '8px 10px' }}>{e.tributo}</td>
+                        <td style={{ padding: '8px 10px' }}>{fmtR(e.receita_bruta)}</td>
+                        <td style={{ padding: '8px 10px' }}>{fmtR(e.tributo_pago)}</td>
+                        <td style={{ padding: '8px 10px', color: e.receita_monofasica > 0 ? C.green : C.muted }}>{fmtR(e.receita_monofasica)}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 700, color: e.credito > 0 ? C.green : C.muted }}>{fmtR(e.credito)}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.tipo_oportunidade || '—'}</span>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span style={{ background: e.risco === 'baixo' ? '#f0fdf4' : e.risco === 'medio' ? '#fefce8' : '#fef2f2', color: e.risco === 'baixo' ? C.green : e.risco === 'medio' ? '#ca8a04' : C.red, padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.risco}</span>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => imprimirRelatorio(null, [e])}
+                         style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                         🖨️
+                         </button>
+                         <button onClick={() => excluirEntrada(e.id)}
+                         style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                         🗑️
+                         </button>
+                         </div>
+                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {/* Tabela competências */}
-              {abaHistorico === 'competencias' && (
-                <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        {['Competência', 'Tributo', 'Receita Bruta', 'Pago', 'Monofásico', 'Crédito', 'Oportunidade', 'Risco', ''].map(h => (
-                          <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historico.map((e, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 10px', fontWeight: 600 }}>{e.competencia}</td>
-                          <td style={{ padding: '8px 10px' }}>{e.tributo}</td>
-                          <td style={{ padding: '8px 10px' }}>{fmtR(e.receita_bruta)}</td>
-                          <td style={{ padding: '8px 10px' }}>{fmtR(e.tributo_pago)}</td>
-                          <td style={{ padding: '8px 10px', color: e.receita_monofasica > 0 ? C.green : C.muted }}>{fmtR(e.receita_monofasica)}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: e.credito > 0 ? C.green : C.muted }}>{fmtR(e.credito)}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.tipo_oportunidade || '—'}</span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span style={{ background: e.risco === 'baixo' ? '#f0fdf4' : '#fef2f2', color: e.risco === 'baixo' ? C.green : C.red, padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.risco}</span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => imprimirRelatorio(null, [e])}
-                                style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🖨️</button>
-                              <button onClick={() => excluirEntrada(e.id)}
-                                style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🗑️</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Tabela NF-e */}
-              {abaHistorico === 'nfes' && (
-                <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        {['NF', 'Emitente', 'CNPJ Emitente', 'Competência', 'Tipo', 'Valor', 'PIS', 'COFINS', 'Crédito', 'Teses', ''].map(h => (
-                          <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historicoNFes.map((n, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 10px', fontWeight: 600 }}>{n.numero_nf || '—'}</td>
-                          <td style={{ padding: '8px 10px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.emitente_nome || '—'}</td>
-                          <td style={{ padding: '8px 10px', fontSize: 11, color: C.muted }}>{fmtCNPJ(n.emitente_cnpj)}</td>
-                          <td style={{ padding: '8px 10px' }}>{n.competencia}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span style={{ background: n.tipo === 'entrada' ? '#f0fdf4' : '#eff6ff', color: n.tipo === 'entrada' ? C.green : '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
-                              {n.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>{fmtR(n.valor_produtos)}</td>
-                          <td style={{ padding: '8px 10px' }}>{fmtR(n.valor_pis)}</td>
-                          <td style={{ padding: '8px 10px' }}>{fmtR(n.valor_cofins)}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: n.credito_identificado > 0 ? C.green : C.muted }}>{fmtR(n.credito_identificado)}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            {(n.teses_identificadas || []).length > 0
-                              ? n.teses_identificadas.map((t, ti) => (
-                                <span key={ti} style={{ background: '#f0fdf4', color: C.green, padding: '1px 6px', borderRadius: 99, fontSize: 9, fontWeight: 600, marginRight: 3 }}>{t}</span>
-                              ))
-                              : <span style={{ color: C.muted }}>—</span>
-                            }
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <button onClick={() => excluirNFe(n.id)}
-                              style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🗑️</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </>
           )}
         </div>
