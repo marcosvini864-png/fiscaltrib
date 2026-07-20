@@ -21,6 +21,7 @@ import DiagnosticoDividaAtiva from './DiagnosticoDividaAtiva'
 import ImportarCDA from './ImportarCDA'
 import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
+import DiagnosticoTributario from './pages/DiagnosticoTributario'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
@@ -48,6 +49,7 @@ const C = {
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
+  diagnostico: { label:'Diagnóstico Tributário', icon:'🔎', tabs:[] },
   analise:      { label:'Análise Fiscal',          icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperação',             icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
@@ -597,7 +599,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               </div>
             </>}
 
-            {module==='analise' && activeTab===0 && <>
+            {module==='diagnostico' && <DiagnosticoTributario clienteId={activeId} cliente={active} onNavegar={navigateTo} />}
+			{module==='analise' && activeTab===0 && <>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
                 <div>
                   <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text}}>Diagnóstico tributário</div>
