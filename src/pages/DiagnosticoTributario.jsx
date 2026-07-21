@@ -47,6 +47,102 @@ const tdStyle = (extra = {}) => ({
   ...extra,
 })
 
+// ─── Monta contexto para o Groq ───────────────────────────────────────────────
+function montarContextoIA(resultado, cliente, regime) {
+  const teses = [
+    ...resultado.monofasicos.length > 0 ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : [],
+    ...resultado.exclusaoICMS.length > 0 ? ['EXCLUSAO_ICMS_TEMA69'] : [],
+    ...resultado.icmsST.length > 0 ? ['ICMS_ST'] : [],
+    ...resultado.retencoes.length > 0 ? ['RETENCAO_INDEVIDA'] : [],
+  ]
+
+  const emitentes = [...new Set(resultado.notasRaw.map(n => n.emitNome).filter(Boolean))].slice(0, 10)
+  const ncms = [...new Set(resultado.notasRaw.flatMap(n => n.itens?.map(i => i.ncm) || []).filter(Boolean))].slice(0, 20)
+  const competenciasTexto = resultado.resumoCompetencias.map(c =>
+    `${c.competencia}: receita ${fmtR(c.receita_bruta)}, PIS/COFINS ${fmtR(c.tributo_pago)}, crédito ${fmtR(c.credito)}`
+  ).join('\n')
+
+  const anoAtual = new Date().getFullYear()
+  const prescricao5anos = anoAtual - 5
+
+  return `Você é um especialista em direito tributário brasileiro. Analise o diagnóstico fiscal abaixo e produza um parecer estruturado.
+
+DADOS DO CLIENTE:
+- Razão Social: ${cliente?.razao_social || 'Não informado'}
+- CNPJ: ${cliente?.cnpj || 'Não informado'}
+- Regime Tributário: ${regime}
+- Município/UF: ${cliente?.municipio || '—'}/${cliente?.uf || '—'}
+
+RESULTADO DO DIAGNÓSTICO:
+- Total de NF-e analisadas: ${resultado.totalNotas}
+- Período analisado: ${resultado.resumoCompetencias[resultado.resumoCompetencias.length - 1]?.competencia || '—'} a ${resultado.resumoCompetencias[0]?.competencia || '—'}
+- Potencial total de recuperação: ${fmtR(resultado.totalCredito)}
+- Teses identificadas: ${teses.join(', ') || 'Nenhuma'}
+
+EMITENTES ENCONTRADOS: ${emitentes.join(', ')}
+NCMs identificados: ${ncms.join(', ')}
+
+ANÁLISE POR COMPETÊNCIA:
+${competenciasTexto}
+
+DETALHAMENTO DAS TESES:
+${resultado.monofasicos.length > 0 ? `- Monofásicos: ${resultado.monofasicos.length} itens, crédito ${fmtR(resultado.monofasicos.reduce((s, o) => s + o.credito, 0))}` : ''}
+${resultado.exclusaoICMS.length > 0 ? `- Exclusão ICMS Tema 69: ${resultado.exclusaoICMS.length} competências, crédito ${fmtR(resultado.exclusaoICMS.reduce((s, o) => s + o.credito, 0))}` : ''}
+${resultado.icmsST.length > 0 ? `- ICMS-ST: ${resultado.icmsST.length} itens, crédito ${fmtR(resultado.icmsST.reduce((s, o) => s + o.credito, 0))}` : ''}
+${resultado.retencoes.length > 0 ? `- Retenções Indevidas: ${resultado.retencoes.length} ocorrências, crédito ${fmtR(resultado.retencoes.reduce((s, o) => s + o.credito, 0))}` : ''}
+
+ALERTA DE PRAZO: O prazo prescricional de 5 anos alcança competências a partir de ${prescricao5anos}. Competências anteriores podem estar prescritas.
+
+Produza um parecer com EXATAMENTE estas 4 seções, usando os títulos abaixo:
+
+## PARECER JURÍDICO
+Análise técnica das teses identificadas com embasamento legal específico (artigos, leis, jurisprudência).
+
+## ESTRATÉGIA RECOMENDADA
+Sequência de ações práticas com prazos e responsáveis (contador/advogado). Priorize pelo valor e urgência.
+
+## ALERTAS DE PRAZO
+Liste competências próximas da prescrição e datas críticas para ação imediata.
+
+## PERGUNTAS PARA O CLIENTE
+Liste 4 a 6 perguntas que o contador deve fazer ao cliente para validar e aprofundar o diagnóstico.`
+}
+
+// ─── Parser de markdown simples ───────────────────────────────────────────────
+function renderMarkdown(texto) {
+  if (!texto) return null
+  const linhas = texto.split('\n')
+  const elementos = []
+  let i = 0
+  while (i < linhas.length) {
+    const linha = linhas[i]
+    if (linha.startsWith('## ')) {
+      elementos.push(
+        <div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.navy, marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
+          {linha.replace('## ', '')}
+        </div>
+      )
+    } else if (linha.startsWith('- ') || linha.startsWith('• ')) {
+      elementos.push(
+        <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 4 }}>
+          <span style={{ color: C.navy, fontWeight: 700, flexShrink: 0 }}>•</span>
+          <span>{linha.replace(/^[-•]\s/, '')}</span>
+        </div>
+      )
+    } else if (linha.trim() === '') {
+      elementos.push(<div key={i} style={{ height: 6 }} />)
+    } else {
+      elementos.push(
+        <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>
+          {linha}
+        </div>
+      )
+    }
+    i++
+  }
+  return elementos
+}
+
 export default function DiagnosticoTributario({ clienteId, cliente, onNavegar }) {
   const [etapa, setEtapa] = useState('inicio')
   const [aba, setAba] = useState('novo')
@@ -58,13 +154,27 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [abaHistorico, setAbaHistorico] = useState('competencias')
-  const inputRef = useRef(null)
 
+  // IA
+  const [parecerIA, setParecerIA] = useState(null)
+  const [loadingIA, setLoadingIA] = useState(false)
+  const [erroIA, setErroIA] = useState('')
+  const [mostrarChat, setMostrarChat] = useState(false)
+  const [mensagensChat, setMensagensChat] = useState([])
+  const [inputChat, setInputChat] = useState('')
+  const [loadingChat, setLoadingChat] = useState(false)
+  const chatFimRef = useRef(null)
+
+  const inputRef = useRef(null)
   const regime = cliente?.regime || 'Simples Nacional'
 
   useEffect(() => {
     if (clienteId) carregarHistorico()
   }, [clienteId])
+
+  useEffect(() => {
+    if (chatFimRef.current) chatFimRef.current.scrollIntoView({ behavior: 'smooth' })
+  }, [mensagensChat])
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
@@ -90,6 +200,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     if (arquivos.length === 0) return
     setEtapa('processando')
     setErro('')
+    setParecerIA(null)
+    setMensagensChat([])
     try {
       const notasXML = []
       for (const arq of arquivos) {
@@ -178,6 +290,92 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     }
   }
 
+  async function analisarComIA() {
+    if (!resultado) return
+    setLoadingIA(true)
+    setErroIA('')
+    setParecerIA(null)
+    setMostrarChat(false)
+    try {
+      const prompt = montarContextoIA(resultado, cliente, regime)
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          mensagem: prompt,
+          modelo: 'llama-3.3-70b-versatile',
+        }),
+      })
+      if (!resp.ok) throw new Error('Erro na chamada à IA')
+      const json = await resp.json()
+      const resposta = json.resposta || json.content || json.message || ''
+      if (!resposta) throw new Error('Resposta vazia da IA')
+      setParecerIA(resposta)
+      // Inicializa o chat com o parecer como primeira mensagem do assistente
+      setMensagensChat([{ role: 'assistant', content: resposta }])
+    } catch (e) {
+      setErroIA('Erro ao consultar IA: ' + e.message)
+    } finally {
+      setLoadingIA(false)
+    }
+  }
+
+  async function enviarMensagemChat() {
+    if (!inputChat.trim() || loadingChat) return
+    const novaMensagem = { role: 'user', content: inputChat.trim() }
+    const novasMensagens = [...mensagensChat, novaMensagem]
+    setMensagensChat(novasMensagens)
+    setInputChat('')
+    setLoadingChat(true)
+    try {
+      // Monta histórico de conversa + contexto fiscal resumido
+      const contextoResumido = `Contexto fiscal: Cliente ${cliente?.razao_social}, regime ${regime}, potencial de recuperação ${fmtR(resultado?.totalCredito || 0)}, teses: ${[
+        ...((resultado?.monofasicos?.length > 0) ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : []),
+        ...((resultado?.exclusaoICMS?.length > 0) ? ['EXCLUSAO_ICMS_TEMA69'] : []),
+        ...((resultado?.icmsST?.length > 0) ? ['ICMS_ST'] : []),
+        ...((resultado?.retencoes?.length > 0) ? ['RETENCAO_INDEVIDA'] : []),
+      ].join(', ') || 'nenhuma'}.`
+
+      const histFormatado = novasMensagens.map(m =>
+        `${m.role === 'user' ? 'Contador' : 'Especialista'}: ${m.content}`
+      ).join('\n\n')
+
+      const promptChat = `Você é um especialista em direito tributário brasileiro. Responda de forma técnica e objetiva.
+
+${contextoResumido}
+
+Histórico da conversa:
+${histFormatado}
+
+Responda à última pergunta do Contador de forma técnica, precisa e prática.`
+
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          mensagem: promptChat,
+          modelo: 'llama-3.3-70b-versatile',
+        }),
+      })
+      if (!resp.ok) throw new Error('Erro na chamada à IA')
+      const json = await resp.json()
+      const resposta = json.resposta || json.content || json.message || ''
+      setMensagensChat(prev => [...prev, { role: 'assistant', content: resposta }])
+    } catch (e) {
+      setMensagensChat(prev => [...prev, { role: 'assistant', content: 'Erro ao obter resposta. Tente novamente.' }])
+    } finally {
+      setLoadingChat(false)
+    }
+  }
+
   async function salvar() {
     if (!resultado || !clienteId) return
     setSalvando(true)
@@ -231,6 +429,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
       await carregarHistorico()
       setEtapa('inicio'); setResultado(null); setArquivos([]); setAba('historico')
+      setParecerIA(null); setMensagensChat([])
     } catch (e) {
       setErro('Erro ao salvar: ' + e.message)
     } finally { setSalvando(false) }
@@ -295,21 +494,21 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 </head>
 <body>
 <div class="btn-bar">
-  <button class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
-  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+  <button class="btn-print" onclick="window.print()">Imprimir</button>
+  <button class="btn-close" onclick="window.close()">Fechar</button>
 </div>
 <div class="header">
-  <div style="font-size:9px;color:#7CC4FF;font-weight:700;letter-spacing:2px;margin-bottom:6px">FISCALTRIB — RELATÓRIO DE DIAGNÓSTICO TRIBUTÁRIO</div>
+  <div style="font-size:9px;color:#7CC4FF;font-weight:700;letter-spacing:2px;margin-bottom:6px">FISCALTRIB — RELATORIO DE DIAGNOSTICO TRIBUTARIO</div>
   <h1>${cliente?.razao_social || '—'}</h1>
   <p>CNPJ: ${cliente?.cnpj || '—'} · Regime: ${regime} · ${cliente?.municipio || '—'}/${cliente?.uf || '—'}</p>
-  <p style="margin-top:4px">Data do relatório: ${new Date().toLocaleDateString('pt-BR')} · Gerado pelo FiscalTrib</p>
+  <p style="margin-top:4px">Data do relatorio: ${new Date().toLocaleDateString('pt-BR')} · Gerado pelo FiscalTrib</p>
 </div>
 <div class="section">
   <div class="section-title">1. RESUMO EXECUTIVO</div>
   <div class="potencial">
-    <div class="potencial-label">POTENCIAL TOTAL DE RECUPERAÇÃO IDENTIFICADO</div>
+    <div class="potencial-label">POTENCIAL TOTAL DE RECUPERACAO IDENTIFICADO</div>
     <div class="potencial-valor">${fmtR(totalCredito)}</div>
-    <div style="font-size:10px;color:#64748B;margin-top:4px">Estimativa baseada nas NF-e analisadas · Sujeito a validação profissional</div>
+    <div style="font-size:10px;color:#64748B;margin-top:4px">Estimativa baseada nas NF-e analisadas · Sujeito a validacao profissional</div>
   </div>
   <div class="grid-4">
     <div class="kpi"><div class="kpi-valor">${entradas.length}</div><div class="kpi-label">Registros analisados</div></div>
@@ -319,17 +518,17 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   </div>
 </div>
 <div class="section">
-  <div class="section-title">2. TESES TRIBUTÁRIAS IDENTIFICADAS</div>
+  <div class="section-title">2. TESES TRIBUTARIAS IDENTIFICADAS</div>
   ${teses.length > 0 ? teses.map(tese => `
   <div class="tese-card">
-    <div class="tese-nome">${tese === 'MONOFASICO' ? '💊 Monofásicos PIS/COFINS' : tese === 'SEGREGACAO_MONOFASICO' ? '💊 Segregação Monofásicos' : tese === 'EXCLUSAO_ICMS' || tese === 'EXCLUSAO_ICMS_TEMA69' ? '⚖️ Exclusão ICMS — STF Tema 69' : tese === 'ICMS_ST' ? '🔄 Crédito ICMS-ST' : tese === 'RETENCAO_INDEVIDA' ? '🚫 Retenções Indevidas' : tese}</div>
-    <div class="tese-fund">${FUNDAMENTACAO[tese] || 'Fundamentação a detalhar.'}</div>
+    <div class="tese-nome">${tese === 'MONOFASICO' ? 'Monofasicos PIS/COFINS' : tese === 'SEGREGACAO_MONOFASICO' ? 'Segregacao Monofasicos' : tese === 'EXCLUSAO_ICMS' || tese === 'EXCLUSAO_ICMS_TEMA69' ? 'Exclusao ICMS — STF Tema 69' : tese === 'ICMS_ST' ? 'Credito ICMS-ST' : tese === 'RETENCAO_INDEVIDA' ? 'Retencoes Indevidas' : tese}</div>
+    <div class="tese-fund">${FUNDAMENTACAO[tese] || 'Fundamentacao a detalhar.'}</div>
   </div>`).join('') : '<div style="color:#64748B">Nenhuma tese identificada.</div>'}
 </div>
 <div class="section">
-  <div class="section-title">3. ANÁLISE POR COMPETÊNCIA</div>
+  <div class="section-title">3. ANALISE POR COMPETENCIA</div>
   <table>
-    <thead><tr><th>Competência</th><th>NF-e</th><th>Receita Bruta</th><th>PIS/COFINS Pago</th><th>Rec. Monofásica</th><th>Crédito</th><th>Oportunidade</th></tr></thead>
+    <thead><tr><th>Competencia</th><th>NF-e</th><th>Receita Bruta</th><th>PIS/COFINS Pago</th><th>Rec. Monofasica</th><th>Credito</th><th>Oportunidade</th></tr></thead>
     <tbody>
       ${entradas.map(e => `<tr>
         <td style="font-weight:600">${e.competencia || '—'}</td>
@@ -347,23 +546,23 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   </table>
 </div>
 <div class="section">
-  <div class="section-title">4. PRÓXIMOS PASSOS</div>
+  <div class="section-title">4. PROXIMOS PASSOS</div>
   <table>
-    <thead><tr><th>#</th><th>Ação</th><th>Prazo</th><th>Responsável</th></tr></thead>
+    <thead><tr><th>#</th><th>Acao</th><th>Prazo</th><th>Responsavel</th></tr></thead>
     <tbody>
-      <tr><td>1</td><td>Validar NF-e com produtos monofásicos</td><td>15 dias</td><td>Contador</td></tr>
-      <tr><td>2</td><td>Levantar recolhimentos PIS/COFINS dos últimos 5 anos</td><td>30 dias</td><td>Contador</td></tr>
-      <tr><td>3</td><td>Elaborar PER/DCOMP ou pedido de restituição</td><td>60 dias</td><td>Advogado Tributário</td></tr>
-      <tr><td>4</td><td>Protocolar junto à Receita Federal</td><td>90 dias</td><td>Advogado Tributário</td></tr>
+      <tr><td>1</td><td>Validar NF-e com produtos monofasicos</td><td>15 dias</td><td>Contador</td></tr>
+      <tr><td>2</td><td>Levantar recolhimentos PIS/COFINS dos ultimos 5 anos</td><td>30 dias</td><td>Contador</td></tr>
+      <tr><td>3</td><td>Elaborar PER/DCOMP ou pedido de restituicao</td><td>60 dias</td><td>Advogado Tributario</td></tr>
+      <tr><td>4</td><td>Protocolar junto a Receita Federal</td><td>90 dias</td><td>Advogado Tributario</td></tr>
     </tbody>
   </table>
 </div>
 <div class="section">
-  <div class="aviso">⚠️ Estimativa preliminar gerada pelo FiscalTrib. Não substitui análise profissional habilitada.</div>
+  <div class="aviso">Estimativa preliminar gerada pelo FiscalTrib. Nao substitui analise profissional habilitada.</div>
 </div>
 <div class="footer">
   <span>FiscalTrib — fiscaltrib.com.br</span>
-  <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</span>
+  <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}</span>
 </div>
 </body></html>`
 
@@ -500,6 +699,102 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               {resultado.totalCredito === 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Nenhuma oportunidade identificada</div>}
             </div>
 
+            {/* BLOCO IA */}
+            <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
+                  <div style={{ fontSize: 12, color: '#93c5fd' }}>Parecer jurídico automático · Estratégia · Alertas de prazo · Perguntas ao cliente</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {parecerIA && (
+                    <button onClick={() => setMostrarChat(v => !v)}
+                      style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      {mostrarChat ? '📄 Ver Parecer' : '💬 Chat Tributário'}
+                    </button>
+                  )}
+                  <button onClick={analisarComIA} disabled={loadingIA}
+                    style={{ padding: '10px 20px', background: loadingIA ? 'rgba(255,255,255,0.2)' : '#fff', color: loadingIA ? '#93c5fd' : C.navy, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: loadingIA ? 'not-allowed' : 'pointer', opacity: loadingIA ? 0.8 : 1 }}>
+                    {loadingIA ? 'Analisando...' : parecerIA ? '🔄 Reanalisar' : '🤖 Analisar com IA'}
+                  </button>
+                </div>
+              </div>
+
+              {erroIA && (
+                <div style={{ marginTop: 12, background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 8, padding: '10px 14px', color: '#fca5a5', fontSize: 12 }}>
+                  ⚠️ {erroIA}
+                </div>
+              )}
+
+              {loadingIA && (
+                <div style={{ marginTop: 16, textAlign: 'center', color: '#93c5fd', fontSize: 13 }}>
+                  <div style={{ marginBottom: 8 }}>Consultando especialista tributário...</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                    {['Analisando teses', 'Verificando prazos', 'Elaborando estratégia'].map((t, i) => (
+                      <span key={i} style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 99, fontSize: 11 }}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {parecerIA && !loadingIA && (
+                <div style={{ marginTop: 16 }}>
+                  {/* PARECER */}
+                  {!mostrarChat && (
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ color: '#e2e8f0' }}>
+                        {renderMarkdown(parecerIA)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CHAT */}
+                  {mostrarChat && (
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {mensagensChat.map((msg, i) => (
+                          <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
+                            <div style={{
+                              maxWidth: '80%',
+                              background: msg.role === 'user' ? '#2563eb' : 'rgba(255,255,255,0.1)',
+                              color: '#e2e8f0',
+                              borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                              padding: '10px 14px',
+                              fontSize: 12,
+                              lineHeight: 1.6,
+                            }}>
+                              {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
+                            </div>
+                          </div>
+                        ))}
+                        {loadingChat && (
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, color: '#93c5fd' }}>
+                              Consultando...
+                            </div>
+                          </div>
+                        )}
+                        <div ref={chatFimRef} />
+                      </div>
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', display: 'flex', gap: 8 }}>
+                        <input
+                          value={inputChat}
+                          onChange={e => setInputChat(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemChat()}
+                          placeholder="Pergunte sobre o diagnóstico..."
+                          style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }}
+                        />
+                        <button onClick={enviarMensagemChat} disabled={loadingChat || !inputChat.trim()}
+                          style={{ padding: '10px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loadingChat || !inputChat.trim() ? 'not-allowed' : 'pointer', opacity: loadingChat || !inputChat.trim() ? 0.6 : 1 }}>
+                          Enviar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Tabela NF-e analisadas */}
             <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📄 NF-e Analisadas</div>
@@ -611,9 +906,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             <div style={{ display: 'flex', gap: 12 }}>
               <button onClick={() => imprimirRelatorio(resultado, resultado.resumoCompetencias)}
                 style={{ flex: 1, padding: 12, background: '#f0fdf4', color: C.green, border: `1.5px solid ${C.green}`, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                🖨️ Imprimir
+                Imprimir
               </button>
-              <button onClick={() => { setEtapa('inicio'); setResultado(null); setArquivos([]) }}
+              <button onClick={() => { setEtapa('inicio'); setResultado(null); setArquivos([]); setParecerIA(null); setMensagensChat([]) }}
                 style={{ flex: 1, padding: 12, background: C.white, color: C.navy, border: `1.5px solid ${C.navy}`, borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 ← Nova análise
               </button>
@@ -655,7 +950,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button onClick={() => imprimirRelatorio(null, historico)}
                   style={{ padding: '10px 20px', background: '#f0fdf4', color: C.green, border: `1.5px solid ${C.green}`, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  🖨️ Imprimir Relatório Completo
+                  Imprimir Relatório Completo
                 </button>
               </div>
 
@@ -702,8 +997,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                             </td>
                             <td style={tdStyle()}>
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => imprimirRelatorio(null, [e])} style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🖨️</button>
-                                <button onClick={() => excluirEntrada(e.id)} style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🗑️</button>
+                                <button onClick={() => imprimirRelatorio(null, [e])} style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>impr.</button>
+                                <button onClick={() => excluirEntrada(e.id)} style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>excl.</button>
                               </div>
                             </td>
                           </tr>
@@ -758,7 +1053,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                               }
                             </td>
                             <td style={tdStyle()}>
-                              <button onClick={() => excluirNFe(n.id)} style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🗑️</button>
+                              <button onClick={() => excluirNFe(n.id)} style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>excl.</button>
                             </td>
                           </tr>
                         ))}
