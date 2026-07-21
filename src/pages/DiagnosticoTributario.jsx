@@ -30,24 +30,13 @@ const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFr
 const fmtCNPJ = v => v ? v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : '—'
 
 const thStyle = () => ({
-  padding: '7px 8px',
-  textAlign: 'left',
-  color: '#64748B',
-  fontWeight: 600,
-  borderBottom: '1px solid #C8D0DC',
-  fontSize: 10,
-  textTransform: 'uppercase',
-  whiteSpace: 'normal',
-  wordBreak: 'break-word',
+  padding: '7px 8px', textAlign: 'left', color: '#64748B', fontWeight: 600,
+  borderBottom: '1px solid #C8D0DC', fontSize: 10, textTransform: 'uppercase',
+  whiteSpace: 'normal', wordBreak: 'break-word',
 })
-
 const tdStyle = (extra = {}) => ({
-  padding: '7px 8px',
-  fontSize: 11,
-  whiteSpace: 'normal',
-  wordBreak: 'break-word',
-  verticalAlign: 'top',
-  ...extra,
+  padding: '7px 8px', fontSize: 11, whiteSpace: 'normal',
+  wordBreak: 'break-word', verticalAlign: 'top', ...extra,
 })
 
 function fileToBase64(file) {
@@ -180,6 +169,347 @@ function renderMarkdown(texto) {
       return <div key={i} style={{ height: 6 }} />
     return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
   })
+}
+
+const AVISO_RESPONSABILIDADE = 'O FiscalTrib identifica possíveis créditos com base nos documentos importados. A conferência dos valores e a decisão de protocolar são de inteira responsabilidade do profissional habilitado.'
+
+// ─── Componente de diagnóstico narrativo por tese ────────────────────────────
+function DiagnosticoNarrativo({ resultado, regime }) {
+  const { monofasicos, exclusaoICMS, icmsST, retencoes, notasRaw, pgdas } = resultado
+
+  const totalNotasEntrada = notasRaw.filter(n => n.tipo === 'entrada').length
+  const totalNotas = notasRaw.length
+  const ncmsEncontrados = [...new Set(notasRaw.flatMap(n => n.itens?.map(i => i.ncm?.substring(0, 8)) || []).filter(Boolean))]
+
+  const cardStyle = (cor) => ({
+    background: C.white,
+    borderRadius: 12,
+    border: `1.5px solid ${cor}`,
+    padding: '20px 24px',
+    marginBottom: 16,
+  })
+
+  const badgeStyle = (bg, color) => ({
+    display: 'inline-block',
+    background: bg,
+    color: color,
+    fontWeight: 800,
+    fontSize: 11,
+    padding: '3px 12px',
+    borderRadius: 99,
+    marginLeft: 10,
+    verticalAlign: 'middle',
+  })
+
+  const tituloStyle = (cor) => ({
+    fontSize: 15,
+    fontWeight: 800,
+    color: cor,
+    marginBottom: 12,
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  })
+
+  const textoStyle = { fontSize: 13, color: C.text, lineHeight: 1.8, marginBottom: 12 }
+
+  const comoRecuperarStyle = {
+    background: '#f0fdf4',
+    border: '1px solid #86efac',
+    borderRadius: 8,
+    padding: '12px 16px',
+    fontSize: 12,
+    color: '#166534',
+    lineHeight: 1.7,
+    marginBottom: 10,
+  }
+
+  const avisoStyle = {
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: 8,
+    padding: '10px 14px',
+    fontSize: 11,
+    color: C.red,
+    lineHeight: 1.6,
+    fontWeight: 600,
+  }
+
+  const nfesAfetadasStyle = {
+    background: '#f8fafc',
+    borderRadius: 8,
+    padding: '10px 14px',
+    marginBottom: 12,
+    fontSize: 12,
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.navy, marginBottom: 16, paddingBottom: 8, borderBottom: `2px solid ${C.border}` }}>
+        Diagnóstico Detalhado por Tese
+      </div>
+
+      {/* ── MONOFÁSICOS ── */}
+      {(regime === 'Lucro Presumido' || regime === 'Lucro Real') && (
+        <div style={cardStyle(monofasicos.length > 0 ? '#86efac' : C.border)}>
+          <div style={tituloStyle(monofasicos.length > 0 ? C.green : C.muted)}>
+            💊 Monofásicos PIS/COFINS
+            <span style={badgeStyle(monofasicos.length > 0 ? '#f0fdf4' : '#f1f5f9', monofasicos.length > 0 ? C.green : C.muted)}>
+              {monofasicos.length > 0 ? 'OPORTUNIDADE ENCONTRADA' : 'NÃO ENCONTRADO'}
+            </span>
+          </div>
+
+          {monofasicos.length > 0 ? (
+            <>
+              <p style={textoStyle}>
+                Foram analisadas <strong>{totalNotasEntrada}</strong> NF-e de entrada. Encontramos <strong>{monofasicos.length} item(ns)</strong> com NCM sujeito à tributação monofásica — produtos cuja tributação de PIS/COFINS já foi recolhida pelo fabricante ou importador. O distribuidor ou varejista que recolhe novamente está pagando em duplicidade e tem direito à recuperação.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Itens identificados</div>
+                {monofasicos.slice(0, 10).map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                    <span><strong>{m.descricao}</strong> — NCM {m.ncm?.substring(0, 8)}</span>
+                    <span style={{ color: C.green, fontWeight: 700 }}>{fmtR(m.credito)}</span>
+                  </div>
+                ))}
+                {monofasicos.length > 10 && <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>...e mais {monofasicos.length - 10} item(ns). Veja a tabela completa abaixo.</div>}
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Monofásicos PIS/COFINS</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema calculará o crédito mês a mês e gerará o arquivo para lançamento no <strong>PER/DCOMP</strong>. Após revisar os valores, protocole o PER/DCOMP na Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              Foram analisadas <strong>{totalNotasEntrada}</strong> NF-e de entrada com <strong>{ncmsEncontrados.length}</strong> NCMs distintos. Nenhum produto com NCM sujeito à tributação monofásica foi identificado nas notas analisadas. Os produtos presentes não constam na lista de itens com tributação concentrada na indústria (gasolina, medicamentos, cosméticos, autopeças, bebidas, pneus, etc.). Nenhuma ação necessária para esta tese com base nos documentos analisados.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── SEGREGAÇÃO MONOFÁSICOS SIMPLES NACIONAL ── */}
+      {regime === 'Simples Nacional' && (
+        <div style={cardStyle(monofasicos.length > 0 ? '#fed7aa' : C.border)}>
+          <div style={tituloStyle(monofasicos.length > 0 ? C.orange : C.muted)}>
+            💊 Segregação de Receitas Monofásicas — Simples Nacional
+            <span style={badgeStyle(monofasicos.length > 0 ? '#fff7ed' : '#f1f5f9', monofasicos.length > 0 ? C.orange : C.muted)}>
+              {monofasicos.length > 0 ? 'VERIFICAR PGDAS-D' : 'NÃO ENCONTRADO'}
+            </span>
+          </div>
+
+          {monofasicos.length > 0 ? (
+            <>
+              <p style={textoStyle}>
+                Identificamos <strong>{monofasicos.length} item(ns)</strong> nas NF-e de entrada com NCM sujeito à tributação monofásica. No Simples Nacional, receitas provenientes de produtos monofásicos devem ser segregadas no PGDAS-D com alíquota de PIS/COFINS igual a zero — caso contrário, a empresa está pagando DAS a mais sobre esses produtos.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Produtos monofásicos identificados</div>
+                {monofasicos.slice(0, 10).map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                    <span><strong>{m.descricao}</strong> — NCM {m.ncm?.substring(0, 8)}</span>
+                    <span style={{ color: C.orange, fontWeight: 700 }}>{fmtR(m.vProd)}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Segregação de Receitas PGDAS-D</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema identificará os períodos em que a segregação não foi feita corretamente e calculará o DAS pago a maior. Em seguida, retifique o PGDAS-D dos períodos identificados e solicite a restituição junto à Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              Foram analisadas <strong>{totalNotasEntrada}</strong> NF-e de entrada. Nenhum produto com NCM sujeito à tributação monofásica foi encontrado. A segregação no PGDAS-D não é necessária para os produtos presentes nas notas analisadas.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── EXCLUSÃO ICMS TEMA 69 ── */}
+      {(regime === 'Lucro Presumido' || regime === 'Lucro Real') && (
+        <div style={cardStyle(exclusaoICMS.length > 0 ? '#86efac' : C.border)}>
+          <div style={tituloStyle(exclusaoICMS.length > 0 ? C.green : C.muted)}>
+            ⚖️ Exclusão do ICMS da base PIS/COFINS — Tema 69
+            <span style={badgeStyle(exclusaoICMS.length > 0 ? '#f0fdf4' : '#f1f5f9', exclusaoICMS.length > 0 ? C.green : C.muted)}>
+              {exclusaoICMS.length > 0 ? 'OPORTUNIDADE ENCONTRADA' : 'NÃO ENCONTRADO'}
+            </span>
+          </div>
+
+          {exclusaoICMS.length > 0 ? (
+            <>
+              <p style={textoStyle}>
+                Em <strong>{exclusaoICMS.length} competência(s)</strong> foram identificados valores de ICMS destacados nas notas fiscais que compuseram indevidamente a base de cálculo do PIS e da COFINS. Por decisão do STF (RE 574.706 — Tema 69), o ICMS não integra a receita bruta para fins de PIS/COFINS, e os valores recolhidos a maior nos últimos 5 anos podem ser recuperados.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Competências com ICMS na base</div>
+                {exclusaoICMS.map((e, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                    <span><strong>{e.competencia}</strong> — ICMS na base: {fmtR(e.vICMS)}</span>
+                    <span style={{ color: C.green, fontWeight: 700 }}>Crédito: {fmtR(e.credito)}</span>
+                  </div>
+                ))}
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 800, color: C.green }}>
+                  Total estimado: {fmtR(exclusaoICMS.reduce((s, o) => s + o.credito, 0))}
+                </div>
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Exclusão do ICMS da base PIS/COFINS Tema 69</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema calculará o crédito mês a mês e gerará o arquivo para lançamento no <strong>PER/DCOMP</strong>. Após revisar os valores, protocole o PER/DCOMP na Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              Foram analisadas <strong>{totalNotas}</strong> NF-e no período. Não foram identificados valores de ICMS destacados nas notas que indiquem recolhimento indevido de PIS/COFINS sobre o ICMS. Pode ser que as notas analisadas não contenham ICMS destacado ou que o período analisado seja insuficiente. Recomenda-se importar um volume maior de documentos para uma análise mais abrangente.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── ICMS-ST ── */}
+      {regime === 'Lucro Real' && (
+        <div style={cardStyle(icmsST.length > 0 ? '#86efac' : C.border)}>
+          <div style={tituloStyle(icmsST.length > 0 ? C.green : C.muted)}>
+            🔄 Crédito de ICMS-ST
+            <span style={badgeStyle(icmsST.length > 0 ? '#f0fdf4' : '#f1f5f9', icmsST.length > 0 ? C.green : C.muted)}>
+              {icmsST.length > 0 ? 'OPORTUNIDADE ENCONTRADA' : 'NÃO ENCONTRADO'}
+            </span>
+          </div>
+
+          {icmsST.length > 0 ? (
+            <>
+              <p style={textoStyle}>
+                Foram identificados <strong>{icmsST.length} item(ns)</strong> com ICMS retido por Substituição Tributária nas entradas. No regime de Lucro Real, o ICMS-ST pago nas compras gera crédito de PIS/COFINS, pois integra o custo de aquisição da mercadoria. Esse crédito é frequentemente ignorado e representa uma oportunidade de recuperação significativa.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Itens com ICMS-ST identificados</div>
+                {icmsST.slice(0, 10).map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                    <span><strong>{m.produto || m.descricao || 'Produto'}</strong> — ST: {fmtR(m.vST)}</span>
+                    <span style={{ color: C.green, fontWeight: 700 }}>Crédito: {fmtR(m.credito)}</span>
+                  </div>
+                ))}
+                {icmsST.length > 10 && <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>...e mais {icmsST.length - 10} item(ns).</div>}
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 800, color: C.green }}>
+                  Total estimado: {fmtR(icmsST.reduce((s, o) => s + o.credito, 0))}
+                </div>
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Crédito ICMS-ST</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema identificará todos os itens com ICMS-ST, calculará o crédito de PIS/COFINS correspondente mês a mês e gerará o arquivo para lançamento no <strong>PER/DCOMP</strong>. Após revisar os valores, protocole o PER/DCOMP na Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              Foram analisadas <strong>{totalNotasEntrada}</strong> NF-e de entrada. Nenhum valor de ICMS retido por Substituição Tributária foi identificado nas notas analisadas. Caso a empresa adquira mercadorias sujeitas ao ICMS-ST, recomenda-se revisar se os XMLs importados representam o universo completo de compras do período.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── RETENÇÕES INDEVIDAS ── */}
+      {regime === 'Simples Nacional' && (
+        <div style={cardStyle(retencoes.length > 0 ? '#86efac' : C.border)}>
+          <div style={tituloStyle(retencoes.length > 0 ? C.green : C.muted)}>
+            🚫 Retenções Indevidas de PIS/COFINS/CSLL
+            <span style={badgeStyle(retencoes.length > 0 ? '#f0fdf4' : '#f1f5f9', retencoes.length > 0 ? C.green : C.muted)}>
+              {retencoes.length > 0 ? 'OPORTUNIDADE ENCONTRADA' : 'NÃO ENCONTRADO'}
+            </span>
+          </div>
+
+          {retencoes.length > 0 ? (
+            <>
+              <p style={textoStyle}>
+                Identificamos <strong>{retencoes.length} NF-e</strong> com retenção de PIS/COFINS/CSLL na fonte. Empresas optantes pelo Simples Nacional são expressamente dispensadas dessas retenções por força da LC 123/2006. Quando o tomador do serviço retém esses tributos indevidamente, a empresa tem direito à restituição integral dos valores.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>NF-e com retenção indevida</div>
+                {retencoes.slice(0, 10).map((r, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                    <span>NF <strong>{r.nNF}</strong> — Competência: {r.competencia}</span>
+                    <span style={{ color: C.green, fontWeight: 700 }}>Retido indevidamente: {fmtR(r.credito)}</span>
+                  </div>
+                ))}
+                {retencoes.length > 10 && <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>...e mais {retencoes.length - 10} nota(s).</div>}
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 800, color: C.green }}>
+                  Total retido indevidamente: {fmtR(retencoes.reduce((s, o) => s + o.credito, 0))}
+                </div>
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Retenções Indevidas Simples Nacional</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema identificará todas as notas com retenção indevida, calculará o total por período e gerará o pedido de restituição. Após revisar os valores, protocole o pedido junto à Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              Foram analisadas <strong>{totalNotas}</strong> NF-e no período. Não foram identificadas retenções de PIS/COFINS/CSLL nas notas analisadas. Isso pode indicar que os tomadores de serviço estão cumprindo corretamente a dispensa prevista na LC 123/2006, ou que as notas de prestação de serviço não foram incluídas nesta importação.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── PGDAS-D ── */}
+      {pgdas && (
+        <div style={cardStyle(pgdas.diferenca_total > 0 ? '#fed7aa' : C.border)}>
+          <div style={tituloStyle(pgdas.diferenca_total > 0 ? C.orange : C.muted)}>
+            📋 Segregação no PGDAS-D
+            <span style={badgeStyle(pgdas.diferenca_total > 0 ? '#fff7ed' : '#f1f5f9', pgdas.diferenca_total > 0 ? C.orange : C.muted)}>
+              {pgdas.diferenca_total > 0 ? 'OPORTUNIDADE ENCONTRADA' : 'SEGREGAÇÃO CORRETA'}
+            </span>
+          </div>
+
+          {pgdas.diferenca_total > 0 ? (
+            <>
+              <p style={textoStyle}>
+                A análise do PGDAS-D identificou que a empresa <strong>não realizou a segregação correta</strong> das receitas monofásicas ou sujeitas à substituição tributária. Isso significa que o DAS foi calculado sobre a receita bruta total, incluindo produtos cujo PIS/COFINS já foi recolhido pelo fabricante. O valor pago a maior estimado é de <strong style={{ color: C.orange }}>{fmtR(pgdas.diferenca_total)}</strong>.
+              </p>
+              <div style={nfesAfetadasStyle}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Resumo do PGDAS-D analisado</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                  <span>Receita bruta total declarada</span>
+                  <span style={{ fontWeight: 600 }}>{fmtR(pgdas.receita_bruta_total)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                  <span>Receita monofásica identificada</span>
+                  <span style={{ fontWeight: 600, color: C.orange }}>{fmtR(pgdas.receita_monofasica)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
+                  <span>DAS recolhido</span>
+                  <span style={{ fontWeight: 600 }}>{fmtR(pgdas.das_recolhido)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
+                  <span>DAS correto estimado</span>
+                  <span style={{ fontWeight: 600, color: C.green }}>{fmtR(pgdas.das_correto_estimado)}</span>
+                </div>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 800, color: C.orange }}>
+                  Diferença recuperável estimada: {fmtR(pgdas.diferenca_total)}
+                </div>
+              </div>
+              <div style={comoRecuperarStyle}>
+                <strong>Como recuperar:</strong> Acesse o módulo <strong>Recuperação de Créditos</strong>, clique na aba <strong>Segregação de Receitas PGDAS-D</strong> e importe os XMLs das NF-e dos últimos 5 anos. O sistema identificará os períodos em que a segregação não foi realizada, calculará o DAS pago a maior e orientará a retificação do PGDAS-D. Após a retificação, solicite a restituição dos valores junto à Receita Federal.
+              </div>
+              <div style={avisoStyle}>
+                ⚠️ {AVISO_RESPONSABILIDADE}
+              </div>
+            </>
+          ) : (
+            <p style={{ ...textoStyle, color: C.muted }}>
+              A análise do PGDAS-D indica que a segregação de receitas foi realizada corretamente. O DAS calculado está de acordo com as receitas tributáveis, sem inclusão indevida de produtos monofásicos ou sujeitos à substituição tributária na base de cálculo. Nenhuma ação necessária para esta tese.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DiagnosticoTributario({ clienteId, cliente, onNavegar }) {
@@ -524,7 +854,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
 
-      {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 16, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DIAGNÓSTICO TRIBUTÁRIO</div>
         <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>🔎 {cliente?.razao_social}</div>
@@ -535,7 +864,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         </div>
       </div>
 
-      {/* Voltar */}
       <div style={{ marginBottom: 16 }}>
         <button onClick={() => onNavegar('painel')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'none', border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 13, cursor: 'pointer' }}>
@@ -543,7 +871,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         </button>
       </div>
 
-      {/* Abas principais */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `2px solid ${C.border}` }}>
         {[['novo', '🔍 Novo Diagnóstico'], ['historico', `📋 Histórico (${historico.length})`]].map(([id, label]) => (
           <button key={id} onClick={() => setAba(id)}
@@ -553,7 +880,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         ))}
       </div>
 
-      {/* ABA NOVO */}
       {aba === 'novo' && <>
         {etapa === 'inicio' && (
           <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24 }}>
@@ -565,7 +891,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               <div style={{ fontSize: 13, color: C.muted }}>XML de NF-e · CSV · PDF (PGDAS-D, SPED)</div>
               <input ref={inputRef} type="file" multiple accept=".xml,.csv,.pdf" onChange={onDrop} style={{ display: 'none' }} />
             </div>
-
             {arquivos.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 {arquivos.map((arq, i) => (
@@ -582,14 +907,11 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                 ))}
               </div>
             )}
-
             {erro && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: C.red, fontSize: 13, marginBottom: 16 }}>⚠️ {erro}</div>}
-
             <button onClick={analisar} disabled={arquivos.length === 0}
               style={{ width: '100%', padding: 14, background: arquivos.length > 0 ? C.navy : C.border, color: C.white, border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: arquivos.length > 0 ? 'pointer' : 'not-allowed', marginBottom: 20 }}>
               🔍 Iniciar Diagnóstico {arquivos.length > 0 ? `(${arquivos.length} arquivo${arquivos.length > 1 ? 's' : ''})` : ''}
             </button>
-
             <div style={{ padding: 16, background: '#f8fafc', borderRadius: 10, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 12, letterSpacing: 1 }}>TESES QUE SERÃO VERIFICADAS</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
@@ -629,6 +951,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
         {etapa === 'resultado' && resultado && (
           <>
+            {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
               {[
                 { label: 'NF-e analisadas', valor: resultado.totalNotas, cor: '#2563eb' },
@@ -643,19 +966,21 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               ))}
             </div>
 
+            {/* Potencial total */}
             <div style={{ background: resultado.totalCredito > 0 ? '#f0fdf4' : '#f8fafc', border: `2px solid ${resultado.totalCredito > 0 ? '#86efac' : C.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 4, fontWeight: 700, letterSpacing: 1 }}>POTENCIAL TOTAL DE RECUPERAÇÃO</div>
               <div style={{ fontSize: 36, fontWeight: 900, color: resultado.totalCredito > 0 ? C.green : C.muted }}>{fmtR(resultado.totalCredito)}</div>
               {resultado.totalCredito === 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Nenhuma oportunidade identificada</div>}
             </div>
 
+            {/* DIAGNÓSTICO NARRATIVO */}
+            <DiagnosticoNarrativo resultado={resultado} regime={regime} />
+
+            {/* PAINEL PGDAS */}
             {resultado.pgdas && (
               <div style={{ background: C.white, borderRadius: 14, border: `2px solid ${resultado.pgdas.diferenca_total > 0 ? '#fed7aa' : C.border}`, padding: '20px 24px', marginBottom: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.orange }}>📋 PGDAS-D — Análise de Segregação</div>
-                  {resultado.pgdas.diferenca_total > 0 && (
-                    <span style={{ background: '#fff7ed', color: C.orange, border: '1px solid #fed7aa', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>OPORTUNIDADE IDENTIFICADA</span>
-                  )}
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.orange }}>📋 PGDAS-D — Dados Extraídos</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
                   {[
@@ -672,11 +997,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                     </div>
                   ))}
                 </div>
-                {!resultado.pgdas.segregou_monofasicos && (
-                  <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 16px', fontSize: 12, color: '#92400e' }}>
-                    <strong>Atenção:</strong> O PGDAS-D não registrou segregação de receitas monofásicas. É possível solicitar retificação dos períodos não prescritos (últimos 5 anos) e restituição do valor recolhido a maior.
-                  </div>
-                )}
                 {resultado.pgdas.competencias && resultado.pgdas.competencias.length > 0 && (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>DETALHAMENTO POR COMPETÊNCIA</div>
@@ -734,9 +1054,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                   </button>
                 </div>
               </div>
-              {erroIA && (
-                <div style={{ marginTop: 12, background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 8, padding: '10px 14px', color: '#fca5a5', fontSize: 12 }}>⚠️ {erroIA}</div>
-              )}
+              {erroIA && <div style={{ marginTop: 12, background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 8, padding: '10px 14px', color: '#fca5a5', fontSize: 12 }}>⚠️ {erroIA}</div>}
               {loadingIA && (
                 <div style={{ marginTop: 16, textAlign: 'center', color: '#93c5fd', fontSize: 13 }}>
                   <div style={{ marginBottom: 8 }}>Consultando especialista tributário...</div>
@@ -906,7 +1224,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         )}
       </>}
 
-      {/* ABA HISTÓRICO */}
       {aba === 'historico' && (
         <div>
           {loadingHistorico ? (
@@ -931,14 +1248,12 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                   </div>
                 ))}
               </div>
-
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button onClick={() => imprimirRelatorio(null, historico)}
                   style={{ padding: '10px 20px', background: '#f0fdf4', color: C.green, border: `1.5px solid ${C.green}`, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   Imprimir Relatório Completo
                 </button>
               </div>
-
               <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: `1px solid ${C.border}` }}>
                 {[['competencias', `📅 Por Competência (${historico.length})`], ['nfes', `📄 NF-e Registradas (${historicoNFes.length})`]].map(([id, label]) => (
                   <button key={id} onClick={() => setAbaHistorico(id)}
@@ -947,7 +1262,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                   </button>
                 ))}
               </div>
-
               {abaHistorico === 'competencias' && (
                 <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -985,7 +1299,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                   </table>
                 </div>
               )}
-
               {abaHistorico === 'nfes' && (
                 <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
