@@ -17,53 +17,113 @@ const FUNDAMENTACAO = {
   EXCLUSAO_ICMS_TEMA69: 'STF RE 574.706 — Tema 69. O ICMS não compõe a base de cálculo do PIS e da COFINS. Recuperação retroativa de 5 anos.',
   ICMS_ST: 'IN RFB 1.911/2019 — ICMS-ST pago nas entradas gera crédito de PIS/COFINS no Lucro Real.',
   RETENCAO_INDEVIDA: 'LC 123/2006 art. 3º §4º — Empresas do Simples Nacional são imunes a retenções de PIS/COFINS/CSLL na fonte.',
+  PGDAS_SEGREGACAO: 'LC 123/2006 art. 18 §4º-A — Receitas sujeitas a tributação monofásica, substituição tributária ou imunes devem ser segregadas no PGDAS-D com alíquota reduzida ou zero.',
 }
 
 const C = {
   navy: '#0B1F4D', white: '#FFFFFF', border: '#C8D0DC',
   text: '#1E293B', muted: '#64748B', green: '#16a34a',
-  red: '#dc2626', bg: '#F4E7EC',
+  red: '#dc2626', bg: '#F4E7EC', orange: '#ea580c',
 }
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtCNPJ = v => v ? v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : '—'
 
 const thStyle = (w) => ({
-  padding: '8px 10px',
-  textAlign: 'left',
-  color: '#64748B',
-  fontWeight: 600,
-  borderBottom: '1px solid #C8D0DC',
-  fontSize: 10,
-  textTransform: 'uppercase',
-  whiteSpace: 'nowrap',
-  minWidth: w || 'auto',
+  padding: '8px 10px', textAlign: 'left', color: '#64748B', fontWeight: 600,
+  borderBottom: '1px solid #C8D0DC', fontSize: 10, textTransform: 'uppercase',
+  whiteSpace: 'nowrap', minWidth: w || 'auto',
 })
+const tdStyle = (extra = {}) => ({ padding: '8px 10px', whiteSpace: 'nowrap', fontSize: 12, ...extra })
 
-const tdStyle = (extra = {}) => ({
-  padding: '8px 10px',
-  whiteSpace: 'nowrap',
-  fontSize: 12,
-  ...extra,
-})
+// ─── Lê arquivo como base64 ───────────────────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// ─── Prompt para extração do PGDAS-D ─────────────────────────────────────────
+function promptPGDAS(regime) {
+  return `Você é um especialista em Simples Nacional. Analise este documento PGDAS-D e extraia os dados em formato JSON.
+
+Retorne SOMENTE um JSON válido, sem markdown, sem explicações, com esta estrutura exata:
+
+{
+  "cnpj": "string",
+  "razao_social": "string",
+  "periodo_apuracao": "AAAA-MM",
+  "receita_bruta_total": number,
+  "receita_bruta_tributada": number,
+  "receita_bruta_nao_tributada": number,
+  "receita_monofasica": number,
+  "receita_substituicao_tributaria": number,
+  "receita_exportacao": number,
+  "das_recolhido": number,
+  "das_calculado_sem_segregacao": number,
+  "competencias": [
+    {
+      "periodo": "AAAA-MM",
+      "receita_bruta": number,
+      "receita_monofasica": number,
+      "receita_st": number,
+      "das_recolhido": number,
+      "das_correto_estimado": number
+    }
+  ],
+  "segregou_monofasicos": boolean,
+  "segregou_st": boolean,
+  "observacoes": "string com alertas relevantes"
+}
+
+Se algum campo não estiver no documento, use null. Valores monetários sempre como número (ex: 1234.56, não "R$ 1.234,56").`
+}
+
+// ─── Parser da resposta Gemini para PGDAS ────────────────────────────────────
+function parsePGDASResposta(texto) {
+  try {
+    const jsonMatch = texto.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('JSON não encontrado na resposta')
+    return JSON.parse(jsonMatch[0])
+  } catch (e) {
+    console.error('Erro ao parsear PGDAS:', e)
+    return null
+  }
+}
 
 // ─── Monta contexto para o Groq ───────────────────────────────────────────────
 function montarContextoIA(resultado, cliente, regime) {
   const teses = [
-    ...resultado.monofasicos.length > 0 ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : [],
-    ...resultado.exclusaoICMS.length > 0 ? ['EXCLUSAO_ICMS_TEMA69'] : [],
-    ...resultado.icmsST.length > 0 ? ['ICMS_ST'] : [],
-    ...resultado.retencoes.length > 0 ? ['RETENCAO_INDEVIDA'] : [],
+    ...(resultado.monofasicos.length > 0 ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : []),
+    ...(resultado.exclusaoICMS.length > 0 ? ['EXCLUSAO_ICMS_TEMA69'] : []),
+    ...(resultado.icmsST.length > 0 ? ['ICMS_ST'] : []),
+    ...(resultado.retencoes.length > 0 ? ['RETENCAO_INDEVIDA'] : []),
+    ...(resultado.pgdas && resultado.pgdas.diferenca_total > 0 ? ['PGDAS_SEGREGACAO'] : []),
   ]
-
   const emitentes = [...new Set(resultado.notasRaw.map(n => n.emitNome).filter(Boolean))].slice(0, 10)
   const ncms = [...new Set(resultado.notasRaw.flatMap(n => n.itens?.map(i => i.ncm) || []).filter(Boolean))].slice(0, 20)
   const competenciasTexto = resultado.resumoCompetencias.map(c =>
-    `${c.competencia}: receita ${fmtR(c.receita_bruta)}, PIS/COFINS ${fmtR(c.tributo_pago)}, crédito ${fmtR(c.credito)}`
+    `${c.competencia}: receita ${fmtR(c.receita_bruta)}, PIS/COFINS ${fmtR(c.tributo_pago)}, credito ${fmtR(c.credito)}`
   ).join('\n')
-
   const anoAtual = new Date().getFullYear()
   const prescricao5anos = anoAtual - 5
+
+  let pgdasTexto = ''
+  if (resultado.pgdas) {
+    const p = resultado.pgdas
+    pgdasTexto = `\nDADOS DO PGDAS-D:
+- Receita bruta total: ${fmtR(p.receita_bruta_total)}
+- Receita monofásica declarada: ${fmtR(p.receita_monofasica)}
+- DAS recolhido: ${fmtR(p.das_recolhido)}
+- Segregou monofásicos: ${p.segregou_monofasicos ? 'Sim' : 'NAO - OPORTUNIDADE IDENTIFICADA'}
+- Diferença estimada: ${fmtR(p.diferenca_total)}`
+  }
 
   return `Você é um especialista em direito tributário brasileiro. Analise o diagnóstico fiscal abaixo e produza um parecer estruturado.
 
@@ -75,72 +135,52 @@ DADOS DO CLIENTE:
 
 RESULTADO DO DIAGNÓSTICO:
 - Total de NF-e analisadas: ${resultado.totalNotas}
-- Período analisado: ${resultado.resumoCompetencias[resultado.resumoCompetencias.length - 1]?.competencia || '—'} a ${resultado.resumoCompetencias[0]?.competencia || '—'}
+- Período: ${resultado.resumoCompetencias[resultado.resumoCompetencias.length - 1]?.competencia || '—'} a ${resultado.resumoCompetencias[0]?.competencia || '—'}
 - Potencial total de recuperação: ${fmtR(resultado.totalCredito)}
 - Teses identificadas: ${teses.join(', ') || 'Nenhuma'}
 
-EMITENTES ENCONTRADOS: ${emitentes.join(', ')}
-NCMs identificados: ${ncms.join(', ')}
+EMITENTES: ${emitentes.join(', ')}
+NCMs: ${ncms.join(', ')}
 
 ANÁLISE POR COMPETÊNCIA:
 ${competenciasTexto}
+${pgdasTexto}
 
-DETALHAMENTO DAS TESES:
+DETALHAMENTO:
 ${resultado.monofasicos.length > 0 ? `- Monofásicos: ${resultado.monofasicos.length} itens, crédito ${fmtR(resultado.monofasicos.reduce((s, o) => s + o.credito, 0))}` : ''}
 ${resultado.exclusaoICMS.length > 0 ? `- Exclusão ICMS Tema 69: ${resultado.exclusaoICMS.length} competências, crédito ${fmtR(resultado.exclusaoICMS.reduce((s, o) => s + o.credito, 0))}` : ''}
 ${resultado.icmsST.length > 0 ? `- ICMS-ST: ${resultado.icmsST.length} itens, crédito ${fmtR(resultado.icmsST.reduce((s, o) => s + o.credito, 0))}` : ''}
 ${resultado.retencoes.length > 0 ? `- Retenções Indevidas: ${resultado.retencoes.length} ocorrências, crédito ${fmtR(resultado.retencoes.reduce((s, o) => s + o.credito, 0))}` : ''}
 
-ALERTA DE PRAZO: O prazo prescricional de 5 anos alcança competências a partir de ${prescricao5anos}. Competências anteriores podem estar prescritas.
+ALERTA: Prazo prescricional alcança competências a partir de ${prescricao5anos}.
 
-Produza um parecer com EXATAMENTE estas 4 seções, usando os títulos abaixo:
+Produza um parecer com EXATAMENTE estas 4 seções:
 
 ## PARECER JURÍDICO
-Análise técnica das teses identificadas com embasamento legal específico (artigos, leis, jurisprudência).
+Análise técnica das teses com embasamento legal.
 
 ## ESTRATÉGIA RECOMENDADA
-Sequência de ações práticas com prazos e responsáveis (contador/advogado). Priorize pelo valor e urgência.
+Sequência de ações práticas com prazos e responsáveis.
 
 ## ALERTAS DE PRAZO
-Liste competências próximas da prescrição e datas críticas para ação imediata.
+Competências próximas da prescrição e datas críticas.
 
 ## PERGUNTAS PARA O CLIENTE
-Liste 4 a 6 perguntas que o contador deve fazer ao cliente para validar e aprofundar o diagnóstico.`
+4 a 6 perguntas que o contador deve fazer ao cliente.`
 }
 
-// ─── Parser de markdown simples ───────────────────────────────────────────────
+// ─── Parser markdown ──────────────────────────────────────────────────────────
 function renderMarkdown(texto) {
   if (!texto) return null
-  const linhas = texto.split('\n')
-  const elementos = []
-  let i = 0
-  while (i < linhas.length) {
-    const linha = linhas[i]
-    if (linha.startsWith('## ')) {
-      elementos.push(
-        <div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.navy, marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
-          {linha.replace('## ', '')}
-        </div>
-      )
-    } else if (linha.startsWith('- ') || linha.startsWith('• ')) {
-      elementos.push(
-        <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 4 }}>
-          <span style={{ color: C.navy, fontWeight: 700, flexShrink: 0 }}>•</span>
-          <span>{linha.replace(/^[-•]\s/, '')}</span>
-        </div>
-      )
-    } else if (linha.trim() === '') {
-      elementos.push(<div key={i} style={{ height: 6 }} />)
-    } else {
-      elementos.push(
-        <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>
-          {linha}
-        </div>
-      )
-    }
-    i++
-  }
-  return elementos
+  return texto.split('\n').map((linha, i) => {
+    if (linha.startsWith('## '))
+      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.navy, marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{linha.replace('## ', '')}</div>
+    if (linha.startsWith('- ') || linha.startsWith('• '))
+      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: C.navy, fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
+    if (linha.trim() === '')
+      return <div key={i} style={{ height: 6 }} />
+    return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
+  })
 }
 
 export default function DiagnosticoTributario({ clienteId, cliente, onNavegar }) {
@@ -154,8 +194,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [abaHistorico, setAbaHistorico] = useState('competencias')
-
-  // IA
   const [parecerIA, setParecerIA] = useState(null)
   const [loadingIA, setLoadingIA] = useState(false)
   const [erroIA, setErroIA] = useState('')
@@ -163,18 +201,15 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
   const [mensagensChat, setMensagensChat] = useState([])
   const [inputChat, setInputChat] = useState('')
   const [loadingChat, setLoadingChat] = useState(false)
+  const [loadingPGDAS, setLoadingPGDAS] = useState(false)
+  const [erroPGDAS, setErroPGDAS] = useState('')
+  const inputRef = useRef(null)
   const chatFimRef = useRef(null)
 
-  const inputRef = useRef(null)
   const regime = cliente?.regime || 'Simples Nacional'
 
-  useEffect(() => {
-    if (clienteId) carregarHistorico()
-  }, [clienteId])
-
-  useEffect(() => {
-    if (chatFimRef.current) chatFimRef.current.scrollIntoView({ behavior: 'smooth' })
-  }, [mensagensChat])
+  useEffect(() => { if (clienteId) carregarHistorico() }, [clienteId])
+  useEffect(() => { if (chatFimRef.current) chatFimRef.current.scrollIntoView({ behavior: 'smooth' }) }, [mensagensChat])
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
@@ -196,14 +231,74 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     }))])
   }
 
+  // ─── Processa PDFs PGDAS via Gemini ────────────────────────────────────────
+  async function processarPDFsPGDAS(arquivosPDF, session) {
+    const resultados = []
+    for (const arq of arquivosPDF) {
+      try {
+        const base64 = await fileToBase64(arq.file)
+        const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            model: 'gemini-2.0-flash',
+            system: 'Você é um especialista em Simples Nacional e PGDAS-D. Extraia dados fiscais com precisão.',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
+                { type: 'text', text: promptPGDAS(regime) },
+              ],
+            }],
+          }),
+        })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const json = await resp.json()
+        const dados = parsePGDASResposta(json.resposta || '')
+        if (dados) resultados.push({ arquivo: arq.nome, dados })
+      } catch (e) {
+        console.warn(`Erro ao processar ${arq.nome}:`, e.message)
+      }
+    }
+    return resultados
+  }
+
+  // ─── Consolida dados PGDAS ──────────────────────────────────────────────────
+  function consolidarPGDAS(resultadosPGDAS) {
+    if (!resultadosPGDAS.length) return null
+    const totais = { receita_bruta_total: 0, receita_monofasica: 0, receita_substituicao_tributaria: 0, das_recolhido: 0, das_correto_estimado: 0, competencias: [], segregou_monofasicos: true, segregou_st: true, arquivos: [] }
+    for (const r of resultadosPGDAS) {
+      const d = r.dados
+      totais.receita_bruta_total += d.receita_bruta_total || 0
+      totais.receita_monofasica += d.receita_monofasica || 0
+      totais.receita_substituicao_tributaria += d.receita_substituicao_tributaria || 0
+      totais.das_recolhido += d.das_recolhido || 0
+      if (d.segregou_monofasicos === false) totais.segregou_monofasicos = false
+      if (d.segregou_st === false) totais.segregou_st = false
+      if (d.competencias) totais.competencias.push(...d.competencias)
+      totais.arquivos.push(r.arquivo)
+      // Estima DAS correto: receita não monofásica * alíquota média estimada 6%
+      const receitaTributavel = (d.receita_bruta_total || 0) - (d.receita_monofasica || 0) - (d.receita_substituicao_tributaria || 0)
+      totais.das_correto_estimado += receitaTributavel * 0.06
+    }
+    totais.diferenca_total = Math.max(0, totais.das_recolhido - totais.das_correto_estimado)
+    return totais
+  }
+
   async function analisar() {
     if (arquivos.length === 0) return
     setEtapa('processando')
     setErro('')
+    setErroPGDAS('')
     setParecerIA(null)
     setMensagensChat([])
+
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const notasXML = []
+      let pgdasConsolidado = null
+
+      // ── XMLs ──
       for (const arq of arquivos) {
         if (arq.tipo === 'xml') {
           const texto = await arq.file.text()
@@ -211,14 +306,29 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             ? texto.split('</nfeProc>').filter(x => x.includes('<nfeProc')).map(x => x + '</nfeProc>')
             : [texto]
           for (const xml of xmls) {
-            try { const n = parseXMLNFe(xml); if (n.competencia) notasXML.push(n) }
-            catch (e) { console.warn('XML inválido:', e) }
+            try { const n = parseXMLNFe(xml); if (n.competencia) notasXML.push(n) } catch (e) { console.warn('XML inválido:', e) }
           }
         }
       }
-      if (notasXML.length === 0) throw new Error('Nenhuma NF-e válida encontrada.')
 
-      const competencias = agruparPorCompetencia(notasXML)
+      // ── PDFs PGDAS ──
+      const arquivosPDF = arquivos.filter(a => a.tipo === 'pdf')
+      if (arquivosPDF.length > 0) {
+        setLoadingPGDAS(true)
+        try {
+          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF, session)
+          pgdasConsolidado = consolidarPGDAS(resultadosPGDAS)
+        } catch (e) {
+          setErroPGDAS('Erro ao processar PDF: ' + e.message)
+        } finally {
+          setLoadingPGDAS(false)
+        }
+      }
+
+      if (notasXML.length === 0 && !pgdasConsolidado) throw new Error('Nenhum documento válido encontrado.')
+
+      // ── Motor de teses (XML) ──
+      const competencias = notasXML.length > 0 ? agruparPorCompetencia(notasXML) : []
       const entradas = notasXML.filter(n => n.tipo === 'entrada')
       const saidas = notasXML.filter(n => n.tipo === 'saida')
       const itensEntrada = entradas.flatMap(n => n.itens)
@@ -228,12 +338,10 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         const ncm8 = item.ncm?.substring(0, 8)
         const desc = NCM_MONOFASICOS[ncm8]
         if (desc) {
-          if ((regime === 'Lucro Presumido' || regime === 'Lucro Real') && (item.vPIS > 0 || item.vCOFINS > 0)) {
+          if ((regime === 'Lucro Presumido' || regime === 'Lucro Real') && (item.vPIS > 0 || item.vCOFINS > 0))
             monofasicos.push({ ...item, descricao: desc, credito: item.vPIS + item.vCOFINS, tese: 'MONOFASICO' })
-          }
-          if (regime === 'Simples Nacional') {
+          if (regime === 'Simples Nacional')
             monofasicos.push({ ...item, descricao: desc, credito: 0, tese: 'SEGREGACAO_MONOFASICO' })
-          }
         }
       }
 
@@ -257,17 +365,19 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const retencoes = []
       if (regime === 'Simples Nacional') {
         for (const nota of notasXML) {
-          if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1') {
+          if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1')
             retencoes.push({ nNF: nota.nNF, competencia: nota.competencia, credito: nota.totalPIS + nota.totalCOFINS, tese: 'RETENCAO_INDEVIDA' })
-          }
         }
       }
 
-      const totalCredito =
+      const totalCreditoXML =
         monofasicos.reduce((s, o) => s + o.credito, 0) +
         exclusaoICMS.reduce((s, o) => s + o.credito, 0) +
         icmsST.reduce((s, o) => s + o.credito, 0) +
         retencoes.reduce((s, o) => s + o.credito, 0)
+
+      const totalCreditoPGDAS = pgdasConsolidado?.diferenca_total || 0
+      const totalCredito = totalCreditoXML + totalCreditoPGDAS
 
       const resumoCompetencias = competencias.map(comp => ({
         competencia: comp.competencia,
@@ -282,7 +392,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         periodo_fim: comp.competencia + '-01',
       }))
 
-      setResultado({ totalNotas: notasXML.length, entradas: entradas.length, saidas: saidas.length, competencias, resumoCompetencias, monofasicos, exclusaoICMS, icmsST, retencoes, totalCredito, notasRaw: notasXML })
+      setResultado({ totalNotas: notasXML.length, entradas: entradas.length, saidas: saidas.length, competencias, resumoCompetencias, monofasicos, exclusaoICMS, icmsST, retencoes, totalCredito, notasRaw: notasXML, pgdas: pgdasConsolidado })
       setEtapa('resultado')
     } catch (e) {
       setErro(e.message)
@@ -301,21 +411,14 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const { data: { session } } = await supabase.auth.getSession()
       const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          mensagem: prompt,
-          modelo: 'llama-3.3-70b-versatile',
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ mensagem: prompt, modelo: 'llama-3.3-70b-versatile' }),
       })
       if (!resp.ok) throw new Error('Erro na chamada à IA')
       const json = await resp.json()
       const resposta = json.resposta || json.content || json.message || ''
       if (!resposta) throw new Error('Resposta vazia da IA')
       setParecerIA(resposta)
-      // Inicializa o chat com o parecer como primeira mensagem do assistente
       setMensagensChat([{ role: 'assistant', content: resposta }])
     } catch (e) {
       setErroIA('Erro ao consultar IA: ' + e.message)
@@ -332,43 +435,18 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     setInputChat('')
     setLoadingChat(true)
     try {
-      // Monta histórico de conversa + contexto fiscal resumido
-      const contextoResumido = `Contexto fiscal: Cliente ${cliente?.razao_social}, regime ${regime}, potencial de recuperação ${fmtR(resultado?.totalCredito || 0)}, teses: ${[
-        ...((resultado?.monofasicos?.length > 0) ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : []),
-        ...((resultado?.exclusaoICMS?.length > 0) ? ['EXCLUSAO_ICMS_TEMA69'] : []),
-        ...((resultado?.icmsST?.length > 0) ? ['ICMS_ST'] : []),
-        ...((resultado?.retencoes?.length > 0) ? ['RETENCAO_INDEVIDA'] : []),
-      ].join(', ') || 'nenhuma'}.`
-
-      const histFormatado = novasMensagens.map(m =>
-        `${m.role === 'user' ? 'Contador' : 'Especialista'}: ${m.content}`
-      ).join('\n\n')
-
-      const promptChat = `Você é um especialista em direito tributário brasileiro. Responda de forma técnica e objetiva.
-
-${contextoResumido}
-
-Histórico da conversa:
-${histFormatado}
-
-Responda à última pergunta do Contador de forma técnica, precisa e prática.`
-
+      const contextoResumido = `Contexto fiscal: Cliente ${cliente?.razao_social}, regime ${regime}, potencial ${fmtR(resultado?.totalCredito || 0)}.`
+      const histFormatado = novasMensagens.map(m => `${m.role === 'user' ? 'Contador' : 'Especialista'}: ${m.content}`).join('\n\n')
+      const promptChat = `Você é um especialista em direito tributário brasileiro.\n${contextoResumido}\n\n${histFormatado}\n\nResponda à última pergunta do Contador.`
       const { data: { session } } = await supabase.auth.getSession()
       const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          mensagem: promptChat,
-          modelo: 'llama-3.3-70b-versatile',
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ mensagem: promptChat, modelo: 'llama-3.3-70b-versatile' }),
       })
       if (!resp.ok) throw new Error('Erro na chamada à IA')
       const json = await resp.json()
-      const resposta = json.resposta || json.content || json.message || ''
-      setMensagensChat(prev => [...prev, { role: 'assistant', content: resposta }])
+      setMensagensChat(prev => [...prev, { role: 'assistant', content: json.resposta || json.content || '' }])
     } catch (e) {
       setMensagensChat(prev => [...prev, { role: 'assistant', content: 'Erro ao obter resposta. Tente novamente.' }])
     } finally {
@@ -395,38 +473,31 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
           periodo_fim: comp.periodo_fim,
           tipo_oportunidade: resultado.monofasicos.length > 0 ? 'MONOFASICO' : resultado.exclusaoICMS.length > 0 ? 'EXCLUSAO_ICMS' : 'SEM_OPORTUNIDADE',
           risco: 'baixo',
-          documentos: JSON.stringify({ nfes: resultado.totalNotas }),
+          documentos: JSON.stringify({ nfes: resultado.totalNotas, pgdas: resultado.pgdas ? resultado.pgdas.arquivos : [] }),
         }, { onConflict: 'cliente_id,competencia,tributo' })
       }
-
       for (const nota of resultado.notasRaw) {
         const teses = []
         if (nota.itens.some(i => NCM_MONOFASICOS[i.ncm?.substring(0, 8)])) teses.push(regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO')
         if (nota.totalICMS > 0 && (regime === 'Lucro Presumido' || regime === 'Lucro Real')) teses.push('EXCLUSAO_ICMS_TEMA69')
         if (nota.totalST > 0 && regime === 'Lucro Real') teses.push('ICMS_ST')
         if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1' && regime === 'Simples Nacional') teses.push('RETENCAO_INDEVIDA')
-
         const creditoNota = teses.includes('MONOFASICO') ? nota.totalPIS + nota.totalCOFINS :
           teses.includes('EXCLUSAO_ICMS_TEMA69') ? nota.totalICMS * (regime === 'Lucro Real' ? 0.0925 : 0.0365) :
           teses.includes('RETENCAO_INDEVIDA') ? nota.totalPIS + nota.totalCOFINS : 0
-
         try {
           await supabase.from('entradas_nfe').upsert({
             cliente_id: clienteId, usuario_id: user.id,
-            chave_nfe: nota.chNFe || null,
-            numero_nf: nota.nNF, serie: nota.serie || '1',
+            chave_nfe: nota.chNFe || null, numero_nf: nota.nNF, serie: nota.serie || '1',
             emitente_nome: nota.emitNome, emitente_cnpj: nota.emitCNPJ,
-            competencia: nota.competencia,
-            data_emissao: nota.dhEmi || nota.competencia + '-01',
+            competencia: nota.competencia, data_emissao: nota.dhEmi || nota.competencia + '-01',
             tipo: nota.tipo, crt: nota.crt,
             valor_produtos: nota.totalProd, valor_pis: nota.totalPIS,
             valor_cofins: nota.totalCOFINS, valor_icms: nota.totalICMS,
-            valor_st: nota.totalST, teses_identificadas: teses,
-            credito_identificado: creditoNota,
+            valor_st: nota.totalST, teses_identificadas: teses, credito_identificado: creditoNota,
           }, { onConflict: 'chave_nfe', ignoreDuplicates: true })
         } catch (e) { console.warn('NF-e duplicada:', e) }
       }
-
       await carregarHistorico()
       setEtapa('inicio'); setResultado(null); setArquivos([]); setAba('historico')
       setParecerIA(null); setMensagensChat([])
@@ -452,120 +523,16 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
     const totalReceita = entradas.reduce((s, e) => s + (e.receita_bruta || e.valor_produtos || 0), 0)
     const totalPago = entradas.reduce((s, e) => s + (e.tributo_pago || ((e.valor_pis || 0) + (e.valor_cofins || 0)) || 0), 0)
     const teses = [...new Set(entradas.map(e => e.tipo_oportunidade || (e.teses_identificadas?.[0])).filter(Boolean))]
-
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Relatório Fiscal — ${cliente?.razao_social}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color: #1E293B; background: #fff; }
-  .header { background: #0B1F4D; color: #fff; padding: 20px 28px; margin-bottom: 20px; }
-  .header h1 { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
-  .header p { font-size: 11px; color: #93c5fd; }
-  .section { margin: 0 28px 20px; }
-  .section-title { font-size: 12px; font-weight: 700; color: #0B1F4D; border-bottom: 2px solid #0B1F4D; padding-bottom: 4px; margin-bottom: 10px; }
-  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
-  .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; }
-  .kpi-valor { font-size: 16px; font-weight: 800; color: #0B1F4D; }
-  .kpi-label { font-size: 9px; color: #64748B; margin-top: 2px; }
-  .potencial { background: #f0fdf4; border: 2px solid #86efac; border-radius: 8px; padding: 16px 20px; text-align: center; margin-bottom: 16px; }
-  .potencial-valor { font-size: 28px; font-weight: 900; color: #16a34a; }
-  .potencial-label { font-size: 10px; color: #64748B; margin-bottom: 4px; font-weight: 700; letter-spacing: 1px; }
-  table { width: 100%; border-collapse: collapse; font-size: 10px; }
-  th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-  td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-  .tese-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
-  .tese-nome { font-size: 12px; font-weight: 700; color: #0B1F4D; margin-bottom: 4px; }
-  .tese-fund { font-size: 10px; color: #64748B; line-height: 1.5; }
-  .footer { margin: 20px 28px 0; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
-  .verde { color: #16a34a; font-weight: 700; }
-  .aviso { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 8px 12px; font-size: 10px; color: #92400e; margin-bottom: 16px; }
-  .btn-bar { position: fixed; top: 12px; right: 16px; z-index: 999; display: flex; gap: 8px; }
-  .btn-print { padding: 8px 16px; background: #0B1F4D; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .btn-close { padding: 8px 16px; background: #dc2626; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
-  @media print {
-    .btn-bar { display: none; }
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { margin: 10mm; size: A4; }
-  }
-</style>
-</head>
-<body>
-<div class="btn-bar">
-  <button class="btn-print" onclick="window.print()">Imprimir</button>
-  <button class="btn-close" onclick="window.close()">Fechar</button>
-</div>
-<div class="header">
-  <div style="font-size:9px;color:#7CC4FF;font-weight:700;letter-spacing:2px;margin-bottom:6px">FISCALTRIB — RELATORIO DE DIAGNOSTICO TRIBUTARIO</div>
-  <h1>${cliente?.razao_social || '—'}</h1>
-  <p>CNPJ: ${cliente?.cnpj || '—'} · Regime: ${regime} · ${cliente?.municipio || '—'}/${cliente?.uf || '—'}</p>
-  <p style="margin-top:4px">Data do relatorio: ${new Date().toLocaleDateString('pt-BR')} · Gerado pelo FiscalTrib</p>
-</div>
-<div class="section">
-  <div class="section-title">1. RESUMO EXECUTIVO</div>
-  <div class="potencial">
-    <div class="potencial-label">POTENCIAL TOTAL DE RECUPERACAO IDENTIFICADO</div>
-    <div class="potencial-valor">${fmtR(totalCredito)}</div>
-    <div style="font-size:10px;color:#64748B;margin-top:4px">Estimativa baseada nas NF-e analisadas · Sujeito a validacao profissional</div>
-  </div>
-  <div class="grid-4">
-    <div class="kpi"><div class="kpi-valor">${entradas.length}</div><div class="kpi-label">Registros analisados</div></div>
-    <div class="kpi"><div class="kpi-valor">${fmtR(totalReceita)}</div><div class="kpi-label">Receita bruta total</div></div>
-    <div class="kpi"><div class="kpi-valor">${fmtR(totalPago)}</div><div class="kpi-label">Tributos pagos</div></div>
-    <div class="kpi"><div class="kpi-valor">${teses.length}</div><div class="kpi-label">Teses identificadas</div></div>
-  </div>
-</div>
-<div class="section">
-  <div class="section-title">2. TESES TRIBUTARIAS IDENTIFICADAS</div>
-  ${teses.length > 0 ? teses.map(tese => `
-  <div class="tese-card">
-    <div class="tese-nome">${tese === 'MONOFASICO' ? 'Monofasicos PIS/COFINS' : tese === 'SEGREGACAO_MONOFASICO' ? 'Segregacao Monofasicos' : tese === 'EXCLUSAO_ICMS' || tese === 'EXCLUSAO_ICMS_TEMA69' ? 'Exclusao ICMS — STF Tema 69' : tese === 'ICMS_ST' ? 'Credito ICMS-ST' : tese === 'RETENCAO_INDEVIDA' ? 'Retencoes Indevidas' : tese}</div>
-    <div class="tese-fund">${FUNDAMENTACAO[tese] || 'Fundamentacao a detalhar.'}</div>
-  </div>`).join('') : '<div style="color:#64748B">Nenhuma tese identificada.</div>'}
-</div>
-<div class="section">
-  <div class="section-title">3. ANALISE POR COMPETENCIA</div>
-  <table>
-    <thead><tr><th>Competencia</th><th>NF-e</th><th>Receita Bruta</th><th>PIS/COFINS Pago</th><th>Rec. Monofasica</th><th>Credito</th><th>Oportunidade</th></tr></thead>
-    <tbody>
-      ${entradas.map(e => `<tr>
-        <td style="font-weight:600">${e.competencia || '—'}</td>
-        <td>${e.nfes_analisadas || '1'}</td>
-        <td>${fmtR(e.receita_bruta || e.valor_produtos)}</td>
-        <td>${fmtR(e.tributo_pago || ((e.valor_pis || 0) + (e.valor_cofins || 0)))}</td>
-        <td class="${(e.receita_monofasica || 0) > 0 ? 'verde' : ''}">${fmtR(e.receita_monofasica || 0)}</td>
-        <td class="${(e.credito || e.credito_identificado || 0) > 0 ? 'verde' : ''}">${fmtR(e.credito || e.credito_identificado || 0)}</td>
-        <td>${e.tipo_oportunidade || (e.teses_identificadas?.join(', ')) || '—'}</td>
-      </tr>`).join('')}
-      <tr style="background:#f0fdf4;font-weight:700">
-        <td>TOTAL</td><td>—</td><td>${fmtR(totalReceita)}</td><td>${fmtR(totalPago)}</td><td>—</td><td class="verde">${fmtR(totalCredito)}</td><td>—</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-<div class="section">
-  <div class="section-title">4. PROXIMOS PASSOS</div>
-  <table>
-    <thead><tr><th>#</th><th>Acao</th><th>Prazo</th><th>Responsavel</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td>Validar NF-e com produtos monofasicos</td><td>15 dias</td><td>Contador</td></tr>
-      <tr><td>2</td><td>Levantar recolhimentos PIS/COFINS dos ultimos 5 anos</td><td>30 dias</td><td>Contador</td></tr>
-      <tr><td>3</td><td>Elaborar PER/DCOMP ou pedido de restituicao</td><td>60 dias</td><td>Advogado Tributario</td></tr>
-      <tr><td>4</td><td>Protocolar junto a Receita Federal</td><td>90 dias</td><td>Advogado Tributario</td></tr>
-    </tbody>
-  </table>
-</div>
-<div class="section">
-  <div class="aviso">Estimativa preliminar gerada pelo FiscalTrib. Nao substitui analise profissional habilitada.</div>
-</div>
-<div class="footer">
-  <span>FiscalTrib — fiscaltrib.com.br</span>
-  <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}</span>
-</div>
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatorio Fiscal</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#1E293B;background:#fff}.header{background:#0B1F4D;color:#fff;padding:20px 28px;margin-bottom:20px}.header h1{font-size:18px;font-weight:900;margin-bottom:4px}.header p{font-size:11px;color:#93c5fd}.section{margin:0 28px 20px}.section-title{font-size:12px;font-weight:700;color:#0B1F4D;border-bottom:2px solid #0B1F4D;padding-bottom:4px;margin-bottom:10px}.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px}.kpi-valor{font-size:16px;font-weight:800;color:#0B1F4D}.kpi-label{font-size:9px;color:#64748B;margin-top:2px}.potencial{background:#f0fdf4;border:2px solid #86efac;border-radius:8px;padding:16px 20px;text-align:center;margin-bottom:16px}.potencial-valor{font-size:28px;font-weight:900;color:#16a34a}.potencial-label{font-size:10px;color:#64748B;margin-bottom:4px;font-weight:700;letter-spacing:1px}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#f1f5f9;padding:6px 8px;text-align:left;font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;border-bottom:1px solid #e2e8f0;white-space:nowrap}td{padding:6px 8px;border-bottom:1px solid #f1f5f9;white-space:nowrap}.tese-card{border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:8px}.tese-nome{font-size:12px;font-weight:700;color:#0B1F4D;margin-bottom:4px}.tese-fund{font-size:10px;color:#64748B;line-height:1.5}.footer{margin:20px 28px 0;border-top:1px solid #e2e8f0;padding-top:10px;font-size:9px;color:#94a3b8;display:flex;justify-content:space-between}.verde{color:#16a34a;font-weight:700}.aviso{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:10px;color:#92400e;margin-bottom:16px}.btn-bar{position:fixed;top:12px;right:16px;z-index:999;display:flex;gap:8px}.btn-print{padding:8px 16px;background:#0B1F4D;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}.btn-close{padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}@media print{.btn-bar{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4}}</style></head><body>
+<div class="btn-bar"><button class="btn-print" onclick="window.print()">Imprimir</button><button class="btn-close" onclick="window.close()">Fechar</button></div>
+<div class="header"><div style="font-size:9px;color:#7CC4FF;font-weight:700;letter-spacing:2px;margin-bottom:6px">FISCALTRIB - RELATORIO DE DIAGNOSTICO TRIBUTARIO</div><h1>${cliente?.razao_social || '—'}</h1><p>CNPJ: ${cliente?.cnpj || '—'} - Regime: ${regime} - ${cliente?.municipio || '—'}/${cliente?.uf || '—'}</p><p style="margin-top:4px">Data: ${new Date().toLocaleDateString('pt-BR')} - Gerado pelo FiscalTrib</p></div>
+<div class="section"><div class="section-title">1. RESUMO EXECUTIVO</div><div class="potencial"><div class="potencial-label">POTENCIAL TOTAL DE RECUPERACAO IDENTIFICADO</div><div class="potencial-valor">${fmtR(totalCredito)}</div><div style="font-size:10px;color:#64748B;margin-top:4px">Estimativa baseada nos documentos analisados - Sujeito a validacao profissional</div></div><div class="grid-4"><div class="kpi"><div class="kpi-valor">${entradas.length}</div><div class="kpi-label">Registros analisados</div></div><div class="kpi"><div class="kpi-valor">${fmtR(totalReceita)}</div><div class="kpi-label">Receita bruta total</div></div><div class="kpi"><div class="kpi-valor">${fmtR(totalPago)}</div><div class="kpi-label">Tributos pagos</div></div><div class="kpi"><div class="kpi-valor">${teses.length}</div><div class="kpi-label">Teses identificadas</div></div></div></div>
+<div class="section"><div class="section-title">2. TESES TRIBUTARIAS IDENTIFICADAS</div>${teses.length > 0 ? teses.map(t => `<div class="tese-card"><div class="tese-nome">${t === 'MONOFASICO' ? 'Monofasicos PIS/COFINS' : t === 'SEGREGACAO_MONOFASICO' ? 'Segregacao Monofasicos' : t === 'EXCLUSAO_ICMS_TEMA69' ? 'Exclusao ICMS - STF Tema 69' : t === 'ICMS_ST' ? 'Credito ICMS-ST' : t === 'RETENCAO_INDEVIDA' ? 'Retencoes Indevidas' : t === 'PGDAS_SEGREGACAO' ? 'PGDAS-D - Segregacao Incorreta' : t}</div><div class="tese-fund">${FUNDAMENTACAO[t] || ''}</div></div>`).join('') : '<div style="color:#64748B">Nenhuma tese identificada.</div>'}</div>
+<div class="section"><div class="section-title">3. ANALISE POR COMPETENCIA</div><table><thead><tr><th>Competencia</th><th>NF-e</th><th>Receita Bruta</th><th>Tributos Pagos</th><th>Rec. Monofasica</th><th>Credito</th><th>Oportunidade</th></tr></thead><tbody>${entradas.map(e => `<tr><td style="font-weight:600">${e.competencia || '—'}</td><td>${e.nfes_analisadas || '1'}</td><td>${fmtR(e.receita_bruta || e.valor_produtos)}</td><td>${fmtR(e.tributo_pago || ((e.valor_pis || 0) + (e.valor_cofins || 0)))}</td><td class="${(e.receita_monofasica || 0) > 0 ? 'verde' : ''}">${fmtR(e.receita_monofasica || 0)}</td><td class="${(e.credito || e.credito_identificado || 0) > 0 ? 'verde' : ''}">${fmtR(e.credito || e.credito_identificado || 0)}</td><td>${e.tipo_oportunidade || (e.teses_identificadas?.join(', ')) || '—'}</td></tr>`).join('')}<tr style="background:#f0fdf4;font-weight:700"><td>TOTAL</td><td>—</td><td>${fmtR(totalReceita)}</td><td>${fmtR(totalPago)}</td><td>—</td><td class="verde">${fmtR(totalCredito)}</td><td>—</td></tr></tbody></table></div>
+<div class="section"><div class="section-title">4. PROXIMOS PASSOS</div><table><thead><tr><th>#</th><th>Acao</th><th>Prazo</th><th>Responsavel</th></tr></thead><tbody><tr><td>1</td><td>Validar NF-e com produtos monofasicos</td><td>15 dias</td><td>Contador</td></tr><tr><td>2</td><td>Levantar recolhimentos dos ultimos 5 anos</td><td>30 dias</td><td>Contador</td></tr><tr><td>3</td><td>Elaborar PER/DCOMP ou pedido de restituicao</td><td>60 dias</td><td>Advogado Tributario</td></tr><tr><td>4</td><td>Protocolar junto a Receita Federal</td><td>90 dias</td><td>Advogado Tributario</td></tr></tbody></table></div>
+<div class="section"><div class="aviso">Estimativa preliminar gerada pelo FiscalTrib. Nao substitui analise profissional habilitada.</div></div>
+<div class="footer"><span>FiscalTrib - fiscaltrib.com.br</span><span>Gerado em ${new Date().toLocaleDateString('pt-BR')} as ${new Date().toLocaleTimeString('pt-BR')}</span></div>
 </body></html>`
-
     const janela = window.open('', '_blank')
     janela.document.write(html)
     janela.document.close()
@@ -593,7 +560,7 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
         </div>
       </div>
 
-      {/* Botão voltar */}
+      {/* Voltar */}
       <div style={{ marginBottom: 16 }}>
         <button onClick={() => onNavegar('painel')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'none', border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 13, cursor: 'pointer' }}>
@@ -620,7 +587,7 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
               style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: '36px 24px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', marginBottom: 16 }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 4 }}>Arraste ou clique para selecionar</div>
-              <div style={{ fontSize: 13, color: C.muted }}>XML de NF-e · CSV · PDF (PGDAS, SPED)</div>
+              <div style={{ fontSize: 13, color: C.muted }}>XML de NF-e · CSV · PDF (PGDAS-D, SPED)</div>
               <input ref={inputRef} type="file" multiple accept=".xml,.csv,.pdf" onChange={onDrop} style={{ display: 'none' }} />
             </div>
 
@@ -631,7 +598,9 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span>{arq.tipo === 'xml' ? '📄' : arq.tipo === 'csv' ? '📊' : '📑'}</span>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{arq.nome}</span>
-                      <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{arq.tipo.toUpperCase()}</span>
+                      <span style={{ background: arq.tipo === 'pdf' ? '#fff7ed' : '#eff6ff', color: arq.tipo === 'pdf' ? C.orange : '#2563eb', border: `1px solid ${arq.tipo === 'pdf' ? '#fed7aa' : '#bfdbfe'}`, padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>
+                        {arq.tipo === 'pdf' ? 'PDF — PGDAS-D' : arq.tipo.toUpperCase()}
+                      </span>
                     </div>
                     <button onClick={() => setArquivos(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer' }}>✕</button>
                   </div>
@@ -654,6 +623,7 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
                   { icon: '⚖️', tese: 'Exclusão ICMS Tema 69', regimes: ['Lucro Presumido', 'Lucro Real'] },
                   { icon: '🔄', tese: 'Crédito ICMS-ST', regimes: ['Lucro Real'] },
                   { icon: '🚫', tese: 'Retenções Indevidas', regimes: ['Simples Nacional'] },
+                  { icon: '📋', tese: 'PGDAS-D Segregação', regimes: ['Simples Nacional'] },
                 ].map((t, i) => {
                   const aplicavel = t.regimes.includes(regime)
                   return (
@@ -673,18 +643,24 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
           <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: 60, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
             <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 8 }}>Analisando documentos...</div>
-            <div style={{ fontSize: 13, color: C.muted }}>Cruzando NCMs, competências e teses tributárias</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Cruzando NCMs, competências e teses tributárias</div>
+            {loadingPGDAS && (
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 16px', fontSize: 13, color: C.orange, display: 'inline-block' }}>
+                Extraindo dados do PGDAS-D via IA...
+              </div>
+            )}
           </div>
         )}
 
         {etapa === 'resultado' && resultado && (
           <>
+            {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
               {[
                 { label: 'NF-e analisadas', valor: resultado.totalNotas, cor: '#2563eb' },
                 { label: 'Entradas', valor: resultado.entradas, cor: '#16a34a' },
                 { label: 'Saídas', valor: resultado.saidas, cor: '#7c3aed' },
-                { label: 'Competências', valor: resultado.competencias.length, cor: '#0891b2' },
+                { label: resultado.pgdas ? 'PDFs PGDAS' : 'Competências', valor: resultado.pgdas ? resultado.pgdas.arquivos.length : resultado.competencias.length, cor: '#0891b2' },
               ].map((k, i) => (
                 <div key={i} style={{ background: C.white, borderRadius: 10, padding: '14px 16px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: k.cor }}>{k.valor}</div>
@@ -693,11 +669,86 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
               ))}
             </div>
 
+            {/* Potencial total */}
             <div style={{ background: resultado.totalCredito > 0 ? '#f0fdf4' : '#f8fafc', border: `2px solid ${resultado.totalCredito > 0 ? '#86efac' : C.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 4, fontWeight: 700, letterSpacing: 1 }}>POTENCIAL TOTAL DE RECUPERAÇÃO</div>
               <div style={{ fontSize: 36, fontWeight: 900, color: resultado.totalCredito > 0 ? C.green : C.muted }}>{fmtR(resultado.totalCredito)}</div>
               {resultado.totalCredito === 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Nenhuma oportunidade identificada</div>}
             </div>
+
+            {/* PAINEL PGDAS */}
+            {resultado.pgdas && (
+              <div style={{ background: C.white, borderRadius: 14, border: `2px solid ${resultado.pgdas.diferenca_total > 0 ? '#fed7aa' : C.border}`, padding: '20px 24px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.orange }}>📋 PGDAS-D — Análise de Segregação</div>
+                  {resultado.pgdas.diferenca_total > 0 && (
+                    <span style={{ background: '#fff7ed', color: C.orange, border: '1px solid #fed7aa', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>
+                      OPORTUNIDADE IDENTIFICADA
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Receita Bruta Total', valor: fmtR(resultado.pgdas.receita_bruta_total), cor: C.text },
+                    { label: 'Receita Monofásica', valor: fmtR(resultado.pgdas.receita_monofasica), cor: resultado.pgdas.receita_monofasica > 0 ? C.green : C.muted },
+                    { label: 'DAS Recolhido', valor: fmtR(resultado.pgdas.das_recolhido), cor: C.text },
+                    { label: 'DAS Correto Estimado', valor: fmtR(resultado.pgdas.das_correto_estimado), cor: C.green },
+                    { label: 'Diferença (Recuperável)', valor: fmtR(resultado.pgdas.diferenca_total), cor: resultado.pgdas.diferenca_total > 0 ? C.orange : C.muted },
+                    { label: 'Segregou Monofásicos', valor: resultado.pgdas.segregou_monofasicos ? 'Sim' : 'NAO', cor: resultado.pgdas.segregou_monofasicos ? C.green : C.red },
+                  ].map((k, i) => (
+                    <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{k.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {!resultado.pgdas.segregou_monofasicos && (
+                  <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 16px', fontSize: 12, color: '#92400e' }}>
+                    <strong>Atenção:</strong> O PGDAS-D não registrou segregação de receitas monofásicas. Isso significa que o DAS foi calculado sobre a receita total, incluindo produtos cuja tributação já foi recolhida pelo fabricante. É possível solicitar retificação dos períodos não prescritos (últimos 5 anos) e restituição do valor recolhido a maior.
+                  </div>
+                )}
+
+                {resultado.pgdas.competencias && resultado.pgdas.competencias.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>DETALHAMENTO POR COMPETÊNCIA</div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc' }}>
+                            {['Período', 'Receita Bruta', 'Rec. Monofásica', 'DAS Recolhido', 'DAS Correto', 'Diferença'].map(h => (
+                              <th key={h} style={thStyle()}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {resultado.pgdas.competencias.map((c, i) => {
+                            const dif = Math.max(0, (c.das_recolhido || 0) - (c.das_correto_estimado || 0))
+                            return (
+                              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={tdStyle({ fontWeight: 600 })}>{c.periodo}</td>
+                                <td style={tdStyle()}>{fmtR(c.receita_bruta)}</td>
+                                <td style={tdStyle({ color: (c.receita_monofasica || 0) > 0 ? C.green : C.muted })}>{fmtR(c.receita_monofasica)}</td>
+                                <td style={tdStyle()}>{fmtR(c.das_recolhido)}</td>
+                                <td style={tdStyle({ color: C.green })}>{fmtR(c.das_correto_estimado)}</td>
+                                <td style={tdStyle({ fontWeight: 700, color: dif > 0 ? C.orange : C.muted })}>{fmtR(dif)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {erroPGDAS && (
+                  <div style={{ marginTop: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: C.red, fontSize: 12 }}>
+                    ⚠️ {erroPGDAS}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* BLOCO IA */}
             <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
@@ -739,51 +790,32 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
 
               {parecerIA && !loadingIA && (
                 <div style={{ marginTop: 16 }}>
-                  {/* PARECER */}
                   {!mostrarChat && (
                     <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div style={{ color: '#e2e8f0' }}>
-                        {renderMarkdown(parecerIA)}
-                      </div>
+                      <div style={{ color: '#e2e8f0' }}>{renderMarkdown(parecerIA)}</div>
                     </div>
                   )}
-
-                  {/* CHAT */}
                   {mostrarChat && (
                     <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
                       <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {mensagensChat.map((msg, i) => (
                           <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
-                            <div style={{
-                              maxWidth: '80%',
-                              background: msg.role === 'user' ? '#2563eb' : 'rgba(255,255,255,0.1)',
-                              color: '#e2e8f0',
-                              borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                              padding: '10px 14px',
-                              fontSize: 12,
-                              lineHeight: 1.6,
-                            }}>
+                            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? '#2563eb' : 'rgba(255,255,255,0.1)', color: '#e2e8f0', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, lineHeight: 1.6 }}>
                               {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
                             </div>
                           </div>
                         ))}
                         {loadingChat && (
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, color: '#93c5fd' }}>
-                              Consultando...
-                            </div>
+                          <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, color: '#93c5fd' }}>Consultando...</div>
                           </div>
                         )}
                         <div ref={chatFimRef} />
                       </div>
                       <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', display: 'flex', gap: 8 }}>
-                        <input
-                          value={inputChat}
-                          onChange={e => setInputChat(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemChat()}
+                        <input value={inputChat} onChange={e => setInputChat(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemChat()}
                           placeholder="Pergunte sobre o diagnóstico..."
-                          style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }}
-                        />
+                          style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
                         <button onClick={enviarMensagemChat} disabled={loadingChat || !inputChat.trim()}
                           style={{ padding: '10px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loadingChat || !inputChat.trim() ? 'not-allowed' : 'pointer', opacity: loadingChat || !inputChat.trim() ? 0.6 : 1 }}>
                           Enviar
@@ -795,47 +827,50 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
               )}
             </div>
 
-            {/* Tabela NF-e analisadas */}
-            <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📄 NF-e Analisadas</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 800 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc' }}>
-                      <th style={thStyle(60)}>NF</th>
-                      <th style={thStyle(180)}>Emitente</th>
-                      <th style={thStyle(140)}>CNPJ</th>
-                      <th style={thStyle(90)}>Competência</th>
-                      <th style={thStyle(70)}>Tipo</th>
-                      <th style={thStyle(100)}>Valor</th>
-                      <th style={thStyle(80)}>PIS</th>
-                      <th style={thStyle(80)}>COFINS</th>
-                      <th style={thStyle(80)}>ICMS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultado.notasRaw.map((n, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={tdStyle({ fontWeight: 600 })}>{n.nNF || '—'}</td>
-                        <td style={tdStyle()}>{n.emitNome || '—'}</td>
-                        <td style={tdStyle({ color: C.muted, fontSize: 11 })}>{fmtCNPJ(n.emitCNPJ)}</td>
-                        <td style={tdStyle()}>{n.competencia}</td>
-                        <td style={tdStyle()}>
-                          <span style={{ background: n.tipo === 'entrada' ? '#f0fdf4' : '#eff6ff', color: n.tipo === 'entrada' ? C.green : '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
-                            {n.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-                          </span>
-                        </td>
-                        <td style={tdStyle()}>{fmtR(n.totalProd)}</td>
-                        <td style={tdStyle()}>{fmtR(n.totalPIS)}</td>
-                        <td style={tdStyle()}>{fmtR(n.totalCOFINS)}</td>
-                        <td style={tdStyle()}>{fmtR(n.totalICMS)}</td>
+            {/* NF-e analisadas */}
+            {resultado.notasRaw.length > 0 && (
+              <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📄 NF-e Analisadas</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 800 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        <th style={thStyle(60)}>NF</th>
+                        <th style={thStyle(180)}>Emitente</th>
+                        <th style={thStyle(140)}>CNPJ</th>
+                        <th style={thStyle(90)}>Competência</th>
+                        <th style={thStyle(70)}>Tipo</th>
+                        <th style={thStyle(100)}>Valor</th>
+                        <th style={thStyle(80)}>PIS</th>
+                        <th style={thStyle(80)}>COFINS</th>
+                        <th style={thStyle(80)}>ICMS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {resultado.notasRaw.map((n, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={tdStyle({ fontWeight: 600 })}>{n.nNF || '—'}</td>
+                          <td style={tdStyle()}>{n.emitNome || '—'}</td>
+                          <td style={tdStyle({ color: C.muted, fontSize: 11 })}>{fmtCNPJ(n.emitCNPJ)}</td>
+                          <td style={tdStyle()}>{n.competencia}</td>
+                          <td style={tdStyle()}>
+                            <span style={{ background: n.tipo === 'entrada' ? '#f0fdf4' : '#eff6ff', color: n.tipo === 'entrada' ? C.green : '#2563eb', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
+                              {n.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                            </span>
+                          </td>
+                          <td style={tdStyle()}>{fmtR(n.totalProd)}</td>
+                          <td style={tdStyle()}>{fmtR(n.totalPIS)}</td>
+                          <td style={tdStyle()}>{fmtR(n.totalCOFINS)}</td>
+                          <td style={tdStyle()}>{fmtR(n.totalICMS)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
 
+            {/* Teses XML */}
             {[
               { lista: resultado.monofasicos, titulo: '💊 Monofásicos PIS/COFINS', cor: '#7c3aed', campos: ['produto', 'ncm', 'vProd', 'credito'] },
               { lista: resultado.exclusaoICMS, titulo: '⚖️ Exclusão ICMS — STF Tema 69', cor: '#0891b2', campos: ['competencia', 'vICMS', 'credito'] },
@@ -874,32 +909,35 @@ Responda à última pergunta do Contador de forma técnica, precisa e prática.`
               </div>
             ))}
 
-            <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📅 Por Competência</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc' }}>
-                      {['Competência', 'NF-e', 'Receita', 'PIS/COFINS Pago', 'Monofásico', 'Crédito'].map(h => (
-                        <th key={h} style={thStyle()}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultado.resumoCompetencias.map((comp, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={tdStyle({ fontWeight: 600 })}>{comp.competencia}</td>
-                        <td style={tdStyle()}>{comp.nfes_analisadas}</td>
-                        <td style={tdStyle()}>{fmtR(comp.receita_bruta)}</td>
-                        <td style={tdStyle()}>{fmtR(comp.tributo_pago)}</td>
-                        <td style={tdStyle({ color: comp.receita_monofasica > 0 ? C.green : C.muted })}>{fmtR(comp.receita_monofasica)}</td>
-                        <td style={tdStyle({ color: comp.credito > 0 ? C.green : C.muted, fontWeight: comp.credito > 0 ? 700 : 400 })}>{fmtR(comp.credito)}</td>
+            {/* Por Competência */}
+            {resultado.resumoCompetencias.length > 0 && (
+              <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>📅 Por Competência</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        {['Competência', 'NF-e', 'Receita', 'PIS/COFINS Pago', 'Monofásico', 'Crédito'].map(h => (
+                          <th key={h} style={thStyle()}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {resultado.resumoCompetencias.map((comp, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={tdStyle({ fontWeight: 600 })}>{comp.competencia}</td>
+                          <td style={tdStyle()}>{comp.nfes_analisadas}</td>
+                          <td style={tdStyle()}>{fmtR(comp.receita_bruta)}</td>
+                          <td style={tdStyle()}>{fmtR(comp.tributo_pago)}</td>
+                          <td style={tdStyle({ color: comp.receita_monofasica > 0 ? C.green : C.muted })}>{fmtR(comp.receita_monofasica)}</td>
+                          <td style={tdStyle({ color: comp.credito > 0 ? C.green : C.muted, fontWeight: comp.credito > 0 ? 700 : 400 })}>{fmtR(comp.credito)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
 
             {erro && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: C.red, fontSize: 13, marginBottom: 16 }}>⚠️ {erro}</div>}
 
