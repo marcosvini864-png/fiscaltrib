@@ -560,7 +560,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     }))])
   }
 
-  async function processarPDFsPGDAS(arquivosPDF, session) {
+  async function processarPDFsPGDAS(arquivosPDF) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('Sessão expirada.')
     const resultados = []
     for (const arq of arquivosPDF) {
       try {
@@ -639,7 +641,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       if (arquivosPDF.length > 0) {
         setLoadingPGDAS(true)
         try {
-          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF, session)
+          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF)
           pgdasConsolidado = consolidarPGDAS(resultadosPGDAS)
         } catch (e) {
           setErroPGDAS('Erro ao processar PDF: ' + e.message)
