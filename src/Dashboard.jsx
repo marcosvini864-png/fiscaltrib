@@ -424,32 +424,34 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
         {/* Linha 2 — navegação por tese (só aparece no módulo diagnóstico) */}
         {module === 'diagnostico' && (
-          <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',paddingLeft:8}}>
-            {TESES_DIAGNOSTICO.map(tese => {
-              const ativa = teseDiagnostico === tese.id
-              return (
-                <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
-                  style={{
-                    display:'flex', alignItems:'center', gap:6,
-                    padding:'10px 16px',
-                    background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
-                    border:'none',
-                    borderBottom: ativa ? '2px solid #fff' : '2px solid transparent',
-                    color: ativa ? '#fff' : 'rgba(255,255,255,0.6)',
-                    fontSize:12,
-                    fontWeight: ativa ? 700 : 400,
-                    cursor:'pointer',
-                    whiteSpace:'nowrap',
-                    flexShrink:0,
-                    transition:'all 0.15s',
-                  }}>
-                  <span>{tese.icon}</span>
-                  <span>{tese.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+     <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box'}}>
+    {TESES_DIAGNOSTICO.map(tese => {
+      const ativa = teseDiagnostico === tese.id
+      return (
+        <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
+          style={{
+            display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+            padding:'11px 20px',
+            background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
+            border:'none',
+            borderBottom: ativa ? '2px solid #fff' : '2px solid transparent',
+            color: '#fff',
+            fontSize:13,
+            fontWeight: ativa ? 700 : 400,
+            cursor:'pointer',
+            whiteSpace:'nowrap',
+            flexShrink:0,
+            transition:'all 0.15s',
+            opacity: ativa ? 1 : 0.75,
+          }}>
+          <span>{tese.icon}</span>
+          <span>{tese.label}</span>
+        </button>
+      )
+    })}
+    </div>
+    )}
+      </div>
       </div>
 
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
