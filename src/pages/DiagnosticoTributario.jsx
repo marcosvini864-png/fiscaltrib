@@ -571,7 +571,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             system: 'Você é um especialista em Simples Nacional e PGDAS-D. Extraia dados fiscais com precisão.',
             messages: [{
               role: 'user',
