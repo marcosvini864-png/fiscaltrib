@@ -717,7 +717,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ mensagem: prompt, modelo: 'llama-3.3-70b-versatile' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'llama-3.3-70b-versatile' }),
       })
       if (!resp.ok) throw new Error('Erro na chamada à IA')
       const json = await resp.json()
@@ -747,7 +747,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ mensagem: promptChat, modelo: 'llama-3.3-70b-versatile' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: promptChat }], model: 'llama-3.3-70b-versatile' }),
       })
       if (!resp.ok) throw new Error('Erro na chamada à IA')
       const json = await resp.json()
