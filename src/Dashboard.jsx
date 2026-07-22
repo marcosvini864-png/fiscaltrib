@@ -447,13 +447,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           <span>{tese.icon}</span>
           <span>{tese.label}</span>
         </button>
-      )
-    })}
-    </div>
-    )}
-      </div>
-      </div>
-
+        )
+        })}
+          </div>
+         )}
+   
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
         <Sidebar module={module} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} isAdmin={!!onAdmin} isMobile={isMobile} menuAberto={menuAberto} setMenuAberto={setMenuAberto} moduloPermitido={moduloPermitido} />
 
