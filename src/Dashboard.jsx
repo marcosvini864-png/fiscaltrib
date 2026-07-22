@@ -432,17 +432,17 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   style={{
                     display:'flex', alignItems:'center', justifyContent:'center', gap:6,
                     padding:'11px 20px',
-                    background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
+                    background: 'none',
                     border:'none',
-                    borderBottom: ativa ? '2px solid #fff' : '2px solid transparent',
+                    borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
                     color: '#fff',
                     fontSize:13,
-                    fontWeight: ativa ? 700 : 400,
                     cursor:'pointer',
                     whiteSpace:'nowrap',
                     flexShrink:0,
                     transition:'all 0.15s',
-                    opacity: ativa ? 1 : 0.75,
+                    opacity: ativa ? 1 : 0.55,
+                    fontWeight: ativa ? 800 : 400,
                   }}>
                   {tese.label}
                 </button>
