@@ -1024,8 +1024,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             <div style={{ marginTop: 16, textAlign: 'center', color: '#93c5fd', fontSize: 13 }}>Consultando especialista tributário...</div>
           )}
           {parecerIAAberto && !loadingIAAberto && (
-            <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              {renderMarkdown(parecerIAAberto, '#e2e8f0')}
+            <div style={{ marginTop: 16, background: '#EEF2F7', borderRadius: 10, padding: '16px 20px', border: '1px solid #C8D0DC' }}>
+              {renderMarkdown(parecerIAAberto, '#1E293B')}
             </div>
           )}
         </div>
