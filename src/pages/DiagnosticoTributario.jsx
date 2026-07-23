@@ -1444,8 +1444,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                           <td style={tdStyle()}><span style={{ background: e.risco === 'baixo' ? '#f0fdf4' : '#fef2f2', color: e.risco === 'baixo' ? C.green : C.red, padding: '2px 6px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>{e.risco}</span></td>
                           <td style={tdStyle()}>
                             <div style={{ display: 'flex', gap: 4 }}>
-                              <button onClick={() => imprimirRelatorio(null, [e])} style={{ padding: '3px 8px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>impr.</button>
-                              <button onClick={() => excluirEntrada(e.id)} style={{ padding: '3px 8px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>excl.</button>
+                              <button onClick={() => imprimirRelatorio(null, [e])} style={{ padding: '4px 10px', background: '#f0fdf4', color: C.green, border: `1px solid ${C.green}`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🖨️ impr.</button>
+                              <button onClick={() => excluirEntrada(e.id)} style={{ padding: '4px 10px', background: '#fef2f2', color: C.red, border: '1px solid #fecaca', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑️ excl.</button>
                             </div>
                           </td>
                         </tr>
