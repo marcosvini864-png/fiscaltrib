@@ -1245,11 +1245,11 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                 </div>
               )}
                   {mostrarChat && (
-                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                      <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#EEF2F7', borderRadius: 10, border: '1px solid #C8D0DC', overflow: 'hidden' }}>
+                      <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, background: '#EEF2F7' }}>
                         {mensagensChat.map((msg, i) => (
                           <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
-                            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? '#2563eb' : 'rgba(255,255,255,0.1)', color: '#e2e8f0', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, lineHeight: 1.6 }}>
+                            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? '#2563eb' : '#ffffff', color: msg.role === 'user' ? '#ffffff' : '#1E293B', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, lineHeight: 1.6 }}>
                               {msg.role === 'assistant' ? renderMarkdown(msg.content, '#e2e8f0') : msg.content}
                             </div>
                           </div>
