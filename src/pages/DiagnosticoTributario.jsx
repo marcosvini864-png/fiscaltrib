@@ -1012,7 +1012,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
-              <div style={{ fontSize: 12, color: '#93c5fd' }}>{parecerIAAberto ? 'Parecer salvo — você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>
+              <div style={{ fontSize: 14, color: '#ffffff', fontWeight: 600 }}>{parecerIAAberto ? 'Parecer salvo — você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>>{parecerIAAberto ? 'Parecer salvo — você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>
             </div>
             <button onClick={reanalisarIAAberto} disabled={loadingIAAberto}
               style={{ padding: '10px 20px', background: loadingIAAberto ? 'rgba(255,255,255,0.2)' : '#fff', color: loadingIAAberto ? '#93c5fd' : C.navy, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: loadingIAAberto ? 'not-allowed' : 'pointer' }}>
@@ -1240,10 +1240,10 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               {parecerIA && !loadingIA && (
                 <div style={{ marginTop: 16 }}>
                   {!mostrarChat && (
-                    <div style={{ background: '#EEF2F7', borderRadius: 10, padding: '20px 24px', border: '1px solid #C8D0DC' }}>
-                    {renderMarkdown(parecerIA, '#1E293B')}
-                    </div>
-                  )}
+                  <div style={{ background: '#EEF2F7', borderRadius: 10, padding: '20px 24px', border: '1px solid #C8D0DC' }}>
+                  {renderMarkdown(parecerIA, '#1E293B')}
+                </div>
+              )}
                   {mostrarChat && (
                     <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
                       <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
