@@ -564,7 +564,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const prompt = montarContextoIA(resultado, clienteAberto, diagnosticoAberto.regime)
       const { data: { session } } = await supabase.auth.getSession()
       const resposta = await chamarIA(session, {
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
       })
       setParecerIAAberto(resposta)
