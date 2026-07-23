@@ -124,6 +124,22 @@ async function extrairTextoPDF(file) {
   return textoTotal
 }
 
+async function chamarIA(session, body) {
+  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify(body)
+  })
+  const data = await resp.json()
+  if (!resp.ok || data?.error) {
+    const msg = typeof data?.error === 'string' ? data.error : data?.error?.message || `Erro HTTP ${resp.status}`
+    console.error('ERRO API:', data)
+    throw new Error('Erro na IA: ' + msg)
+  }
+  console.log('RESPOSTA API:', data)
+  return data?.resposta ?? data?.resultado ?? data?.content ?? ''
+}
+
 function montarContextoIA(resultado, cliente, regime) {
   const teses = [
     ...(resultado.monofasicos.length > 0 ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : []),
