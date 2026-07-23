@@ -204,16 +204,16 @@ Competências próximas da prescrição e datas críticas.
 4 a 6 perguntas que o contador deve fazer ao cliente.`
 }
 
-function renderMarkdown(texto) {
+function renderMarkdown(texto, cor = C.text) {
   if (!texto) return null
   return texto.split('\n').map((linha, i) => {
     if (linha.startsWith('## '))
-      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.navy, marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{linha.replace('## ', '')}</div>
+      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.2)' }}>{linha.replace('## ', '')}</div>
     if (linha.startsWith('- ') || linha.startsWith('• '))
-      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: C.navy, fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
+      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: cor, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: '#7CC4FF', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
     if (linha.trim() === '')
       return <div key={i} style={{ height: 6 }} />
-    return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
+    return <div key={i} style={{ fontSize: 12, color: cor, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
   })
 }
 
@@ -1124,7 +1124,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                 <div style={{ marginTop: 16 }}>
                   {!mostrarChat && (
                     <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div style={{ color: '#e2e8f0' }}>{renderMarkdown(parecerIA)}</div>
+                      <div style={{ color: '#e2e8f0' }}>{renderMarkdown(parecerIA, '#e2e8f0')}</div>
                     </div>
                   )}
                   {mostrarChat && (
