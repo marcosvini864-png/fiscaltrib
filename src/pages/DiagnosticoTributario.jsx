@@ -94,6 +94,36 @@ function parsePGDASResposta(texto) {
   }
 }
 
+async function carregarPDFJS() {
+  const PDFJS_VERSION = '3.11.174'
+  if (!window['pdfjs-dist/build/pdf']) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`
+      script.onload = resolve
+      script.onerror = reject
+      document.head.appendChild(script)
+    })
+  }
+  const pdfjsLib = window['pdfjs-dist/build/pdf']
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+  return pdfjsLib
+}
+
+async function extrairTextoPDF(file) {
+  const pdfjsLib = await carregarPDFJS()
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  let textoTotal = ''
+  for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+    const page = await pdf.getPage(i)
+    const textContent = await page.getTextContent()
+    const texto = textContent.items.map(item => item.str).join(' ')
+    if (texto.trim()) textoTotal += `\n--- PÁGINA ${i} ---\n${texto}`
+  }
+  return textoTotal
+}
+
 function montarContextoIA(resultado, cliente, regime) {
   const teses = [
     ...(resultado.monofasicos.length > 0 ? [regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO'] : []),
@@ -560,40 +590,45 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     }))])
   }
 
-  async function processarPDFsPGDAS(arquivosPDF) {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('Sessão expirada.')
-    const resultados = []
-    for (const arq of arquivosPDF) {
-      try {
-        const base64 = await fileToBase64(arq.file)
-        const resp = await fetch(`https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            model: 'gemini-3.5-flash',
-            system: 'Você é um especialista em Simples Nacional e PGDAS-D. Extraia dados fiscais com precisão.',
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
-                { type: 'text', text: promptPGDAS(regime) },
-              ],
-            }],
-          }),
+  async function processarPDFsPGDAS(arquivosPDF, session) {
+  const resultados = []
+  for (const arq of arquivosPDF) {
+    try {
+      const texto = await extrairTextoPDF(arq.file)
+      let resposta
+
+      if (texto && texto.trim().length >= 100) {
+        console.log(`${arq.nome} — PDF pesquisável, usando Groq`)
+        resposta = await chamarIA(session, {
+          model: 'llama-3.3-70b-versatile',
+          system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
+          messages: [{ role: 'user', content: `${promptPGDAS(regime)}\n\nTEXTO DO DOCUMENTO:\n${texto.slice(0, 12000)}` }]
         })
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const json = await resp.json()
-        console.log('GEMINI RESPOSTA:', json.resposta)
-        const dados = parsePGDASResposta(json.resposta || '')
-        console.log('DADOS PARSEADOS:', dados)
-        if (dados) resultados.push({ arquivo: arq.nome, dados })
-      } catch (e) {
-        console.warn(`Erro ao processar ${arq.nome}:`, e.message)
+      } else {
+        console.log(`${arq.nome} — PDF escaneado, usando Gemini`)
+        const base64 = await fileToBase64(arq.file)
+        resposta = await chamarIA(session, {
+          model: 'gemini-2.5-flash',
+          system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
+              { type: 'text', text: promptPGDAS(regime) }
+            ]
+          }]
+        })
       }
+
+      console.log('RESPOSTA PGDAS:', resposta)
+      const dados = parsePGDASResposta(typeof resposta === 'string' ? resposta : JSON.stringify(resposta))
+      if (dados) resultados.push({ arquivo: arq.nome, dados })
+    } catch (e) {
+      console.warn(`Erro ao processar ${arq.nome}:`, e.message)
     }
-    return resultados
   }
+  return resultados
+}
 
   function consolidarPGDAS(resultadosPGDAS) {
     if (!resultadosPGDAS.length) return null
@@ -641,7 +676,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       if (arquivosPDF.length > 0) {
         setLoadingPGDAS(true)
         try {
-          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF)
+          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF, session)
           pgdasConsolidado = consolidarPGDAS(resultadosPGDAS)
         } catch (e) {
           setErroPGDAS('Erro ao processar PDF: ' + e.message)
