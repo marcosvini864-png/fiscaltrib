@@ -209,12 +209,25 @@ function renderMarkdown(texto, cor = C.text) {
   if (!texto) return null
   return texto.split('\n').map((linha, i) => {
     if (linha.startsWith('## '))
-      return <div key={i} style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginTop: 20, marginBottom: 8, paddingBottom: 4, borderBottom: '2px solid #C8D0DC' }}>{linha.replace('## ', '')}</div>
+      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.2)' }}>{linha.replace('## ', '')}</div>
     if (linha.startsWith('- ') || linha.startsWith('• '))
-      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: cor, lineHeight: 2, marginBottom: 6 }}><span style={{ color: '#0B1F4D', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
+      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: cor, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: '#7CC4FF', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
     if (linha.trim() === '')
-      return <div key={i} style={{ height: 8 }} />
-    return <div key={i} style={{ fontSize: 14, color: cor, lineHeight: 2, marginBottom: 6 }}>{linha}</div>
+      return <div key={i} style={{ height: 6 }} />
+    return <div key={i} style={{ fontSize: 12, color: cor, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
+  })
+}
+
+function renderMarkdownClaro(texto) {
+  if (!texto) return null
+  return texto.split('\n').map((linha, i) => {
+    if (linha.startsWith('## '))
+      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.navy, marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{linha.replace('## ', '')}</div>
+    if (linha.startsWith('- ') || linha.startsWith('• '))
+      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: C.navy, fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
+    if (linha.trim() === '')
+      return <div key={i} style={{ height: 6 }} />
+    return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
   })
 }
 
@@ -1012,7 +1025,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
-              <div style={{ fontSize: 14, color: '#ffffff', fontWeight: 600 }}>{parecerIAAberto ? 'Parecer salvo - você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>
+              <div style={{ fontSize: 12, color: '#93c5fd' }}>{parecerIAAberto ? 'Parecer salvo — você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>
             </div>
             <button onClick={reanalisarIAAberto} disabled={loadingIAAberto}
               style={{ padding: '10px 20px', background: loadingIAAberto ? 'rgba(255,255,255,0.2)' : '#fff', color: loadingIAAberto ? '#93c5fd' : C.navy, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: loadingIAAberto ? 'not-allowed' : 'pointer' }}>
@@ -1024,8 +1037,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             <div style={{ marginTop: 16, textAlign: 'center', color: '#93c5fd', fontSize: 13 }}>Consultando especialista tributário...</div>
           )}
           {parecerIAAberto && !loadingIAAberto && (
-            <div style={{ marginTop: 16, background: '#EEF2F7', borderRadius: 10, padding: '16px 20px', border: '1px solid #C8D0DC' }}>
-              {renderMarkdown(parecerIAAberto, '#1E293B')}
+            <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              {renderMarkdown(parecerIAAberto, '#e2e8f0')}
             </div>
           )}
         </div>
@@ -1211,7 +1224,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
-                  <div style={{ fontSize: 14, color: '#ffffff', fontWeight: 600 }}>Parecer jurídico automático · Estratégia · Alertas de prazo · Perguntas ao cliente</div>
+                  <div style={{ fontSize: 12, color: '#93c5fd' }}>Parecer jurídico automático · Estratégia · Alertas de prazo · Perguntas ao cliente</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {parecerIA && (
@@ -1240,16 +1253,16 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               {parecerIA && !loadingIA && (
                 <div style={{ marginTop: 16 }}>
                   {!mostrarChat && (
-                  <div style={{ background: '#EEF2F7', borderRadius: 10, padding: '20px 24px', border: '1px solid #C8D0DC' }}>
-                  {renderMarkdown(parecerIA, '#1E293B')}
-                </div>
-              )}
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      {renderMarkdown(parecerIA, '#e2e8f0')}
+                    </div>
+                  )}
                   {mostrarChat && (
-                    <div style={{ background: '#EEF2F7', borderRadius: 10, border: '1px solid #C8D0DC', overflow: 'hidden' }}>
-                      <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, background: '#EEF2F7' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {mensagensChat.map((msg, i) => (
                           <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
-                            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? '#2563eb' : '#ffffff', color: msg.role === 'user' ? '#ffffff' : '#1E293B', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, lineHeight: 1.6 }}>
+                            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? '#2563eb' : 'rgba(255,255,255,0.1)', color: '#e2e8f0', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px', fontSize: 12, lineHeight: 1.6 }}>
                               {msg.role === 'assistant' ? renderMarkdown(msg.content, '#e2e8f0') : msg.content}
                             </div>
                           </div>
