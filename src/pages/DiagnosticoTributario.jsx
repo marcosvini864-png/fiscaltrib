@@ -86,9 +86,18 @@ Se algum campo não estiver no documento, use null. Valores monetários sempre c
 
 function parsePGDASResposta(texto) {
   try {
-    const jsonMatch = texto.match(/\{[\s\S]*\}/)
+    const textoLimpo = String(texto)
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim()
+    const jsonMatch = textoLimpo.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('JSON não encontrado na resposta')
-    return JSON.parse(jsonMatch[0])
+    let jsonStr = jsonMatch[0]
+    jsonStr = jsonStr.replace(/[\u0000-\u001F\u007F]/g, (c) => {
+      if (c === '\n' || c === '\r' || c === '\t') return ' '
+      return ''
+    })
+    return JSON.parse(jsonStr)
   } catch (e) {
     console.error('Erro ao parsear PGDAS:', e)
     return null
