@@ -214,7 +214,7 @@ function renderMarkdown(texto, cor = C.text) {
       return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: cor, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: '#7CC4FF', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
     if (linha.trim() === '')
       return <div key={i} style={{ height: 6 }} />
-    return <div key={i} style={{ fontSize: 12, color: cor, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
+    return <div key={i} style={{ fontSize: 13, color: cor, lineHeight: 2, marginBottom: 6 }}>{linha}</div>
   })
 }
 
@@ -1253,8 +1253,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
               {parecerIA && !loadingIA && (
                 <div style={{ marginTop: 16 }}>
                   {!mostrarChat && (
-                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      {renderMarkdown(parecerIA, '#e2e8f0')}
+                    <div style={{ background: '#EEF2F7', borderRadius: 10, padding: '20px 24px', border: '1px solid #C8D0DC' }}>
+                    {renderMarkdown(parecerIA, '#1E293B')}
                     </div>
                   )}
                   {mostrarChat && (
