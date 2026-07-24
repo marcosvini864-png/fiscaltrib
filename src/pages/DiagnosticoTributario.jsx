@@ -1289,7 +1289,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                       <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', display: 'flex', gap: 8 }}>
                         <input value={inputChat} onChange={e => setInputChat(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemChat()}
                           placeholder="Pergunte sobre o diagnóstico..."
-                          style={{ flex: 1, background: '#ffffff', border: '1px solid #2563eb', borderRadius: 8, padding: '10px 14px', color: '#1E293B', fontSize: 14, outline: 'none' }}
+                          style={{ flex: 1, background: '#ffffff', border: '1px solid #2563eb', borderRadius: 8, padding: '10px 14px', color: '#1E293B', fontSize: 14, outline: 'none' }} />
                         <button onClick={enviarMensagemChat} disabled={loadingChat || !inputChat.trim()}
                           style={{ padding: '10px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loadingChat || !inputChat.trim() ? 'not-allowed' : 'pointer', opacity: loadingChat || !inputChat.trim() ? 0.6 : 1 }}>
                           Enviar
