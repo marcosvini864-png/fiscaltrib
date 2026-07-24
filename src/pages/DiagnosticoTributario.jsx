@@ -696,9 +696,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         if (texto && texto.trim().length >= 100) {
           console.log(`${arq.nome} — PDF pesquisável, usando Groq`)
           resposta = await chamarIA(session, {
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-8b-instant',
             system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-            messages: [{ role: 'user', content: `${promptPGDAS(regime)}\n\nTEXTO DO DOCUMENTO:\n${texto.slice(0, 12000)}` }]
+            messages: [{ role: 'user', content: `${promptPGDAS(regime)} TEXTO DO DOCUMENTO: ${texto.slice(0, 12000)}` }]
           })
         } else {
           console.log(`${arq.nome} — PDF escaneado, usando Gemini`)
