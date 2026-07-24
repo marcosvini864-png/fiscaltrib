@@ -735,7 +735,14 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const receitaTributavel = (d.receita_bruta_total || 0) - (d.receita_monofasica || 0) - (d.receita_substituicao_tributaria || 0)
       totais.das_correto_estimado += receitaTributavel * 0.06
     }
-    totais.diferenca_total = Math.max(0, totais.das_recolhido - totais.das_correto_estimado)
+    // So há diferença recuperável se NÃO segregou E tem receita monofasica/ST identificada
+    if (totais.segregou_monofasicos === false && totais.receita_monofasica > 0) {
+      totais.diferenca_total = Math.max(0, totais.das_recolhido - totais.das_correto_estimado)
+    } else if (totais.segregou_st === false && totais.receita_substituicao_tributaria > 0) {
+      totais.diferenca_total = Math.max(0, totais.das_recolhido - totais.das_correto_estimado)
+    } else {
+      totais.diferenca_total = 0
+    }
     return totais
   }
 
