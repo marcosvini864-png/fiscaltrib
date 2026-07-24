@@ -1274,7 +1274,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                     </div>
                   )}
                   {mostrarChat && (
-                    <<div style={{ background: '#EEF2F7', borderRadius: 10, border: '1px solid #C8D0DC', overflow: 'hidden' }}>
+                    <div style={{ background: '#EEF2F7', borderRadius: 10, border: '1px solid #C8D0DC', overflow: 'hidden' }}>
                       <div style={{ height: 360, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {mensagensChat.map((msg, i) => (
                           <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
