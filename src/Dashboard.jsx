@@ -58,7 +58,7 @@ const TESES_DIAGNOSTICO = [
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importacoes','Checklist'] },
-  diagnostico:  { label:'Diagnostico Tributario',  icon:'🔍', tabs:[] },
+  diagnostico:  { label:'Dinheiro Recuperavel',  icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
