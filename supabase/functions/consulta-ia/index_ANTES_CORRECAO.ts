@@ -28,6 +28,7 @@ serve(async (req) => {
       const geminiModel = model || "gemini-2.0-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
 
+      // Converte mensagens no formato Gemini
       const contents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: Array.isArray(m.content)
@@ -87,27 +88,13 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        max_completion_tokens: 2000,
-        temperature: 0,
+        max_tokens: 4000,
         messages: groqMessages,
       }),
     });
 
     const data = await response.json();
-
-    console.log("STATUS GROQ:", response.status);
-    console.log("RESPOSTA GROQ:", JSON.stringify(data));
-
-    if (!response.ok) {
-      const detalheErro = data?.error?.message || data?.error || `Erro HTTP ${response.status}`;
-      throw new Error(`Groq respondeu com erro ${response.status}: ${detalheErro}`);
-    }
-
-    const resposta = data?.choices?.[0]?.message?.content;
-
-    if (!resposta) {
-      throw new Error(`Groq respondeu sem conteúdo. Resposta completa: ${JSON.stringify(data)}`);
-    }
+    const resposta = data.choices?.[0]?.message?.content || "Sem resposta.";
 
     return new Response(
       JSON.stringify({ resposta }),
@@ -115,10 +102,9 @@ serve(async (req) => {
     );
 
   } catch (err) {
-    const mensagemErro = err instanceof Error ? err.message : String(err);
-    console.error("ERRO CONSULTA-IA:", mensagemErro);
+    console.error("Erro:", err.message);
     return new Response(
-      JSON.stringify({ error: mensagemErro }),
+      JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

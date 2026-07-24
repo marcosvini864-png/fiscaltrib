@@ -28,6 +28,7 @@ serve(async (req) => {
       const geminiModel = model || "gemini-2.0-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
 
+      // Converte mensagens no formato Gemini
       const contents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: Array.isArray(m.content)
@@ -86,40 +87,65 @@ serve(async (req) => {
         "Authorization": `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        max_completion_tokens: 2000,
-        temperature: 0,
-        messages: groqMessages,
-      }),
-    });
+  model: "llama-3.3-70b-versatile",
+  max_completion_tokens: 2000,
+  temperature: 0,
+  response_format: {
+    type: "json_object",
+  },
+  messages: groqMessages,
+}),
 
     const data = await response.json();
 
-    console.log("STATUS GROQ:", response.status);
-    console.log("RESPOSTA GROQ:", JSON.stringify(data));
+console.log("STATUS GROQ:", response.status);
+console.log("RESPOSTA GROQ:", JSON.stringify(data));
 
-    if (!response.ok) {
-      const detalheErro = data?.error?.message || data?.error || `Erro HTTP ${response.status}`;
-      throw new Error(`Groq respondeu com erro ${response.status}: ${detalheErro}`);
-    }
+if (!response.ok) {
+  const detalheErro =
+    data?.error?.message ||
+    data?.error ||
+    `Erro HTTP ${response.status}`;
 
-    const resposta = data?.choices?.[0]?.message?.content;
+  throw new Error(
+    `Groq respondeu com erro ${response.status}: ${detalheErro}`
+  );
+}
 
-    if (!resposta) {
-      throw new Error(`Groq respondeu sem conteúdo. Resposta completa: ${JSON.stringify(data)}`);
-    }
+const resposta = data?.choices?.[0]?.message?.content;
 
-    return new Response(
-      JSON.stringify({ resposta }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+if (!resposta) {
+  throw new Error(
+    `Groq respondeu sem conteúdo. Resposta completa: ${JSON.stringify(data)}`
+  );
+}
+
+return new Response(
+  JSON.stringify({ resposta }),
+  {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  }
+);
 
   } catch (err) {
-    const mensagemErro = err instanceof Error ? err.message : String(err);
-    console.error("ERRO CONSULTA-IA:", mensagemErro);
-    return new Response(
-      JSON.stringify({ error: mensagemErro }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
+  const mensagemErro =
+    err instanceof Error ? err.message : String(err);
+
+  console.error("ERRO CONSULTA-IA:", mensagemErro);
+
+  return new Response(
+    JSON.stringify({ error: mensagemErro }),
+    {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
 });
