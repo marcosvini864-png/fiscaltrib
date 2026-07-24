@@ -1040,8 +1040,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
         <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
-              <div style={{ fontSize: 12, color: '#93c5fd' }}>{parecerIAAberto ? 'Parecer salvo — você pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnóstico'}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🛡️ Inteligência Tributária</div>
+              <div style={{ fontSize: 15, color: '#ffffff', fontWeight: 600 }}>{parecerIAAberto ? 'Parecer salvo - voce pode reanalisar a qualquer momento' : 'Nenhum parecer salvo para este diagnostico'}</div>
             </div>
             <button onClick={reanalisarIAAberto} disabled={loadingIAAberto}
               style={{ padding: '10px 20px', background: loadingIAAberto ? 'rgba(255,255,255,0.2)' : '#fff', color: loadingIAAberto ? '#93c5fd' : C.navy, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: loadingIAAberto ? 'not-allowed' : 'pointer' }}>
@@ -1239,7 +1239,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
             <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🤖 Inteligência Tributária</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🛡️ Inteligência Tributária</div>
                   <div style={{ fontSize: 12, color: '#93c5fd' }}>Parecer jurídico automático · Estratégia · Alertas de prazo · Perguntas ao cliente</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1289,7 +1289,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
                       <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', display: 'flex', gap: 8 }}>
                         <input value={inputChat} onChange={e => setInputChat(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && enviarMensagemChat()}
                           placeholder="Pergunte sobre o diagnóstico..."
-                          style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
+                          style={{ flex: 1, background: '#ffffff', border: '1px solid #2563eb', borderRadius: 8, padding: '10px 14px', color: '#1E293B', fontSize: 14, outline: 'none' }}
                         <button onClick={enviarMensagemChat} disabled={loadingChat || !inputChat.trim()}
                           style={{ padding: '10px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loadingChat || !inputChat.trim() ? 'not-allowed' : 'pointer', opacity: loadingChat || !inputChat.trim() ? 0.6 : 1 }}>
                           Enviar
