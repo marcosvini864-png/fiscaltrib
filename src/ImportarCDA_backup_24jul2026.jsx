@@ -266,8 +266,7 @@ async function analisarComIA(file) {
   const { data: { session } } = await supabase.auth.getSession()
   console.log('Tentando extração de texto direto...')
   const texto = await extrairTextoPDF(file)
-  console.log('Caracteres extraídos pelo PDF.js:', texto?.trim().length || 0)
-  if (texto && texto.trim().length >= 50) {
+  if (texto && texto.trim().length >= 100) {
     console.log('PDF com texto pesquisável — usando Groq textual')
     return analisarTextoComIA(texto, session)
   }
