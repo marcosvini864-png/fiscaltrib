@@ -93,9 +93,13 @@ function parsePGDASResposta(texto) {
     const jsonMatch = textoLimpo.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('JSON não encontrado na resposta')
     let jsonStr = jsonMatch[0]
-    jsonStr = jsonStr.replace(/:\s*"([^"]*)"/g, (match, p1) => {
-      return ': "' + p1.replace(/\n/g, ' ').replace(/\r/g, '') + '"'
-    })
+    // Abordagem: parsear linha por linha reconstruindo JSON válido
+    jsonStr = jsonStr
+      .split('\n')
+      .map(l => l.trimEnd())
+      .join(' ')
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
     return JSON.parse(jsonStr)
   } catch (e) {
     console.error('Erro ao parsear PGDAS:', e)
