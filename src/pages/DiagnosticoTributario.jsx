@@ -93,9 +93,8 @@ function parsePGDASResposta(texto) {
     const jsonMatch = textoLimpo.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('JSON não encontrado na resposta')
     let jsonStr = jsonMatch[0]
-    jsonStr = jsonStr.replace(/[\u0000-\u001F\u007F]/g, (c) => {
-      if (c === '\n' || c === '\r' || c === '\t') return ' '
-      return ''
+    jsonStr = jsonStr.replace(/:\s*"([^"]*)"/g, (match, p1) => {
+      return ': "' + p1.replace(/\n/g, ' ').replace(/\r/g, '') + '"'
     })
     return JSON.parse(jsonStr)
   } catch (e) {
@@ -1156,7 +1155,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
 
         {etapa === 'processando' && (
           <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: 60, textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+        <div className="spinner" />
+        </div>
             <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 8 }}>Analisando documentos...</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Cruzando NCMs, competências e teses tributárias</div>
             {loadingPGDAS && (
