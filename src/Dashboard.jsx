@@ -447,7 +447,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   {tese.label}
                 </button>
               )
-            })}
+        ))}
           </div>
         )}
 
