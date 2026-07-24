@@ -426,28 +426,30 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
              <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy,paddingLeft:16}}>
              <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
               {TESES_DIAGNOSTICO.map(tese => {
-  const ativa = teseDiagnostico === tese.id
-  return (
-    <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
-      style={{
-        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-        padding:'11px 20px',
-        background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
-        border:'none',
-        borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
-        color: '#fff',
-        fontSize:13,
-        cursor:'pointer',
-        whiteSpace:'nowrap',
-        flexShrink:0,
-        transition:'all 0.15s',
-        opacity: 1,
-        fontWeight: ativa ? 800 : 400,
-      }}>
-      {tese.label}
-    </button>
-  )
-})}
+              const ativa = teseDiagnostico === tese.id
+              return (
+                <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
+                  style={{
+                   display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                   padding:'11px 20px',
+                   background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
+                   border:'none',
+                   borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
+                   color: '#fff',
+                   fontSize:13,
+                   cursor:'pointer',
+                   whiteSpace:'nowrap',
+                   flexShrink:0,
+                   transition:'all 0.15s',
+                   opacity: 1,
+                   fontWeight: ativa ? 800 : 400,
+	    }}>
+                  {tese.label}
+                </button>
+              )
+        ))}
+          </div>
+        )}
 
       </div>
 
