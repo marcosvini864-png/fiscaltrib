@@ -24,9 +24,9 @@ import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
 
 const REGIME_DOCS = {
-  'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissão PGDAS-D','DEFIS','DAS pagos','Relação de receitas segregadas por anexo','Receitas com substituição tributária','Receitas monofásicas','Receitas com retenção','Receitas de exportação','Notas fiscais de entrada','Notas fiscais de saída','XMLs de NF-e/NFS-e/NFC-e','Relatório de faturamento mensal','Extrato do Simples Nacional','Consulta de débitos','Comprovantes de pagamento'],
-  'Lucro Presumido': ['DCTF','ECF','ECD','SPED Fiscal','SPED Contribuições','Livro Caixa','NFs de entrada e saída','Comprovantes IRPJ','Comprovantes CSLL','Comprovantes PIS/COFINS','DARF originais','Relatório de faturamento','Contratos de prestação de serviços','Balancetes mensais','Consulta de débitos','Certidões negativas'],
-  'Lucro Real': ['ECF','ECD','SPED Fiscal','SPED Contribuições','LALUR','LACS','DCTF','NFs de entrada e saída','Controles de créditos PIS/COFINS','Relatório de estoques','Ativos imobilizados','Contratos relevantes','Comprovantes de pagamentos','Balancetes mensais','Consulta de débitos','Certidões negativas'],
+  'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
+  'Lucro Presumido': ['DCTF','ECF','ECD','SPED Fiscal','SPED Contribuicoes','Livro Caixa','NFs de entrada e saida','Comprovantes IRPJ','Comprovantes CSLL','Comprovantes PIS/COFINS','DARF originais','Relatorio de faturamento','Contratos de prestacao de servicos','Balancetes mensais','Consulta de debitos','Certidoes negativas'],
+  'Lucro Real': ['ECF','ECD','SPED Fiscal','SPED Contribuicoes','LALUR','LACS','DCTF','NFs de entrada e saida','Controles de creditos PIS/COFINS','Relatorio de estoques','Ativos imobilizados','Contratos relevantes','Comprovantes de pagamentos','Balancetes mensais','Consulta de debitos','Certidoes negativas'],
 }
 
 const CLIENTE_VAZIO = {razao_social:'',cnpj:'',cnae_principal:'',cnaes_secundarios:'',inscricao_estadual:'',inscricao_municipal:'',municipio:'',uf:'',regime:'Simples Nacional',competencia_inicio:'',competencia_fim:'',responsavel_contabil:'',observacoes:''}
@@ -47,31 +47,31 @@ const C = {
 }
 
 const TESES_DIAGNOSTICO = [
-  { id: 'importar',    label: 'Importar',               icon: 'Importar' },
-  { id: 'monofasicos', label: 'Monofasicos PIS/COFINS',  icon: 'Monofasicos' },
-  { id: 'icms_tema69', label: 'ICMS Tema 69',            icon: 'ICMS Tema 69' },
-  { id: 'icms_st',     label: 'ICMS-ST',                 icon: 'ICMS-ST' },
-  { id: 'retencoes',   label: 'Retencoes Indevidas',     icon: 'Retencoes' },
-  { id: 'pgdas',       label: 'PGDAS-D',                 icon: 'PGDAS-D' },
+  { id: 'importar',    label: 'Importar' },
+  { id: 'monofasicos', label: 'Monofasicos PIS/COFINS' },
+  { id: 'icms_tema69', label: 'ICMS Tema 69' },
+  { id: 'icms_st',     label: 'ICMS-ST' },
+  { id: 'retencoes',   label: 'Retencoes Indevidas' },
+  { id: 'pgdas',       label: 'PGDAS-D' },
 ]
 
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
-  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importações','Checklist'] },
-  diagnostico:  { label:'Diagnóstico Tributário',  icon:'🔎', tabs:[] },
-  analise:      { label:'Análise Fiscal',          icon:'🔍', tabs:['Diagnóstico','Análise IA','Teses Tributárias','Simuladores','Calculadoras'] },
-  recuperacao:  { label:'Recuperação',             icon:'💰', tabs:['Gestão','PER/DCOMP','Acompanhamento'] },
+  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importacoes','Checklist'] },
+  diagnostico:  { label:'Diagnostico Tributario',  icon:'🔍', tabs:[] },
+  analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
+  recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
-  relatorios:   { label:'Relatórios',              icon:'📄', tabs:['Relatório Matador','Score Fiscal'] },
-  inteligencia: { label:'Inteligência Tributária', icon:'🧠', tabs:['Central Tributária','Reforma Tributária'] },
-  divida:       { label:'Dívida Ativa',            icon:'⚖️', tabs:['⚖️ Diagnóstico','📄 Importar CDA PDF'] },
-  prospeccao:   { label:'Prospecção',              icon:'🎯', tabs:[] },
-  mensagens:    { label:'Mensagens Rápidas',       icon:'⚡', tabs:[] },
+  relatorios:   { label:'Relatorios',              icon:'📄', tabs:['Relatorio Matador','Score Fiscal'] },
+  inteligencia: { label:'Inteligencia Tributaria', icon:'🧠', tabs:['Central Tributaria','Reforma Tributaria'] },
+  divida:       { label:'Divida Ativa',            icon:'⚠️', tabs:['Diagnostico','Importar CDA PDF'] },
+  prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
+  mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
 }
 
 const RESTRICTED = {
   admin: { label:'Admin',                    icon:'⚙️' },
-  dev:   { label:'Centro de Desenvolvimento', icon:'🔬' },
+  dev:   { label:'Centro de Desenvolvimento', icon:'🔧' },
 }
 
 function useIsMobile() {
@@ -129,7 +129,7 @@ function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAd
         </div>
         <nav style={{flex:1,padding:'6px 0'}}>
           {modulosVisiveis.length === 0 && (
-            <div style={{padding:'16px 16px',fontSize:12,color:C.muted}}>Nenhum módulo liberado. Contate o suporte.</div>
+            <div style={{padding:'16px 16px',fontSize:12,color:C.muted}}>Nenhum modulo liberado. Contate o suporte.</div>
           )}
           {modulosVisiveis.map(([key, mod]) => {
             const act = module === key
@@ -231,21 +231,21 @@ function PaginaReforma() {
 export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const isMobile = useIsMobile()
   const [menuAberto, setMenuAberto] = useState(false)
-  const [user,        setUser]        = useState(null)
+  const [user, setUser] = useState(null)
   const [module, setModule] = useState(() => localStorage.getItem('fiscaltrib_module') || 'painel')
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
-  const [activeTab,   setActiveTab]   = useState(0)
+  const [activeTab, setActiveTab] = useState(0)
   const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
-  const [clientes,    setClientes]    = useState([])
-  const [entradas,    setEntradas]    = useState({})
-  const [checklist,   setChecklist]   = useState({})
+  const [clientes, setClientes] = useState([])
+  const [entradas, setEntradas] = useState({})
+  const [checklist, setChecklist] = useState({})
   const [activeId, setActiveId] = useState(() => localStorage.getItem('fiscaltrib_cliente') || null)
   useEffect(() => { if (activeId) localStorage.setItem('fiscaltrib_cliente', activeId) }, [activeId])
-  const [calcTab,     setCalcTab]     = useState('fator-r')
-  const [calcResult,  setCalcResult]  = useState('')
+  const [calcTab, setCalcTab] = useState('fator-r')
+  const [calcResult, setCalcResult] = useState('')
   const [novoCliente, setNovoCliente] = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [salvando,    setSalvando]    = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [salvando, setSalvando] = useState(false)
   const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
@@ -378,7 +378,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const done       = checks.filter(Boolean).length
   const pct        = docs.length?Math.round(done/docs.length*100):0
 
-  const badge      = regime=>{ const colors={'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'}; const[bg,color]=(colors[regime]||'#f1f5f9|#475569').split('|'); return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>. {regime}</span> }
+  const badge      = regime=>{ const colors={'Simples Nacional':'#dbeafe|#1e40af','Lucro Presumido':'#fef3c7|#92400e','Lucro Real':'#dcfce7|#166534'}; const[bg,color]=(colors[regime]||'#f1f5f9|#475569').split('|'); return <span style={{background:bg,color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600}}>{regime}</span> }
   const riskBadge  = r=>{ const c=r==='baixo'?'#dcfce7|#166534':r==='medio'?'#fef9c3|#854d0e':'#fee2e2|#991b1b'; const[bg,color]=c.split('|'); return <span style={{background:bg,color,padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{r}</span> }
   const applyMask  = (k,v)=>{ if(k==='cnpj') return maskCNPJ(v); if(k==='cnae_principal') return maskCNAE(v); if(k==='cnaes_secundarios') return maskCNAES(v); if(k==='inscricao_estadual') return maskIE(v); if(k==='inscricao_municipal') return maskIM(v); return v }
   const inp        = (val,set,ph,tp='text')=><input value={val} onChange={e=>set(e.target.value)} placeholder={ph} type={tp} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}} />
@@ -423,34 +423,31 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           <button onClick={()=>onLogout()} style={{background:'none',border:'1px solid rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.7)',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
         </div>
 
-             <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy,paddingLeft:16}}>
-             <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
-              {TESES_DIAGNOSTICO.map(tese => {
-              const ativa = teseDiagnostico === tese.id
-              return (
-                <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
-                  style={{
-                   display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                   padding:'11px 20px',
-                   background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
-                   border:'none',
-                   borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
-                   color: '#fff',
-                   fontSize:13,
-                   cursor:'pointer',
-                   whiteSpace:'nowrap',
-                   flexShrink:0,
-                   transition:'all 0.15s',
-                   opacity: 1,
-                   fontWeight: ativa ? 800 : 400,
-          }}
-                  }}>
-                  {tese.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
+        <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy,paddingLeft:16}}>
+          {TESES_DIAGNOSTICO.map(tese => {
+            const ativa = teseDiagnostico === tese.id
+            return (
+              <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
+                style={{
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                  padding:'11px 20px',
+                  background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
+                  border:'none',
+                  borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
+                  color:'#fff',
+                  fontSize:13,
+                  cursor:'pointer',
+                  whiteSpace:'nowrap',
+                  flexShrink:0,
+                  transition:'all 0.15s',
+                  opacity:1,
+                  fontWeight: ativa ? 800 : 400,
+                }}>
+                {tese.label}
+              </button>
+            )
+          })}
+        </div>
 
       </div>
 
@@ -474,7 +471,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 <KpiCard icon="👥" value={clientes.length}  label="Clientes"        color="#2563EB" />
                 <KpiCard icon="🎯" value={totalOpp}         label="Oportunidades"   color="#7C3AED" />
                 <KpiCard icon="💰" value={fmtR(totalGeral)} label="Potencial"       color="#16A34A" />
-                <KpiCard icon="⏱️" value={criticos}         label="Criticos"        color="#DC2626" />
+                <KpiCard icon="⚠️" value={criticos}         label="Criticos"        color="#DC2626" />
               </div>
               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12,marginBottom:20}}>
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
