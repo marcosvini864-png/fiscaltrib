@@ -693,25 +693,25 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       try {
         const texto = await extrairTextoPDF(arq.file)
         let resposta
-        if (texto && texto.trim().length >= 100) {
-          console.log(`${arq.nome} — PDF pesquisável, usando Groq`)
-          resposta = await chamarIA(session, {
-            model: 'llama-3.1-8b-instant',
-            system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-            messages: [{ role: 'user', content: `${promptPGDAS(regime)} TEXTO DO DOCUMENTO: ${texto.slice(0, 12000)}` }]
-          })
-        } else {
-          console.log(`${arq.nome} — PDF escaneado, usando Gemini`)
-          const base64 = await fileToBase64(arq.file)
-          resposta = await chamarIA(session, {
-            model: 'gemini-2.5-flash',
-            system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-            messages: [{ role: 'user', content: [
-              { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
-              { type: 'text', text: promptPGDAS(regime) }
-            ]}]
-          })
-        }
+    if (false) {
+    console.log(`${arq.nome} — PDF pesquisável, usando Groq`)
+    resposta = await chamarIA(session, {
+    model: 'llama-3.1-8b-instant',
+    system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
+    messages: [{ role: 'user', content: `${promptPGDAS(regime)} TEXTO DO DOCUMENTO: ${texto.slice(0, 12000)}` }]
+    })
+    } else {
+     console.log(`${arq.nome} — PDF escaneado, usando Gemini`)
+     const base64 = await fileToBase64(arq.file)
+     resposta = await chamarIA(session, {
+     model: 'gemini-2.5-flash',
+     system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
+     messages: [{ role: 'user', content: [
+      { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
+      { type: 'text', text: promptPGDAS(regime) }
+       ]}]
+      })
+    }
         const dados = parsePGDASResposta(typeof resposta === 'string' ? resposta : JSON.stringify(resposta))
         if (dados) resultados.push({ arquivo: arq.nome, dados })
       } catch (e) { console.warn(`Erro ao processar ${arq.nome}:`, e.message) }
