@@ -218,12 +218,12 @@ function renderMarkdown(texto, cor = C.text) {
   if (!texto) return null
   return texto.split('\n').map((linha, i) => {
     if (linha.startsWith('## '))
-      return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginTop: 20, marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.2)' }}>{linha.replace('## ', '')}</div>
+      return <div key={i} style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginTop: 20, marginBottom: 8, paddingBottom: 4, borderBottom: '2px solid #C8D0DC' }}>{linha.replace('## ', '')}</div>
     if (linha.startsWith('- ') || linha.startsWith('• '))
-      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: cor, lineHeight: 1.6, marginBottom: 4 }}><span style={{ color: '#7CC4FF', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
+      return <div key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: cor, lineHeight: 2, marginBottom: 6 }}><span style={{ color: '#0B1F4D', fontWeight: 700, flexShrink: 0 }}>•</span><span>{linha.replace(/^[-•]\s/, '')}</span></div>
     if (linha.trim() === '')
-      return <div key={i} style={{ height: 6 }} />
-    return <div key={i} style={{ fontSize: 12, color: cor, lineHeight: 1.7, marginBottom: 4 }}>{linha}</div>
+      return <div key={i} style={{ height: 8 }} />
+    return <div key={i} style={{ fontSize: 14, color: cor, lineHeight: 2, marginBottom: 6 }}>{linha}</div>
   })
 }
 
