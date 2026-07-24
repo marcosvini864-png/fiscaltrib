@@ -443,11 +443,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                    transition:'all 0.15s',
                    opacity: 1,
                    fontWeight: ativa ? 800 : 400,
-	    }}>
+          }}
+                  }}>
                   {tese.label}
                 </button>
               )
-        ))}
+            })}
           </div>
         )}
 
