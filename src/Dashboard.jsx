@@ -423,7 +423,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           <button onClick={()=>onLogout()} style={{background:'none',border:'1px solid rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.7)',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
         </div>
 
-        <div style={{display:'flex',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy,paddingLeft:16}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
           {TESES_DIAGNOSTICO.map(tese => {
             const ativa = teseDiagnostico === tese.id
             return (
@@ -431,7 +431,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 style={{
                   display:'flex', alignItems:'center', justifyContent:'center', gap:6,
                   padding:'11px 20px',
-                  background: ativa ? 'rgba(255,255,255,0.15)' : 'none',
+                  background: 'none',
                   border:'none',
                   borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
                   color:'#fff',
