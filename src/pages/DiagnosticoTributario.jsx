@@ -812,7 +812,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
     try {
       const prompt = montarContextoIA(resultado, cliente, regime)
       const { data: { session } } = await supabase.auth.getSession()
-      const resposta = await chamarIA(session, { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] })
+      const resposta = await chamarIA(session, { model: 'gemini-3.5-flash', messages: [{ role: 'user', content: prompt }] })
       if (!resposta) throw new Error('Resposta vazia da IA')
       setParecerIA(resposta)
       setMensagensChat([{ role: 'assistant', content: resposta }])
@@ -830,7 +830,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
       const histFormatado = novasMensagens.map(m => `${m.role === 'user' ? 'Contador' : 'Especialista'}: ${m.content}`).join('\n\n')
       const promptChat = `Você é um especialista em direito tributário brasileiro.\n${contextoResumido}\n\n${histFormatado}\n\nResponda à última pergunta do Contador.`
       const { data: { session } } = await supabase.auth.getSession()
-      const resposta = await chamarIA(session, { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: promptChat }] })
+      const resposta = await chamarIA(session, { model: 'gemini-3.5-flash', messages: [{ role: 'user', content: promptChat }] })
       setMensagensChat(prev => [...prev, { role: 'assistant', content: resposta || '' }])
     } catch (e) { setMensagensChat(prev => [...prev, { role: 'assistant', content: 'Erro ao obter resposta. Tente novamente.' }]) }
     finally { setLoadingChat(false) }
