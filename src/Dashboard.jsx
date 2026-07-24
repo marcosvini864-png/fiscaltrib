@@ -444,7 +444,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                    opacity: 1,
                    fontWeight: ativa ? 800 : 400,
           }}
-                  }}>
+                  }>
                   {tese.label}
                 </button>
               )
