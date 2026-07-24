@@ -704,7 +704,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar })
      console.log(`${arq.nome} — PDF escaneado, usando Gemini`)
      const base64 = await fileToBase64(arq.file)
      resposta = await chamarIA(session, {
-     model: 'gemini-2.5-flash-lite',
+     model: 'gemini-3.5-flash',
      system: 'Você é um especialista em Simples Nacional e PGDAS-D. Retorne APENAS JSON válido, sem markdown, sem explicações.',
      messages: [{ role: 'user', content: [
       { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
