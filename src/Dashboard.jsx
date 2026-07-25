@@ -246,7 +246,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
             padding:'10px 16px', background: module==='painel' ? '#1E293B' : 'none',
             border:'none', borderLeft: module==='painel' ? '3px solid #22C55E' : '3px solid transparent',
             cursor:'pointer', color: module==='painel' ? '#22C55E' : '#94a3b8',
-            fontSize:13, textAlign:'left', fontWeight: module==='painel' ? 700 : 400,
+            fontSize:15, textAlign:'left', fontWeight: module==='painel' ? 700 : 400,
           }}>
           <span style={{fontSize:16}}>📊</span>
           <span>Painel</span>
@@ -272,12 +272,12 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                   <span style={{fontSize:18, flexShrink:0, marginTop:1}}>{mod.icone}</span>
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{
-                      fontSize:13, fontWeight:700,
+                      fontSize:16, fontWeight:700,
                       color: temItemAtivo ? mod.cor : isOpen ? '#e2e8f0' : '#94a3b8',
                       lineHeight:1.2, marginBottom:2,
                     }}>{mod.nome}</div>
-                    <div style={{fontSize:10, color:'#64748B', lineHeight:1.3, marginBottom:1}}>{mod.titulo}</div>
-                    {!isOpen && <div style={{fontSize:10, color:'#475569', lineHeight:1.3}}>{mod.descricao}</div>}
+                    <div style={{fontSize:12, color:'#64748B', lineHeight:1.3, marginBottom:1}}>{mod.titulo}</div>
+                    {!isOpen && <div style={{fontSize:11, color:'#475569', lineHeight:1.3}}>{mod.descricao}</div>}
                   </div>
                   <span style={{
                     fontSize:10, color:'#64748B', flexShrink:0, marginTop:2,
@@ -300,7 +300,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                               background: ativo ? `${mod.cor}15` : 'none',
                               border:'none', cursor:'pointer', textAlign:'left',
                               color: ativo ? mod.cor : '#94a3b8',
-                              fontSize:12, fontWeight: ativo ? 700 : 400,
+                              fontSize:13, fontWeight: ativo ? 700 : 400,
                               transition:'all 0.1s',
                             }}>
                             <span style={{fontSize:8, color: ativo ? mod.cor : '#475569', flexShrink:0}}>●</span>
