@@ -43,7 +43,7 @@ const C = {
   green:'#22C55E', white:'#FFFFFF',
   bg:'#E4E7EC', border:'#C8D0DC',
   text:'#1E293B', muted:'#64748B',
-  sidebar:'#0F172A', sidebarBorder:'#1E293B',
+  sidebar:'#FFFFFF', sidebarBorder:'#C8D0DC',
 }
 
 const TESES_DIAGNOSTICO = [
@@ -58,7 +58,7 @@ const TESES_DIAGNOSTICO = [
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importacoes','Checklist'] },
-  diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
+  diagnostico:  { label:'Dinheiro Recuperavel',  icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
@@ -73,96 +73,6 @@ const RESTRICTED = {
   admin: { label:'Admin',                    icon:'⚙️' },
   dev:   { label:'Centro de Desenvolvimento', icon:'🔧' },
 }
-
-// ── NOVO MENU ACCORDION ─────────────────────────────────────────────────────
-const MENU_MODULOS = [
-  {
-    id: 'fiscalrecovery',
-    cor: '#22C55E',
-    icone: '🟩',
-    nome: 'FiscalRecovery',
-    titulo: 'Recuperação Tributária Inteligente',
-    descricao: 'Encontre créditos tributários automaticamente.',
-    itens: [
-      { label: 'Dinheiro Recuperável', module: 'diagnostico', tab: 0 },
-      { label: 'Análise Fiscal', module: 'analise', tab: 0 },
-      { label: 'Teses Tributárias', module: 'analise', tab: 2 },
-      { label: 'Simuladores', module: 'analise', tab: 3 },
-      { label: 'Gestão de Recuperações', module: 'recuperacao', tab: 0 },
-      { label: 'PER/DCOMP', module: 'recuperacao', tab: 1 },
-      { label: 'Acompanhamento', module: 'recuperacao', tab: 2 },
-      { label: 'Relatórios', module: 'relatorios', tab: 0 },
-    ],
-  },
-  {
-    id: 'fiscaldebt',
-    cor: '#EF4444',
-    icone: '🟥',
-    nome: 'FiscalDebt',
-    titulo: 'Inteligência da Dívida Ativa',
-    descricao: 'Analise passivos fiscais e descubra estratégias jurídicas.',
-    itens: [
-      { label: 'Diagnóstico Dívida Ativa', module: 'divida', tab: 0 },
-      { label: 'Importar CDA PDF', module: 'divida', tab: 1 },
-      { label: 'Prazos Prescricionais', module: 'prazos', tab: 0 },
-      { label: 'Prazos Fiscais', module: 'prazos', tab: 1 },
-    ],
-  },
-  {
-    id: 'fiscalai',
-    cor: '#EAB308',
-    icone: '🟨',
-    nome: 'FiscalAI',
-    titulo: 'Especialista Tributário por IA',
-    descricao: 'Receba diagnósticos, análises e recomendações automáticas.',
-    itens: [
-      { label: 'Inteligência Tributária', module: 'inteligencia', tab: 0 },
-      { label: 'Reforma Tributária', module: 'inteligencia', tab: 1 },
-      { label: 'Score Fiscal', module: 'relatorios', tab: 1 },
-      { label: 'Análise IA', module: 'analise', tab: 1 },
-    ],
-  },
-  {
-    id: 'fiscalscan',
-    cor: '#3B82F6',
-    icone: '🟦',
-    nome: 'FiscalScan',
-    titulo: 'Importação Inteligente de Arquivos',
-    descricao: 'Centralize toda a leitura de documentos fiscais.',
-    itens: [
-      { label: 'Importar XML / CSV / SPED', module: 'clientes', tab: 3 },
-      { label: 'Importar CDA PDF', module: 'divida', tab: 1 },
-      { label: 'Clientes', module: 'clientes', tab: 0 },
-      { label: 'Novo Cliente', module: 'clientes', tab: 1 },
-      { label: 'Checklist Documental', module: 'clientes', tab: 4 },
-    ],
-  },
-  {
-    id: 'fiscalreports',
-    cor: '#A855F7',
-    icone: '🟪',
-    nome: 'FiscalReports',
-    titulo: 'Relatórios Executivos Inteligentes',
-    descricao: 'Transforme análises complexas em relatórios profissionais.',
-    itens: [
-      { label: 'Relatório Matador Fiscal', module: 'relatorios', tab: 0 },
-      { label: 'Score Fiscal', module: 'relatorios', tab: 1 },
-    ],
-  },
-  {
-    id: 'fiscalsim',
-    cor: '#F97316',
-    icone: '🟧',
-    nome: 'FiscalSim',
-    titulo: 'Simuladores Tributários',
-    descricao: 'Compare cenários e descubra a melhor estratégia tributária.',
-    itens: [
-      { label: 'Simuladores', module: 'analise', tab: 3 },
-      { label: 'Calculadoras Tributárias', module: 'analise', tab: 4 },
-      { label: 'Reforma Tributária', module: 'inteligencia', tab: 1 },
-    ],
-  },
-]
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -188,27 +98,9 @@ function TabBar({ tabs, activeTab, onTab }) {
   )
 }
 
-function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
-  const [aberto, setAberto] = useState(() => {
-    const modAtual = MENU_MODULOS.findIndex(m => m.itens.some(i => i.module === module))
-    return modAtual >= 0 ? MENU_MODULOS[modAtual].id : null
-  })
-
-  function toggleModulo(id) {
-    setAberto(prev => prev === id ? null : id)
-  }
-
-  function handleItem(item) {
-    onNavigate(item.module, item.tab)
-    if (isMobile) setMenuAberto(false)
-  }
-
-  function isItemAtivo(item) {
-    return module === item.module && activeTab === item.tab
-  }
-
+function Sidebar({ module, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   if (isMobile && !menuAberto) return null
-
+  const modulosVisiveis = Object.entries(MODULES).filter(([key]) => isAdmin || moduloPermitido(key))
   return (
     <>
       {isMobile && (
@@ -216,144 +108,55 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99 }} />
       )}
       <aside style={{
-        width: 260, minHeight:'100%', background: C.sidebar,
+        width: 220, minHeight:'100%', background:C.sidebar,
         borderRight:`1px solid ${C.sidebarBorder}`,
         display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto',
-        ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
+        ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.2)' } : {})
       }}>
-
         {isMobile && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:`1px solid ${C.sidebarBorder}` }}>
             <img src="/Logo3.png" alt="FiscalTrib" style={{ height:28 }} />
-            <button onClick={() => setMenuAberto(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>✕</button>
+            <button onClick={() => setMenuAberto(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:C.muted }}>X</button>
           </div>
         )}
-
-        {/* Seletor de cliente */}
         <div style={{padding:'12px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#64748B',letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
+          <div style={{fontSize:9,fontWeight:700,color:C.muted,letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
           <select value={activeId?.toString()||''} onChange={e=>{onChangeCliente(e.target.value||null); if(isMobile) setMenuAberto(false)}}
-            style={{width:'100%',padding:'6px 8px',border:`1px solid #334155`,borderRadius:6,fontSize:12,color:'#e2e8f0',background:'#1E293B',cursor:'pointer'}}>
+            style={{width:'100%',padding:'5px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,color:C.text,background:C.white,cursor:'pointer'}}>
             <option value=''>-- Nenhum --</option>
             {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
           </select>
         </div>
-
-        {/* Painel rápido */}
-        <button onClick={() => { onNavigate('painel', 0); if(isMobile) setMenuAberto(false) }}
-          style={{
-            width:'100%', display:'flex', alignItems:'center', gap:10,
-            padding:'10px 16px', background: module==='painel' ? '#1E293B' : 'none',
-            border:'none', borderLeft: module==='painel' ? '3px solid #22C55E' : '3px solid transparent',
-            cursor:'pointer', color: module==='painel' ? '#22C55E' : '#94a3b8',
-            fontSize:13, textAlign:'left', fontWeight: module==='painel' ? 700 : 400,
-          }}>
-          <span style={{fontSize:16}}>📊</span>
-          <span>Painel</span>
-        </button>
-
-        {/* Módulos accordion */}
-        <nav style={{flex:1, padding:'4px 0'}}>
-          {MENU_MODULOS.map(mod => {
-            const isOpen = aberto === mod.id
-            const temItemAtivo = mod.itens.some(i => i.module === module && activeTab === i.tab)
-
+        <nav style={{flex:1,padding:'6px 0'}}>
+          {modulosVisiveis.length === 0 && (
+            <div style={{padding:'16px 16px',fontSize:12,color:C.muted}}>Nenhum modulo liberado. Contate o suporte.</div>
+          )}
+          {modulosVisiveis.map(([key, mod]) => {
+            const act = module === key
             return (
-              <div key={mod.id} style={{marginBottom:2}}>
-                {/* Cabeçalho do módulo */}
-                <button onClick={() => toggleModulo(mod.id)}
-                  style={{
-                    width:'100%', display:'flex', alignItems:'flex-start', gap:10,
-                    padding:'10px 14px', background: isOpen || temItemAtivo ? '#1E293B' : 'none',
-                    border:'none', borderLeft: temItemAtivo ? `3px solid ${mod.cor}` : '3px solid transparent',
-                    cursor:'pointer', textAlign:'left',
-                    transition:'all 0.15s',
-                  }}>
-                  <span style={{fontSize:18, flexShrink:0, marginTop:1}}>{mod.icone}</span>
-                  <div style={{flex:1, minWidth:0}}>
-                    <div style={{
-                      fontSize:13, fontWeight:700,
-                      color: temItemAtivo ? mod.cor : isOpen ? '#e2e8f0' : '#94a3b8',
-                      lineHeight:1.2, marginBottom:2,
-                    }}>{mod.nome}</div>
-                    <div style={{fontSize:10, color:'#64748B', lineHeight:1.3, marginBottom:1}}>{mod.titulo}</div>
-                    {!isOpen && <div style={{fontSize:10, color:'#475569', lineHeight:1.3}}>{mod.descricao}</div>}
-                  </div>
-                  <span style={{
-                    fontSize:10, color:'#64748B', flexShrink:0, marginTop:2,
-                    transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                    transition:'transform 0.2s',
-                  }}>▶</span>
-                </button>
-
-                {/* Submenu */}
-                {isOpen && (
-                  <div style={{background:'#0F172A', borderLeft:`3px solid ${mod.cor}`, marginLeft:0}}>
-                    <div style={{padding:'6px 0 6px 0'}}>
-                      {mod.itens.map((item, idx) => {
-                        const ativo = isItemAtivo(item)
-                        return (
-                          <button key={idx} onClick={() => handleItem(item)}
-                            style={{
-                              width:'100%', display:'flex', alignItems:'center', gap:8,
-                              padding:'8px 14px 8px 42px',
-                              background: ativo ? `${mod.cor}15` : 'none',
-                              border:'none', cursor:'pointer', textAlign:'left',
-                              color: ativo ? mod.cor : '#94a3b8',
-                              fontSize:12, fontWeight: ativo ? 700 : 400,
-                              transition:'all 0.1s',
-                            }}>
-                            <span style={{fontSize:8, color: ativo ? mod.cor : '#475569', flexShrink:0}}>●</span>
-                            {item.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button key={key} onClick={() => { onNavigate(key); if(isMobile) setMenuAberto(false); }}
+                style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background: act?'#EFF6FF':'none', border:'none', borderLeft: act?`3px solid ${C.navy}`:'3px solid transparent', cursor:'pointer', color: act?C.navy:C.text, fontSize:13, textAlign:'left', fontWeight: act?600:400 }}>
+                <span style={{fontSize:16,flexShrink:0}}>{mod.icon}</span>
+                <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{mod.label}</span>
+              </button>
             )
           })}
-
-          {/* Módulos standalone */}
-          {[
-            { key:'prospeccao', label:'Prospecção', icon:'🎯', cor:'#0EA5E9' },
-            { key:'mensagens',  label:'Mensagens Rápidas', icon:'⚡', cor:'#F59E0B' },
-          ].map(item => (
-            <button key={item.key} onClick={() => { onNavigate(item.key, 0); if(isMobile) setMenuAberto(false) }}
-              style={{
-                width:'100%', display:'flex', alignItems:'center', gap:10,
-                padding:'10px 16px', background: module===item.key ? '#1E293B' : 'none',
-                border:'none', borderLeft: module===item.key ? `3px solid ${item.cor}` : '3px solid transparent',
-                cursor:'pointer', color: module===item.key ? item.cor : '#94a3b8',
-                fontSize:13, textAlign:'left', fontWeight: module===item.key ? 700 : 400,
-              }}>
-              <span style={{fontSize:16}}>{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-
-          {/* Restrito */}
           {isAdmin && <>
-            <div style={{height:1, background:'#1E293B', margin:'8px 0'}} />
-            <div style={{fontSize:9,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
-            {Object.entries(RESTRICTED).map(([key, mod]) => (
-              <button key={key} onClick={() => { onNavigate(key, 0); if(isMobile) setMenuAberto(false) }}
-                style={{
-                  width:'100%', display:'flex', alignItems:'center', gap:10,
-                  padding:'10px 16px', background: module===key ? '#1E293B' : 'none',
-                  border:'none', borderLeft: module===key ? '3px solid #F59E0B' : '3px solid transparent',
-                  cursor:'pointer', color: module===key ? '#F59E0B' : '#64748B',
-                  fontSize:13, textAlign:'left', fontWeight: module===key ? 600 : 400,
-                }}>
-                <span style={{fontSize:16}}>{mod.icon}</span>
-                <span>{mod.label}</span>
-              </button>
-            ))}
+            <div style={{height:1,background:C.sidebarBorder,margin:'6px 0'}}></div>
+            <div style={{fontSize:9,fontWeight:700,color:C.muted,letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
+            {Object.entries(RESTRICTED).map(([key, mod]) => {
+              const act = module === key
+              return (
+                <button key={key} onClick={() => { onNavigate(key); if(isMobile) setMenuAberto(false); }}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background: act?'#FFF7ED':'none', border:'none', borderLeft: act?`3px solid #F59E0B`:'3px solid transparent', cursor:'pointer', color: act?'#92400E':C.muted, fontSize:13, textAlign:'left', fontWeight: act?600:400 }}>
+                  <span style={{fontSize:16,flexShrink:0}}>{mod.icon}</span>
+                  <span>{mod.label}</span>
+                </button>
+              )
+            })}
           </>}
         </nav>
-
-        <div style={{padding:'8px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:'#475569'}}>fiscaltrib.com.br</div>
+        <div style={{padding:'8px 14px',borderTop:`1px solid ${C.sidebarBorder}`,fontSize:10,color:C.muted}}>fiscaltrib.com.br</div>
       </aside>
     </>
   )
@@ -544,8 +347,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setChecklist({...checklist,[activeId]:novo})
   }
   function navigateTo(mod, tab=0) { setModule(mod); setActiveTab(tab) }
-  function handleNavigate(key, tab=0) {
-    setModule(key); setActiveTab(tab)
+  function handleNavigate(key) {
+    setModule(key); setActiveTab(0)
     if(key==='clientes') setNovoCliente(null)
     if(key==='diagnostico') setTeseDiagnostico('importar')
   }
@@ -601,6 +404,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       <div style={{background:C.navy,flexShrink:0}}>
+
         <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:52,gap:10}}>
           {isMobile && (
             <button onClick={() => setMenuAberto(true)} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', padding:'4px 8px', flexShrink:0 }}>Menu</button>
@@ -620,41 +424,37 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         </div>
 
         {module === 'diagnostico' && (
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingLeft:260,borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
-            {TESES_DIAGNOSTICO.map(tese => {
-              const ativa = teseDiagnostico === tese.id
-              return (
-                <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
-                  style={{
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                    padding:'11px 20px', background:'none', border:'none',
-                    borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
-                    color:'#fff', fontSize:13, cursor:'pointer', whiteSpace:'nowrap',
-                    flexShrink:0, transition:'all 0.15s', opacity:1,
-                    fontWeight: ativa ? 800 : 400,
-                  }}>
-                  {tese.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
+       <div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingLeft:220,borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
+           {TESES_DIAGNOSTICO.map(tese => {
+            const ativa = teseDiagnostico === tese.id
+            return (
+              <button key={tese.id} onClick={() => setTeseDiagnostico(tese.id)}
+                style={{
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                  padding:'11px 20px',
+                  background: 'none',
+                  border:'none',
+                  borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
+                  color:'#fff',
+                  fontSize:13,
+                  cursor:'pointer',
+                  whiteSpace:'nowrap',
+                  flexShrink:0,
+                  transition:'all 0.15s',
+                  opacity:1,
+                  fontWeight: ativa ? 800 : 400,
+                }}>
+                {tese.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       </div>
 
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        <Sidebar
-          module={module}
-          activeTab={activeTab}
-          onNavigate={handleNavigate}
-          clientes={clientes}
-          activeId={activeId}
-          onChangeCliente={setActiveId}
-          isAdmin={!!onAdmin}
-          isMobile={isMobile}
-          menuAberto={menuAberto}
-          setMenuAberto={setMenuAberto}
-          moduloPermitido={moduloPermitido}
-        />
+        <Sidebar module={module} onNavigate={handleNavigate} clientes={clientes} activeId={activeId} onChangeCliente={setActiveId} isAdmin={!!onAdmin} isMobile={isMobile} menuAberto={menuAberto} setMenuAberto={setMenuAberto} moduloPermitido={moduloPermitido} />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
