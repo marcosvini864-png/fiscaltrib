@@ -43,7 +43,7 @@ const C = {
   green:'#22C55E', white:'#FFFFFF',
   bg:'#E4E7EC', border:'#C8D0DC',
   text:'#1E293B', muted:'#64748B',
-  sidebar:'#0F172A', sidebarBorder:'#1E293B',
+  sidebar:'#FFFFFF', sidebarBorder:'#C8D0DC',
 }
 
 const TESES_DIAGNOSTICO = [
@@ -233,7 +233,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
         <div style={{padding:'12px 14px 10px', borderBottom:`1px solid ${C.sidebarBorder}`}}>
           <div style={{fontSize:9,fontWeight:700,color:'#64748B',letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
           <select value={activeId?.toString()||''} onChange={e=>{onChangeCliente(e.target.value||null); if(isMobile) setMenuAberto(false)}}
-            style={{width:'100%',padding:'6px 8px',border:`1px solid #334155`,borderRadius:6,fontSize:12,color:'#e2e8f0',background:'#1E293B',cursor:'pointer'}}>
+            style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,color:C.text,background:C.white,cursor:'pointer'}}>
             <option value=''>-- Nenhum --</option>
             {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
           </select>
