@@ -636,7 +636,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         </div>
 
         {module === 'diagnostico' && (
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingLeft:260,borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingLeft:300,borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
             {TESES_DIAGNOSTICO.map(tese => {
               const ativa = teseDiagnostico === tese.id
               return (
