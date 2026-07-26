@@ -433,7 +433,7 @@ function DiagnosticoNarrativo({ resultado, regime }) {
   )
 }
 
-export default function DiagnosticoTributario({ clienteId, cliente, onNavegar }) {
+export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, teseAtiva, onMudarTese }) {
   const [etapa, setEtapa] = useState('inicio')
   const [aba, setAba] = useState('novo')
   const [arquivos, setArquivos] = useState([])
