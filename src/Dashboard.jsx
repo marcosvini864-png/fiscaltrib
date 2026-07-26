@@ -301,7 +301,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                 {isOpen && (
                   <div style={{borderTop:`1px solid ${mod.cor}30`, paddingBottom:8}}>
                     {isOpen && (
-                      <div style={{padding:'8px 14px 4px 14px', fontSize:11, color:'#94A3B8', fontStyle:'italic'}}>
+                      <div style={{padding:'8px 14px 4px 14px', fontSize:14, color:'#94A3B8', fontStyle:'italic'}}>
                         {mod.descricao}
                       </div>
                     )}
