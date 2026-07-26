@@ -351,7 +351,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           {/* Restrito */}
           {isAdmin && <>
             <div style={{height:1, background:'#1E293B', margin:'8px 0'}} />
-            <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
+            <div style={{fontSize:13,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
             {Object.entries(RESTRICTED).map(([key, mod]) => (
               <button key={key} onClick={() => { onNavigate(key, 0); if(isMobile) setMenuAberto(false) }}
                 style={{
@@ -369,7 +369,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           </>}
         </nav>
 
-        <div style={{padding:'10px 16px',borderTop:`1px solid #1E293B`,fontSize:11,color:'#475569'}}>fiscaltrib.com.br</div>
+        <div style={{padding:'10px 16px',borderTop:`1px solid #1E293B`,fontSize:14,color:'#475569'}}>fiscaltrib.com.br</div>
       </aside>
     </>
   )
