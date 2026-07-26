@@ -209,13 +209,6 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
 
   if (isMobile && !menuAberto) return null
 
-  const txtBranco = '#FFFFFF'
-  const txtCinza  = '#CBD5E1'
-  const txtSub    = '#FFFFFF'
-  const bgSidebar = '#0F172A'
-  const bgAtivo   = '#1E293B'
-  const bordaEsq  = '#1E293B'
-
   return (
     <>
       {isMobile && (
@@ -223,24 +216,24 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99 }} />
       )}
       <aside style={{
-        width: 300, minHeight:'100%', background: bgSidebar,
-        borderRight:`1px solid ${bordaEsq}`,
+        width: 300, minHeight:'100%', background: '#0F172A',
+        borderRight:`1px solid #1E293B`,
         display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto',
         ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
       }}>
 
         {isMobile && (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:`1px solid ${bordaEsq}` }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:`1px solid #1E293B` }}>
             <img src="/Logo3.png" alt="FiscalTrib" style={{ height:28 }} />
-            <button onClick={() => setMenuAberto(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:txtBranco }}>✕</button>
+            <button onClick={() => setMenuAberto(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#FFFFFF' }}>✕</button>
           </div>
         )}
 
         {/* Seletor de cliente */}
-        <div style={{padding:'12px 14px 10px', borderBottom:`1px solid ${bordaEsq}`}}>
-          <div style={{fontSize:10,fontWeight:700,color:txtCinza,letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
+        <div style={{padding:'12px 14px 10px', borderBottom:`1px solid #1E293B`}}>
+          <div style={{fontSize:10,fontWeight:700,color:'#94A3B8',letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
           <select value={activeId?.toString()||''} onChange={e=>{onChangeCliente(e.target.value||null); if(isMobile) setMenuAberto(false)}}
-            style={{width:'100%',padding:'6px 8px',border:`1px solid #334155`,borderRadius:6,fontSize:12,color:txtBranco,background:'#1E293B',cursor:'pointer'}}>
+            style={{width:'100%',padding:'6px 8px',border:`1px solid #334155`,borderRadius:6,fontSize:12,color:'#FFFFFF',background:'#1E293B',cursor:'pointer'}}>
             <option value=''>-- Nenhum --</option>
             {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
           </select>
@@ -249,13 +242,14 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
         {/* Painel */}
         <button onClick={() => { onNavigate('painel', 0); if(isMobile) setMenuAberto(false) }}
           style={{
-            width:'100%', display:'flex', alignItems:'center', gap:10,
-            padding:'12px 16px', background: module==='painel' ? bgAtivo : 'none',
+            width:'100%', display:'flex', alignItems:'center', gap:12,
+            padding:'14px 16px',
+            background: module==='painel' ? '#1E293B' : 'none',
             border:'none', borderLeft: module==='painel' ? '3px solid #22C55E' : '3px solid transparent',
-            cursor:'pointer', color: module==='painel' ? '#22C55E' : txtBranco,
-            fontSize:15, textAlign:'left', fontWeight: module==='painel' ? 700 : 500,
+            cursor:'pointer', color: module==='painel' ? '#22C55E' : '#FFFFFF',
+            fontSize:16, textAlign:'left', fontWeight: module==='painel' ? 700 : 500,
           }}>
-          <span style={{fontSize:18}}>📊</span>
+          <span style={{fontSize:22}}>📊</span>
           <span>Painel</span>
         </button>
 
@@ -266,25 +260,38 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
             const temItemAtivo = mod.itens.some(i => i.module === module && activeTab === i.tab)
 
             return (
-              <div key={mod.id} style={{marginBottom:2}}>
+              <div key={mod.id} style={{
+                margin:'4px 8px',
+                borderRadius: 10,
+                background: isOpen || temItemAtivo ? '#1E293B' : 'transparent',
+                border: isOpen || temItemAtivo ? `1px solid ${mod.cor}30` : '1px solid transparent',
+                overflow:'hidden',
+                transition:'all 0.2s',
+              }}>
+                {/* Cabeçalho */}
                 <button onClick={() => toggleModulo(mod.id)}
                   style={{
-                    width:'100%', display:'flex', alignItems:'flex-start', gap:10,
-                    padding:'12px 14px', background: isOpen || temItemAtivo ? bgAtivo : 'none',
-                    border:'none', borderLeft: temItemAtivo ? `3px solid ${mod.cor}` : '3px solid transparent',
-                    cursor:'pointer', textAlign:'left', transition:'all 0.15s',
+                    width:'100%', display:'flex', alignItems:'center', gap:12,
+                    padding:'14px 14px',
+                    background:'none', border:'none',
+                    borderLeft: temItemAtivo ? `4px solid ${mod.cor}` : '4px solid transparent',
+                    cursor:'pointer', textAlign:'left',
                   }}>
-                  <span style={{fontSize:20, flexShrink:0, marginTop:2}}>{mod.icone}</span>
+                  <span style={{fontSize:22, flexShrink:0}}>{mod.icone}</span>
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{
-                      fontSize:15, fontWeight:700,
-                      color: temItemAtivo ? mod.cor : txtBranco,
-                      lineHeight:1.2, marginBottom:3,
+                      fontSize:16, fontWeight:700,
+                      color: temItemAtivo ? mod.cor : '#FFFFFF',
+                      lineHeight:1.2, marginBottom:4,
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
                     }}>{mod.nome}</div>
-                    <div style={{fontSize:13, color:txtSub, lineHeight:1.4, fontWeight:400}}>{mod.titulo}</div>
+                    <div style={{
+                      fontSize:12, color:'#CBD5E1',
+                      lineHeight:1.3, fontWeight:400,
+                    }}>{mod.titulo}</div>
                   </div>
                   <span style={{
-                    fontSize:11, color:txtCinza, flexShrink:0, marginTop:4,
+                    fontSize:12, color:'#64748B', flexShrink:0,
                     transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
                     transition:'transform 0.2s',
                   }}>▶</span>
@@ -292,27 +299,30 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
 
                 {/* Submenu */}
                 {isOpen && (
-                  <div style={{background:'#0B1120', borderLeft:`3px solid ${mod.cor}`}}>
-                    <div style={{padding:'6px 0'}}>
-                      {mod.itens.map((item, idx) => {
-                        const ativo = isItemAtivo(item)
-                        return (
-                          <button key={idx} onClick={() => handleItem(item)}
-                            style={{
-                              width:'100%', display:'flex', alignItems:'center', gap:8,
-                              padding:'9px 14px 9px 44px',
-                              background: ativo ? `${mod.cor}20` : 'none',
-                              border:'none', cursor:'pointer', textAlign:'left',
-                              color: ativo ? mod.cor : txtBranco,
-                              fontSize:14, fontWeight: ativo ? 700 : 400,
-                              transition:'all 0.1s',
-                            }}>
-                            <span style={{fontSize:9, color: ativo ? mod.cor : txtCinza, flexShrink:0}}>●</span>
-                            {item.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                  <div style={{borderTop:`1px solid ${mod.cor}30`, paddingBottom:8}}>
+                    {isOpen && (
+                      <div style={{padding:'8px 14px 4px 14px', fontSize:11, color:'#94A3B8', fontStyle:'italic'}}>
+                        {mod.descricao}
+                      </div>
+                    )}
+                    {mod.itens.map((item, idx) => {
+                      const ativo = isItemAtivo(item)
+                      return (
+                        <button key={idx} onClick={() => handleItem(item)}
+                          style={{
+                            width:'100%', display:'flex', alignItems:'center', gap:10,
+                            padding:'9px 14px 9px 42px',
+                            background: ativo ? `${mod.cor}20` : 'none',
+                            border:'none', cursor:'pointer', textAlign:'left',
+                            color: ativo ? mod.cor : '#FFFFFF',
+                            fontSize:13, fontWeight: ativo ? 700 : 400,
+                            transition:'all 0.1s',
+                          }}>
+                          <span style={{fontSize:8, color: ativo ? mod.cor : '#64748B', flexShrink:0}}>●</span>
+                          {item.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -326,13 +336,14 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           ].map(item => (
             <button key={item.key} onClick={() => { onNavigate(item.key, 0); if(isMobile) setMenuAberto(false) }}
               style={{
-                width:'100%', display:'flex', alignItems:'center', gap:10,
-                padding:'12px 16px', background: module===item.key ? bgAtivo : 'none',
+                width:'100%', display:'flex', alignItems:'center', gap:12,
+                padding:'14px 16px',
+                background: module===item.key ? '#1E293B' : 'none',
                 border:'none', borderLeft: module===item.key ? `3px solid ${item.cor}` : '3px solid transparent',
-                cursor:'pointer', color: module===item.key ? item.cor : txtBranco,
+                cursor:'pointer', color: module===item.key ? item.cor : '#FFFFFF',
                 fontSize:15, textAlign:'left', fontWeight: module===item.key ? 700 : 500,
               }}>
-              <span style={{fontSize:18}}>{item.icon}</span>
+              <span style={{fontSize:20}}>{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}
@@ -340,24 +351,25 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           {/* Restrito */}
           {isAdmin && <>
             <div style={{height:1, background:'#1E293B', margin:'8px 0'}} />
-            <div style={{fontSize:10,fontWeight:700,color:txtCinza,letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
+            <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
             {Object.entries(RESTRICTED).map(([key, mod]) => (
               <button key={key} onClick={() => { onNavigate(key, 0); if(isMobile) setMenuAberto(false) }}
                 style={{
-                  width:'100%', display:'flex', alignItems:'center', gap:10,
-                  padding:'12px 16px', background: module===key ? bgAtivo : 'none',
+                  width:'100%', display:'flex', alignItems:'center', gap:12,
+                  padding:'12px 16px',
+                  background: module===key ? '#1E293B' : 'none',
                   border:'none', borderLeft: module===key ? '3px solid #F59E0B' : '3px solid transparent',
-                  cursor:'pointer', color: module===key ? '#F59E0B' : txtBranco,
+                  cursor:'pointer', color: module===key ? '#F59E0B' : '#FFFFFF',
                   fontSize:14, textAlign:'left', fontWeight: module===key ? 600 : 400,
                 }}>
-                <span style={{fontSize:16}}>{mod.icon}</span>
+                <span style={{fontSize:18}}>{mod.icon}</span>
                 <span>{mod.label}</span>
               </button>
             ))}
           </>}
         </nav>
 
-        <div style={{padding:'8px 14px',borderTop:`1px solid #1E293B`,fontSize:11,color:txtCinza}}>fiscaltrib.com.br</div>
+        <div style={{padding:'10px 16px',borderTop:`1px solid #1E293B`,fontSize:11,color:'#475569'}}>fiscaltrib.com.br</div>
       </aside>
     </>
   )
