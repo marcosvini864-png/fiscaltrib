@@ -216,7 +216,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99 }} />
       )}
       <aside style={{
-        width: 260, minHeight:'100%', background: C.sidebar,
+        width: 300, minHeight:'100%', background: C.sidebar,
         borderRight:`1px solid ${C.sidebarBorder}`,
         display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto',
         ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
@@ -276,8 +276,8 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                       color: temItemAtivo ? mod.cor : isOpen ? '#e2e8f0' : '#94a3b8',
                       lineHeight:1.2, marginBottom:2,
                     }}>{mod.nome}</div>
-                    <div style={{fontSize:12, color:'#64748B', lineHeight:1.3, marginBottom:1}}>{mod.titulo}</div>
-                    {!isOpen && <div style={{fontSize:11, color:'#475569', lineHeight:1.3}}>{mod.descricao}</div>}
+                    <div style={{fontSize:13, color:'#64748B', lineHeight:1.3, marginBottom:1}}>{mod.titulo}</div>
+                    {!isOpen && <div style={{fontSize:12, color:'#475569', lineHeight:1.3}}>{mod.descricao}</div>}
                   </div>
                   <span style={{
                     fontSize:10, color:'#64748B', flexShrink:0, marginTop:2,
@@ -299,8 +299,8 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                               padding:'8px 14px 8px 42px',
                               background: ativo ? `${mod.cor}15` : 'none',
                               border:'none', cursor:'pointer', textAlign:'left',
-                              color: ativo ? mod.cor : '#94a3b8',
-                              fontSize:13, fontWeight: ativo ? 700 : 400,
+                              color: ativo ? mod.cor : '#FFFFFF',
+                              fontSize:15, fontWeight: ativo ? 700 : 400,
                               transition:'all 0.1s',
                             }}>
                             <span style={{fontSize:8, color: ativo ? mod.cor : '#475569', flexShrink:0}}>●</span>
