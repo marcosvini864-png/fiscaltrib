@@ -446,6 +446,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => {
   localStorage.removeItem('fiscaltrib_module')
 }, [])
+  useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
   const [clientes, setClientes] = useState([])
@@ -474,7 +475,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => {
     if (onAdmin) return
     if (!permissoesModulos) return
-    if (module === 'admin' || module === 'dev') return
+    if (module === 'admin' || module === 'dev' || module === 'painel') return
     if (permissoesModulos[module] === false) {
       const primeiroPermitido = Object.keys(MODULES).find(k => permissoesModulos[k] !== false)
       setModule(primeiroPermitido || 'painel')
