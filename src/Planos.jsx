@@ -204,7 +204,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       <div style={{ width:'100%', maxWidth:900 }}>
 
         <div style={{ textAlign:'center', marginBottom:8 }}>
-          <h1 style={{ fontSize:22, fontWeight:800, color:'#1e3a5f', marginBottom:4 }}>Escolha seu Plano</h1>
+          <h1 style={{ fontSize:18, fontWeight:800, color:'#1e3a5f', marginBottom:4 }}>Escolha seu Plano</h1>
           <p style={{ fontSize:13, color:'#64748b', marginBottom:6 }}>
             Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
           </p>
@@ -233,7 +233,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               </div>
               <div style={{ padding:'8px 12px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontSize:15, fontWeight:700, color:plano.corTopo, marginBottom:2 }}>{plano.nome}</div>
-                <div style={{ fontSize:22, fontWeight:800, color:'#1e3a5f', marginBottom:2 }}>
+                <div style={{ fontSize:18, fontWeight:800, color:'#1e3a5f', marginBottom:1 }}>
                   {fmtR(plano.valor)}<span style={{ fontSize:11, fontWeight:400, color:'#64748b' }}>/mês</span>
                 </div>
                 <div style={{ fontSize:11, color:'#64748b', marginBottom:8, lineHeight:1.4 }}>{plano.descricao}</div>
@@ -241,7 +241,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   {plano.recursos.map((r, i) => {
                     const incluso = r.startsWith('✓')
                     return (
-                      <div key={i} style={{ fontSize:10, color: incluso ? '#374151' : '#94a3b8', marginBottom:3, display:'flex', gap:6, alignItems:'flex-start' }}>
+                      <div key={i} style={{ fontSize:10, color: incluso ? '#374151' : '#94a3b8', marginBottom:2, display:'flex', gap:6, alignItems:'flex-start' }}>
                         <span style={{ color: incluso ? '#16a34a' : '#cbd5e1', fontWeight:700, flexShrink:0 }}>{incluso ? '✓' : '✗'}</span>
                         <span>{r.replace(/^[✓✗]\s/, '')}</span>
                       </div>
@@ -249,7 +249,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   })}
                 </div>
                 <button onClick={() => selecionarPlano(plano)} disabled={loading === plano.id}
-                  style={{ width:'100%', padding:'8px 0', background:plano.corTopo, color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:700, cursor:loading===plano.id?'wait':'pointer', opacity:loading===plano.id?0.7:1 }}>
+                  style={{ width:'100%', padding:'6px 0', background:plano.corTopo, color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:700, cursor:loading===plano.id?'wait':'pointer', opacity:loading===plano.id?0.7:1 }}>
                   {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
                 </button>
               </div>
