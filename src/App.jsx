@@ -92,12 +92,14 @@ export default function App() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    localStorage.removeItem('fiscaltrib_module')
+    localStorage.removeItem('fiscaltrib_cliente')
     setTela('login')
     setUsuario(null)
     setNomeUser('')
     setAssinatura(null)
     setTipoPerfil('')
-  }
+}
 
   if (window.location.hash.includes('reset-password') || window.location.hash.includes('type=recovery'))
     return <ResetPassword />
