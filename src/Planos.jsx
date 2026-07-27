@@ -321,19 +321,37 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             borderBottom: '1px solid #e2e8f0',
           }}>
             <div style={{
-              padding: '5px 10px',
               background: '#f8fafc',
               borderRight: '1px solid #e2e8f0',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
             }}>
-              <strong style={{ color: '#1e3a5f', fontSize: 13 }}>
-                Compare os planos
-              </strong>
-              <span style={{ color: '#64748b', fontSize: 9, marginTop: 1 }}>
-                Veja as diferenças de cada opção
-              </span>
+              <div style={{
+                background: '#f2b705',
+                color: '#1e3a5f',
+                textAlign: 'center',
+                fontSize: 9,
+                fontWeight: 800,
+                padding: '2px 2px',
+                letterSpacing: 0.7,
+              }}>
+                ⚖️ COMPARE OS PLANOS
+              </div>
+
+              <div style={{
+                flex: 1,
+                padding: '5px 10px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+              }}>
+                <strong style={{ color: '#1e3a5f', fontSize: 13 }}>
+                  Compare os planos
+                </strong>
+                <span style={{ color: '#64748b', fontSize: 9, marginTop: 1 }}>
+                  Veja as diferenças de cada opção
+                </span>
+              </div>
             </div>
 
             {PLANOS.map(plano => (
