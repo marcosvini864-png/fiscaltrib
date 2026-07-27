@@ -189,11 +189,8 @@ function TabBar({ tabs, activeTab, onTab }) {
 }
 
 function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
-  const [aberto, setAberto] = useState(() => {
-    const modAtual = MENU_MODULOS.findIndex(m => m.itens.some(i => i.module === module))
-    return modAtual >= 0 ? MENU_MODULOS[modAtual].id : null
-  })
-
+  const [aberto, setAberto] = useState(null)
+ 
   function toggleModulo(id) {
     setAberto(prev => prev === id ? null : id)
   }
