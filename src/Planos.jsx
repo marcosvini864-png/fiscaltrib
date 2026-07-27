@@ -228,11 +228,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
   // ── TELA DE PLANOS ───────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 16px' }}>
+    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'8px 16px' }}>
       <div style={{ width:'100%', maxWidth:940 }}>
 
         {/* Título */}
-        <div style={{ textAlign:'center', marginBottom:10 }}>
+        <div style={{ textAlign:'center', marginBottom:4 }}>
           <h1 style={{ fontSize:20, fontWeight:800, color:'#1e3a5f', marginBottom:3 }}>Escolha seu Plano</h1>
           <p style={{ fontSize:12, color:'#64748b', marginBottom:0 }}>
             Acesso completo ao FiscalTrib — Sistema de Diagnóstico e Recuperação Tributária
@@ -240,7 +240,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         </div>
 
         {/* Badges info */}
-        <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:8, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:4, flexWrap:'wrap' }}>
           <div style={{ border:'1px solid #cbd5e1', borderRadius:6, padding:'5px 12px', fontSize:12, color:'#1e3a5f', fontWeight:600 }}>
             💰 Ativação: R$ 300,00 à vista via PIX
           </div>
@@ -250,30 +250,30 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         </div>
 
         {/* Aviso */}
-        <div style={{ textAlign:'center', marginBottom:12 }}>
+        <div style={{ textAlign:'center', marginBottom:6 }}>
           <span style={{ fontSize:11, color:'#dc2626', fontWeight:700 }}>
             ⚠️ LIBERAÇÃO DO SISTEMA APÓS CONFIRMAÇÃO DO PAGAMENTO DA IMPLANTAÇÃO
           </span>
         </div>
 
         {/* Cards dos planos */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12, marginBottom:10 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10, marginBottom:6 }}>
           {PLANOS.map(plano => (
             <div key={plano.id} style={{ background:'#fff', border:`2px solid ${plano.corTopo}`, borderRadius:10, overflow:'hidden', boxShadow:`0 2px 14px ${plano.corTopo}22`, display:'flex', flexDirection:'column' }}>
               <div style={{ background:plano.corTopo, color:'#fff', textAlign:'center', fontSize:10, fontWeight:700, padding:'4px 0', letterSpacing:1 }}>
                 {plano.labelTopo}
               </div>
-              <div style={{ padding:'8px 12px', flex:1, display:'flex', flexDirection:'column' }}>
+              <div style={{ padding:'5px 10px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontSize:14, fontWeight:700, color:plano.corTopo, marginBottom:1 }}>{plano.nome}</div>
                 <div style={{ fontSize:20, fontWeight:800, color:'#1e3a5f', marginBottom:1 }}>
                   {fmtR(plano.valor)}<span style={{ fontSize:10, fontWeight:400, color:'#64748b' }}>/mês</span>
                 </div>
                 <div style={{ fontSize:10, color:'#64748b', marginBottom:6, lineHeight:1.3 }}>{plano.descricao}</div>
-                <div style={{ borderTop:'1px solid #f1f5f9', paddingTop:5, marginBottom:8, flex:1 }}>
+                <div style={{ borderTop:'1px solid #f1f5f9', paddingTop:3, marginBottom:5, flex:1 }}>
                   {plano.recursos.map((r, i) => {
                     const incluso = r.startsWith('✓')
                     return (
-                      <div key={i} style={{ fontSize:10, color:incluso?'#374151':'#94a3b8', marginBottom:2, display:'flex', gap:5, alignItems:'flex-start' }}>
+                      <div key={i} style={{ fontSize:10, color:incluso?'#374151':'#94a3b8', marginBottom:1, display:'flex', gap:5, alignItems:'flex-start' }}>
                         <span style={{ color:incluso?'#16a34a':'#cbd5e1', fontWeight:700, flexShrink:0 }}>{incluso?'✓':'✗'}</span>
                         <span>{r.replace(/^[✓✗]\s/, '')}</span>
                       </div>
