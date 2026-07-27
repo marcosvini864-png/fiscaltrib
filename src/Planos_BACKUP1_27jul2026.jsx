@@ -214,340 +214,135 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
   // ── TELA DE PLANOS ───────────────────────────────────────────────────────
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
+      maxHeight: '100vh',
       background: '#f8fafc',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '12px 16px',
+      padding: '0 16px',
+      overflow: 'hidden',
       boxSizing: 'border-box',
     }}>
-      <div style={{ width: '100%', maxWidth: 1080 }}>
+      <div style={{ width: '100%', maxWidth: 980 }}>
 
-        {/* Marca */}
-        <div style={{ textAlign: 'center', marginBottom: 8 }}>
-          <h1 style={{
-            fontSize: 28,
-            fontWeight: 900,
-            color: '#1e3a5f',
-            margin: '0 0 2px 0',
-            lineHeight: 1,
-          }}>
-            FiscalTribe
-          </h1>
-
-          <div style={{
-            fontSize: 17,
-            fontWeight: 700,
-            color: '#475569',
-            marginBottom: 4,
-          }}>
-            Plataforma de Inteligência Tributária
-          </div>
-
+        {/* Título */}
+        <div style={{ textAlign: 'center', marginBottom: 6 }}>
+          <h1 style={{ fontSize: 17, fontWeight: 800, color: '#1e3a5f', margin: '0 0 2px 0' }}>Escolha seu Plano</h1>
           <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>
-            Escolha o plano ideal para começar.
+            Acesso completo ao FiscalTribe — Sistema de Diagnóstico e Recuperação Tributária
           </p>
         </div>
 
-        {/* Informações */}
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          justifyContent: 'center',
-          marginBottom: 6,
-          flexWrap: 'wrap',
-        }}>
-          <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '5px 12px',
-            fontSize: 10,
-            color: '#1e3a5f',
-            fontWeight: 700,
-          }}>
-            💰 Taxa de adesão: R$ 300,00 via PIX
+        {/* Badges */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 5, flexWrap: 'wrap' }}>
+          <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '3px 10px', fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
+            💰 Ativação: R$ 300,00 via PIX
           </div>
-
-          <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '5px 12px',
-            fontSize: 10,
-            color: '#64748b',
-          }}>
-            💳 1ª mensalidade em 30 dias no cartão
-          </div>
-
-          <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '5px 12px',
-            fontSize: 10,
-            color: '#64748b',
-          }}>
-            ✓ Sem fidelidade
+          <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, padding: '3px 10px', fontSize: 11, color: '#64748b' }}>
+            📅 1ª mensalidade em 30 dias — débito automático no cartão
           </div>
         </div>
 
         {/* Aviso */}
-        <div style={{
-          textAlign: 'center',
-          marginBottom: 7,
-          fontSize: 10,
-          color: '#166534',
-          fontWeight: 700,
-        }}>
-          ● Seu acesso será liberado após a confirmação da taxa de adesão.
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>
+            ⚠️ LIBERAÇÃO DO SISTEMA APÓS CONFIRMAÇÃO DO PAGAMENTO DA IMPLANTAÇÃO
+          </span>
         </div>
 
-        {/* Tabela comparativa */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #dbe4ee',
-          borderRadius: 12,
-          overflow: 'hidden',
-          boxShadow: '0 4px 18px rgba(0,0,0,0.07)',
-        }}>
-
-          {/* Cabeçalho dos planos */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1.15fr repeat(3, 1fr)',
-            borderBottom: '1px solid #e2e8f0',
-          }}>
-            <div style={{
-              padding: '12px',
-              background: '#f8fafc',
-              borderRight: '1px solid #e2e8f0',
+        {/* Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 6 }}>
+          {PLANOS.map(plano => (
+            <div key={plano.id} style={{
+              background: '#fff',
+              border: `2px solid ${plano.corTopo}`,
+              borderRadius: 10,
+              overflow: 'hidden',
+              boxShadow: `0 2px 10px ${plano.corTopo}22`,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
             }}>
-              <strong style={{ color: '#1e3a5f', fontSize: 14 }}>
-                Compare os planos
-              </strong>
-              <span style={{ color: '#64748b', fontSize: 9, marginTop: 3 }}>
-                Veja as diferenças de cada opção
-              </span>
-            </div>
-
-            {PLANOS.map(plano => (
-              <div key={plano.id} style={{
-                borderRight: plano.id !== 'premium' ? '1px solid #e2e8f0' : 'none',
-                background: plano.id === 'avancado' ? '#fffbeb' : '#fff',
-              }}>
-                <div style={{
-                  background: plano.corTopo,
-                  color: '#fff',
-                  textAlign: 'center',
-                  fontSize: 8,
-                  fontWeight: 800,
-                  padding: '4px 2px',
-                  letterSpacing: 0.7,
-                }}>
-                  {plano.labelTopo}
-                </div>
-
-                <div style={{ padding: '8px 10px', textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: 16,
-                    fontWeight: 800,
-                    color: plano.corTopo,
-                    lineHeight: 1,
-                  }}>
-                    {plano.nome}
-                  </div>
-
-                  <div style={{
-                    fontSize: 24,
-                    fontWeight: 900,
-                    color: '#1e3a5f',
-                    lineHeight: 1,
-                    marginTop: 4,
-                  }}>
-                    {fmtR(plano.valor)}
-                    <span style={{
-                      fontSize: 8,
-                      fontWeight: 400,
-                      color: '#64748b',
-                    }}>
-                      /mês
-                    </span>
-                  </div>
-
-                  <div style={{
-                    fontSize: 8,
-                    color: '#64748b',
-                    minHeight: 22,
-                    lineHeight: 1.25,
-                    margin: '4px 0 6px',
-                  }}>
-                    {plano.descricao}
-                  </div>
-
-                  <button
-                    onClick={() => selecionarPlano(plano)}
-                    disabled={loading === plano.id}
-                    style={{
-                      width: '100%',
-                      padding: '8px 0',
-                      background: plano.corTopo,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 7,
-                      fontSize: 10,
-                      fontWeight: 800,
-                      cursor: loading === plano.id ? 'wait' : 'pointer',
-                      opacity: loading === plano.id ? 0.7 : 1,
-                    }}
-                  >
-                    {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Linhas comparativas */}
-          {[
-            ['CRM Tributário Inteligente', 'Incluído', 'Incluído', 'Incluído'],
-            ['FiscalRecovery', 'Incluído', 'Incluído', 'Incluído'],
-            ['FiscalDebt', 'Básica', 'Completa', 'Completa + estratégias'],
-            ['FiscalAI', 'IA Básica', 'IA Avançada', 'IA Premium'],
-            ['FiscalScan', 'XML e CSV', 'XML, CSV e PDF', 'Todos os formatos + IA'],
-            ['Simuladores', 'Básicos', 'Todos', 'Exclusivos'],
-            ['Relatórios', 'Básicos', 'Avançados', 'Personalizados'],
-            ['Diagnóstico tributário', 'Básico', 'Completo', 'Completo + IA Especialista'],
-            ['Suporte', 'E-mail', 'WhatsApp', 'Prioritário'],
-            ['Conteúdo', 'Vídeos', 'Vídeos + Lives', 'Vídeos + Lives + Consultorias'],
-            ['Teses tributárias', 'Essenciais', 'Completas', 'Com atualizações prioritárias'],
-            ['Novidades', 'Atualizações automáticas', 'Prioridade', 'Prioridade máxima'],
-          ].map((linha, i) => (
-            <div key={i} style={{
-              display: 'grid',
-              gridTemplateColumns: '1.15fr repeat(3, 1fr)',
-              background: i % 2 === 0 ? '#f8fafc' : '#fff',
-              borderBottom: '1px solid #edf2f7',
-              minHeight: 29,
-            }}>
-              <div style={{
-                padding: '6px 10px',
-                fontSize: 9,
-                color: '#334155',
-                fontWeight: 700,
-                borderRight: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-              }}>
-                {linha[0]}
+              {/* Topo colorido */}
+              <div style={{ background: plano.corTopo, color: '#fff', textAlign: 'center', fontSize: 9, fontWeight: 700, padding: '3px 0', letterSpacing: 1 }}>
+                {plano.labelTopo}
               </div>
 
-              {linha.slice(1).map((texto, idx) => (
-                <div key={idx} style={{
-                  padding: '6px 8px',
-                  fontSize: 8.5,
-                  color: '#475569',
-                  textAlign: 'center',
-                  borderRight: idx < 2 ? '1px solid #e2e8f0' : 'none',
-                  background: idx === 1 ? '#fffbeb' : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  lineHeight: 1.25,
-                }}>
-                  <span style={{
-                    color: texto === 'Incluído' ? '#16a34a' : '#0f766e',
-                    fontWeight: 900,
-                  }}>
-                    {texto === 'Incluído' ? '✓' : '•'}
-                  </span>
-                  <span>{texto}</span>
+              <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {/* Nome e preço */}
+                <div style={{ fontSize: 13, fontWeight: 700, color: plano.corTopo, lineHeight: 1 }}>{plano.nome}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#1e3a5f', lineHeight: 1.1, marginBottom: 1 }}>
+                  {fmtR(plano.valor)}<span style={{ fontSize: 9, fontWeight: 400, color: '#64748b' }}>/mês</span>
                 </div>
-              ))}
+                <div style={{ fontSize: 9, color: '#64748b', marginBottom: 4, lineHeight: 1.2 }}>{plano.descricao}</div>
+
+                {/* Recursos */}
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 4, marginBottom: 6, flex: 1 }}>
+                  {plano.recursos.map((r, i) => {
+                    const incluso = r.startsWith('✓')
+                    return (
+                      <div key={i} style={{
+                        fontSize: 9,
+                        color: incluso ? '#374151' : '#b0bec5',
+                        marginBottom: 1,
+                        display: 'flex',
+                        gap: 4,
+                        alignItems: 'center',
+                        lineHeight: 1.2,
+                      }}>
+                        <span style={{ color: incluso ? '#16a34a' : '#d1d5db', fontWeight: 700, flexShrink: 0, fontSize: 9 }}>
+                          {incluso ? '✓' : '✗'}
+                        </span>
+                        <span>{r.replace(/^[✓✗]\s/, '')}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Botão */}
+                <button
+                  onClick={() => selecionarPlano(plano)}
+                  disabled={loading === plano.id}
+                  style={{
+                    width: '100%',
+                    padding: '7px 0',
+                    background: plano.corTopo,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 7,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: loading === plano.id ? 'wait' : 'pointer',
+                    opacity: loading === plano.id ? 0.7 : 1,
+                  }}>
+                  {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
+                </button>
+              </div>
             </div>
           ))}
         </div>
 
+        {/* Observação */}
+        <div style={{ textAlign: 'center', marginBottom: 4, padding: '4px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 10, color: '#0369a1' }}>
+          Todos os planos recebem atualizações automáticas. Os diferenciais estão na profundidade das análises e no nível de inteligência tributária disponível.
+        </div>
+
         {erro && (
-          <div style={{
-            marginTop: 6,
-            padding: 7,
-            background: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: 6,
-            color: '#dc2626',
-            fontSize: 10,
-            textAlign: 'center',
-          }}>
+          <div style={{ marginBottom: 4, padding: 6, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 11, textAlign: 'center' }}>
             {erro}
           </div>
         )}
 
         {/* Rodapé */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginTop: 7,
-        }}>
-          <span style={{ fontSize: 10, color: '#1e3a5f', fontWeight: 600 }}>
-            🔒 Ambiente seguro
-          </span>
-
-          <span style={{ fontSize: 10, color: '#1e3a5f', fontWeight: 600 }}>
-            💳 Pagamento protegido
-          </span>
-
-          <a
-            href="https://wa.me/5511999579822"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              fontSize: 10,
-              color: '#16a34a',
-              textDecoration: 'none',
-              fontWeight: 700,
-            }}
-          >
-            📞 (11) 99957-9822
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>📞 (11) 99957-9822</span>
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer"
+            style={{ fontSize: 10, color: '#16a34a', textDecoration: 'underline' }}>
+            Cancele quando quiser — Sem multas
           </a>
-
-          {onVoltar && (
-            <button
-              onClick={onVoltar}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#64748b',
-                fontSize: 10,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              ← Voltar
-            </button>
-          )}
-
           {onSair && (
-            <button
-              onClick={onSair}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                fontSize: 10,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
+            <button onClick={onSair} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>
               Sair da conta
             </button>
           )}
