@@ -200,7 +200,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
   // TELA DE PLANOS
   return (
-    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'12px 16px' }}>
+    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 16px' }}>
       <div style={{ width:'100%', maxWidth:900 }}>
 
         <div style={{ textAlign:'center', marginBottom:8 }}>
@@ -231,7 +231,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               <div style={{ background:plano.corTopo, color:'#fff', textAlign:'center', fontSize:10, fontWeight:700, padding:'4px 0', letterSpacing:1.2 }}>
                 {plano.labelTopo}
               </div>
-              <div style={{ padding:'10px 14px', flex:1, display:'flex', flexDirection:'column' }}>
+              <div style={{ padding:'8px 12px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontSize:15, fontWeight:700, color:plano.corTopo, marginBottom:2 }}>{plano.nome}</div>
                 <div style={{ fontSize:22, fontWeight:800, color:'#1e3a5f', marginBottom:2 }}>
                   {fmtR(plano.valor)}<span style={{ fontSize:11, fontWeight:400, color:'#64748b' }}>/mês</span>
@@ -241,7 +241,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   {plano.recursos.map((r, i) => {
                     const incluso = r.startsWith('✓')
                     return (
-                      <div key={i} style={{ fontSize:11, color: incluso ? '#374151' : '#94a3b8', marginBottom:4, display:'flex', gap:6, alignItems:'flex-start' }}>
+                      <div key={i} style={{ fontSize:10, color: incluso ? '#374151' : '#94a3b8', marginBottom:3, display:'flex', gap:6, alignItems:'flex-start' }}>
                         <span style={{ color: incluso ? '#16a34a' : '#cbd5e1', fontWeight:700, flexShrink:0 }}>{incluso ? '✓' : '✗'}</span>
                         <span>{r.replace(/^[✓✗]\s/, '')}</span>
                       </div>
