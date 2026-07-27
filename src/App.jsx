@@ -44,6 +44,7 @@ export default function App() {
 
   async function verificarUsuario(user) {
     setUsuario(user)
+    localStorage.removeItem('fiscaltrib_module')  // ← adiciona esta linha
 
     if (user.email === ADMIN_EMAIL) {
     setTela(prev => prev === 'login' || prev === '' ? 'admin' : prev)
