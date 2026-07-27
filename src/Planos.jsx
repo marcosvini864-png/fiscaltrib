@@ -200,7 +200,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
   // TELA DE PLANOS
   return (
-    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 16px' }}>
+    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'57px 16px' }}>
       <div style={{ width:'100%', maxWidth:900 }}>
 
         <div style={{ textAlign:'center', marginBottom:8 }}>
