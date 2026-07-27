@@ -446,6 +446,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [menuAberto, setMenuAberto] = useState(false)
   const [user, setUser] = useState(null)
   const [module, setModule] = useState('painel')
+  useEffect(() => {
+  localStorage.removeItem('fiscaltrib_module')
+}, [])
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
