@@ -132,7 +132,7 @@ export default function Login({ onLogin, onCadastro }) {
 
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <img src="/Logo4.png" alt="e-FiscalTribe" style={{ height: 64, maxWidth: '100%', objectFit: 'contain' }} />
+            <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 56, maxWidth: '220px', objectFit: 'contain' }} />
           </div>
 
           <h2 style={{ textAlign: 'center', color: '#1e3a5f', fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
@@ -195,7 +195,7 @@ export default function Login({ onLogin, onCadastro }) {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <img src="/Logo4.png" alt="e-FiscalTribe" style={{ height: 72, maxWidth: '100%', objectFit: 'contain' }} />
+          <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 56, maxWidth: '220px', objectFit: 'contain' }} />
         </div>
 
         <p style={{ textAlign: 'center', color: '#64748b', fontSize: 12, marginBottom: 16 }}>
