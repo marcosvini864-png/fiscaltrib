@@ -195,12 +195,8 @@ export default function Login({ onLogin, onCadastro }) {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 108, maxWidth: '360px', objectFit: 'contain' }} />
+          <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 72, maxWidth: '260px', objectFit: 'contain' }} />
         </div>
-
-        <p style={{ textAlign: 'center', color: '#64748b', fontSize: 12, marginBottom: 16 }}>
-          Sistema de Diagnóstico e Recuperação Tributária
-        </p>
 
         {/* Erro */}
         {erro && (
