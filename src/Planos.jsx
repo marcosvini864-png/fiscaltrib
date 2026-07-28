@@ -340,7 +340,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
               <div style={{
                 flex: 1,
-                padding: '8px 10px',
+                padding: '8px 10px 14px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -542,7 +542,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           alignItems: 'center',
           gap: 16,
           flexWrap: 'wrap',
-          marginTop: 3,
+          marginTop: 12,
+          marginBottom: 38,
         }}>
           <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
             🔒 Ambiente seguro
