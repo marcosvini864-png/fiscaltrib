@@ -77,12 +77,46 @@ const PLANOS = [
 
 const fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
-export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado, onSair }) {
+export default function Planos({
+  user,
+  assinatura,
+  onVoltar,
+  onVoltarLogin,
+  onVoltarCadastro,
+  onPagamentoIniciado,
+  onSair,
+}) {
   const [loading,          setLoading]          = useState(null)
   const [erro,             setErro]             = useState('')
   const [planoSelecionado, setPlanoSelecionado] = useState(null)
   const [etapa,            setEtapa]            = useState('planos')
   const [copiado,          setCopiado]          = useState(false)
+  const [logoDisponivel,   setLogoDisponivel]   = useState(true)
+
+  function voltarParaLogin() {
+    if (onVoltarLogin) {
+      onVoltarLogin()
+      return
+    }
+
+    // Mantém compatibilidade com a versão anterior do componente.
+    if (onVoltar) {
+      onVoltar()
+      return
+    }
+
+    window.location.assign('/login')
+  }
+
+  function voltarParaCadastro() {
+    if (onVoltarCadastro) {
+      onVoltarCadastro()
+      return
+    }
+
+    window.location.assign('/cadastro')
+  }
+
 
   function copiarPix() {
     navigator.clipboard.writeText(PIX_CHAVE)
@@ -225,101 +259,152 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
     }}>
       <div style={{ width: '100%', maxWidth: 1180 }}>
 
-        {/* Marca */}
-        <div style={{ textAlign: 'center', marginBottom: 4 }}>
-          <h1 style={{
-            fontSize: 30,
-            fontWeight: 900,
-            color: '#1e3a5f',
-            margin: '0 0 2px 0',
-            lineHeight: 1,
-          }}>
-            FiscalTribe
-          </h1>
+        {/* Marca oficial */}
+        <div style={{ textAlign: 'center', marginBottom: 9 }}>
+          {logoDisponivel ? (
+            <img
+              src="/e-fiscaltribe-logo.png"
+              alt="e-FiscalTribe"
+              onError={() => setLogoDisponivel(false)}
+              style={{
+                display: 'block',
+                width: 'min(390px, 88vw)',
+                height: 'auto',
+                margin: '0 auto 3px',
+              }}
+            />
+          ) : (
+            <h1 style={{
+              fontSize: 30,
+              fontWeight: 900,
+              color: '#1e3a5f',
+              margin: '0 0 3px 0',
+              lineHeight: 1,
+            }}>
+              e-FiscalTribe®
+            </h1>
+          )}
 
           <div style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: '#475569',
-            marginBottom: 3,
-            lineHeight: 1.05,
+            fontSize: 19,
+            fontWeight: 800,
+            color: '#1e3a5f',
+            marginBottom: 5,
+            lineHeight: 1.08,
           }}>
             Plataforma de Inteligência Tributária
           </div>
 
           <p style={{
-            fontSize: 10.5,
-            color: '#64748b',
-            margin: 0,
-            lineHeight: 1.05,
+            width: 'min(760px, 96%)',
+            fontSize: 12.5,
+            color: '#526174',
+            margin: '0 auto',
+            lineHeight: 1.35,
           }}>
-            Escolha o plano ideal para começar.
+            Diagnóstico, recuperação de créditos, dívida ativa, inteligência artificial,
+            importação de documentos e relatórios em uma única plataforma.
           </p>
         </div>
 
-        {/* Informações */}
+        {/* Como funciona a contratação */}
         <div style={{
-          display: 'flex',
-          gap: 8,
-          justifyContent: 'center',
-          marginBottom: 3,
-          flexWrap: 'wrap',
+          background: '#ffffff',
+          border: '1px solid #d8e2ec',
+          borderRadius: 10,
+          padding: '9px 12px',
+          margin: '0 auto 8px',
+          boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
         }}>
           <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '3px 10px',
-            fontSize: 10.5,
+            fontSize: 11.5,
+            fontWeight: 900,
             color: '#1e3a5f',
-            fontWeight: 700,
+            textAlign: 'center',
+            marginBottom: 7,
+            letterSpacing: 0.2,
           }}>
-            💰 Taxa de adesão: R$ 300,00 via PIX
+            COMO FUNCIONA A CONTRATAÇÃO
           </div>
 
           <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '3px 10px',
-            fontSize: 10.5,
-            color: '#64748b',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gap: 7,
           }}>
-            💳 1ª mensalidade em 30 dias no cartão
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: 8,
+              padding: '7px 10px',
+              fontSize: 11.5,
+              color: '#166534',
+              lineHeight: 1.35,
+            }}>
+              <strong>1. Adesão:</strong> pagamento único de <strong>R$ 300,00 via PIX</strong>.
+            </div>
+
+            <div style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 8,
+              padding: '7px 10px',
+              fontSize: 11.5,
+              color: '#1e40af',
+              lineHeight: 1.35,
+            }}>
+              <strong>2. Mensalidade:</strong> primeira cobrança somente após <strong>30 dias</strong>.
+            </div>
+
+            <div style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 8,
+              padding: '7px 10px',
+              fontSize: 11.5,
+              color: '#854d0e',
+              lineHeight: 1.35,
+            }}>
+              <strong>3. Liberação:</strong> acesso após confirmação do PIX e cadastro do cartão.
+            </div>
           </div>
 
           <div style={{
-            background: '#fff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            padding: '3px 10px',
+            textAlign: 'center',
+            marginTop: 6,
             fontSize: 10.5,
             color: '#64748b',
+            lineHeight: 1.25,
           }}>
-            ✓ Sem fidelidade
+            Sem fidelidade. A taxa de adesão é paga uma única vez para ativação da conta.
           </div>
         </div>
 
-        {/* Aviso */}
         <div style={{
           textAlign: 'center',
           marginBottom: 5,
           fontSize: 10.5,
-          color: '#166534',
-          fontWeight: 700,
-          lineHeight: 1.05,
+          color: '#64748b',
+          lineHeight: 1.15,
         }}>
-          ● Seu acesso será liberado após a confirmação da taxa de adesão.
+          No celular, deslize a tabela para o lado para comparar todos os planos.
         </div>
 
         {/* Tabela comparativa */}
         <div style={{
-          background: '#fff',
-          border: '1px solid #dbe4ee',
-          borderRadius: 12,
-          overflow: 'hidden',
-          boxShadow: '0 4px 18px rgba(0,0,0,0.07)',
+          width: '100%',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: 2,
         }}>
+          <div style={{
+            minWidth: 940,
+            background: '#fff',
+            border: '1px solid #dbe4ee',
+            borderRadius: 12,
+            overflow: 'hidden',
+            boxShadow: '0 4px 18px rgba(0,0,0,0.07)',
+          }}>
 
           {/* Cabeçalho das colunas */}
           <div style={{
@@ -536,6 +621,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             </div>
           ))}
         </div>
+        </div>
 
         {erro && (
           <div style={{
@@ -552,58 +638,95 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </div>
         )}
 
-        {/* Rodapé */}
+        {/* Ajuda na escolha */}
+        <div style={{
+          marginTop: 10,
+          background: '#eef6ff',
+          border: '1px solid #c9ddf4',
+          borderRadius: 10,
+          padding: '9px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          textAlign: 'center',
+        }}>
+          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 700 }}>
+            Ainda está em dúvida sobre qual plano escolher?
+          </span>
+          <a
+            href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe."
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '7px 13px',
+              background: '#16a34a',
+              color: '#fff',
+              textDecoration: 'none',
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            Falar com um especialista no WhatsApp
+          </a>
+        </div>
+
+        {/* Botões de retorno */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 18,
+          gap: 10,
           flexWrap: 'wrap',
-          marginTop: 9,
-          marginBottom: 0,
+          marginTop: 10,
         }}>
-          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 600 }}>
-            🔒 Ambiente seguro
-          </span>
-
-          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 600 }}>
-            💳 Pagamento protegido
-          </span>
-
-          <a
-            href="https://wa.me/5511999579822"
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={voltarParaLogin}
             style={{
+              minWidth: 190,
+              padding: '9px 14px',
+              background: '#fff',
+              border: '1px solid #1e3a5f',
+              borderRadius: 8,
+              color: '#1e3a5f',
               fontSize: 12,
-              color: '#16a34a',
-              textDecoration: 'none',
-              fontWeight: 700,
+              fontWeight: 800,
+              cursor: 'pointer',
             }}
           >
-            📞 (11) 99957-9822
-          </a>
+            ← Voltar para o login
+          </button>
 
-          {onVoltar && (
-            <button
-              onClick={onVoltar}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#64748b',
-                fontSize: 12,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              ← Voltar
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={voltarParaCadastro}
+            style={{
+              minWidth: 190,
+              padding: '9px 14px',
+              background: '#fff',
+              border: '1px solid #64748b',
+              borderRadius: 8,
+              color: '#475569',
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            ← Voltar para o cadastro
+          </button>
 
           {onSair && (
             <button
+              type="button"
               onClick={onSair}
               style={{
+                padding: '9px 14px',
                 background: 'transparent',
                 border: 'none',
                 color: '#94a3b8',
@@ -615,6 +738,43 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               Sair da conta
             </button>
           )}
+        </div>
+
+        {/* Rodapé institucional */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+          marginTop: 11,
+          color: '#1e3a5f',
+        }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600 }}>🔒 Ambiente seguro</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600 }}>💳 Pagamento protegido</span>
+          <a
+            href="https://wa.me/5511999579822"
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 11.5, color: '#16a34a', textDecoration: 'none', fontWeight: 700 }}
+          >
+            📞 (11) 99957-9822
+          </a>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginTop: 7,
+          paddingTop: 7,
+          borderTop: '1px solid #e2e8f0',
+        }}>
+          <a href="/termos" style={{ fontSize: 10.5, color: '#64748b' }}>Termos de Uso</a>
+          <a href="/privacidade" style={{ fontSize: 10.5, color: '#64748b' }}>Política de Privacidade</a>
+          <a href="/cancelamento" style={{ fontSize: 10.5, color: '#64748b' }}>Política de Cancelamento</a>
+          <a href="/lgpd" style={{ fontSize: 10.5, color: '#64748b' }}>LGPD</a>
         </div>
 
       </div>
