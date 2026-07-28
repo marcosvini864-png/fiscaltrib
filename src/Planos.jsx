@@ -220,15 +220,15 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      padding: '10px 16px 36px',
+      padding: '26px 16px 36px',
       boxSizing: 'border-box',
     }}>
-      <div style={{ width: '100%', maxWidth: 1080 }}>
+      <div style={{ width: '100%', maxWidth: 1180 }}>
 
         {/* Marca */}
         <div style={{ textAlign: 'center', marginBottom: 4 }}>
           <h1 style={{
-            fontSize: 27,
+            fontSize: 30,
             fontWeight: 900,
             color: '#1e3a5f',
             margin: '0 0 2px 0',
@@ -238,7 +238,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </h1>
 
           <div style={{
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: 700,
             color: '#475569',
             marginBottom: 3,
@@ -248,7 +248,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           </div>
 
           <p style={{
-            fontSize: 9.5,
+            fontSize: 10.5,
             color: '#64748b',
             margin: 0,
             lineHeight: 1.05,
@@ -270,7 +270,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             border: '1px solid #cbd5e1',
             borderRadius: 8,
             padding: '3px 10px',
-            fontSize: 9.5,
+            fontSize: 10.5,
             color: '#1e3a5f',
             fontWeight: 700,
           }}>
@@ -282,7 +282,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             border: '1px solid #cbd5e1',
             borderRadius: 8,
             padding: '3px 10px',
-            fontSize: 9.5,
+            fontSize: 10.5,
             color: '#64748b',
           }}>
             💳 1ª mensalidade em 30 dias no cartão
@@ -293,7 +293,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             border: '1px solid #cbd5e1',
             borderRadius: 8,
             padding: '3px 10px',
-            fontSize: 9.5,
+            fontSize: 10.5,
             color: '#64748b',
           }}>
             ✓ Sem fidelidade
@@ -304,7 +304,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         <div style={{
           textAlign: 'center',
           marginBottom: 5,
-          fontSize: 9.5,
+          fontSize: 10.5,
           color: '#166534',
           fontWeight: 700,
           lineHeight: 1.05,
@@ -343,7 +343,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 800,
                 padding: '0 6px',
                 letterSpacing: 0.7,
@@ -362,7 +362,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   alignSelf: 'center',
                   display: 'block',
                   color: '#1e3a5f',
-                  fontSize: 15,
+                  fontSize: 17,
                   lineHeight: 1.1,
                 }}>
                   3 Opções para você
@@ -374,7 +374,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   background: '#f2b705',
                   color: '#1e3a5f',
                   borderRadius: 7,
-                  fontSize: 10.5,
+                  fontSize: 11.5,
                   fontWeight: 800,
                   lineHeight: 1.1,
                 }}>
@@ -399,7 +399,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   alignItems: 'center',
                   justifyContent: 'center',
                   textAlign: 'center',
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: 800,
                   padding: '0 6px',
                   letterSpacing: 0.7,
@@ -415,7 +415,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   gridTemplateRows: 'auto auto 1fr auto',
                 }}>
                   <div style={{
-                    fontSize: 15,
+                    fontSize: 17,
                     fontWeight: 800,
                     color: plano.corTopo,
                     lineHeight: 1,
@@ -424,7 +424,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   </div>
 
                   <div style={{
-                    fontSize: 23,
+                    fontSize: 26,
                     fontWeight: 900,
                     color: '#1e3a5f',
                     lineHeight: 1,
@@ -432,7 +432,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   }}>
                     {fmtR(plano.valor)}
                     <span style={{
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: 400,
                       color: '#64748b',
                     }}>
@@ -441,7 +441,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   </div>
 
                   <div style={{
-                    fontSize: 9,
+                    fontSize: 10,
                     color: '#64748b',
                     lineHeight: 1.05,
                     padding: '3px 0 4px',
@@ -460,7 +460,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                       color: '#fff',
                       border: 'none',
                       borderRadius: 7,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 800,
                       cursor: loading === plano.id ? 'wait' : 'pointer',
                       opacity: loading === plano.id ? 0.7 : 1,
@@ -497,7 +497,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             }}>
               <div style={{
                 padding: '2px 9px',
-                fontSize: 10.5,
+                fontSize: 11.5,
                 color: '#334155',
                 fontWeight: 700,
                 borderRight: '1px solid #e2e8f0',
@@ -511,7 +511,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               {linha.slice(1).map((texto, idx) => (
                 <div key={idx} style={{
                   padding: '2px 7px',
-                  fontSize: 10.5,
+                  fontSize: 11.5,
                   color: '#475569',
                   textAlign: 'center',
                   borderRight: idx < 2 ? '1px solid #e2e8f0' : 'none',
@@ -555,16 +555,16 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 16,
+          gap: 18,
           flexWrap: 'wrap',
           marginTop: 9,
           marginBottom: 0,
         }}>
-          <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 600 }}>
             🔒 Ambiente seguro
           </span>
 
-          <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 600 }}>
             💳 Pagamento protegido
           </span>
 
@@ -573,7 +573,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             target="_blank"
             rel="noreferrer"
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: '#16a34a',
               textDecoration: 'none',
               fontWeight: 700,
@@ -589,7 +589,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 background: 'transparent',
                 border: 'none',
                 color: '#64748b',
-                fontSize: 11,
+                fontSize: 12,
                 cursor: 'pointer',
                 textDecoration: 'underline',
               }}
@@ -605,7 +605,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 background: 'transparent',
                 border: 'none',
                 color: '#94a3b8',
-                fontSize: 11,
+                fontSize: 12,
                 cursor: 'pointer',
                 textDecoration: 'underline',
               }}
