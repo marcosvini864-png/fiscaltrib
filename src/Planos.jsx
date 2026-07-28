@@ -220,13 +220,13 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      padding: '8px 16px 34px',
+      padding: '10px 16px 36px',
       boxSizing: 'border-box',
     }}>
       <div style={{ width: '100%', maxWidth: 1080 }}>
 
         {/* Marca */}
-        <div style={{ textAlign: 'center', marginBottom: 2 }}>
+        <div style={{ textAlign: 'center', marginBottom: 4 }}>
           <h1 style={{
             fontSize: 27,
             fontWeight: 900,
@@ -241,12 +241,18 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
             fontSize: 16,
             fontWeight: 700,
             color: '#475569',
-            marginBottom: 4,
+            marginBottom: 3,
+            lineHeight: 1.05,
           }}>
             Plataforma de Inteligência Tributária
           </div>
 
-          <p style={{ fontSize: 9.5, color: '#64748b', margin: 0 }}>
+          <p style={{
+            fontSize: 9.5,
+            color: '#64748b',
+            margin: 0,
+            lineHeight: 1.05,
+          }}>
             Escolha o plano ideal para começar.
           </p>
         </div>
@@ -256,7 +262,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           display: 'flex',
           gap: 8,
           justifyContent: 'center',
-          marginBottom: 2,
+          marginBottom: 3,
           flexWrap: 'wrap',
         }}>
           <div style={{
@@ -297,10 +303,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
         {/* Aviso */}
         <div style={{
           textAlign: 'center',
-          marginBottom: 2,
+          marginBottom: 5,
           fontSize: 9.5,
           color: '#166534',
           fontWeight: 700,
+          lineHeight: 1.05,
         }}>
           ● Seu acesso será liberado após a confirmação da taxa de adesão.
         </div>
@@ -314,12 +321,14 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           boxShadow: '0 4px 18px rgba(0,0,0,0.07)',
         }}>
 
-          {/* Cabeçalho dos planos */}
+          {/* Cabeçalho das colunas */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1.15fr repeat(3, 1fr)',
             borderBottom: '1px solid #e2e8f0',
           }}>
+
+            {/* Coluna de comparação */}
             <div style={{
               background: '#f8fafc',
               borderRight: '1px solid #e2e8f0',
@@ -327,7 +336,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               flexDirection: 'column',
             }}>
               <div style={{
-                minHeight: 28,
+                height: 30,
                 background: '#f2b705',
                 color: '#1e3a5f',
                 display: 'flex',
@@ -336,22 +345,21 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 textAlign: 'center',
                 fontSize: 10,
                 fontWeight: 800,
-                padding: '4px 6px',
+                padding: '0 6px',
                 letterSpacing: 0.7,
               }}>
                 ⚖️ COMPARE OS PLANOS
               </div>
 
               <div style={{
-                flex: 1,
-                minHeight: 110,
-                padding: '9px 10px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
+                height: 94,
+                padding: '8px 10px 9px',
+                display: 'grid',
+                gridTemplateRows: '1fr auto',
                 textAlign: 'center',
               }}>
                 <strong style={{
+                  alignSelf: 'center',
                   display: 'block',
                   color: '#1e3a5f',
                   fontSize: 15,
@@ -368,20 +376,23 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   borderRadius: 7,
                   fontSize: 10.5,
                   fontWeight: 800,
-                  lineHeight: 1.15,
+                  lineHeight: 1.1,
                 }}>
                   Veja as diferenças de cada opção
                 </div>
               </div>
             </div>
 
+            {/* Planos */}
             {PLANOS.map(plano => (
               <div key={plano.id} style={{
                 borderRight: plano.id !== 'premium' ? '1px solid #e2e8f0' : 'none',
                 background: plano.id === 'avancado' ? '#fffbeb' : '#fff',
+                display: 'flex',
+                flexDirection: 'column',
               }}>
                 <div style={{
-                  minHeight: 28,
+                  height: 30,
                   background: plano.corTopo,
                   color: '#fff',
                   display: 'flex',
@@ -390,36 +401,34 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   textAlign: 'center',
                   fontSize: 10,
                   fontWeight: 800,
-                  padding: '4px 6px',
+                  padding: '0 6px',
                   letterSpacing: 0.7,
                 }}>
                   {plano.labelTopo}
                 </div>
 
                 <div style={{
-                  minHeight: 110,
-                  padding: '7px 10px 9px',
+                  height: 94,
+                  padding: '6px 10px 9px',
                   textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
+                  display: 'grid',
+                  gridTemplateRows: 'auto auto 1fr auto',
                 }}>
-                  <div>
-                    <div style={{
-                      fontSize: 15,
-                      fontWeight: 800,
-                      color: plano.corTopo,
-                      lineHeight: 1,
-                    }}>
-                      {plano.nome}
-                    </div>
+                  <div style={{
+                    fontSize: 15,
+                    fontWeight: 800,
+                    color: plano.corTopo,
+                    lineHeight: 1,
+                  }}>
+                    {plano.nome}
+                  </div>
 
                   <div style={{
                     fontSize: 23,
                     fontWeight: 900,
                     color: '#1e3a5f',
                     lineHeight: 1,
-                    marginTop: 4,
+                    marginTop: 3,
                   }}>
                     {fmtR(plano.valor)}
                     <span style={{
@@ -434,13 +443,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                   <div style={{
                     fontSize: 9,
                     color: '#64748b',
-                    minHeight: 14,
-                    lineHeight: 1.1,
-                    margin: '2px 0 3px',
+                    lineHeight: 1.05,
+                    padding: '3px 0 4px',
+                    alignSelf: 'center',
                   }}>
                     {plano.descricao}
-                  </div>
-
                   </div>
 
                   <button
@@ -448,7 +455,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                     disabled={loading === plano.id}
                     style={{
                       width: '100%',
-                      padding: '5px 0',
+                      padding: '6px 0',
                       background: plano.corTopo,
                       color: '#fff',
                       border: 'none',
@@ -486,7 +493,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               gridTemplateColumns: '1.15fr repeat(3, 1fr)',
               background: i % 2 === 0 ? '#f8fafc' : '#fff',
               borderBottom: '1px solid #edf2f7',
-              minHeight: 22,
+              minHeight: 20,
             }}>
               <div style={{
                 padding: '2px 9px',
@@ -496,6 +503,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 borderRight: '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
+                lineHeight: 1,
               }}>
                 {linha[0]}
               </div>
@@ -549,7 +557,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           alignItems: 'center',
           gap: 16,
           flexWrap: 'wrap',
-          marginTop: 10,
+          marginTop: 9,
           marginBottom: 0,
         }}>
           <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
