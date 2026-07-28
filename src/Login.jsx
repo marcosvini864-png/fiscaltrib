@@ -195,7 +195,7 @@ export default function Login({ onLogin, onCadastro }) {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 56, maxWidth: '220px', objectFit: 'contain' }} />
+          <img src="/Logo5.png" alt="e-FiscalTribe" style={{ height: 108, maxWidth: '360px', objectFit: 'contain' }} />
         </div>
 
         <p style={{ textAlign: 'center', color: '#64748b', fontSize: 12, marginBottom: 16 }}>
@@ -322,7 +322,7 @@ const st = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px 16px',
+    padding: '12px 16px',
     fontFamily: "'Inter', sans-serif",
   },
   label: {
