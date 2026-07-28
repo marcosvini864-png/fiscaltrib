@@ -356,32 +356,10 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                     3 Opções para você
                   </strong>
 
-                  <span style={{
-                    display: 'block',
-                    color: '#475569',
-                    fontSize: 9.5,
-                    lineHeight: 1.2,
-                  }}>
-                    Veja as diferenças de cada opção
-                  </span>
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <div style={{
-                    width: '100%',
-                    padding: '5px 0',
-                    background: '#f2b705',
-                    color: '#1e3a5f',
-                    borderRadius: 7,
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                  }}>
-                    Veja as diferenças de cada opção
                   </div>
                 </div>
               </div>
-            </div>
-
+            
             {PLANOS.map(plano => (
               <div key={plano.id} style={{
                 borderRight: plano.id !== 'premium' ? '1px solid #e2e8f0' : 'none',
