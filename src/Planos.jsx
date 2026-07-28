@@ -503,6 +503,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                 borderRight: '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
                 lineHeight: 1,
               }}>
                 {linha[0]}
