@@ -13,7 +13,7 @@ const cssResponsivo = `
   }
   .ft-login-input {
     width: 100%;
-    padding: 6px 8px;
+    padding: 4px 6px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     box-sizing: border-box;
@@ -27,7 +27,7 @@ const cssResponsivo = `
   }
   .ft-btn-principal {
     width: 100%;
-    padding: 7px;
+    padding: 5px;
     background: #1e3a5f;
     color: #fff;
     border: none;
@@ -42,7 +42,7 @@ const cssResponsivo = `
   }
   .ft-btn-outline {
     width: 100%;
-    padding: 7px;
+    padding: 5px;
     background: transparent;
     color: #1e3a5f;
     border: 2px solid #1e3a5f;
@@ -278,7 +278,7 @@ export default function Login({ onLogin, onCadastro }) {
             Já se cadastrou mas não conseguiu efetuar o pagamento?
           </p>
           <button
-            style={{ width: '100%', padding: 7, background: '#f0b429', color: '#0f172a', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            style={{ width: '100%', padding: 5, background: '#f0b429', color: '#0f172a', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
             onClick={handleLogin}
           >
             👉 Retomar meu pagamento
@@ -318,7 +318,7 @@ const st = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '12px 16px',
+    padding: '6px 12px',
     fontFamily: "'Inter', sans-serif",
   },
   label: {
@@ -326,7 +326,7 @@ const st = {
     color: '#475569',
     fontSize: 13,
     fontWeight: 600,
-    marginBottom: 5,
+    marginBottom: 3,
   },
   rodape: {
     color: '#9db8d8',
