@@ -340,17 +340,45 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
               <div style={{
                 flex: 1,
-                padding: '5px 10px',
+                padding: '8px 10px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
+                textAlign: 'center',
               }}>
-                <strong style={{ color: '#1e3a5f', fontSize: 13 }}>
-                  Compare os planos
-                </strong>
-                <span style={{ color: '#64748b', fontSize: 9, marginTop: 1 }}>
-                  Veja as diferenças de cada opção
-                </span>
+                <div>
+                  <strong style={{
+                    display: 'block',
+                    color: '#1e3a5f',
+                    fontSize: 15,
+                    marginBottom: 4,
+                  }}>
+                    3 Opções para você
+                  </strong>
+
+                  <span style={{
+                    display: 'block',
+                    color: '#475569',
+                    fontSize: 9.5,
+                    lineHeight: 1.2,
+                  }}>
+                    Veja as diferenças de cada opção
+                  </span>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <div style={{
+                    width: '100%',
+                    padding: '5px 0',
+                    background: '#f2b705',
+                    color: '#1e3a5f',
+                    borderRadius: 7,
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                  }}>
+                    Veja as diferenças de cada opção
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -451,11 +479,11 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               gridTemplateColumns: '1.15fr repeat(3, 1fr)',
               background: i % 2 === 0 ? '#f8fafc' : '#fff',
               borderBottom: '1px solid #edf2f7',
-              minHeight: 20,
+              minHeight: 22,
             }}>
               <div style={{
                 padding: '2px 9px',
-                fontSize: 9.5,
+                fontSize: 10.5,
                 color: '#334155',
                 fontWeight: 700,
                 borderRight: '1px solid #e2e8f0',
@@ -468,7 +496,7 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               {linha.slice(1).map((texto, idx) => (
                 <div key={idx} style={{
                   padding: '2px 7px',
-                  fontSize: 9.5,
+                  fontSize: 10.5,
                   color: '#475569',
                   textAlign: 'center',
                   borderRight: idx < 2 ? '1px solid #e2e8f0' : 'none',
