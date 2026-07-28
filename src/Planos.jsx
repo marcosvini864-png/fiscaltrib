@@ -219,8 +219,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2px 16px',
+      justifyContent: 'flex-start',
+      padding: '8px 16px 34px',
       boxSizing: 'border-box',
     }}>
       <div style={{ width: '100%', maxWidth: 1080 }}>
@@ -327,12 +327,16 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
               flexDirection: 'column',
             }}>
               <div style={{
+                minHeight: 28,
                 background: '#f2b705',
                 color: '#1e3a5f',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 textAlign: 'center',
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 800,
-                padding: '2px 2px',
+                padding: '4px 6px',
                 letterSpacing: 0.7,
               }}>
                 ⚖️ COMPARE OS PLANOS
@@ -340,52 +344,75 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
 
               <div style={{
                 flex: 1,
-                padding: '8px 10px 14px',
+                minHeight: 110,
+                padding: '9px 10px 12px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 textAlign: 'center',
               }}>
-                <div>
-                  <strong style={{
-                    display: 'block',
-                    color: '#1e3a5f',
-                    fontSize: 15,
-                    marginBottom: 4,
-                  }}>
-                    3 Opções para você
-                  </strong>
+                <strong style={{
+                  display: 'block',
+                  color: '#1e3a5f',
+                  fontSize: 15,
+                  lineHeight: 1.1,
+                }}>
+                  3 Opções para você
+                </strong>
 
-                  </div>
+                <div style={{
+                  width: '100%',
+                  padding: '6px 6px',
+                  background: '#f2b705',
+                  color: '#1e3a5f',
+                  borderRadius: 7,
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  lineHeight: 1.15,
+                }}>
+                  Veja as diferenças de cada opção
                 </div>
               </div>
-            
+            </div>
+
             {PLANOS.map(plano => (
               <div key={plano.id} style={{
                 borderRight: plano.id !== 'premium' ? '1px solid #e2e8f0' : 'none',
                 background: plano.id === 'avancado' ? '#fffbeb' : '#fff',
               }}>
                 <div style={{
+                  minHeight: 28,
                   background: plano.corTopo,
                   color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   textAlign: 'center',
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: 800,
-                  padding: '2px 2px',
+                  padding: '4px 6px',
                   letterSpacing: 0.7,
                 }}>
                   {plano.labelTopo}
                 </div>
 
-                <div style={{ padding: '8px 10px', textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: 15,
-                    fontWeight: 800,
-                    color: plano.corTopo,
-                    lineHeight: 1,
-                  }}>
-                    {plano.nome}
-                  </div>
+                <div style={{
+                  minHeight: 110,
+                  padding: '7px 10px 9px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}>
+                  <div>
+                    <div style={{
+                      fontSize: 15,
+                      fontWeight: 800,
+                      color: plano.corTopo,
+                      lineHeight: 1,
+                    }}>
+                      {plano.nome}
+                    </div>
 
                   <div style={{
                     fontSize: 23,
@@ -412,6 +439,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
                     margin: '2px 0 3px',
                   }}>
                     {plano.descricao}
+                  </div>
+
                   </div>
 
                   <button
@@ -520,8 +549,8 @@ export default function Planos({ user, assinatura, onVoltar, onPagamentoIniciado
           alignItems: 'center',
           gap: 16,
           flexWrap: 'wrap',
-          marginTop: 12,
-          marginBottom: 38,
+          marginTop: 10,
+          marginBottom: 0,
         }}>
           <span style={{ fontSize: 11, color: '#1e3a5f', fontWeight: 600 }}>
             🔒 Ambiente seguro
