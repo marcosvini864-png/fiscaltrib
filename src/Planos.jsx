@@ -247,7 +247,7 @@ export default function Planos({
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
           <img
-            src="/Logo5.png"
+            src="/Logo6.png"
             alt="e-FiscalTribe"
             style={{ height: 72, maxWidth: '280px', objectFit: 'contain' }}
             onError={e => { e.target.style.display='none' }}
