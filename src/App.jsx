@@ -62,7 +62,7 @@ export default function App() {
       .from('assinaturas')
       .select('*')
       .eq('usuario_id', user.id)
-      .single()
+      .maybeSingle()
 
     setAssinatura(ass)
 
