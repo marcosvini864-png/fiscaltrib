@@ -148,7 +148,7 @@ export default function Planos({
             <div style={{ background: planoSelecionado.corTopo, padding:'10px 20px', textAlign:'center' }}>
               <div style={{ fontSize:10, color:'#fff', fontWeight:700, letterSpacing:1, marginBottom:2 }}>PASSO 1 DE 2</div>
               <div style={{ fontSize:18, color:'#fff', fontWeight:800 }}>Taxa de Adesão via PIX</div>
-              <div style={{ fontSize:28, color:'#fff', fontWeight:900, lineHeight:1.1 }}>{fmtR(planoSelecionado.valor)}</div>
+              <div style={{ fontSize:28, color:'#fff', fontWeight:900, lineHeight:1.1 }}>R$ 300,00</div>
               <div style={{ fontSize:11, color:'#dcfce7' }}>Pagamento único — não recorrente</div>
             </div>
             <div style={{ padding:'10px 16px' }}>
@@ -157,7 +157,7 @@ export default function Planos({
                 1. Abra o aplicativo do seu banco.<br />
                 2. Escolha a opção <strong>PIX</strong>.<br />
                 3. Copie a chave PIX abaixo.<br />
-                4. Efetue o pagamento de <strong>{fmtR(planoSelecionado.valor)}</strong>.<br />
+                4. Efetue o pagamento de <strong>R$ 300,00</strong>.<br />
                 5. Clique em <strong>"Já paguei o PIX"</strong> para prosseguir.
               </div>
               <div style={{ marginBottom:10 }}>
@@ -173,7 +173,7 @@ export default function Planos({
               </div>
               <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:7, padding:'8px 12px', marginBottom:10, fontSize:11, color:'#64748b', lineHeight:1.6 }}>
                 <strong style={{ color:'#374151' }}>Beneficiário:</strong> Marcos Vinicius Alexandre de Souza<br />
-                <strong style={{ color:'#374151' }}>Valor:</strong> {fmtR(planoSelecionado.valor)} &nbsp;|&nbsp;
+                <strong style={{ color:'#374151' }}>Valor:</strong> R$ 300,00 &nbsp;|&nbsp;
                 <strong style={{ color:'#374151' }}>Plano:</strong> {planoSelecionado.nome}
               </div>
               <div style={{ background:'#fefce8', border:'1px solid #fde047', borderRadius:7, padding:'8px 12px', marginBottom:14, fontSize:11, color:'#854d0e', textAlign:'center', lineHeight:1.5 }}>
