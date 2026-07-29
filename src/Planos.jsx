@@ -292,7 +292,7 @@ export default function Planos({
             gap: 5,
           }}>
             <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:7, padding:'5px 8px', fontSize:10.5, color:'#166534', lineHeight:1.3 }}>
-              <strong>1. Adesão:</strong> pagamento único de <strong>{fmtR(planoSelecionado.valor)} via PIX</strong>.
+              <strong>1. Adesão:</strong> pagamento único de <strong>R$ 300,00 via PIX</strong>.
             </div>
             <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:7, padding:'5px 8px', fontSize:10.5, color:'#1e40af', lineHeight:1.3 }}>
               <strong>2. Mensalidade:</strong> primeira cobrança somente após <strong>30 dias</strong>.
