@@ -243,9 +243,9 @@ export default function Planos({
       boxSizing: 'border-box',
     }}>
       <div style={{ width: '100%', maxWidth: 1180 }}>
-
+        
         {/* Marca texto + descrição */}
-     425   <div style={{ textAlign: 'center', marginBottom: 6 }}>
+        <div style={{ textAlign: 'center', marginBottom: 6 }}>
           <div style={{
             fontSize: 14,
             fontWeight: 800,
@@ -407,23 +407,30 @@ export default function Planos({
           <a href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe." target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'6px 12px', background:'#16a34a', color:'#fff', textDecoration:'none', borderRadius:6, fontSize:11, fontWeight:800 }}>Falar com um especialista no WhatsApp</a>
         </div>
 
-        {/* Rodapé unificado */}
-        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, flexWrap:'wrap', marginTop:7, paddingTop:7, borderTop:'1px solid #e2e8f0' }}>
-          <button type="button" onClick={voltarParaLogin} style={{ padding:'6px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
+        {/* Botões de retorno */}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:7 }}>
+          <button type="button" onClick={voltarParaLogin} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
             ← Voltar para o login
           </button>
-          {onSair && (
-            <button type="button" onClick={onSair} style={{ padding:'6px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
+        {onSair && (
+            <button type="button" onClick={onSair} style={{ padding:'7px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
               Sair da conta
             </button>
           )}
+        </div>
+
+        {/* Rodapé unificado */}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, flexWrap:'wrap', marginTop:7, paddingTop:7, borderTop:'1px solid #e2e8f0' }}>
+          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>🔒 Ambiente seguro</span>
+          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>💳 Pagamento protegido</span>
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{ fontSize:10.5, color:'#16a34a', textDecoration:'none', fontWeight:700 }}>📞 (11) 99957-9822</a>
           <span style={{ color:'#e2e8f0' }}>|</span>
           <a href="https://www.fiscaltrib.com.br/termos" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Termos de Uso</a>
           <a href="https://www.fiscaltrib.com.br/privacidade" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Privacidade</a>
           <a href="https://www.fiscaltrib.com.br/cancelamento" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Cancelamento</a>
           <a href="https://www.fiscaltrib.com.br/lgpd" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>LGPD</a>
-          <span style={{ color:'#e2e8f0' }}>|</span>
-          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>🔒 Ambiente seguro</span>
-          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>💳 Pagamento protegido</span>
-          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{ fontSize:10.5, color:'#16a34a', textDecoration:'none', fontWeight:700 }}>📞 (11) 99957-9822</a>
         </div>
+      </div>
+    </div>
+  )
+}
