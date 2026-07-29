@@ -104,7 +104,7 @@ export default function ChatAssistente({ modo = 'publico' }) {
       >
         {aberto ? '✕' : (
          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
-         <span style={{ fontSize:22 }}>👩‍💼</span>
+         <span style={{ fontSize:22 }}>🎧</span>
          <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.5 }}>Chat</span>
          </div>
 )}
