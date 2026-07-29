@@ -10,6 +10,7 @@ import Dashboard from './Dashboard'
 import Admin from './Admin'
 import ResetPassword from './ResetPassword'
 import CookieBanner from './CookieBanner'
+import ChatAssistente from './ChatAssistente'
 
 const ADMIN_EMAIL = 'marcosvini864@gmail.com'
 
@@ -154,5 +155,6 @@ export default function App() {
       onAdmin={usuario?.email === ADMIN_EMAIL ? () => setTela('admin') : null}
     />
     <CookieBanner />
+	<ChatAssistente modo={usuario ? 'interno' : 'publico'} />
   </>
 }
