@@ -414,14 +414,7 @@ export default function Planos({
           <span style={{ fontSize:11, color:'#1e3a5f', fontWeight:700 }}>
             Ainda está em dúvida sobre qual plano escolher?
           </span>
-          
-            href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe."
-            target="_blank"
-            rel="noreferrer"
-            style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'6px 12px', background:'#16a34a', color:'#fff', textDecoration:'none', borderRadius:6, fontSize:11, fontWeight:800 }}
-          >
-            Falar com um especialista no WhatsApp
-          </a>
+          <a href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe." target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'6px 12px', background:'#16a34a', color:'#fff', textDecoration:'none', borderRadius:6, fontSize:11, fontWeight:800 }}>Falar com um especialista no WhatsApp</a>
         </div>
 
         {/* Botões de retorno */}
