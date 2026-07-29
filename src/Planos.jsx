@@ -244,18 +244,8 @@ export default function Planos({
     }}>
       <div style={{ width: '100%', maxWidth: 1180 }}>
 
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <img
-            src="/Logo6.png"
-            alt="e-FiscalTribe"
-            style={{ height: 72, maxWidth: '280px', objectFit: 'contain' }}
-            onError={e => { e.target.style.display='none' }}
-          />
-        </div>
-
         {/* Marca texto + descrição */}
-        <div style={{ textAlign: 'center', marginBottom: 6 }}>
+     425   <div style={{ textAlign: 'center', marginBottom: 6 }}>
           <div style={{
             fontSize: 14,
             fontWeight: 800,
@@ -422,9 +412,6 @@ export default function Planos({
           <button type="button" onClick={voltarParaLogin} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
             ← Voltar para o login
           </button>
-          <button type="button" onClick={voltarParaCadastro} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #64748b', borderRadius:7, color:'#475569', fontSize:11, fontWeight:800, cursor:'pointer' }}>
-            ← Voltar para o cadastro
-          </button>
           {onSair && (
             <button type="button" onClick={onSair} style={{ padding:'7px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
               Sair da conta
@@ -432,23 +419,23 @@ export default function Planos({
           )}
         </div>
 
-        {/* Rodapé institucional */}
-        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:14, flexWrap:'wrap', marginTop:7, color:'#1e3a5f' }}>
-          <span style={{ fontSize:10.5, fontWeight:600 }}>🔒 Ambiente seguro</span>
-          <span style={{ fontSize:10.5, fontWeight:600 }}>💳 Pagamento protegido</span>
-          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{ fontSize:10.5, color:'#16a34a', textDecoration:'none', fontWeight:700 }}>
-            📞 (11) 99957-9822
-          </a>
-        </div>
-
-        <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginTop:5, paddingTop:5, borderTop:'1px solid #e2e8f0' }}>
+        {/* Rodapé unificado */}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, flexWrap:'wrap', marginTop:7, paddingTop:7, borderTop:'1px solid #e2e8f0' }}>
+          <button type="button" onClick={voltarParaLogin} style={{ padding:'6px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
+            ← Voltar para o login
+          </button>
+          {onSair && (
+            <button type="button" onClick={onSair} style={{ padding:'6px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
+              Sair da conta
+            </button>
+          )}
+          <span style={{ color:'#e2e8f0' }}>|</span>
           <a href="https://www.fiscaltrib.com.br/termos" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Termos de Uso</a>
           <a href="https://www.fiscaltrib.com.br/privacidade" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Privacidade</a>
           <a href="https://www.fiscaltrib.com.br/cancelamento" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Cancelamento</a>
           <a href="https://www.fiscaltrib.com.br/lgpd" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>LGPD</a>
+          <span style={{ color:'#e2e8f0' }}>|</span>
+          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>🔒 Ambiente seguro</span>
+          <span style={{ fontSize:10.5, fontWeight:600, color:'#1e3a5f' }}>💳 Pagamento protegido</span>
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{ fontSize:10.5, color:'#16a34a', textDecoration:'none', fontWeight:700 }}>📞 (11) 99957-9822</a>
         </div>
-
-      </div>
-    </div>
-  )
-}
