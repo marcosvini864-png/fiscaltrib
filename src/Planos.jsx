@@ -145,13 +145,13 @@ export default function Planos({
       <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
         <div style={{ width:'100%', maxWidth:460 }}>
           <div style={{ background:'#fff', borderRadius:12, border:`2px solid ${planoSelecionado.corTopo}`, overflow:'hidden', boxShadow:'0 4px 20px rgba(0,0,0,0.08)' }}>
-            <div style={{ background: planoSelecionado.corTopo, padding:'10px 20px', textAlign:'center' }}>
+            <div style={{ background: planoSelecionado.corTopo, padding:'4px 14px', textAlign:'center' }}>
               <div style={{ fontSize:10, color:'#fff', fontWeight:700, letterSpacing:1, marginBottom:2 }}>PASSO 1 DE 2</div>
               <div style={{ fontSize:18, color:'#fff', fontWeight:800 }}>Taxa de Adesão via PIX</div>
               <div style={{ fontSize:28, color:'#fff', fontWeight:900, lineHeight:1.1 }}>R$ 300,00</div>
               <div style={{ fontSize:11, color:'#dcfce7' }}>Pagamento único — não recorrente</div>
             </div>
-            <div style={{ padding:'10px 16px' }}>
+            <div style={{ padding:'8px 14px' }}>
               <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#166534', lineHeight:1.7 }}>
                 <strong>Como pagar:</strong><br />
                 1. Abra o aplicativo do seu banco.<br />
@@ -179,13 +179,13 @@ export default function Planos({
               <div style={{ background:'#fefce8', border:'1px solid #fde047', borderRadius:7, padding:'8px 12px', marginBottom:14, fontSize:11, color:'#854d0e', textAlign:'center', lineHeight:1.5 }}>
                 Seu acesso será liberado automaticamente após a confirmação do pagamento da taxa de adesão. Em seguida, você será direcionado para o cadastro da mensalidade.
               </div>
-              <button onClick={irParaCartao} style={{ width:'100%', padding:'10px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:800, cursor:'pointer', marginBottom:8, boxShadow:'0 4px 12px rgba(22,163,74,0.4)' }}>
+              <button onClick={irParaCartao} style={{ width:'100%', padding:'8px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:800, cursor:'pointer', marginBottom:8, boxShadow:'0 4px 12px rgba(22,163,74,0.4)' }}>
                 ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
               </button>
-              <button onClick={() => setEtapa('planos')} style={{ width:'100%', padding:'7px 0', background:'transparent', border:'none', color:'#94a3b8', fontSize:12, cursor:'pointer', textDecoration:'underline', marginBottom:4 }}>
+              <button onClick={() => setEtapa('planos')} style={{ width:'100%', padding:'5px 0', background:'transparent', border:'none', color:'#94a3b8', fontSize:12, cursor:'pointer', textDecoration:'underline', marginBottom:4 }}>
                 ← Voltar e escolher outro plano
               </button>
-              <button onClick={onSair} style={{ width:'100%', padding:'7px 0', background:'transparent', border:'none', color:'#94a3b8', fontSize:12, cursor:'pointer', textDecoration:'underline' }}>
+              <button onClick={onSair} style={{ width:'100%', padding:'5px 0', background:'transparent', border:'none', color:'#94a3b8', fontSize:12, cursor:'pointer', textDecoration:'underline' }}>
                 Sair da conta
               </button>
             </div>
