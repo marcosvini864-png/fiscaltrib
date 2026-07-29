@@ -407,18 +407,6 @@ export default function Planos({
           <a href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe." target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'6px 12px', background:'#16a34a', color:'#fff', textDecoration:'none', borderRadius:6, fontSize:11, fontWeight:800 }}>Falar com um especialista no WhatsApp</a>
         </div>
 
-        {/* Botões de retorno */}
-        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:7 }}>
-          <button type="button" onClick={voltarParaLogin} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
-            ← Voltar para o login
-          </button>
-          {onSair && (
-            <button type="button" onClick={onSair} style={{ padding:'7px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
-              Sair da conta
-            </button>
-          )}
-        </div>
-
         {/* Rodapé unificado */}
         <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, flexWrap:'wrap', marginTop:7, paddingTop:7, borderTop:'1px solid #e2e8f0' }}>
           <button type="button" onClick={voltarParaLogin} style={{ padding:'6px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
