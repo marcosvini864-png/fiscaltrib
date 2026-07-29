@@ -60,8 +60,7 @@ export default function ChatAssistente({ modo = 'publico' }) {
 
       if (error) throw error
 
-      console.log('CHAT DEBUG:', JSON.stringify(data))
-      const resposta = data?.choices?.[0]?.message?.content || data?.data?.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua pergunta.'
+      const resposta = data?.resposta || data?.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua pergunta.'
       setMensagens(prev => [...prev, { role: 'assistant', content: resposta }])
     } catch (e) {
       setMensagens(prev => [...prev, { role: 'assistant', content: 'Erro ao conectar. Tente novamente ou entre em contato pelo WhatsApp (11) 99957-9822.' }])
