@@ -56,7 +56,7 @@ export default function App() {
       .from('usuarios')
       .select('nome_completo, perfil_completo, tipo_perfil')
       .eq('email', user.email)
-      .single()
+      .maybeSingle()
 
     const { data: ass } = await supabase
       .from('assinaturas')
