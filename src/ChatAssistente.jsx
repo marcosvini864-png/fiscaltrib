@@ -60,6 +60,7 @@ export default function ChatAssistente({ modo = 'publico' }) {
 
       if (error) throw error
 
+      console.log('CHAT DEBUG:', JSON.stringify(data))
       const resposta = data?.choices?.[0]?.message?.content || data?.data?.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua pergunta.'
       setMensagens(prev => [...prev, { role: 'assistant', content: resposta }])
     } catch (e) {
