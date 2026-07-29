@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/termos", "destination": "/termos.html" },
+    { "source": "/privacidade", "destination": "/privacidade.html" },
+    { "source": "/cancelamento", "destination": "/cancelamento.html" },
+    { "source": "/lgpd", "destination": "/lgpd.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
