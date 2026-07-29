@@ -110,6 +110,7 @@ export default function App() {
     return <>
       <Login onLogin={(user) => verificarUsuario(user)} onCadastro={() => setTela('cadastro')} />
       <CookieBanner />
+	  <ChatAssistente modo="publico" />
     </>
 
   if (tela === 'cadastro')
@@ -129,6 +130,7 @@ export default function App() {
           onSair={handleLogout}
         />
       <CookieBanner />
+	  <ChatAssistente modo="publico" />
     </>
 
   if (tela === 'aguardando')
