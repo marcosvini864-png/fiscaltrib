@@ -151,7 +151,7 @@ export default function Planos({
               <div style={{ fontSize:28, color:'#fff', fontWeight:900, lineHeight:1.1 }}>{fmtR(planoSelecionado.valor)}</div>
               <div style={{ fontSize:11, color:'#dcfce7' }}>Pagamento único — não recorrente</div>
             </div>
-            <div style={{ padding:'14px 20px' }}>
+            <div style={{ padding:'10px 16px' }}>
               <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#166534', lineHeight:1.7 }}>
                 <strong>Como pagar:</strong><br />
                 1. Abra o aplicativo do seu banco.<br />
@@ -179,7 +179,7 @@ export default function Planos({
               <div style={{ background:'#fefce8', border:'1px solid #fde047', borderRadius:7, padding:'8px 12px', marginBottom:14, fontSize:11, color:'#854d0e', textAlign:'center', lineHeight:1.5 }}>
                 Seu acesso será liberado automaticamente após a confirmação do pagamento da taxa de adesão. Em seguida, você será direcionado para o cadastro da mensalidade.
               </div>
-              <button onClick={irParaCartao} style={{ width:'100%', padding:'14px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:800, cursor:'pointer', marginBottom:8, boxShadow:'0 4px 12px rgba(22,163,74,0.4)' }}>
+              <button onClick={irParaCartao} style={{ width:'100%', padding:'10px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:800, cursor:'pointer', marginBottom:8, boxShadow:'0 4px 12px rgba(22,163,74,0.4)' }}>
                 ✅ Já paguei o PIX → Cadastrar mensalidade no cartão
               </button>
               <button onClick={() => setEtapa('planos')} style={{ width:'100%', padding:'7px 0', background:'transparent', border:'none', color:'#94a3b8', fontSize:12, cursor:'pointer', textDecoration:'underline', marginBottom:4 }}>
