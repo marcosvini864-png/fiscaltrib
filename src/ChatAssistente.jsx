@@ -102,7 +102,12 @@ export default function ChatAssistente({ modo = 'publico' }) {
         }}
         title="Chat Assistente"
       >
-        {aberto ? '✕' : '💬'}
+        {aberto ? '✕' : (
+         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
+         <span style={{ fontSize:22 }}>👩‍💼</span>
+         <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.5 }}>Chat</span>
+         </div>
+)}
       </button>
 
       {/* Janela do chat */}
@@ -126,7 +131,7 @@ export default function ChatAssistente({ modo = 'publico' }) {
           {/* Cabeçalho */}
           <div style={{ background: '#1e3a5f', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-              🤖
+              🎧
             </div>
             <div>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Chat Assistente</div>
