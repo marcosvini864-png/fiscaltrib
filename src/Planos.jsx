@@ -91,32 +91,17 @@ export default function Planos({
   const [planoSelecionado, setPlanoSelecionado] = useState(null)
   const [etapa,            setEtapa]            = useState('planos')
   const [copiado,          setCopiado]          = useState(false)
-  const [logoDisponivel,   setLogoDisponivel]   = useState(true)
 
   function voltarParaLogin() {
-    if (onVoltarLogin) {
-      onVoltarLogin()
-      return
-    }
-
-    // Mantém compatibilidade com a versão anterior do componente.
-    if (onVoltar) {
-      onVoltar()
-      return
-    }
-
+    if (onVoltarLogin) { onVoltarLogin(); return }
+    if (onVoltar) { onVoltar(); return }
     window.location.assign('/login')
   }
 
   function voltarParaCadastro() {
-    if (onVoltarCadastro) {
-      onVoltarCadastro()
-      return
-    }
-
+    if (onVoltarCadastro) { onVoltarCadastro(); return }
     window.location.assign('/cadastro')
   }
-
 
   function copiarPix() {
     navigator.clipboard.writeText(PIX_CHAVE)
@@ -254,527 +239,220 @@ export default function Planos({
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      padding: '26px 16px 36px',
+      padding: '14px 16px 24px',
       boxSizing: 'border-box',
     }}>
       <div style={{ width: '100%', maxWidth: 1180 }}>
 
-        {/* Marca oficial */}
-        <div style={{ textAlign: 'center', marginBottom: 9 }}>
-          {logoDisponivel ? (
-            <img
-              src="/e-fiscaltribe-logo.png"
-              alt="e-FiscalTribe"
-              onError={() => setLogoDisponivel(false)}
-              style={{
-                display: 'block',
-                width: 'min(390px, 88vw)',
-                height: 'auto',
-                margin: '0 auto 3px',
-              }}
-            />
-          ) : (
-            <h1 style={{
-              fontSize: 30,
-              fontWeight: 900,
-              color: '#1e3a5f',
-              margin: '0 0 3px 0',
-              lineHeight: 1,
-            }}>
-              e-FiscalTribe®
-            </h1>
-          )}
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 6 }}>
+          <img
+            src="/Logo5.png"
+            alt="e-FiscalTribe"
+            style={{ height: 72, maxWidth: '280px', objectFit: 'contain' }}
+            onError={e => { e.target.style.display='none' }}
+          />
+        </div>
 
+        {/* Marca texto + descrição */}
+        <div style={{ textAlign: 'center', marginBottom: 6 }}>
           <div style={{
-            fontSize: 19,
+            fontSize: 14,
             fontWeight: 800,
             color: '#1e3a5f',
-            marginBottom: 5,
+            marginBottom: 3,
             lineHeight: 1.08,
           }}>
             Plataforma de Inteligência Tributária
           </div>
-
           <p style={{
             width: 'min(760px, 96%)',
-            fontSize: 12.5,
+            fontSize: 11,
             color: '#526174',
             margin: '0 auto',
-            lineHeight: 1.35,
+            lineHeight: 1.3,
           }}>
             Diagnóstico, recuperação de créditos, dívida ativa, inteligência artificial,
             importação de documentos e relatórios em uma única plataforma.
           </p>
         </div>
 
-        {/* Como funciona a contratação */}
+        {/* Como funciona */}
         <div style={{
           background: '#ffffff',
           border: '1px solid #d8e2ec',
-          borderRadius: 10,
-          padding: '9px 12px',
-          margin: '0 auto 8px',
+          borderRadius: 8,
+          padding: '6px 10px',
+          margin: '0 auto 6px',
           boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
         }}>
           <div style={{
-            fontSize: 11.5,
+            fontSize: 10.5,
             fontWeight: 900,
             color: '#1e3a5f',
             textAlign: 'center',
-            marginBottom: 7,
+            marginBottom: 5,
             letterSpacing: 0.2,
           }}>
             COMO FUNCIONA A CONTRATAÇÃO
           </div>
-
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: 7,
+            gap: 5,
           }}>
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: 8,
-              padding: '7px 10px',
-              fontSize: 11.5,
-              color: '#166534',
-              lineHeight: 1.35,
-            }}>
+            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:7, padding:'5px 8px', fontSize:10.5, color:'#166534', lineHeight:1.3 }}>
               <strong>1. Adesão:</strong> pagamento único de <strong>R$ 300,00 via PIX</strong>.
             </div>
-
-            <div style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: 8,
-              padding: '7px 10px',
-              fontSize: 11.5,
-              color: '#1e40af',
-              lineHeight: 1.35,
-            }}>
+            <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:7, padding:'5px 8px', fontSize:10.5, color:'#1e40af', lineHeight:1.3 }}>
               <strong>2. Mensalidade:</strong> primeira cobrança somente após <strong>30 dias</strong>.
             </div>
-
-            <div style={{
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              borderRadius: 8,
-              padding: '7px 10px',
-              fontSize: 11.5,
-              color: '#854d0e',
-              lineHeight: 1.35,
-            }}>
+            <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:7, padding:'5px 8px', fontSize:10.5, color:'#854d0e', lineHeight:1.3 }}>
               <strong>3. Liberação:</strong> acesso após confirmação do PIX e cadastro do cartão.
             </div>
           </div>
-
-          <div style={{
-            textAlign: 'center',
-            marginTop: 6,
-            fontSize: 10.5,
-            color: '#64748b',
-            lineHeight: 1.25,
-          }}>
+          <div style={{ textAlign:'center', marginTop:4, fontSize:10, color:'#64748b', lineHeight:1.2 }}>
             Sem fidelidade. A taxa de adesão é paga uma única vez para ativação da conta.
           </div>
         </div>
 
-        <div style={{
-          textAlign: 'center',
-          marginBottom: 5,
-          fontSize: 10.5,
-          color: '#64748b',
-          lineHeight: 1.15,
-        }}>
+        <div style={{ textAlign:'center', marginBottom:4, fontSize:10, color:'#64748b' }}>
           No celular, deslize a tabela para o lado para comparar todos os planos.
         </div>
 
         {/* Tabela comparativa */}
-        <div style={{
-          width: '100%',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          paddingBottom: 2,
-        }}>
-          <div style={{
-            minWidth: 940,
-            background: '#fff',
-            border: '1px solid #dbe4ee',
-            borderRadius: 12,
-            overflow: 'hidden',
-            boxShadow: '0 4px 18px rgba(0,0,0,0.07)',
-          }}>
+        <div style={{ width:'100%', overflowX:'auto', WebkitOverflowScrolling:'touch', paddingBottom:2 }}>
+          <div style={{ minWidth:940, background:'#fff', border:'1px solid #dbe4ee', borderRadius:10, overflow:'hidden', boxShadow:'0 4px 18px rgba(0,0,0,0.07)' }}>
 
-          {/* Cabeçalho das colunas */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1.15fr repeat(3, 1fr)',
-            borderBottom: '1px solid #e2e8f0',
-          }}>
+            {/* Cabeçalho */}
+            <div style={{ display:'grid', gridTemplateColumns:'1.15fr repeat(3, 1fr)', borderBottom:'1px solid #e2e8f0' }}>
 
-            {/* Coluna de comparação */}
-            <div style={{
-              background: '#f8fafc',
-              borderRight: '1px solid #e2e8f0',
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
-              <div style={{
-                height: 30,
-                background: '#f2b705',
-                color: '#1e3a5f',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: 800,
-                padding: '0 6px',
-                letterSpacing: 0.7,
-              }}>
-                ⚖️ COMPARE OS PLANOS
-              </div>
-
-              <div style={{
-                height: 94,
-                padding: '8px 10px 9px',
-                display: 'grid',
-                gridTemplateRows: '1fr auto',
-                textAlign: 'center',
-              }}>
-                <strong style={{
-                  alignSelf: 'center',
-                  display: 'block',
-                  color: '#1e3a5f',
-                  fontSize: 17,
-                  lineHeight: 1.1,
-                }}>
-                  3 Opções para você
-                </strong>
-
-                <div style={{
-                  width: '100%',
-                  padding: '6px 6px',
-                  background: '#f2b705',
-                  color: '#1e3a5f',
-                  borderRadius: 7,
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  lineHeight: 1.1,
-                }}>
-                  Veja as diferenças de cada opção
+              {/* Coluna comparação */}
+              <div style={{ background:'#f8fafc', borderRight:'1px solid #e2e8f0', display:'flex', flexDirection:'column' }}>
+                <div style={{ height:26, background:'#f2b705', color:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', fontSize:10, fontWeight:800, padding:'0 6px', letterSpacing:0.7 }}>
+                  ⚖️ COMPARE OS PLANOS
+                </div>
+                <div style={{ height:80, padding:'6px 10px 7px', display:'grid', gridTemplateRows:'1fr auto', textAlign:'center' }}>
+                  <strong style={{ alignSelf:'center', display:'block', color:'#1e3a5f', fontSize:15, lineHeight:1.1 }}>
+                    3 Opções para você
+                  </strong>
+                  <div style={{ width:'100%', padding:'5px 6px', background:'#f2b705', color:'#1e3a5f', borderRadius:6, fontSize:10.5, fontWeight:800, lineHeight:1.1 }}>
+                    Veja as diferenças de cada opção
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Planos */}
-            {PLANOS.map(plano => (
-              <div key={plano.id} style={{
-                borderRight: plano.id !== 'premium' ? '1px solid #e2e8f0' : 'none',
-                background: plano.id === 'avancado' ? '#fffbeb' : '#fff',
-                display: 'flex',
-                flexDirection: 'column',
-              }}>
-                <div style={{
-                  height: 30,
-                  background: plano.corTopo,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  padding: '0 6px',
-                  letterSpacing: 0.7,
-                }}>
-                  {plano.labelTopo}
-                </div>
-
-                <div style={{
-                  height: 94,
-                  padding: '6px 10px 9px',
-                  textAlign: 'center',
-                  display: 'grid',
-                  gridTemplateRows: 'auto auto 1fr auto',
-                }}>
-                  <div style={{
-                    fontSize: 17,
-                    fontWeight: 800,
-                    color: plano.corTopo,
-                    lineHeight: 1,
-                  }}>
-                    {plano.nome}
+              {/* Planos */}
+              {PLANOS.map(plano => (
+                <div key={plano.id} style={{ borderRight:plano.id!=='premium'?'1px solid #e2e8f0':'none', background:plano.id==='avancado'?'#fffbeb':'#fff', display:'flex', flexDirection:'column' }}>
+                  <div style={{ height:26, background:plano.corTopo, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', fontSize:10, fontWeight:800, padding:'0 6px', letterSpacing:0.7 }}>
+                    {plano.labelTopo}
                   </div>
-
-                  <div style={{
-                    fontSize: 26,
-                    fontWeight: 900,
-                    color: '#1e3a5f',
-                    lineHeight: 1,
-                    marginTop: 3,
-                  }}>
-                    {fmtR(plano.valor)}
-                    <span style={{
-                      fontSize: 10,
-                      fontWeight: 400,
-                      color: '#64748b',
-                    }}>
-                      /mês
-                    </span>
+                  <div style={{ height:80, padding:'5px 10px 7px', textAlign:'center', display:'grid', gridTemplateRows:'auto auto 1fr auto' }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:plano.corTopo, lineHeight:1 }}>
+                      {plano.nome}
+                    </div>
+                    <div style={{ fontSize:22, fontWeight:900, color:'#1e3a5f', lineHeight:1, marginTop:2 }}>
+                      {fmtR(plano.valor)}
+                      <span style={{ fontSize:10, fontWeight:400, color:'#64748b' }}>/mês</span>
+                    </div>
+                    <div style={{ fontSize:9.5, color:'#64748b', lineHeight:1.05, padding:'2px 0 3px', alignSelf:'center' }}>
+                      {plano.descricao}
+                    </div>
+                    <button
+                      onClick={() => selecionarPlano(plano)}
+                      disabled={loading === plano.id}
+                      style={{ width:'100%', padding:'5px 0', background:plano.corTopo, color:'#fff', border:'none', borderRadius:6, fontSize:11, fontWeight:800, cursor:loading===plano.id?'wait':'pointer', opacity:loading===plano.id?0.7:1 }}
+                    >
+                      {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
+                    </button>
                   </div>
-
-                  <div style={{
-                    fontSize: 10,
-                    color: '#64748b',
-                    lineHeight: 1.05,
-                    padding: '3px 0 4px',
-                    alignSelf: 'center',
-                  }}>
-                    {plano.descricao}
-                  </div>
-
-                  <button
-                    onClick={() => selecionarPlano(plano)}
-                    disabled={loading === plano.id}
-                    style={{
-                      width: '100%',
-                      padding: '6px 0',
-                      background: plano.corTopo,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 7,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: loading === plano.id ? 'wait' : 'pointer',
-                      opacity: loading === plano.id ? 0.7 : 1,
-                    }}
-                  >
-                    {loading === plano.id ? 'Aguarde...' : `Assinar ${plano.nome}`}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Linhas comparativas */}
-          {[
-            ['CRM Tributário Inteligente', 'Incluído', 'Incluído', 'Incluído'],
-            ['FiscalRecovery', 'Incluído', 'Incluído', 'Incluído'],
-            ['FiscalDebt', 'Básica', 'Completa', 'Completa + estratégias'],
-            ['FiscalAI', 'IA Básica', 'IA Avançada', 'IA Premium'],
-            ['FiscalScan', 'XML e CSV', 'XML, CSV e PDF', 'Todos os formatos + IA'],
-            ['Simuladores', 'Básicos', 'Todos', 'Exclusivos'],
-            ['Relatórios', 'Básicos', 'Avançados', 'Personalizados'],
-            ['Diagnóstico tributário', 'Básico', 'Completo', 'Completo + IA Especialista'],
-            ['Suporte', 'E-mail', 'WhatsApp', 'Prioritário'],
-            ['Conteúdo', 'Vídeos', 'Vídeos + Lives', 'Vídeos + Lives + Consultorias'],
-            ['Teses tributárias', 'Essenciais', 'Completas', 'Com atualizações prioritárias'],
-            ['Novidades', 'Atualizações automáticas', 'Prioridade', 'Prioridade máxima'],
-          ].map((linha, i) => (
-            <div key={i} style={{
-              display: 'grid',
-              gridTemplateColumns: '1.15fr repeat(3, 1fr)',
-              background: i % 2 === 0 ? '#f8fafc' : '#fff',
-              borderBottom: '1px solid #edf2f7',
-              minHeight: 20,
-            }}>
-              <div style={{
-                padding: '2px 9px',
-                fontSize: 11.5,
-                color: '#334155',
-                fontWeight: 700,
-                borderRight: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                lineHeight: 1,
-              }}>
-                {linha[0]}
-              </div>
-
-              {linha.slice(1).map((texto, idx) => (
-                <div key={idx} style={{
-                  padding: '2px 7px',
-                  fontSize: 11.5,
-                  color: '#475569',
-                  textAlign: 'center',
-                  borderRight: idx < 2 ? '1px solid #e2e8f0' : 'none',
-                  background: idx === 1 ? '#fffbeb' : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  lineHeight: 1,
-                }}>
-                  <span style={{
-                    color: texto === 'Incluído' ? '#16a34a' : '#0f766e',
-                    fontWeight: 900,
-                  }}>
-                    {texto === 'Incluído' ? '✓' : '•'}
-                  </span>
-                  <span>{texto}</span>
                 </div>
               ))}
             </div>
-          ))}
-        </div>
+
+            {/* Linhas comparativas */}
+            {[
+              ['CRM Tributário Inteligente', 'Incluído', 'Incluído', 'Incluído'],
+              ['FiscalRecovery', 'Incluído', 'Incluído', 'Incluído'],
+              ['FiscalDebt', 'Básica', 'Completa', 'Completa + estratégias'],
+              ['FiscalAI', 'IA Básica', 'IA Avançada', 'IA Premium'],
+              ['FiscalScan', 'XML e CSV', 'XML, CSV e PDF', 'Todos os formatos + IA'],
+              ['Simuladores', 'Básicos', 'Todos', 'Exclusivos'],
+              ['Relatórios', 'Básicos', 'Avançados', 'Personalizados'],
+              ['Diagnóstico tributário', 'Básico', 'Completo', 'Completo + IA Especialista'],
+              ['Suporte', 'E-mail', 'WhatsApp', 'Prioritário'],
+              ['Conteúdo', 'Vídeos', 'Vídeos + Lives', 'Vídeos + Lives + Consultorias'],
+              ['Teses tributárias', 'Essenciais', 'Completas', 'Com atualizações prioritárias'],
+              ['Novidades', 'Atualizações automáticas', 'Prioridade', 'Prioridade máxima'],
+            ].map((linha, i) => (
+              <div key={i} style={{ display:'grid', gridTemplateColumns:'1.15fr repeat(3, 1fr)', background:i%2===0?'#f8fafc':'#fff', borderBottom:'1px solid #edf2f7', minHeight:18 }}>
+                <div style={{ padding:'2px 8px', fontSize:10.5, color:'#334155', fontWeight:700, borderRight:'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineHeight:1 }}>
+                  {linha[0]}
+                </div>
+                {linha.slice(1).map((texto, idx) => (
+                  <div key={idx} style={{ padding:'2px 6px', fontSize:10.5, color:'#475569', textAlign:'center', borderRight:idx<2?'1px solid #e2e8f0':'none', background:idx===1?'#fffbeb':'transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:4, lineHeight:1 }}>
+                    <span style={{ color:texto==='Incluído'?'#16a34a':'#0f766e', fontWeight:900 }}>
+                      {texto==='Incluído'?'✓':'•'}
+                    </span>
+                    <span>{texto}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         {erro && (
-          <div style={{
-            marginTop: 6,
-            padding: 7,
-            background: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: 6,
-            color: '#dc2626',
-            fontSize: 9.5,
-            textAlign: 'center',
-          }}>
+          <div style={{ marginTop:5, padding:6, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, color:'#dc2626', fontSize:9.5, textAlign:'center' }}>
             {erro}
           </div>
         )}
 
         {/* Ajuda na escolha */}
-        <div style={{
-          marginTop: 10,
-          background: '#eef6ff',
-          border: '1px solid #c9ddf4',
-          borderRadius: 10,
-          padding: '9px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          flexWrap: 'wrap',
-          textAlign: 'center',
-        }}>
-          <span style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 700 }}>
+        <div style={{ marginTop:7, background:'#eef6ff', border:'1px solid #c9ddf4', borderRadius:8, padding:'7px 10px', display:'flex', alignItems:'center', justifyContent:'center', gap:10, flexWrap:'wrap', textAlign:'center' }}>
+          <span style={{ fontSize:11, color:'#1e3a5f', fontWeight:700 }}>
             Ainda está em dúvida sobre qual plano escolher?
           </span>
-          <a
+          
             href="https://wa.me/5511999579822?text=Olá%2C%20quero%20ajuda%20para%20escolher%20meu%20plano%20do%20e-FiscalTribe."
             target="_blank"
             rel="noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '7px 13px',
-              background: '#16a34a',
-              color: '#fff',
-              textDecoration: 'none',
-              borderRadius: 7,
-              fontSize: 12,
-              fontWeight: 800,
-            }}
+            style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'6px 12px', background:'#16a34a', color:'#fff', textDecoration:'none', borderRadius:6, fontSize:11, fontWeight:800 }}
           >
             Falar com um especialista no WhatsApp
           </a>
         </div>
 
         {/* Botões de retorno */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 10,
-          flexWrap: 'wrap',
-          marginTop: 10,
-        }}>
-          <button
-            type="button"
-            onClick={voltarParaLogin}
-            style={{
-              minWidth: 190,
-              padding: '9px 14px',
-              background: '#fff',
-              border: '1px solid #1e3a5f',
-              borderRadius: 8,
-              color: '#1e3a5f',
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:7 }}>
+          <button type="button" onClick={voltarParaLogin} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #1e3a5f', borderRadius:7, color:'#1e3a5f', fontSize:11, fontWeight:800, cursor:'pointer' }}>
             ← Voltar para o login
           </button>
-
-          <button
-            type="button"
-            onClick={voltarParaCadastro}
-            style={{
-              minWidth: 190,
-              padding: '9px 14px',
-              background: '#fff',
-              border: '1px solid #64748b',
-              borderRadius: 8,
-              color: '#475569',
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={voltarParaCadastro} style={{ minWidth:170, padding:'7px 12px', background:'#fff', border:'1px solid #64748b', borderRadius:7, color:'#475569', fontSize:11, fontWeight:800, cursor:'pointer' }}>
             ← Voltar para o cadastro
           </button>
-
           {onSair && (
-            <button
-              type="button"
-              onClick={onSair}
-              style={{
-                padding: '9px 14px',
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                fontSize: 12,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
+            <button type="button" onClick={onSair} style={{ padding:'7px 12px', background:'transparent', border:'none', color:'#94a3b8', fontSize:11, cursor:'pointer', textDecoration:'underline' }}>
               Sair da conta
             </button>
           )}
         </div>
 
         {/* Rodapé institucional */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginTop: 11,
-          color: '#1e3a5f',
-        }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600 }}>🔒 Ambiente seguro</span>
-          <span style={{ fontSize: 11.5, fontWeight: 600 }}>💳 Pagamento protegido</span>
-          <a
-            href="https://wa.me/5511999579822"
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 11.5, color: '#16a34a', textDecoration: 'none', fontWeight: 700 }}
-          >
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:14, flexWrap:'wrap', marginTop:7, color:'#1e3a5f' }}>
+          <span style={{ fontSize:10.5, fontWeight:600 }}>🔒 Ambiente seguro</span>
+          <span style={{ fontSize:10.5, fontWeight:600 }}>💳 Pagamento protegido</span>
+          <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer" style={{ fontSize:10.5, color:'#16a34a', textDecoration:'none', fontWeight:700 }}>
             📞 (11) 99957-9822
           </a>
         </div>
 
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 12,
-          flexWrap: 'wrap',
-          marginTop: 7,
-          paddingTop: 7,
-          borderTop: '1px solid #e2e8f0',
-        }}>
-          <a href="/termos" style={{ fontSize: 10.5, color: '#64748b' }}>Termos de Uso</a>
-          <a href="/privacidade" style={{ fontSize: 10.5, color: '#64748b' }}>Política de Privacidade</a>
-          <a href="/cancelamento" style={{ fontSize: 10.5, color: '#64748b' }}>Política de Cancelamento</a>
-          <a href="/lgpd" style={{ fontSize: 10.5, color: '#64748b' }}>LGPD</a>
+        <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginTop:5, paddingTop:5, borderTop:'1px solid #e2e8f0' }}>
+          <a href="/termos" style={{ fontSize:10, color:'#64748b' }}>Termos de Uso</a>
+          <a href="/privacidade" style={{ fontSize:10, color:'#64748b' }}>Política de Privacidade</a>
+          <a href="/cancelamento" style={{ fontSize:10, color:'#64748b' }}>Política de Cancelamento</a>
+          <a href="/lgpd" style={{ fontSize:10, color:'#64748b' }}>LGPD</a>
         </div>
 
       </div>
