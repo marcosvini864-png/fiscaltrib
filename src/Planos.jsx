@@ -442,10 +442,10 @@ export default function Planos({
         </div>
 
         <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginTop:5, paddingTop:5, borderTop:'1px solid #e2e8f0' }}>
-          <a href="/termos" style={{ fontSize:10, color:'#64748b' }}>Termos de Uso</a>
-          <a href="/privacidade" style={{ fontSize:10, color:'#64748b' }}>Política de Privacidade</a>
-          <a href="/cancelamento" style={{ fontSize:10, color:'#64748b' }}>Política de Cancelamento</a>
-          <a href="/lgpd" style={{ fontSize:10, color:'#64748b' }}>LGPD</a>
+          <a href="https://www.fiscaltrib.com.br/termos" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Termos de Uso</a>
+          <a href="https://www.fiscaltrib.com.br/privacidade" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Privacidade</a>
+          <a href="https://www.fiscaltrib.com.br/cancelamento" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>Política de Cancelamento</a>
+          <a href="https://www.fiscaltrib.com.br/lgpd" target="_blank" rel="noreferrer" style={{ fontSize:10, color:'#64748b' }}>LGPD</a>
         </div>
 
       </div>

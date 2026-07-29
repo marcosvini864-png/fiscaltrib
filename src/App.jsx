@@ -120,12 +120,13 @@ export default function App() {
   if (tela === 'planos')
     return <>
       <Planos
-        user={usuario}
-        assinatura={assinatura}
-        onVoltar={null}
-        onPagamentoIniciado={() => setTela('aguardando')}
-        onSair={handleLogout}
-      />
+          user={usuario}
+          assinatura={assinatura}
+          onVoltarLogin={() => setTela('login')}
+          onVoltarCadastro={() => setTela('cadastro')}
+          onPagamentoIniciado={() => setTela('aguardando')}
+          onSair={handleLogout}
+        />
       <CookieBanner />
     </>
 
