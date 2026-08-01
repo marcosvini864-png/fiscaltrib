@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>e-FiscalTribe® — Inteligência Tributária de Alta Performance</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --azul:    #0a1628;
+      --azul2:   #0d2444;
+      --verde:   #00c896;
+      --verde2:  #00a87a;
+      --branco:  #ffffff;
+      --cinza:   #8a9bb0;
+      --card-bg: #0f1e35;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--azul);
+      color: var(--branco);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 5%;
+      background: rgba(10,22,40,0.95);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(0,200,150,0.15);
+      backdrop-filter: blur(8px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--branco);
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--verde); }
+    .logo-shield {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #1a4fd6, var(--verde));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .nav-btn {
+      display: flex; gap: 10px;
+    }
+    .btn-outline {
+      padding: 9px 22px;
+      border: 1.5px solid var(--verde);
+      color: var(--verde);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .btn-outline:hover { background: var(--verde); color: var(--azul); }
+    .btn-solid {
+      padding: 9px 22px;
+      background: var(--verde);
+      color: var(--azul);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      border: 1.5px solid var(--verde);
+    }
+    .btn-solid:hover { background: var(--verde2); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 60px 5% 80px;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,200,150,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(26,79,214,0.1) 0%, transparent 60%);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(0,200,150,0.12);
+      border: 1px solid rgba(0,200,150,0.3);
+      color: var(--verde);
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.8rem);
+      font-weight: 900;
+      line-height: 1.15;
+      max-width: 800px;
+      margin-bottom: 24px;
+    }
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, var(--verde), #1a9fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--cinza);
+      max-width: 600px;
+      margin-bottom: 40px;
+    }
+    .hero-btns {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn-hero {
+      padding: 15px 36px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-hero-primary {
+      background: var(--verde);
+      color: var(--azul);
+    }
+    .btn-hero-primary:hover { background: var(--verde2); transform: translateY(-2px); }
+    .btn-hero-secondary {
+      background: transparent;
+      color: var(--branco);
+      border: 1.5px solid rgba(255,255,255,0.2);
+    }
+    .btn-hero-secondary:hover { border-color: var(--verde); color: var(--verde); }
+
+    .stats {
+      display: flex;
+      gap: 40px;
+      margin-top: 60px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--verde);
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--cinza);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── SECTION COMMON ── */
+    section { padding: 80px 5%; }
+    .section-tag {
+      color: var(--verde);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+    .section-sub {
+      color: var(--cinza);
+      font-size: 1rem;
+      max-width: 560px;
+      margin-bottom: 50px;
+    }
+
+    /* ── MÓDULOS ── */
+    .modulos { background: var(--azul2); }
+    .modulos-center { text-align: center; }
+    .modulos-center .section-sub { margin: 0 auto 50px; }
+    .grid-modulos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card-modulo {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 28px;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-modulo::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px; height: 100%;
+      background: var(--cor, var(--verde));
+    }
+    .card-modulo:hover {
+      border-color: rgba(0,200,150,0.25);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 14px;
+    }
+    .card-modulo h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .card-modulo p {
+      font-size: 0.88rem;
+      color: var(--cinza);
+      line-height: 1.5;
+    }
+    .card-tag {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 3px 10px;
+      border-radius: 50px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: rgba(0,200,150,0.1);
+      color: var(--verde);
+      border: 1px solid rgba(0,200,150,0.2);
+    }
+
+    /* ── DIFERENCIAIS ── */
+    .diferenciais { background: var(--azul); }
+    .grid-dif {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+    .card-dif {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .dif-icon {
+      font-size: 2.2rem;
+      margin-bottom: 14px;
+    }
+    .card-dif h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .card-dif p { font-size: 0.85rem; color: var(--cinza); }
+
+    /* ── REFORMA ── */
+    .reforma {
+      background: linear-gradient(135deg, rgba(26,79,214,0.15), rgba(0,200,150,0.08));
+      border-top: 1px solid rgba(0,200,150,0.15);
+      border-bottom: 1px solid rgba(0,200,150,0.15);
+    }
+    .reforma-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    .reforma-texto h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; margin-bottom: 16px; }
+    .reforma-texto p { color: var(--cinza); margin-bottom: 12px; font-size: 0.95rem; }
+    .reforma-lista { list-style: none; margin-top: 20px; }
+    .reforma-lista li {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .reforma-lista li::before { content: '✓'; color: var(--verde); font-weight: 700; }
+    .reforma-visual {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 30px;
+      border: 1px solid rgba(0,200,150,0.15);
+    }
+    .reforma-visual h4 { font-size: 0.85rem; color: var(--cinza); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+    .regime-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .regime-row:last-child { border-bottom: none; }
+    .regime-nome { font-size: 0.9rem; font-weight: 600; }
+    .regime-bar-wrap { flex: 1; margin: 0 14px; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .regime-bar { height: 100%; border-radius: 4px; }
+    .regime-val { font-size: 0.85rem; font-weight: 700; color: var(--verde); min-width: 60px; text-align: right; }
+
+    /* ── CTA ── */
+    .cta {
+      text-align: center;
+      background: radial-gradient(ellipse 80% 100% at 50% 100%, rgba(0,200,150,0.1) 0%, transparent 70%);
+      padding: 100px 5%;
+    }
+    .cta h2 { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 900; margin-bottom: 16px; }
+    .cta p { color: var(--cinza); font-size: 1.05rem; margin-bottom: 36px; }
+    .cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: rgba(0,0,0,0.3);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 30px 5%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer p { color: var(--cinza); font-size: 0.82rem; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: var(--cinza); text-decoration: none; font-size: 0.82rem; }
+    .footer-links a:hover { color: var(--verde); }
+
+    /* ── RESPONSIVO ── */
+    @media (max-width: 768px) {
+      nav { padding: 14px 4%; }
+      .nav-btn .btn-outline { display: none; }
+      .stats { gap: 24px; }
+      .reforma-inner { grid-template-columns: 1fr; gap: 32px; }
+      footer { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .hero { padding: 40px 4% 60px; }
+      section { padding: 60px 4%; }
+      .btn-hero { padding: 13px 28px; font-size: 0.95rem; }
+      .grid-modulos { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-shield">🛡️</div>
+    e-<span>FiscalTribe</span>®
+  </div>
+  <div class="nav-btn">
+    <a href="/login" class="btn-outline">Entrar</a>
+    <a href="/cadastro" class="btn-solid">Começar Grátis</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="badge">⚡ Plataforma Tributária com IA</div>
+  <h1>A inteligência tributária que o seu escritório <span class="highlight">sempre precisou</span></h1>
+  <p>Recupere créditos, audite obrigações, planeje regimes e antecipe a Reforma Tributária — tudo em uma única plataforma, com IA jurídica integrada.</p>
+  <div class="hero-btns">
+    <a href="/cadastro" class="btn-hero btn-hero-primary">Criar minha conta grátis →</a>
+    <a href="#modulos" class="btn-hero btn-hero-secondary">Ver o que a plataforma faz</a>
+  </div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">9+</div>
+      <div class="stat-label">Teses tributárias</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">IA</div>
+      <div class="stat-label">Parecer jurídico automático</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Legislação atualizada</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">SPED</div>
+      <div class="stat-label">Auditoria antes da entrega</div>
+    </div>
+  </div>
+</section>
+
+<!-- MÓDULOS -->
+<section class="modulos" id="modulos">
+  <div class="modulos-center">
+    <div class="section-tag">O que você encontra aqui</div>
+    <h2 class="section-title">Tudo que um especialista tributário precisa</h2>
+    <p class="section-sub">Cada módulo é construído sobre teses jurídicas reais, fundamentadas em lei, jurisprudência e instruções normativas.</p>
+  </div>
+  <div class="grid-modulos">
+
+    <div class="card-modulo" style="--cor:#00c896">
+      <div class="card-icon">🔍</div>
+      <h3>Motor de Inteligência Tributária</h3>
+      <p>Analisa os dados do cliente e identifica automaticamente oportunidades de recuperação por tese — com fundamentação jurídica completa.</p>
+      <span class="card-tag">Monofásicos · ICMS Tema 69 · ICMS-ST · INSS · IRPJ/CSLL</span>
+    </div>
+
+    <div class="card-modulo" style="--cor:#1a9fff">
+      <div class="card-icon">📂</div>
+      <h3>Auditor de SPED</h3>
+      <p>Importa ECD, ECF e EFD, faz pente fino nos registros, aponta erros de cálculo e inconsistências entre blocos — antes da transmissão à Receita Federal.</p>
+      <span class="card-tag">Pente fino · Correção · Relatório de inconsistências</span>
+    </div>
+
+    <div class="card-modulo" style="--cor:#f59e0b">
+      <div class="card-icon">⚖️</div>
+      <h3>Simulador de Regime Tributário</h3>
+      <p>Compara Simples Nacional, Lucro Presumido e Lucro Real com base no faturamento real do cliente — incluindo projeção do impacto da Reforma Tributária até 2032.</p>
+      <span class="card-tag">IBS · CBS · Transição 2026–2032</span>
+    </div>
+
+    <div class="card-modulo" style="--cor:#a855f7">
+      <div class="card-icon">🏛️</div>
+      <h3>Diagnóstico de Dívida Ativa</h3>
+      <p>Análise jurídica de CDAs com verificação de decadência, prescrição, prescrição intercorrente e nulidades. Importação de relatórios SISPAR e PDFs da PGFN.</p>
+      <span class="card-tag">PGFN · SISPAR · Decadência · Prescrição</span>
+    </div>
+
+    <div class="card-modulo" style="--cor:#ef4444">
+      <div class="card-icon">🤖</div>
+      <h3>IA Tributária com Parecer Jurídico</h3>
+      <p>Gera pareceres jurídicos completos por tese, com estratégia de recuperação, alertas de risco e chat contextual para tirar dúvidas com base na legislação vigente.</p>
+      <span class="card-tag">Gemini · Groq · Base jurídica atualizada</span>
+    </div>
+
+    <div class="card-modulo" style="--cor:#00c896">
+      <div class="card-icon">📊</div>
+      <h3>Diagnóstico Tributário Completo</h3>
+      <p>Importação de NF-e XML e PGDAS-D. Laboratório de análise por competência com gráficos, KPIs e relatório executivo no padrão SISPAR.</p>
+      <span class="card-tag">XML · PGDAS-D · Relatório executivo</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- DIFERENCIAIS -->
+<section class="diferenciais">
+  <div style="text-align:center; margin-bottom: 50px;">
+    <div class="section-tag">Por que o e-FiscalTribe</div>
+    <h2 class="section-title">Tecnologia de ponta, linguagem jurídica</h2>
+  </div>
+  <div class="grid-dif">
+    <div class="card-dif">
+      <div class="dif-icon">📜</div>
+      <h3>Fundamentação por tese</h3>
+      <p>Cada resultado vem com a lei, o julgado e a instrução normativa que o sustentam.</p>
+    </div>
+    <div class="card-dif">
+      <div class="dif-icon">⚡</div>
+      <h3>Análise em segundos</h3>
+      <p>IA processa PDFs, XMLs e SPEDs em segundos — o que levaria horas no manual.</p>
+    </div>
+    <div class="card-dif">
+      <div class="dif-icon">🔒</div>
+      <h3>Dados seguros</h3>
+      <p>Infraestrutura Supabase com RLS, criptografia e controle total de acesso por usuário.</p>
+    </div>
+    <div class="card-dif">
+      <div class="dif-icon">📱</div>
+      <h3>Acesso em qualquer device</h3>
+      <p>Plataforma 100% web, responsiva, funciona no celular, tablet e desktop.</p>
+    </div>
+  </div>
+</section>
+
+<!-- REFORMA TRIBUTÁRIA -->
+<section class="reforma">
+  <div class="reforma-inner">
+    <div class="reforma-texto">
+      <div class="section-tag">Reforma Tributária 2026–2032</div>
+      <h2>Prepare seus clientes para o maior impacto fiscal da geração</h2>
+      <p>A substituição de PIS/COFINS/ISS/ICMS pelo IBS e CBS vai mudar o regime mais vantajoso para milhares de empresas. Seu escritório precisa estar pronto.</p>
+      <ul class="reforma-lista">
+        <li>Simulação de carga tributária nos 3 regimes</li>
+        <li>Projeção ano a ano do período de transição</li>
+        <li>Identificação do regime mais vantajoso hoje e em 2032</li>
+        <li>Relatório executivo para apresentar ao cliente</li>
+        <li>Atualizado com LC 214/2025 e Decreto 12.955/2026</li>
+      </ul>
+    </div>
+    <div class="reforma-visual">
+      <h4>Comparativo de carga — exemplo R$ 500k/ano</h4>
+      <div class="regime-row">
+        <span class="regime-nome">Simples Nacional</span>
+        <div class="regime-bar-wrap"><div class="regime-bar" style="width:45%;background:#00c896"></div></div>
+        <span class="regime-val">~14,5%</span>
+      </div>
+      <div class="regime-row">
+        <span class="regime-nome">Lucro Presumido</span>
+        <div class="regime-bar-wrap"><div class="regime-bar" style="width:68%;background:#1a9fff"></div></div>
+        <span class="regime-val">~21,8%</span>
+      </div>
+      <div class="regime-row">
+        <span class="regime-nome">Lucro Real</span>
+        <div class="regime-bar-wrap"><div class="regime-bar" style="width:55%;background:#a855f7"></div></div>
+        <span class="regime-val">~17,6%</span>
+      </div>
+      <p style="font-size:0.72rem;color:#8a9bb0;margin-top:18px;">* Simulação ilustrativa. O sistema calcula com os dados reais do seu cliente.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta">
+  <h2>Comece agora e recupere o que é seu por direito</h2>
+  <p>Junte-se aos contadores e consultores que já usam inteligência tributária de verdade.</p>
+  <div class="cta-btns">
+    <a href="/cadastro" class="btn-hero btn-hero-primary">Criar conta gratuita →</a>
+    <a href="/login" class="btn-hero btn-hero-secondary">Já tenho conta</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 e-FiscalTribe® · Zenthor Consultoria & BPO · Todos os direitos reservados</p>
+  <div class="footer-links">
+    <a href="/termos">Termos de Uso</a>
+    <a href="/privacidade">Privacidade</a>
+    <a href="/contato">Contato</a>
+  </div>
+</footer>
+
+</body>
+</html>
