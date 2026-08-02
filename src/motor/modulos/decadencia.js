@@ -1,21 +1,21 @@
 /**
- * modulos/capag.js — FiscalTrib
- * Motor de CAPAG — Capacidade de Pagamento do Contribuinte.
+ * modulos/decadencia.js — FiscalTrib
+ * Motor de Decadência Tributária.
  *
- * O CAPAG é calculado pela PGFN para definir o perfil do
- * contribuinte em dívida ativa e determinar as condições
- * de negociação na Transação Tributária (Lei 13.988/2020).
- *
- * Classificação:
- * — A: Boa capacidade → desconto menor, parcelas melhores
- * — B: Capacidade moderada → condições intermediárias
- * — C: Capacidade reduzida → descontos maiores
- * — D: Sem capacidade → máximo desconto (até 70% multas/juros)
+ * Teses:
+ * 1. Decadência do lançamento — Fazenda perde o direito de lançar
+ *    após 5 anos (art. 150 e 173 CTN)
+ * 2. Decadência com dolo/fraude — prazo conta da ocorrência do fato
+ *    gerador mesmo com dolo (art. 173, I CTN)
+ * 3. Decadência do crédito homologado — 5 anos do fato gerador
+ *    (art. 150, §4º CTN) para tributos sujeitos a homologação
+ * 4. Decadência de auto de infração — AIIM lavrado após o prazo
  *
  * Base legal:
- * — Lei 13.988/2020 — Transação Tributária
- * — Portaria PGFN 6.757/2022 — CAPAG e critérios de transação
- * — Portaria PGFN 14.402/2020 — Transação Extraordinária
+ * — Art. 150, §4º CTN — tributos sujeitos a homologação
+ * — Art. 173, I CTN   — demais tributos
+ * — RE 556.664 STF    — decadência e prescrição são matéria de LC
+ * — Súmula 555 STJ    — prazo decadencial do ICMS
  *
  * Versão: 1.0
  * Data: 2026-07-30
@@ -32,301 +32,281 @@ import {
 import { scoreOportunidade, scoreMotor } from '../contratos/Score.js'
 
 // ─────────────────────────────────────────────────────────────
-// TABELA CAPAG
+// CONSTANTES
 // ─────────────────────────────────────────────────────────────
 
-const FAIXAS_CAPAG = [
-  {
-    classificacao: 'A',
-    label:         'Boa capacidade de pagamento',
-    desconto:      { multas: 0.20, juros: 0.20, principal: 0 },
-    entradaMin:    0.10,
-    maxParcelas:   60,
-    cor:           '#22c55e',
-  },
-  {
-    classificacao: 'B',
-    label:         'Capacidade moderada de pagamento',
-    desconto:      { multas: 0.40, juros: 0.40, principal: 0 },
-    entradaMin:    0.10,
-    maxParcelas:   84,
-    cor:           '#f59e0b',
-  },
-  {
-    classificacao: 'C',
-    label:         'Capacidade reduzida de pagamento',
-    desconto:      { multas: 0.50, juros: 0.50, principal: 0 },
-    entradaMin:    0.05,
-    maxParcelas:   100,
-    cor:           '#f97316',
-  },
-  {
-    classificacao: 'D',
-    label:         'Sem capacidade de pagamento',
-    desconto:      { multas: 0.70, juros: 0.70, principal: 0 },
-    entradaMin:    0,
-    maxParcelas:   120,
-    cor:           '#ef4444',
-  },
+const PRAZO_DECADENCIA_ANOS = 5
+
+const TRIBUTOS_HOMOLOGACAO = [
+  'PIS', 'COFINS', 'IRPJ', 'CSLL', 'IPI', 'ICMS', 'ISS',
+  'INSS', 'SIMPLES', 'CONTRIBUICAO_PREVIDENCIARIA',
 ]
 
 const FUNDAMENTACAO = {
-  teseJuridica: 'CAPAG — Capacidade de Pagamento para Transação com a PGFN',
-  resumo: 'O CAPAG classifica o contribuinte de A a D conforme sua capacidade de pagamento. Quanto menor a capacidade, maiores os descontos disponíveis na Transação Tributária. A análise prévia do CAPAG permite negociar as melhores condições antes de aderir ao programa.',
+  teseJuridica: 'Decadência Tributária — Extinção do Direito de Lançar',
+  resumo: 'O direito da Fazenda de constituir o crédito tributário decai em 5 anos. Para tributos sujeitos a lançamento por homologação (IRPJ, CSLL, PIS, COFINS, ICMS, ISS), o prazo conta do fato gerador. Para os demais, conta do primeiro dia do exercício seguinte. Auto de infração lavrado após esse prazo é nulo.',
   baseLegal: [
-    { norma: 'Lei 13.988/2020',          descricao: 'Marco legal da Transação Tributária federal' },
-    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Critérios de CAPAG e condições de transação' },
-    { norma: 'Portaria PGFN 14.402/2020', descricao: 'Transação Extraordinária — COVID' },
-    { norma: 'Art. 171 CTN',             descricao: 'Autorização legal para transação tributária' },
+    { norma: 'Art. 150, §4º CTN', descricao: 'Decadência para tributos sujeitos a homologação — 5 anos do FG' },
+    { norma: 'Art. 173, I CTN',   descricao: 'Decadência para demais tributos — 5 anos do exercício seguinte' },
+    { norma: 'Art. 156, V CTN',   descricao: 'Decadência como causa de extinção do crédito tributário' },
+    { norma: 'RE 556.664 STF',    descricao: 'Decadência e prescrição são matéria de lei complementar' },
+    { norma: 'Súmula 555 STJ',    descricao: 'Prazo decadencial do ICMS lançado por homologação' },
   ],
   jurisprudencia: [
-    'PGFN — Nota SEI 63/2020 — metodologia de cálculo do CAPAG',
-    'CARF — Acórdão 1302-006.040 — validade da transação tributária',
+    'STF — RE 556.664 — decadência e prescrição apenas por LC',
+    'STJ — Súmula 555 — decadência do ICMS sujeito a homologação',
+    'STJ — REsp 973.733 (Tema 163) — contagem da decadência',
+    'CARF — Acórdão 9202-010.098 — nulidade de AIIM lavrado fora do prazo',
   ],
-  via: 'ADMINISTRATIVA',
-  prazoRetroativo: 'N/A — prospecção de negociação',
-  riscoContestacao: 5,
+  via: 'ADMINISTRATIVA_JUDICIAL',
+  prazoRetroativo: 'Verificar data do fato gerador e do lançamento',
+  riscoContestacao: 20,
 }
 
 // ─────────────────────────────────────────────────────────────
 // FUNÇÕES AUXILIARES
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Calcula o CAPAG estimado com base nos dados financeiros.
- * Critérios simplificados (modelo da PGFN usa dados Receita + PGFN):
- * — Relação dívida/faturamento
- * — Histórico de adimplência
- * — Existência de bens penhoráveis
- */
-function calcularCAPAG(dados) {
-  const {
-    totalDivida      = 0,
-    faturamentoAnual = 0,
-    inadimplente     = true,
-    bensPenhoraveis  = 0,
-    emRecuperacao    = false,
-  } = dados
+function calcularDataDecadencia(fato, tributo, dolo = false) {
+  const d = new Date(fato)
 
-  let pontos = 100  // começa em 100 e vai reduzindo
-
-  // Relação dívida/faturamento
-  if (faturamentoAnual > 0) {
-    const relacao = totalDivida / faturamentoAnual
-    if (relacao > 5)        pontos -= 60
-    else if (relacao > 3)   pontos -= 40
-    else if (relacao > 1.5) pontos -= 25
-    else if (relacao > 0.5) pontos -= 10
-  } else {
-    pontos -= 50  // sem faturamento = sem capacidade
+  // Tributos por homologação — 5 anos do FG (art. 150 §4º)
+  if (TRIBUTOS_HOMOLOGACAO.includes(tributo?.toUpperCase())) {
+    d.setFullYear(d.getFullYear() + PRAZO_DECADENCIA_ANOS)
+    return { data: d.toISOString().substring(0, 10), regra: 'Art. 150, §4º CTN — 5 anos do fato gerador' }
   }
 
-  // Inadimplência crônica
-  if (inadimplente) pontos -= 15
-
-  // Bens penhoráveis
-  if (bensPenhoraveis > totalDivida * 0.5) pontos += 10
-  else if (bensPenhoraveis === 0)           pontos -= 10
-
-  // Recuperação judicial
-  if (emRecuperacao) pontos -= 25
-
-  pontos = Math.max(0, Math.min(100, pontos))
-
-  if (pontos >= 75) return 'A'
-  if (pontos >= 50) return 'B'
-  if (pontos >= 25) return 'C'
-  return 'D'
+  // Demais — primeiro dia do exercício seguinte + 5 anos (art. 173, I)
+  const primeiroExercicioSeguinte = new Date(d.getFullYear() + 1, 0, 1)
+  primeiroExercicioSeguinte.setFullYear(primeiroExercicioSeguinte.getFullYear() + PRAZO_DECADENCIA_ANOS)
+  return {
+    data:  primeiroExercicioSeguinte.toISOString().substring(0, 10),
+    regra: 'Art. 173, I CTN — 5 anos do 1º dia do exercício seguinte ao FG',
+  }
 }
 
-function getFaixaCAPAG(classificacao) {
-  return FAIXAS_CAPAG.find(f => f.classificacao === classificacao) || FAIXAS_CAPAG[3]
+function formatarData(data) {
+  if (!data) return 'não informada'
+  return new Date(data).toLocaleDateString('pt-BR')
+}
+
+function anosEntre(d1, d2) {
+  return (new Date(d2) - new Date(d1)) / (1000 * 60 * 60 * 24 * 365.25)
 }
 
 // ─────────────────────────────────────────────────────────────
 // FUNÇÃO PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 
-export async function analisarCAPAG(nfes, cliente, opcoes = {}, BaseTributaria) {
+export async function analisarDecadencia(nfes, cliente, opcoes = {}, BaseTributaria) {
   const inicio    = Date.now()
-  const modulo    = 'CAPAG'
+  const modulo    = 'DECADENCIA'
   const resultado = criarResultado(modulo)
 
-  resultado.descricaoModulo = 'CAPAG — Capacidade de Pagamento e Simulação de Transação'
+  resultado.descricaoModulo = 'Decadência Tributária — Extinção do Direito de Lançar'
 
   try {
 
     // ── 1. Validações ───────────────────────────────────────────
-    const {
-      totalDivida      = 0,
-      faturamentoAnual = 0,
-      inadimplente     = true,
-      bensPenhoraveis  = 0,
-      emRecuperacao    = false,
-      capagInformado   = null,  // se já tiver o CAPAG da PGFN
-    } = opcoes
+    // opcoes.lancamentos = [{ id, numero, tributo, valor,
+    //                         dataFatoGerador, dataLancamento, dolo }]
+    const lancamentos = opcoes.lancamentos || []
 
-    if (totalDivida === 0) {
+    if (lancamentos.length === 0) {
       resultado.status = STATUS_ANALISE.SEM_DADOS
-      resultado.erro   = 'Informe o total da dívida em opcoes.totalDivida para calcular o CAPAG.'
+      resultado.erro   = 'Informe os lançamentos/autos em opcoes.lancamentos para análise de decadência.'
       return finalizarResultado(resultado, inicio)
     }
 
-    // ── 2. Diagnóstico ──────────────────────────────────────────
+    const hoje = new Date().toISOString().substring(0, 10)
+
     resultado.diagnostico = {
-      totalDocumentosAnalisados: 1,
-      totalItensAnalisados:      1,
+      totalDocumentosAnalisados: lancamentos.length,
+      totalItensAnalisados:      lancamentos.length,
       competenciasAnalisadas:    [],
       periodoInicio:             '',
-      periodoFim:                '',
-      situacoesEncontradas:      ['Perfil financeiro analisado para CAPAG'],
-      observacoes: [
-        `Total da dívida: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Faturamento anual: R$ ${faturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Relação dívida/faturamento: ${faturamentoAnual > 0 ? (totalDivida / faturamentoAnual).toFixed(2) : 'N/A'}`,
-        `Em recuperação judicial: ${emRecuperacao ? 'Sim' : 'Não'}`,
-      ].join('. '),
+      periodoFim:                hoje,
+      situacoesEncontradas:      ['Lançamentos/autos analisados para decadência'],
+      observacoes:               `${lancamentos.length} lançamento(s) submetido(s) à análise de decadência.`,
     }
 
-    // ── 3. Calcula CAPAG ────────────────────────────────────────
-    const capag = capagInformado || calcularCAPAG({ totalDivida, faturamentoAnual, inadimplente, bensPenhoraveis, emRecuperacao })
-    const faixa = getFaixaCAPAG(capag)
+    // ── 2. Analisa cada lançamento ──────────────────────────────
+    const oportunidades = []
+    let creditoTotal    = 0
+    const analises      = []
 
-    // ── 4. Simula condições de transação ────────────────────────
-    const descontoMultas    = totalDivida * 0.30 * faixa.desconto.multas  // estimativa: 30% da dívida são multas
-    const descontoJuros     = totalDivida * 0.25 * faixa.desconto.juros   // estimativa: 25% são juros
-    const totalDesconto     = descontoMultas + descontoJuros
-    const valorAposDesconto = totalDivida - totalDesconto
-    const entradaMinima     = valorAposDesconto * faixa.entradaMin
-    const parcelaMinima     = faixa.maxParcelas > 0
-      ? (valorAposDesconto - entradaMinima) / faixa.maxParcelas
-      : 0
+    lancamentos.forEach((lanc, idx) => {
+      const {
+        id              = `LANC_${idx}`,
+        numero          = `Auto ${idx + 1}`,
+        tributo         = '',
+        valor           = 0,
+        dataFatoGerador = null,
+        dataLancamento  = null,
+        dolo            = false,
+      } = lanc
 
-    resultado.grauConfianca          = capagInformado ? GRAU_CONFIANCA.ALTO : GRAU_CONFIANCA.MEDIO
-    resultado.justificativaConfianca = capagInformado
-      ? 'CAPAG informado pela PGFN — análise precisa.'
-      : 'CAPAG estimado com base nos dados financeiros fornecidos. Confirmar na plataforma REGULARIZE.'
+      if (!dataFatoGerador) {
+        analises.push({ id, numero, tributo, valor, erro: 'Data do fato gerador não informada', decadente: false })
+        return
+      }
 
-    const scoreOp = scoreOportunidade({
-      modulo, label: `CAPAG ${capag} — Transação Tributária`,
-      qualidadeDados: capagInformado ? 95 : 65,
-      forcaJuridica: 90,
-      volumeEvidencias: 70,
-      valorCredito: Math.min(100, (totalDesconto / 10000) * 100),
-      riscoContestacao: FUNDAMENTACAO.riscoContestacao,
+      const { data: dataLimite, regra } = calcularDataDecadencia(dataFatoGerador, tributo, dolo)
+      const decadente = dataLancamento ? dataLancamento > dataLimite : hoje > dataLimite
+      const anosDecorridos = anosEntre(dataFatoGerador, dataLancamento || hoje)
+
+      const analise = {
+        id, numero, tributo, valor,
+        dataFatoGerador, dataLancamento, dataLimite,
+        regra, decadente, anosDecorridos,
+        obs: decadente
+          ? `DECADENTE — Fato gerador em ${formatarData(dataFatoGerador)}. Prazo expirou em ${formatarData(dataLimite)}. ${dataLancamento ? `Lançamento em ${formatarData(dataLancamento)} — TARDIO.` : 'Não houve lançamento tempestivo.'}`
+          : `Em prazo — Fato gerador em ${formatarData(dataFatoGerador)}. Prazo decadencial: ${formatarData(dataLimite)}.`,
+      }
+
+      analises.push(analise)
+
+      if (decadente) {
+        creditoTotal += valor
+
+        const scoreOp = scoreOportunidade({
+          modulo, label: `Decadência — ${numero}`,
+          qualidadeDados: dataLancamento ? 95 : 75,
+          forcaJuridica: 90,
+          volumeEvidencias: 80,
+          valorCredito: Math.min(100, (valor / 50000) * 100),
+          riscoContestacao: FUNDAMENTACAO.riscoContestacao,
+        })
+
+        oportunidades.push({
+          id:            `DECAD_${id}_${Date.now()}`,
+          tese:          `Decadência — ${tributo || 'tributo'} — ${numero}`,
+          descricao:     `Auto/lançamento de ${tributo} (R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) lavrado/constituído após o prazo decadencial de 5 anos. ${analise.obs}`,
+          score:         scoreOp,
+          grauConfianca: dataLancamento ? GRAU_CONFIANCA.ALTO : GRAU_CONFIANCA.MEDIO,
+          evidencias:    [],
+          fundamentacao: FUNDAMENTACAO,
+          calculos: {
+            valorDivida:   valor,
+            creditoTotal:  valor,
+            economiaTotal: valor,
+            creditoMensalMedio: valor / 12,
+            creditoPor12Meses: valor,
+            creditoPor60Meses: valor,
+            analise,
+            memoriaCalculo: [
+              `Tributo: ${tributo || 'não informado'}`,
+              `Fato gerador: ${formatarData(dataFatoGerador)}`,
+              `Regra aplicada: ${regra}`,
+              `Data limite decadencial: ${formatarData(dataLimite)}`,
+              dataLancamento ? `Data do lançamento: ${formatarData(dataLancamento)} — ${decadente ? 'TARDIO' : 'TEMPESTIVO'}` : `Sem lançamento formal — prazo já expirou`,
+            ],
+          },
+          recomendacao: {
+            tipo:       'ACAO_IMEDIATA',
+            prioridade: 'URGENTE',
+            titulo:     `Arguir decadência — ${numero}`,
+            descricao:  `Lançamento/auto decadente. Extinção do crédito de R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (art. 156, V, CTN).`,
+            passos: [
+              `Calcular precisamente a data do fato gerador (${formatarData(dataFatoGerador)}) e a data limite (${formatarData(dataLimite)})`,
+              `Verificar a data do lançamento/auto de infração (${formatarData(dataLancamento)})`,
+              'Protocolar impugnação administrativa arguindo decadência (art. 150/173 CTN)',
+              'Se em execução fiscal, protocolar exceção de pré-executividade',
+              'Requerer extinção do crédito com certidão negativa',
+            ],
+          },
+        })
+      }
     })
 
-    const recomendacao = {
-      tipo:       capag === 'A' ? 'ORIENTACAO' : 'ACAO_IMEDIATA',
-      prioridade: capag === 'D' ? 'URGENTE' : capag === 'C' ? 'ALTA' : 'MEDIA',
-      titulo:     `CAPAG ${capag} — ${faixa.label} — Negociar transação com a PGFN`,
-      descricao:  `Desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor após desconto: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-      passos: [
-        'Acessar a plataforma REGULARIZE (regularize.pgfn.gov.br) e verificar o CAPAG oficial',
-        'Consultar os programas de transação vigentes (Edital PGFN/ME)',
-        `Calcular proposta: entrada mínima de R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${faixa.maxParcelas} parcelas de aprox. R$ ${parcelaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        'Levantar documentação: balanço, DRE, extratos bancários dos últimos 3 meses',
-        'Protocolar proposta de transação individual se a dívida superar R$ 10 milhões',
-        'Para dívidas menores, aderir ao edital de transação por adesão disponível no REGULARIZE',
-      ],
+    // ── 3. Sem decadência ───────────────────────────────────────
+    if (oportunidades.length === 0) {
+      resultado.status        = STATUS_ANALISE.CONCLUIDA
+      resultado.grauConfianca = GRAU_CONFIANCA.MEDIO
+      resultado.justificativaConfianca = 'Nenhum lançamento decadente identificado.'
+      resultado.recomendacaoPrincipal = {
+        tipo: 'MONITORAMENTO', prioridade: 'MEDIA',
+        titulo: 'Monitorar prazos decadenciais',
+        descricao: `${lancamentos.length} lançamento(s) analisado(s). Nenhum decadente. Verificar prazos.`,
+        passos: analises.filter(a => !a.erro).map(a => `${a.numero} (${a.tributo}): prazo até ${formatarData(a.dataLimite)}`),
+      }
+      resultado.todasRecomendacoes = [resultado.recomendacaoPrincipal]
+      resultado.calculos = { creditoEstimado: 0, economiaEstimada: 0, moeda: 'BRL', totalDocumentos: lancamentos.length }
+      resultado.relatorio = {
+        resumoExecutivo: `${lancamentos.length} lançamento(s) analisado(s). Nenhuma decadência identificada.`,
+        conclusaoExecutiva: 'Sem decadência consumada. Monitorar prazos.',
+      }
+      return finalizarResultado(resultado, inicio, { regime: cliente.regime, totalLancamentos: lancamentos.length })
     }
 
-    resultado.oportunidades = [{
-      id:            `CAPAG_${Date.now()}`,
-      tese:          `CAPAG ${capag} — ${faixa.label}`,
-      descricao:     `CAPAG ${capag}. Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Desconto estimado em multas/juros: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final negociável: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas} parcelas.`,
-      score:         scoreOp,
-      grauConfianca: resultado.grauConfianca,
-      evidencias:    [],
-      fundamentacao: FUNDAMENTACAO,
-      calculos: {
-        totalDivida, capag, faixa,
-        descontoMultas, descontoJuros,
-        totalDesconto, valorAposDesconto,
-        entradaMinima, parcelaMinima,
-        creditoTotal:      totalDesconto,
-        creditoEstimado:   totalDesconto,
-        economiaEstimada:  totalDesconto,
-        creditoMensalMedio: totalDesconto / 60,
-        creditoPor12Meses: totalDesconto,
-        creditoPor60Meses: totalDesconto,
-        memoriaCalculo: [
-          `Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `CAPAG estimado: ${capag} — ${faixa.label}`,
-          `Desconto em multas (${(faixa.desconto.multas * 100).toFixed(0)}% de 30% da dívida): R$ ${descontoMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Desconto em juros (${(faixa.desconto.juros * 100).toFixed(0)}% de 25% da dívida): R$ ${descontoJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Total de desconto estimado: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas}x`,
-        ],
-      },
-      recomendacao,
-    }]
+    // ── 4. Consolida ────────────────────────────────────────────
+    resultado.grauConfianca          = GRAU_CONFIANCA.ALTO
+    resultado.justificativaConfianca = `${oportunidades.length} lançamento(s) decadente(s) identificado(s).`
+    resultado.oportunidades          = oportunidades
 
     resultado.calculos = {
-      valorAnalisado:    totalDivida,
-      baseCalculo:       totalDivida,
-      creditoEstimado:   totalDesconto,
-      economiaEstimada:  totalDesconto,
+      valorAnalisado:    lancamentos.reduce((s, l) => s + (l.valor || 0), 0),
+      baseCalculo:       creditoTotal,
+      creditoEstimado:   creditoTotal,
+      economiaEstimada:  creditoTotal,
       moeda:             'BRL',
-      creditoPor12Meses: totalDesconto,
-      creditoPor24Meses: totalDesconto,
-      creditoPor36Meses: totalDesconto,
-      creditoPor60Meses: totalDesconto,
-      creditoMensalMedio: totalDesconto / 60,
-      totalDocumentos:   1,
+      creditoPor12Meses: creditoTotal,
+      creditoPor24Meses: creditoTotal,
+      creditoPor36Meses: creditoTotal,
+      creditoPor60Meses: creditoTotal,
+      creditoMensalMedio: creditoTotal / 12,
+      totalDocumentos:   lancamentos.length,
       totalCompetencias: 0,
-      memoriaCalculo:    resultado.oportunidades[0].calculos.memoriaCalculo,
+      memoriaCalculo:    oportunidades.flatMap(o => o.calculos.memoriaCalculo),
     }
 
     resultado.score = scoreMotor({
       modulo,
-      coberturaPeriodo:   70,
-      completudeDocs:     capagInformado ? 95 : 65,
-      consistencia:       85,
-      oportunidadesFound: 80,
+      coberturaPeriodo:   85,
+      completudeDocs:     lancamentos.every(l => l.dataFatoGerador && l.dataLancamento) ? 95 : 70,
+      consistencia:       88,
+      oportunidadesFound: Math.min(100, (oportunidades.length / lancamentos.length) * 100),
     })
 
     resultado.riscos = [
-      { descricao: 'CAPAG calculado internamente pode divergir do CAPAG oficial da PGFN', nivel: 'MEDIO', mitigacao: 'Confirmar o CAPAG no sistema REGULARIZE antes de negociar' },
-      { descricao: 'Programas de transação têm prazo de adesão — verificar editais vigentes', nivel: 'ALTO', mitigacao: 'Monitorar publicação de novos editais no REGULARIZE e DOU' },
-      { descricao: 'Descumprimento da transação rescinde o acordo e retoma a dívida integral', nivel: 'ALTO', mitigacao: 'Planejar o fluxo de caixa antes de aderir' },
+      { descricao: 'Fazenda pode alegar dolo/fraude para afastar a decadência', nivel: 'ALTO', mitigacao: 'Verificar se há indícios de dolo no auto de infração' },
+      { descricao: 'Causa interruptiva do prazo pode ter ocorrido', nivel: 'MEDIO', mitigacao: 'Verificar histórico completo do processo administrativo' },
     ]
 
-    resultado.recomendacaoPrincipal = recomendacao
-    resultado.todasRecomendacoes    = [recomendacao]
+    resultado.recomendacaoPrincipal = oportunidades[0].recomendacao
+    resultado.todasRecomendacoes    = oportunidades.map(o => o.recomendacao)
 
     resultado.relatorio = {
-      resumoExecutivo:    `CAPAG ${capag} (${faixa.label}). Dívida de R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} com desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%) via Transação Tributária.`,
-      objetivoAnalise:    'Calcular o CAPAG do contribuinte e simular as condições de negociação da dívida ativa via Transação Tributária (Lei 13.988/2020).',
-      escopoAnalise:      `Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Faturamento: R$ ${faturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/ano.`,
-      diagnosticoTecnico: `CAPAG ${capag}: ${faixa.label}. Descontos em multas (${(faixa.desconto.multas * 100).toFixed(0)}%) e juros (${(faixa.desconto.juros * 100).toFixed(0)}%).`,
-      oportunidadesTexto: `Desconto de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Valor após transação: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas}x.`,
+      resumoExecutivo:    `${oportunidades.length} lançamento(s) decadente(s) identificado(s). Total extinguível: R$ ${creditoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+      objetivoAnalise:    'Verificar se lançamentos/autos de infração foram constituídos tempestivamente ou estão atingidos pela decadência.',
+      escopoAnalise:      `${lancamentos.length} lançamento(s) analisado(s). Data-base: ${formatarData(hoje)}.`,
+      diagnosticoTecnico: oportunidades.map(o => o.descricao).join(' | '),
+      oportunidadesTexto: `${oportunidades.length} decadência(s) — extinção de R$ ${creditoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
       riscosTexto:        resultado.riscos.map(r => `[${r.nivel}] ${r.descricao}`).join('. '),
-      fundamentacaoTexto: `Lei 13.988/2020. Portaria PGFN 6.757/2022. Art. 171 CTN.`,
-      recomendacoesTexto: recomendacao.descricao,
-      planoAcao:          recomendacao.passos,
-      conclusaoExecutiva: `CAPAG ${capag} — ${faixa.label}. Potencial de desconto de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% (R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Recomenda-se negociar transação imediatamente.`,
+      fundamentacaoTexto: `Art. 150 §4º e 173 CTN. RE 556.664 STF. Súmula 555 STJ.`,
+      recomendacoesTexto: oportunidades.map(o => o.recomendacao.titulo).join(' | '),
+      planoAcao:          oportunidades[0].recomendacao.passos,
+      conclusaoExecutiva: `Arguir decadência imediatamente. R$ ${creditoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} extinguíveis.`,
     }
 
     resultado.auditTrail = {
       motoresExecutados: [modulo],
       regrasAplicadas: [
-        { id: 'CAPAG_001', descricao: 'Cálculo do CAPAG',               resultado: `CAPAG ${capag}` },
-        { id: 'CAPAG_002', descricao: 'Simulação de desconto em multas', resultado: `R$ ${descontoMultas.toFixed(2)}` },
-        { id: 'CAPAG_003', descricao: 'Simulação de desconto em juros',  resultado: `R$ ${descontoJuros.toFixed(2)}` },
-        { id: 'CAPAG_004', descricao: 'Valor final da transação',        resultado: `R$ ${valorAposDesconto.toFixed(2)}` },
+        { id: 'DECAD_001', descricao: 'Tributos por homologação — art. 150 §4º CTN', resultado: `${analises.filter(a => TRIBUTOS_HOMOLOGACAO.includes(a.tributo?.toUpperCase())).length} verificados` },
+        { id: 'DECAD_002', descricao: 'Demais tributos — art. 173, I CTN',           resultado: `${analises.filter(a => !TRIBUTOS_HOMOLOGACAO.includes(a.tributo?.toUpperCase())).length} verificados` },
+        { id: 'DECAD_003', descricao: 'Lançamentos decadentes identificados',         resultado: `${oportunidades.length}` },
       ],
-      documentosUtilizados: [],
+      documentosUtilizados: lancamentos.map(l => ({ tipo: 'AUTO_INFRACAO', identificador: l.numero || l.id, competencia: l.dataFatoGerador || '' })),
       legislacaoVersao: BaseTributaria.versao.codigo,
       execucoes: [],
     }
 
     resultado.status = STATUS_ANALISE.CONCLUIDA
-    return finalizarResultado(resultado, inicio, { regime: cliente.regime, capag, totalDivida, totalDesconto })
+    return finalizarResultado(resultado, inicio, { regime: cliente.regime, totalLancamentos: lancamentos.length, decadentes: oportunidades.length })
 
   } catch (erro) {
-    return resultadoErro(modulo, `Erro no Motor de CAPAG: ${erro.message}`)
+    return resultadoErro(modulo, `Erro no Motor de Decadência: ${erro.message}`)
   }
 }
 
-export default analisarCAPAG
+export default analisarDecadencia

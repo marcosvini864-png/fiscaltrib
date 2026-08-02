@@ -1,25 +1,21 @@
 /**
- * modulos/transacao.js — FiscalTrib
- * Motor de Transação Tributária com a PGFN.
+ * modulos/capag.js — FiscalTrib
+ * Motor de CAPAG — Capacidade de Pagamento do Contribuinte.
  *
- * Modalidades:
- * 1. Transação por Adesão — editais periódicos PGFN
- * 2. Transação Individual — dívidas > R$ 10 milhões
- * 3. Transação Extraordinária — situações excepcionais
- * 4. Transação no Contencioso Administrativo — CARF/DRJ
+ * O CAPAG é calculado pela PGFN para definir o perfil do
+ * contribuinte em dívida ativa e determinar as condições
+ * de negociação na Transação Tributária (Lei 13.988/2020).
  *
- * Simulação completa:
- * — Desconto sobre multas e juros conforme CAPAG
- * — Entrada mínima
- * — Parcelamento máximo
- * — SELIC como atualização das parcelas
- * — Impacto no fluxo de caixa
+ * Classificação:
+ * — A: Boa capacidade → desconto menor, parcelas melhores
+ * — B: Capacidade moderada → condições intermediárias
+ * — C: Capacidade reduzida → descontos maiores
+ * — D: Sem capacidade → máximo desconto (até 70% multas/juros)
  *
  * Base legal:
  * — Lei 13.988/2020 — Transação Tributária
- * — Portaria PGFN 6.757/2022
- * — Portaria ME 247/2020 — Transação Extraordinária
- * — Art. 171 CTN
+ * — Portaria PGFN 6.757/2022 — CAPAG e critérios de transação
+ * — Portaria PGFN 14.402/2020 — Transação Extraordinária
  *
  * Versão: 1.0
  * Data: 2026-07-30
@@ -36,73 +32,59 @@ import {
 import { scoreOportunidade, scoreMotor } from '../contratos/Score.js'
 
 // ─────────────────────────────────────────────────────────────
-// CONSTANTES
+// TABELA CAPAG
 // ─────────────────────────────────────────────────────────────
 
-const SELIC_MENSAL = 0.0089  // aproximação agosto/2026
-
-const MODALIDADES = {
-  ADESAO: {
-    id:          'ADESAO',
-    nome:        'Transação por Adesão',
-    descricao:   'Adesão a editais periódicos publicados pela PGFN no REGULARIZE',
-    limiteMin:   0,
-    limiteMax:   10_000_000,
-    prazoMax:    120,
-    disponivel:  true,
+const FAIXAS_CAPAG = [
+  {
+    classificacao: 'A',
+    label:         'Boa capacidade de pagamento',
+    desconto:      { multas: 0.20, juros: 0.20, principal: 0 },
+    entradaMin:    0.10,
+    maxParcelas:   60,
+    cor:           '#22c55e',
   },
-  INDIVIDUAL: {
-    id:          'INDIVIDUAL',
-    nome:        'Transação Individual',
-    descricao:   'Negociação direta com a PGFN para dívidas acima de R$ 10 milhões',
-    limiteMin:   10_000_000,
-    limiteMax:   Infinity,
-    prazoMax:    120,
-    disponivel:  true,
+  {
+    classificacao: 'B',
+    label:         'Capacidade moderada de pagamento',
+    desconto:      { multas: 0.40, juros: 0.40, principal: 0 },
+    entradaMin:    0.10,
+    maxParcelas:   84,
+    cor:           '#f59e0b',
   },
-  CONTENCIOSO: {
-    id:          'CONTENCIOSO',
-    nome:        'Transação no Contencioso Administrativo',
-    descricao:   'Resolução de litígios no CARF ou DRJ mediante transação',
-    limiteMin:   0,
-    limiteMax:   Infinity,
-    prazoMax:    72,
-    disponivel:  true,
+  {
+    classificacao: 'C',
+    label:         'Capacidade reduzida de pagamento',
+    desconto:      { multas: 0.50, juros: 0.50, principal: 0 },
+    entradaMin:    0.05,
+    maxParcelas:   100,
+    cor:           '#f97316',
   },
-  EXTRAORDINARIA: {
-    id:          'EXTRAORDINARIA',
-    nome:        'Transação Extraordinária',
-    descricao:   'Situações excepcionais — calamidade, crise setorial',
-    limiteMin:   0,
-    limiteMax:   Infinity,
-    prazoMax:    133,
-    disponivel:  false,  // sob condições específicas
+  {
+    classificacao: 'D',
+    label:         'Sem capacidade de pagamento',
+    desconto:      { multas: 0.70, juros: 0.70, principal: 0 },
+    entradaMin:    0,
+    maxParcelas:   120,
+    cor:           '#ef4444',
   },
-}
-
-const DESCONTOS_POR_CAPAG = {
-  A: { multas: 0.20, juros: 0.20, entrada: 0.10 },
-  B: { multas: 0.40, juros: 0.40, entrada: 0.10 },
-  C: { multas: 0.50, juros: 0.50, entrada: 0.05 },
-  D: { multas: 0.70, juros: 0.70, entrada: 0.00 },
-}
+]
 
 const FUNDAMENTACAO = {
-  teseJuridica: 'Transação Tributária — Negociação de Dívida Ativa com a PGFN',
-  resumo: 'A Transação Tributária (Lei 13.988/2020) permite que contribuintes com dívidas na PGFN negociem descontos em multas e juros, parcelamento ampliado e outras condições especiais, com base no CAPAG e na modalidade de transação escolhida.',
+  teseJuridica: 'CAPAG — Capacidade de Pagamento para Transação com a PGFN',
+  resumo: 'O CAPAG classifica o contribuinte de A a D conforme sua capacidade de pagamento. Quanto menor a capacidade, maiores os descontos disponíveis na Transação Tributária. A análise prévia do CAPAG permite negociar as melhores condições antes de aderir ao programa.',
   baseLegal: [
-    { norma: 'Lei 13.988/2020',           descricao: 'Marco legal da Transação Tributária' },
-    { norma: 'Art. 171 CTN',              descricao: 'Autorização constitucional para transação' },
-    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Regulamentação da transação individual e por adesão' },
-    { norma: 'Portaria ME 247/2020',      descricao: 'Transação Extraordinária' },
-    { norma: 'Lei 14.375/2022',           descricao: 'Ampliação dos descontos e modalidades de transação' },
+    { norma: 'Lei 13.988/2020',          descricao: 'Marco legal da Transação Tributária federal' },
+    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Critérios de CAPAG e condições de transação' },
+    { norma: 'Portaria PGFN 14.402/2020', descricao: 'Transação Extraordinária — COVID' },
+    { norma: 'Art. 171 CTN',             descricao: 'Autorização legal para transação tributária' },
   ],
   jurisprudencia: [
-    'STF — ADI 6.357 — constitucionalidade da Transação Tributária',
-    'CARF — Portaria CARF 10.956/2022 — transação no contencioso administrativo',
+    'PGFN — Nota SEI 63/2020 — metodologia de cálculo do CAPAG',
+    'CARF — Acórdão 1302-006.040 — validade da transação tributária',
   ],
   via: 'ADMINISTRATIVA',
-  prazoRetroativo: 'N/A — negociação prospectiva',
+  prazoRetroativo: 'N/A — prospecção de negociação',
   riscoContestacao: 5,
 }
 
@@ -111,160 +93,157 @@ const FUNDAMENTACAO = {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Calcula a parcela com correção pela SELIC mensal.
+ * Calcula o CAPAG estimado com base nos dados financeiros.
+ * Critérios simplificados (modelo da PGFN usa dados Receita + PGFN):
+ * — Relação dívida/faturamento
+ * — Histórico de adimplência
+ * — Existência de bens penhoráveis
  */
-function calcularParcela(principal, nparcelas, taxaMensal = SELIC_MENSAL) {
-  if (nparcelas <= 0) return 0
-  if (taxaMensal === 0) return principal / nparcelas
-  return (principal * taxaMensal) / (1 - Math.pow(1 + taxaMensal, -nparcelas))
+function calcularCAPAG(dados) {
+  const {
+    totalDivida      = 0,
+    faturamentoAnual = 0,
+    inadimplente     = true,
+    bensPenhoraveis  = 0,
+    emRecuperacao    = false,
+  } = dados
+
+  let pontos = 100  // começa em 100 e vai reduzindo
+
+  // Relação dívida/faturamento
+  if (faturamentoAnual > 0) {
+    const relacao = totalDivida / faturamentoAnual
+    if (relacao > 5)        pontos -= 60
+    else if (relacao > 3)   pontos -= 40
+    else if (relacao > 1.5) pontos -= 25
+    else if (relacao > 0.5) pontos -= 10
+  } else {
+    pontos -= 50  // sem faturamento = sem capacidade
+  }
+
+  // Inadimplência crônica
+  if (inadimplente) pontos -= 15
+
+  // Bens penhoráveis
+  if (bensPenhoraveis > totalDivida * 0.5) pontos += 10
+  else if (bensPenhoraveis === 0)           pontos -= 10
+
+  // Recuperação judicial
+  if (emRecuperacao) pontos -= 25
+
+  pontos = Math.max(0, Math.min(100, pontos))
+
+  if (pontos >= 75) return 'A'
+  if (pontos >= 50) return 'B'
+  if (pontos >= 25) return 'C'
+  return 'D'
 }
 
-/**
- * Determina a modalidade mais adequada para a dívida.
- */
-function determinarModalidade(totalDivida, emContencioso = false) {
-  if (emContencioso) return MODALIDADES.CONTENCIOSO
-  if (totalDivida >= MODALIDADES.INDIVIDUAL.limiteMin) return MODALIDADES.INDIVIDUAL
-  return MODALIDADES.ADESAO
+function getFaixaCAPAG(classificacao) {
+  return FAIXAS_CAPAG.find(f => f.classificacao === classificacao) || FAIXAS_CAPAG[3]
 }
 
 // ─────────────────────────────────────────────────────────────
 // FUNÇÃO PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 
-export async function analisarTransacao(nfes, cliente, opcoes = {}, BaseTributaria) {
+export async function analisarCAPAG(nfes, cliente, opcoes = {}, BaseTributaria) {
   const inicio    = Date.now()
-  const modulo    = 'TRANSACAO'
+  const modulo    = 'CAPAG'
   const resultado = criarResultado(modulo)
 
-  resultado.descricaoModulo = 'Simulação de Transação Tributária com a PGFN (Lei 13.988/2020)'
+  resultado.descricaoModulo = 'CAPAG — Capacidade de Pagamento e Simulação de Transação'
 
   try {
 
     // ── 1. Validações ───────────────────────────────────────────
     const {
-      totalDivida        = 0,
-      valorPrincipal     = 0,
-      valorMultas        = 0,
-      valorJuros         = 0,
-      capag              = 'C',      // CAPAG do CAPAG motor ou informado
-      faturamentoMensal  = 0,
-      emContencioso      = false,
-      modalidadeForced   = null,
-      nParcelasDesejadas = null,
+      totalDivida      = 0,
+      faturamentoAnual = 0,
+      inadimplente     = true,
+      bensPenhoraveis  = 0,
+      emRecuperacao    = false,
+      capagInformado   = null,  // se já tiver o CAPAG da PGFN
     } = opcoes
 
     if (totalDivida === 0) {
       resultado.status = STATUS_ANALISE.SEM_DADOS
-      resultado.erro   = 'Informe o total da dívida em opcoes.totalDivida.'
+      resultado.erro   = 'Informe o total da dívida em opcoes.totalDivida para calcular o CAPAG.'
       return finalizarResultado(resultado, inicio)
     }
 
-    // ── 2. Determina composição da dívida ───────────────────────
-    // Se não informou o detalhamento, estima a composição
-    const principal = valorPrincipal || totalDivida * 0.45
-    const multas    = valorMultas    || totalDivida * 0.30
-    const juros     = valorJuros     || totalDivida * 0.25
-
+    // ── 2. Diagnóstico ──────────────────────────────────────────
     resultado.diagnostico = {
       totalDocumentosAnalisados: 1,
       totalItensAnalisados:      1,
       competenciasAnalisadas:    [],
       periodoInicio:             '',
       periodoFim:                '',
-      situacoesEncontradas:      [`CAPAG ${capag} — Simulação de Transação`],
+      situacoesEncontradas:      ['Perfil financeiro analisado para CAPAG'],
       observacoes: [
         `Total da dívida: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Principal: R$ ${principal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Multas: R$ ${multas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Juros: R$ ${juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `CAPAG: ${capag}`,
-        `Em contencioso: ${emContencioso ? 'Sim' : 'Não'}`,
+        `Faturamento anual: R$ ${faturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        `Relação dívida/faturamento: ${faturamentoAnual > 0 ? (totalDivida / faturamentoAnual).toFixed(2) : 'N/A'}`,
+        `Em recuperação judicial: ${emRecuperacao ? 'Sim' : 'Não'}`,
       ].join('. '),
     }
 
-    // ── 3. Aplica descontos conforme CAPAG ──────────────────────
-    const descCAPAG = DESCONTOS_POR_CAPAG[capag] || DESCONTOS_POR_CAPAG['C']
+    // ── 3. Calcula CAPAG ────────────────────────────────────────
+    const capag = capagInformado || calcularCAPAG({ totalDivida, faturamentoAnual, inadimplente, bensPenhoraveis, emRecuperacao })
+    const faixa = getFaixaCAPAG(capag)
 
-    const descontoMultas    = multas  * descCAPAG.multas
-    const descontoJuros     = juros   * descCAPAG.juros
+    // ── 4. Simula condições de transação ────────────────────────
+    const descontoMultas    = totalDivida * 0.30 * faixa.desconto.multas  // estimativa: 30% da dívida são multas
+    const descontoJuros     = totalDivida * 0.25 * faixa.desconto.juros   // estimativa: 25% são juros
     const totalDesconto     = descontoMultas + descontoJuros
     const valorAposDesconto = totalDivida - totalDesconto
-    const entradaMinima     = valorAposDesconto * descCAPAG.entrada
+    const entradaMinima     = valorAposDesconto * faixa.entradaMin
+    const parcelaMinima     = faixa.maxParcelas > 0
+      ? (valorAposDesconto - entradaMinima) / faixa.maxParcelas
+      : 0
 
-    // ── 4. Determina modalidade ─────────────────────────────────
-    const modalidade = modalidadeForced
-      ? MODALIDADES[modalidadeForced]
-      : determinarModalidade(totalDivida, emContencioso)
-
-    const maxParcelas = modalidade.prazoMax
-    const nParcelas   = Math.min(nParcelasDesejadas || maxParcelas, maxParcelas)
-
-    // ── 5. Simula planos de parcelamento ────────────────────────
-    const valorParcelar    = valorAposDesconto - entradaMinima
-    const parcelaSemJuros  = valorParcelar / nParcelas
-    const parcelaComSelic  = calcularParcela(valorParcelar, nParcelas)
-
-    // Simula 3 cenários de parcelas
-    const cenarios = [
-      { nparcelas: Math.min(24,  maxParcelas), label: '24 meses' },
-      { nparcelas: Math.min(60,  maxParcelas), label: '60 meses' },
-      { nparcelas: Math.min(120, maxParcelas), label: '120 meses' },
-    ].map(c => ({
-      ...c,
-      parcela: calcularParcela(valorParcelar, c.nparcelas),
-      totalPago: calcularParcela(valorParcelar, c.nparcelas) * c.nparcelas + entradaMinima,
-    }))
-
-    // ── 6. Verifica comprometimento da receita ──────────────────
-    const comprometimento = faturamentoMensal > 0
-      ? (parcelaSemJuros / faturamentoMensal) * 100
-      : null
-
-    resultado.grauConfianca          = GRAU_CONFIANCA.ALTO
-    resultado.justificativaConfianca = `Simulação com base no CAPAG ${capag} e na ${modalidade.nome}.`
+    resultado.grauConfianca          = capagInformado ? GRAU_CONFIANCA.ALTO : GRAU_CONFIANCA.MEDIO
+    resultado.justificativaConfianca = capagInformado
+      ? 'CAPAG informado pela PGFN — análise precisa.'
+      : 'CAPAG estimado com base nos dados financeiros fornecidos. Confirmar na plataforma REGULARIZE.'
 
     const scoreOp = scoreOportunidade({
-      modulo, label: `Transação ${modalidade.nome}`,
-      qualidadeDados: 85, forcaJuridica: 95,
-      volumeEvidencias: 80,
-      valorCredito: Math.min(100, (totalDesconto / 20000) * 100),
+      modulo, label: `CAPAG ${capag} — Transação Tributária`,
+      qualidadeDados: capagInformado ? 95 : 65,
+      forcaJuridica: 90,
+      volumeEvidencias: 70,
+      valorCredito: Math.min(100, (totalDesconto / 10000) * 100),
       riscoContestacao: FUNDAMENTACAO.riscoContestacao,
     })
 
     const recomendacao = {
-      tipo:       'ACAO_IMEDIATA',
-      prioridade: 'ALTA',
-      titulo:     `Aderir à ${modalidade.nome} — Desconto de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      descricao:  `CAPAG ${capag}. Desconto total de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% (R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x.`,
+      tipo:       capag === 'A' ? 'ORIENTACAO' : 'ACAO_IMEDIATA',
+      prioridade: capag === 'D' ? 'URGENTE' : capag === 'C' ? 'ALTA' : 'MEDIA',
+      titulo:     `CAPAG ${capag} — ${faixa.label} — Negociar transação com a PGFN`,
+      descricao:  `Desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor após desconto: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
       passos: [
-        'Acessar REGULARIZE (regularize.pgfn.gov.br) e verificar o CAPAG oficial',
-        'Consultar os editais de transação vigentes e prazo de adesão',
-        `Selecionar a modalidade: ${modalidade.nome}`,
-        `Calcular a entrada: R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${(descCAPAG.entrada * 100).toFixed(0)}% do valor após desconto)`,
-        `Escolher o número de parcelas (máximo ${maxParcelas}x) com base no fluxo de caixa`,
-        'Protocolar a proposta no REGULARIZE e aguardar homologação da PGFN',
-        'Emitir certidão positiva com efeito de negativa após a adesão',
+        'Acessar a plataforma REGULARIZE (regularize.pgfn.gov.br) e verificar o CAPAG oficial',
+        'Consultar os programas de transação vigentes (Edital PGFN/ME)',
+        `Calcular proposta: entrada mínima de R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${faixa.maxParcelas} parcelas de aprox. R$ ${parcelaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        'Levantar documentação: balanço, DRE, extratos bancários dos últimos 3 meses',
+        'Protocolar proposta de transação individual se a dívida superar R$ 10 milhões',
+        'Para dívidas menores, aderir ao edital de transação por adesão disponível no REGULARIZE',
       ],
     }
 
     resultado.oportunidades = [{
-      id:            `TRANSACAO_${Date.now()}`,
-      tese:          `${modalidade.nome} — Lei 13.988/2020`,
-      descricao:     `Dívida de R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (CAPAG ${capag}). Desconto estimado: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x.`,
+      id:            `CAPAG_${Date.now()}`,
+      tese:          `CAPAG ${capag} — ${faixa.label}`,
+      descricao:     `CAPAG ${capag}. Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Desconto estimado em multas/juros: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final negociável: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas} parcelas.`,
       score:         scoreOp,
-      grauConfianca: GRAU_CONFIANCA.ALTO,
+      grauConfianca: resultado.grauConfianca,
       evidencias:    [],
       fundamentacao: FUNDAMENTACAO,
       calculos: {
-        totalDivida, principal, multas, juros,
-        capag, modalidade: modalidade.id,
-        descontoMultas, descontoJuros, totalDesconto,
-        valorAposDesconto, entradaMinima,
-        parcelaSemJuros, parcelaComSelic,
-        maxParcelas, nParcelas,
-        cenarios,
-        comprometimento,
+        totalDivida, capag, faixa,
+        descontoMultas, descontoJuros,
+        totalDesconto, valorAposDesconto,
+        entradaMinima, parcelaMinima,
         creditoTotal:      totalDesconto,
         creditoEstimado:   totalDesconto,
         economiaEstimada:  totalDesconto,
@@ -273,11 +252,11 @@ export async function analisarTransacao(nfes, cliente, opcoes = {}, BaseTributar
         creditoPor60Meses: totalDesconto,
         memoriaCalculo: [
           `Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Composição estimada — Principal: R$ ${principal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Multas: R$ ${multas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Juros: R$ ${juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `CAPAG ${capag} → Desconto multas: ${(descCAPAG.multas * 100).toFixed(0)}% | Desconto juros: ${(descCAPAG.juros * 100).toFixed(0)}%`,
-          `Desconto total: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Valor após desconto: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Entrada: R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${nParcelas}x de R$ ${parcelaSemJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `CAPAG estimado: ${capag} — ${faixa.label}`,
+          `Desconto em multas (${(faixa.desconto.multas * 100).toFixed(0)}% de 30% da dívida): R$ ${descontoMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `Desconto em juros (${(faixa.desconto.juros * 100).toFixed(0)}% de 25% da dívida): R$ ${descontoJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `Total de desconto estimado: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas}x`,
         ],
       },
       recomendacao,
@@ -301,41 +280,41 @@ export async function analisarTransacao(nfes, cliente, opcoes = {}, BaseTributar
 
     resultado.score = scoreMotor({
       modulo,
-      coberturaPeriodo: 80, completudeDocs: 85,
-      consistencia: 90,
-      oportunidadesFound: 85,
+      coberturaPeriodo:   70,
+      completudeDocs:     capagInformado ? 95 : 65,
+      consistencia:       85,
+      oportunidadesFound: 80,
     })
 
     resultado.riscos = [
-      { descricao: 'Descumprimento da transação rescinde o acordo automaticamente', nivel: 'ALTO', mitigacao: 'Garantir fluxo de caixa antes de aderir — simular impacto mensal' },
-      { descricao: 'Editais de transação têm prazo — perder a janela pode custar meses', nivel: 'ALTO', mitigacao: 'Monitorar publicação de novos editais no REGULARIZE e DOU' },
-      { descricao: 'CAPAG pode ser revisto pela PGFN', nivel: 'MEDIO', mitigacao: 'Confirmar o CAPAG oficial no REGULARIZE antes de protocolar' },
+      { descricao: 'CAPAG calculado internamente pode divergir do CAPAG oficial da PGFN', nivel: 'MEDIO', mitigacao: 'Confirmar o CAPAG no sistema REGULARIZE antes de negociar' },
+      { descricao: 'Programas de transação têm prazo de adesão — verificar editais vigentes', nivel: 'ALTO', mitigacao: 'Monitorar publicação de novos editais no REGULARIZE e DOU' },
+      { descricao: 'Descumprimento da transação rescinde o acordo e retoma a dívida integral', nivel: 'ALTO', mitigacao: 'Planejar o fluxo de caixa antes de aderir' },
     ]
 
     resultado.recomendacaoPrincipal = recomendacao
     resultado.todasRecomendacoes    = [recomendacao]
 
     resultado.relatorio = {
-      resumoExecutivo:    `${modalidade.nome} — CAPAG ${capag}. Desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x de R$ ${parcelaSemJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-      objetivoAnalise:    'Simular as condições de transação com a PGFN e identificar a modalidade mais vantajosa para o contribuinte.',
-      escopoAnalise:      `Dívida: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. CAPAG: ${capag}. Modalidade: ${modalidade.nome}.`,
-      diagnosticoTecnico: `Composição — Principal: ${((principal / totalDivida) * 100).toFixed(0)}% | Multas: ${((multas / totalDivida) * 100).toFixed(0)}% | Juros: ${((juros / totalDivida) * 100).toFixed(0)}%.`,
-      oportunidadesTexto: `Desconto de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% = R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Cenários: ${cenarios.map(c => `${c.label}: R$ ${c.parcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`).join(' | ')}.`,
+      resumoExecutivo:    `CAPAG ${capag} (${faixa.label}). Dívida de R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} com desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%) via Transação Tributária.`,
+      objetivoAnalise:    'Calcular o CAPAG do contribuinte e simular as condições de negociação da dívida ativa via Transação Tributária (Lei 13.988/2020).',
+      escopoAnalise:      `Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Faturamento: R$ ${faturamentoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/ano.`,
+      diagnosticoTecnico: `CAPAG ${capag}: ${faixa.label}. Descontos em multas (${(faixa.desconto.multas * 100).toFixed(0)}%) e juros (${(faixa.desconto.juros * 100).toFixed(0)}%).`,
+      oportunidadesTexto: `Desconto de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Valor após transação: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${faixa.maxParcelas}x.`,
       riscosTexto:        resultado.riscos.map(r => `[${r.nivel}] ${r.descricao}`).join('. '),
       fundamentacaoTexto: `Lei 13.988/2020. Portaria PGFN 6.757/2022. Art. 171 CTN.`,
       recomendacoesTexto: recomendacao.descricao,
       planoAcao:          recomendacao.passos,
-      conclusaoExecutiva: `Economia de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} via ${modalidade.nome}. ${comprometimento ? `Comprometimento da receita: ${comprometimento.toFixed(1)}%/mês.` : ''} Recomenda-se adesão imediata ao edital vigente.`,
+      conclusaoExecutiva: `CAPAG ${capag} — ${faixa.label}. Potencial de desconto de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% (R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Recomenda-se negociar transação imediatamente.`,
     }
 
     resultado.auditTrail = {
       motoresExecutados: [modulo],
       regrasAplicadas: [
-        { id: 'TRANS_001', descricao: 'Determinação da modalidade',       resultado: modalidade.nome },
-        { id: 'TRANS_002', descricao: 'Desconto em multas',               resultado: `${(descCAPAG.multas * 100).toFixed(0)}% = R$ ${descontoMultas.toFixed(2)}` },
-        { id: 'TRANS_003', descricao: 'Desconto em juros',                resultado: `${(descCAPAG.juros * 100).toFixed(0)}% = R$ ${descontoJuros.toFixed(2)}` },
-        { id: 'TRANS_004', descricao: 'Cálculo da parcela',               resultado: `R$ ${parcelaSemJuros.toFixed(2)}/mês em ${nParcelas}x` },
-        { id: 'TRANS_005', descricao: 'Comprometimento da receita mensal', resultado: comprometimento ? `${comprometimento.toFixed(1)}%` : 'Não informado' },
+        { id: 'CAPAG_001', descricao: 'Cálculo do CAPAG',               resultado: `CAPAG ${capag}` },
+        { id: 'CAPAG_002', descricao: 'Simulação de desconto em multas', resultado: `R$ ${descontoMultas.toFixed(2)}` },
+        { id: 'CAPAG_003', descricao: 'Simulação de desconto em juros',  resultado: `R$ ${descontoJuros.toFixed(2)}` },
+        { id: 'CAPAG_004', descricao: 'Valor final da transação',        resultado: `R$ ${valorAposDesconto.toFixed(2)}` },
       ],
       documentosUtilizados: [],
       legislacaoVersao: BaseTributaria.versao.codigo,
@@ -343,14 +322,11 @@ export async function analisarTransacao(nfes, cliente, opcoes = {}, BaseTributar
     }
 
     resultado.status = STATUS_ANALISE.CONCLUIDA
-    return finalizarResultado(resultado, inicio, {
-      regime: cliente.regime, capag, totalDivida,
-      totalDesconto, modalidade: modalidade.id,
-    })
+    return finalizarResultado(resultado, inicio, { regime: cliente.regime, capag, totalDivida, totalDesconto })
 
   } catch (erro) {
-    return resultadoErro(modulo, `Erro no Motor de Transação: ${erro.message}`)
+    return resultadoErro(modulo, `Erro no Motor de CAPAG: ${erro.message}`)
   }
 }
 
-export default analisarTransacao
+export default analisarCAPAG
