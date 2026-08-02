@@ -10,7 +10,8 @@ function parseMoeda(str) {
 function aplicarMascara(valor) {
   const apenasNumeros = String(valor).replace(/\D/g, '')
   if (!apenasNumeros) return ''
-  return Number(apenasNumeros).toLocaleString('pt-BR')
+  const numero = Number(apenasNumeros) / 100
+  return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const C = {
