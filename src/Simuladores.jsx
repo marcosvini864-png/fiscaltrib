@@ -63,11 +63,8 @@ function Campo({ label, children }) {
 }
 
 function InputMoeda({ value, onChange, placeholder }) {
-  function handleChange(e) {
-    onChange(aplicarMascara(e.target.value))
-  }
   return (
-    <input value={value} onChange={handleChange} placeholder={placeholder || 'Ex: 100.000'} inputMode="numeric"
+    <input value={value} onChange={e => onChange(aplicarMascara(e.target.value))} placeholder={placeholder || 'Ex: 100.000'} inputMode="numeric"
       style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
   )
 }
@@ -81,28 +78,28 @@ const btnCalc = { width: '100%', padding: '14px 0', background: C.navy, color: '
 
 const ANEXOS_SN = {
   I: [
-    { ate: 180000,   aliq: 0.040,  ded: 0 },
-    { ate: 360000,   aliq: 0.073,  ded: 5940 },
-    { ate: 720000,   aliq: 0.095,  ded: 13860 },
-    { ate: 1800000,  aliq: 0.107,  ded: 22500 },
-    { ate: 3600000,  aliq: 0.143,  ded: 87300 },
-    { ate: 4800000,  aliq: 0.190,  ded: 378000 },
+    { ate: 180000,  aliq: 0.040, ded: 0 },
+    { ate: 360000,  aliq: 0.073, ded: 5940 },
+    { ate: 720000,  aliq: 0.095, ded: 13860 },
+    { ate: 1800000, aliq: 0.107, ded: 22500 },
+    { ate: 3600000, aliq: 0.143, ded: 87300 },
+    { ate: 4800000, aliq: 0.190, ded: 378000 },
   ],
   III: [
-    { ate: 180000,   aliq: 0.060,  ded: 0 },
-    { ate: 360000,   aliq: 0.112,  ded: 9360 },
-    { ate: 720000,   aliq: 0.135,  ded: 17640 },
-    { ate: 1800000,  aliq: 0.160,  ded: 35640 },
-    { ate: 3600000,  aliq: 0.210,  ded: 125640 },
-    { ate: 4800000,  aliq: 0.330,  ded: 648000 },
+    { ate: 180000,  aliq: 0.060, ded: 0 },
+    { ate: 360000,  aliq: 0.112, ded: 9360 },
+    { ate: 720000,  aliq: 0.135, ded: 17640 },
+    { ate: 1800000, aliq: 0.160, ded: 35640 },
+    { ate: 3600000, aliq: 0.210, ded: 125640 },
+    { ate: 4800000, aliq: 0.330, ded: 648000 },
   ],
   V: [
-    { ate: 180000,   aliq: 0.155,  ded: 0 },
-    { ate: 360000,   aliq: 0.180,  ded: 4500 },
-    { ate: 720000,   aliq: 0.195,  ded: 9900 },
-    { ate: 1800000,  aliq: 0.205,  ded: 17100 },
-    { ate: 3600000,  aliq: 0.230,  ded: 62100 },
-    { ate: 4800000,  aliq: 0.305,  ded: 540000 },
+    { ate: 180000,  aliq: 0.155, ded: 0 },
+    { ate: 360000,  aliq: 0.180, ded: 4500 },
+    { ate: 720000,  aliq: 0.195, ded: 9900 },
+    { ate: 1800000, aliq: 0.205, ded: 17100 },
+    { ate: 3600000, aliq: 0.230, ded: 62100 },
+    { ate: 4800000, aliq: 0.305, ded: 540000 },
   ],
 }
 
@@ -144,15 +141,12 @@ function SimRegimeReforma({ isMobile }) {
     const f = parseMoeda(folha)
     const m = parseFloat(margem) || 20
     if (!r) { alert('Informe a receita mensal.'); return }
-
     const rMensal = r
     const rAnual  = r * 12
     const lucro   = r * (m / 100)
     const fatorR  = f > 0 ? f / r : 0
-
     const aliqEfSN  = calcAliqEfetivaSN(rAnual, anexoSN)
     const impostoSN = rMensal * aliqEfSN
-
     const pLP    = atividade === 'servicos' ? 0.32 : 0.08
     const biIRPJ = rMensal * pLP
     const biCSLL = rMensal * (atividade === 'servicos' ? 0.32 : 0.12)
@@ -162,14 +156,12 @@ function SimRegimeReforma({ isMobile }) {
     const cofLP  = rMensal * 0.03
     const inssLP = f * 0.28
     const impostoLP = irpj + csll + pisLP + cofLP + inssLP
-
-    const pisLR   = rMensal * 0.0165
-    const cofLR   = rMensal * 0.076
-    const csllLR  = lucro * 0.09
-    const irpjLR  = lucro * 0.15 + Math.max(0, (lucro - 20000) * 0.10)
-    const inssLR  = f * 0.28
+    const pisLR  = rMensal * 0.0165
+    const cofLR  = rMensal * 0.076
+    const csllLR = lucro * 0.09
+    const irpjLR = lucro * 0.15 + Math.max(0, (lucro - 20000) * 0.10)
+    const inssLR = f * 0.28
     const impostoLR = pisLR + cofLR + csllLR + irpjLR + inssLR
-
     const projecao = ANOS_PROJECAO.map(ano => {
       const cbsAliq = REFORMA.CBS[ano]
       const ibsAliq = REFORMA.IBS[ano]
@@ -178,9 +170,9 @@ function SimRegimeReforma({ isMobile }) {
       const cbs = rMensal * cbsAliq
       const ibs = rMensal * ibsAliq
       const snTransicao = impostoSN * (redPF * 0.3 + redICMS * 0.4 + 0.3)
-      const snTotal     = snTransicao + cbs * 0.3 + ibs * 0.3
+      const snTotal = snTransicao + cbs * 0.3 + ibs * 0.3
       const pisCofinsTrans = (pisLP + cofLP) * redPF
-      const icmsTrans      = rMensal * 0.12 * redICMS
+      const icmsTrans = rMensal * 0.12 * redICMS
       const lpTotal = irpj + csll + inssLP + pisCofinsTrans + icmsTrans + cbs * (1 - redPF) + ibs * (1 - redICMS)
       const pisCofinsTrLR = (pisLR + cofLR) * redPF
       const lrTotal = csllLR + irpjLR + inssLR + pisCofinsTrLR + cbs * (1 - redPF) + ibs * (1 - redICMS)
@@ -188,11 +180,9 @@ function SimRegimeReforma({ isMobile }) {
       const melhorLabel = snTotal === melhor ? 'Simples' : lpTotal === melhor ? 'L. Presumido' : 'L. Real'
       return { ano, cbs, ibs, snTotal, lpTotal, lrTotal, melhor, melhorLabel }
     })
-
     const melhorHoje  = Math.min(impostoSN, impostoLP, impostoLR)
     const melhorLabel = impostoSN === melhorHoje ? 'Simples Nacional' : impostoLP === melhorHoje ? 'Lucro Presumido' : 'Lucro Real'
     const piorHoje    = Math.max(impostoSN, impostoLP, impostoLR)
-
     setResult({ impostoSN, impostoLP, impostoLR, aliqEfSN, pLP, fatorR, melhorLabel, melhorHoje, economia: piorHoje - melhorHoje, projecao, rMensal, rAnual })
     setAbaRes('hoje')
   }
@@ -210,16 +200,15 @@ function SimRegimeReforma({ isMobile }) {
         <div style={{ fontSize: 32 }}>🏛️</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Simulador com Reforma Tributária 2026–2032</div>
-          <div style={{ fontSize: 12, color: '#c4b5fd' }}>Compara Simples Nacional, Lucro Presumido e Lucro Real com projeção do impacto da CBS e IBS conforme LC 214/2025.</div>
+          <div style={{ fontSize: 12, color: '#c4b5fd' }}>Compara Simples Nacional, Lucro Presumido e Lucro Real com projeção CBS e IBS conforme LC 214/2025.</div>
         </div>
       </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
         <Card>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📋 Dados da empresa</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Campo label="Receita mensal bruta (R$)"><InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 150.000" /></Campo>
-            <Campo label="Folha de pagamento mensal (R$)"><InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 40.000 (para Fator R)" /></Campo>
+            <Campo label="Folha de pagamento mensal (R$)"><InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 40.000" /></Campo>
             <Campo label="Margem líquida (%)">
               <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20"
                 style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
@@ -240,11 +229,10 @@ function SimRegimeReforma({ isMobile }) {
             </Campo>
             <button onClick={calcular} style={btnCalc}>⚡ Simular regimes + Reforma</button>
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#1e40af' }}>
-              💡 Inclui projeção CBS/IBS por ano (2026–2032) conforme LC 214/2025.
+              💡 Projeção CBS/IBS por ano (2026–2032) conforme LC 214/2025.
             </div>
           </div>
         </Card>
-
         {result ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', gap: 6, borderBottom: `2px solid ${C.border}` }}>
@@ -255,7 +243,6 @@ function SimRegimeReforma({ isMobile }) {
                 </button>
               ))}
             </div>
-
             {abaRes === 'hoje' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {result.fatorR > 0 && (
@@ -288,15 +275,14 @@ function SimRegimeReforma({ isMobile }) {
                 <ResultCard label={`Economia optando pelo melhor — ${result.melhorLabel}`} valor={fmtR(result.economia)} cor={C.navy} sub={`${fmtR(result.economia * 12)} por ano`} />
               </div>
             )}
-
             {abaRes === 'reforma' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Carga tributária estimada por regime em cada ano da transição (valores mensais):</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Carga tributária estimada por regime em cada ano (valores mensais):</div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
-                        {['Ano', 'Simples', 'L. Presumido', 'L. Real', 'CBS', 'IBS', '⭐ Melhor'].map(h => (
+                        {['Ano','Simples','L. Presumido','L. Real','CBS','IBS','⭐ Melhor'].map(h => (
                           <th key={h} style={{ padding: '8px 10px', textAlign: 'center', color: C.muted, fontWeight: 700, borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap', fontSize: 11 }}>{h}</th>
                         ))}
                       </tr>
@@ -556,9 +542,9 @@ function SimTransacao({ isMobile }) {
   }
 
   const NATUREZAS = {
-    tributaria:     { label: '🔵 Tributária',      desc: 'IRPJ, CSLL, PIS, COFINS, IPI, IOF, ITR, CIDE etc.' },
-    previdenciaria: { label: '🟢 Previdenciária',   desc: 'INSS, contribuições sociais, FGTS inscrito na DAU.' },
-    nao_tributaria: { label: '🟡 Não Tributária',   desc: 'Multas administrativas, ressarcimentos, dívidas não fiscais.' },
+    tributaria:     { label: '🔵 Tributária',    desc: 'IRPJ, CSLL, PIS, COFINS, IPI, IOF, ITR, CIDE etc.' },
+    previdenciaria: { label: '🟢 Previdenciária', desc: 'INSS, contribuições sociais, FGTS inscrito na DAU.' },
+    nao_tributaria: { label: '🟡 Não Tributária', desc: 'Multas administrativas, ressarcimentos, dívidas não fiscais.' },
   }
 
   const TIPOS_PESSOA = {
@@ -572,38 +558,39 @@ function SimTransacao({ isMobile }) {
 
   const isPP = ['pf', 'mei', 'me', 'epp', 'outros'].includes(tipoPessoa)
 
-  const MODALIDADES = {
-    capag: {
-      label: 'Capacidade de Pagamento (CAPAG)',
-      descricao: 'Para contribuintes cuja capacidade financeira é insuficiente para quitar o passivo em até 5 anos.',
-      inscricaoAte: EDITAL.inscricaoLimite.demais,
-      usaCapag: true,
+  const GRUPOS = [
+    {
+      label: '📋 Edital PGFN 6/2026 — Vigente até 30/09/2026',
+      modalidades: {
+        capag:          { label: 'Capacidade de Pagamento (CAPAG)',            descricao: 'Para contribuintes cuja capacidade financeira é insuficiente para quitar o passivo em até 5 anos.', inscricaoAte: EDITAL.inscricaoLimite.demais,        usaCapag: true,  fonte: 'Edital PGFN 6/2026 — Art. 3º' },
+        dificil:        { label: 'Débitos de Difícil Recuperação/Irrecuperáveis', descricao: 'Entrada reduzida de 5% em até 12x. Desconto até 65% (70% pequeno porte). Saldo em até 108 parcelas.', inscricaoAte: EDITAL.inscricaoLimite.demais,  usaCapag: false, fonte: 'Edital PGFN 6/2026 — Art. 9º' },
+        pequeno_valor:  { label: 'Transação de Pequeno Valor (até ~R$ 97 mil)', descricao: 'Para PF, MEI, ME e EPP com dívidas até 60 salários mínimos. Inscrições até 01/06/2025.',            inscricaoAte: EDITAL.inscricaoLimite.pequeno_valor, usaCapag: false, fonte: 'Edital PGFN 6/2026 — Art. 12º', apenasPorte: true },
+        garantido:      { label: 'Débitos Garantidos (Seguro/Carta Fiança)',   descricao: 'Para inscrições garantidas judicialmente. Sem desconto — apenas condições diferenciadas de parcelamento.', inscricaoAte: EDITAL.inscricaoLimite.demais, usaCapag: false, fonte: 'Edital PGFN 6/2026 — Art. 15º' },
+        desenrola_rural:{ label: 'Desenrola Rural — Edital PGFN 8/2026',      descricao: 'Exclusivo para agricultores familiares e cooperativas. Mesmas condições do Edital 6/2026.',             inscricaoAte: EDITAL.inscricaoLimite.demais,        usaCapag: false, fonte: 'Edital PGFN 8/2026' },
+      },
     },
-    dificil: {
-      label: 'Débitos de Difícil Recuperação ou Irrecuperáveis',
-      descricao: 'Entrada reduzida de 5% parcelável em até 12x. Saldo em até 108 parcelas (133 para pequeno porte).',
-      inscricaoAte: EDITAL.inscricaoLimite.demais,
-      usaCapag: false,
+    {
+      label: '🤝 Outras Modalidades de Transação',
+      modalidades: {
+        individual:  { label: 'Transação Individual (dívidas > R$ 10 milhões)', descricao: 'Negociação direta com a PGFN para dívidas acima de R$ 10 milhões. Proposta personalizada conforme CAPAG oficial.', inscricaoAte: 'Qualquer inscrição — sem prazo de edital', usaCapag: true,  fonte: 'Lei 13.988/2020 — Art. 10; Portaria PGFN 6.757/2022' },
+        contencioso: { label: 'Transação no Contencioso (CARF/DRJ)',            descricao: 'Resolução de litígios no CARF ou DRJ. Prazo máximo de 72 meses. Implica desistência da discussão administrativa.',  inscricaoAte: 'Débitos em discussão no CARF ou DRJ',        usaCapag: false, fonte: 'Lei 13.988/2020 — Art. 16; Portaria CARF 10.956/2022' },
+      },
     },
-    pequeno_valor: {
-      label: 'Transação de Pequeno Valor (até ~R$ 97 mil)',
-      descricao: 'Para PF, MEI, ME e EPP com dívidas até 60 salários mínimos. Inscrições até 01/06/2025.',
-      inscricaoAte: EDITAL.inscricaoLimite.pequeno_valor,
-      usaCapag: false,
-      apenasPorte: true,
+    {
+      label: '📦 Parcelamento Ordinário',
+      modalidades: {
+        parcelamento_ordinario: { label: 'Parcelamento Ordinário (Lei 10.522/2002)',   descricao: 'Parcelamento simples em até 60 meses sem desconto. Não há redução de multas ou juros. Indicado para quem não se enquadra nos editais.', inscricaoAte: 'Sem restrição', usaCapag: false, fonte: 'Lei 10.522/2002 — Art. 10; IN RFB 1.891/2019' },
+        parcelamento_especial:  { label: 'Parcelamento Especial / REFIS (histórico)', descricao: 'Parcelamentos de programas anteriores (REFIS, PAES, PAEX, PERT). Verificar saldo em aberto ou rescisão a regularizar.',               inscricaoAte: 'Verificar programa específico', usaCapag: false, fonte: 'Lei 9.964/2000 (REFIS); Lei 10.684/2003 (PAES); Lei 13.496/2017 (PERT)' },
+      },
     },
-    garantido: {
-      label: 'Débitos Garantidos por Seguro Garantia ou Carta Fiança',
-      descricao: 'Para inscrições garantidas judicialmente. Sem desconto — apenas condições de parcelamento diferenciadas.',
-      inscricaoAte: EDITAL.inscricaoLimite.demais,
-      usaCapag: false,
-    },
-  }
+  ]
+
+  const TODAS_MODALIDADES = {}
+  GRUPOS.forEach(g => Object.assign(TODAS_MODALIDADES, g.modalidades))
 
   function calcular() {
     const d = parseMoeda(divida)
     if (!d) { alert('Informe o valor da dívida.'); return }
-    if (d > EDITAL.limiteDebito) { alert('O Edital PGFN 6/2026 cobre dívidas de até R$ 45 milhões por sujeito passivo.'); return }
 
     const estimPrincipal = d * 0.45
     const estimMultas    = d * 0.30
@@ -618,41 +605,82 @@ function SimTransacao({ isMobile }) {
     let entradaParc        = isPP ? 12 : 6
     let obsCondicao        = ''
 
-    if (modalidade === 'capag') {
-      if (['C', 'D'].includes(capag)) {
+    switch (modalidade) {
+      case 'capag':
+        if (['C','D'].includes(capag)) {
+          limiteDescTotal    = isPP ? 0.70 : 0.65
+          descontoAcrescimos = Math.min(acrescimos, d * limiteDescTotal)
+          maxParc            = 133
+          obsCondicao        = `CAPAG ${capag} — desconto até 100% dos acréscimos, limitado a ${isPP ? '70' : '65'}% do total. Entrada 6% em até ${isPP ? 12 : 6}x. Saldo em até 133 parcelas.`
+        } else {
+          obsCondicao = `CAPAG ${capag} — sem desconto automático. Apenas prazo diferenciado. Verifique o CAPAG oficial no Portal Regularize.`
+        }
+        break
+      case 'dificil':
+        limiteDescTotal    = isPP ? 0.70 : 0.65
+        descontoAcrescimos = Math.min(acrescimos, d * limiteDescTotal)
+        maxParc            = isPP ? 133 : 108
+        entradaPct         = 0.05
+        entradaParc        = 12
+        obsCondicao        = `Entrada 5% em até 12x. Saldo em até ${isPP ? 133 : 108} parcelas. Desconto até ${isPP ? '70' : '65'}% do valor total.`
+        break
+      case 'pequeno_valor': {
+        const nP      = parseInt(nParcelas)
+        const pctDesc = nP <= 1 ? 0.50 : nP <= 7 ? 0.50 : nP <= 12 ? 0.45 : nP <= 30 ? 0.40 : 0.30
+        limiteDescTotal    = pctDesc
+        descontoAcrescimos = Math.min(acrescimos, d * pctDesc)
+        maxParc            = 55
+        entradaPct         = 0.05
+        entradaParc        = 5
+        obsCondicao        = `Desconto de ${(pctDesc * 100).toFixed(0)}% — Escalonamento: 50% (até 7x) → 45% (até 12x) → 40% (até 30x) → 30% (até 55x).`
+        break
+      }
+      case 'garantido':
+        maxParc     = 60
+        entradaPct  = 0.06
+        entradaParc = 6
+        obsCondicao = 'Sem desconto sobre o valor. Apenas condições diferenciadas de parcelamento conforme o edital.'
+        break
+      case 'desenrola_rural':
         limiteDescTotal    = isPP ? 0.70 : 0.65
         descontoAcrescimos = Math.min(acrescimos, d * limiteDescTotal)
         maxParc            = 133
-        obsCondicao        = `CAPAG ${capag} — desconto até 100% dos juros/multas/encargos, limitado a ${isPP ? '70' : '65'}% do valor total. Entrada de 6% em até ${isPP ? 12 : 6}x. Saldo em até 133 parcelas.`
-      } else {
-        limiteDescTotal    = 0
-        descontoAcrescimos = 0
-        maxParc            = 60
-        obsCondicao        = `CAPAG ${capag} — sem desconto automático. A PGFN oferece apenas prazo diferenciado. Verifique o CAPAG oficial no Regularize.`
-      }
-    } else if (modalidade === 'dificil') {
-      limiteDescTotal    = isPP ? 0.70 : 0.65
-      descontoAcrescimos = Math.min(acrescimos, d * limiteDescTotal)
-      maxParc            = isPP ? 133 : 108
-      entradaPct         = 0.05
-      entradaParc        = 12
-      obsCondicao        = `Entrada de 5% em até 12x. Saldo em até ${isPP ? 133 : 108} parcelas. Desconto até ${isPP ? '70' : '65'}% do valor total.`
-    } else if (modalidade === 'pequeno_valor') {
-      const nParc   = parseInt(nParcelas)
-      const pctDesc = nParc <= 1 ? 0.50 : nParc <= 7 ? 0.50 : nParc <= 12 ? 0.45 : nParc <= 30 ? 0.40 : 0.30
-      limiteDescTotal    = pctDesc
-      descontoAcrescimos = Math.min(acrescimos, d * pctDesc)
-      maxParc            = 55
-      entradaPct         = 0.05
-      entradaParc        = 5
-      obsCondicao        = `Desconto de ${(pctDesc * 100).toFixed(0)}% para ${nParc <= 1 ? 'à vista' : nParc + ' parcelas'}. Entrada 5% em até 5x. Desconto varia: 50% (até 7x) → 45% (até 12x) → 40% (até 30x) → 30% (até 55x).`
-    } else if (modalidade === 'garantido') {
-      descontoAcrescimos = 0
-      limiteDescTotal    = 0
-      maxParc            = 60
-      entradaPct         = 0.06
-      entradaParc        = 6
-      obsCondicao        = 'Sem desconto. Apenas condições de parcelamento diferenciadas conforme o edital.'
+        entradaPct         = 0.05
+        entradaParc        = 12
+        obsCondicao        = `Edital 8/2026 — exclusivo para agricultores e cooperativas familiares. Desconto até ${isPP ? '70' : '65'}% do total.`
+        break
+      case 'individual':
+        if (['C','D'].includes(capag)) {
+          limiteDescTotal    = isPP ? 0.70 : 0.65
+          descontoAcrescimos = Math.min(acrescimos, d * limiteDescTotal)
+        }
+        maxParc     = 120
+        entradaPct  = 0.06
+        entradaParc = 6
+        obsCondicao = `Transação Individual — negociação direta com a PGFN. Recomendado para dívidas acima de R$ 10 milhões. Desconto conforme CAPAG oficial. Proposta personalizada.`
+        break
+      case 'contencioso':
+        limiteDescTotal    = 0.50
+        descontoAcrescimos = Math.min(acrescimos, d * 0.50)
+        maxParc            = 72
+        entradaPct         = 0.05
+        entradaParc        = 6
+        obsCondicao        = 'Transação no Contencioso — CARF ou DRJ. Desconto de até 50% sobre acréscimos. Prazo máximo 72 meses. Implica desistência da discussão administrativa.'
+        break
+      case 'parcelamento_ordinario':
+        maxParc     = 60
+        entradaPct  = 0
+        entradaParc = 0
+        obsCondicao = 'Parcelamento simples em até 60 meses. Sem desconto sobre principal, multas ou juros. Indicado para quem não se enquadra nos editais de transação.'
+        break
+      case 'parcelamento_especial':
+        maxParc     = 60
+        entradaPct  = 0
+        entradaParc = 0
+        obsCondicao = 'Parcelamentos especiais históricos (REFIS, PAES, PAEX, PERT). Verificar programa específico e condições vigentes. Consultar saldo em aberto ou rescisão.'
+        break
+      default:
+        break
     }
 
     const totalDesconto = descontoAcrescimos
@@ -666,36 +694,34 @@ function SimTransacao({ isMobile }) {
       d, estimPrincipal, estimMultas, estimJuros, estimEncargos, acrescimos,
       totalDesconto, saldoFinal, entrada, parcela,
       nParc, maxParc, entradaPct, entradaParc,
-      pctDesconto: d > 0 ? (totalDesconto / d * 100) : 0,
+      pctDesconto:   d > 0 ? (totalDesconto / d * 100) : 0,
       obsCondicao,
-      modLabel:       MODALIDADES[modalidade]?.label,
-      naturezaLabel:  NATUREZAS[natureza]?.label,
-      inscricaoAte:   MODALIDADES[modalidade]?.inscricaoAte,
+      modLabel:      TODAS_MODALIDADES[modalidade]?.label,
+      naturezaLabel: NATUREZAS[natureza]?.label,
+      inscricaoAte:  TODAS_MODALIDADES[modalidade]?.inscricaoAte,
+      fonte:         TODAS_MODALIDADES[modalidade]?.fonte,
     })
   }
 
-  const modAtual = MODALIDADES[modalidade]
+  const modAtual = TODAS_MODALIDADES[modalidade]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Banner Edital */}
       <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #0369a1)', borderRadius: 14, padding: '14px 20px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>EDITAL PGFN Nº {EDITAL.numero} — VIGENTE</div>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>Transação Tributária por Adesão — Dívida Ativa da União</div>
+          <div style={{ fontSize: 14, fontWeight: 800 }}>Transação Tributária — Dívida Ativa da União</div>
           <div style={{ fontSize: 12, color: '#bae6fd', marginTop: 4 }}>Publicado em {EDITAL.publicacao} · {EDITAL.portal}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: '#fde68a', fontWeight: 700, marginBottom: 2 }}>⏰ PRAZO DE ADESÃO</div>
+          <div style={{ fontSize: 11, color: '#fde68a', fontWeight: 700, marginBottom: 2 }}>⏰ PRAZO EDITAL 6/2026</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: '#fde68a' }}>30/09/2026</div>
           <div style={{ fontSize: 11, color: '#bae6fd' }}>até 19h — Portal Regularize</div>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
-
-        {/* Formulário */}
         <Card>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🤝 Dados para simulação</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -725,58 +751,63 @@ function SimTransacao({ isMobile }) {
               )}
             </Campo>
 
-            <Campo label="Valor total da dívida inscrita na DAU (R$) *">
+            <Campo label="Valor total da dívida (R$) *">
               <InputMoeda value={divida} onChange={setDivida} placeholder="Ex: 500.000" />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Limite do edital: R$ 45 milhões por sujeito passivo</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Limite Edital 6/2026: R$ 45 milhões por sujeito passivo</div>
             </Campo>
 
-            <Campo label="Modalidade de transação (Edital 6/2026) *">
+            <Campo label="Modalidade *">
               <select value={modalidade} onChange={e => { setModalidade(e.target.value); setResult(null) }} style={selectStyle}>
-                {Object.entries(MODALIDADES).map(([k, m]) => (
-                  <option key={k} value={k} disabled={m.apenasPorte && !isPP}>
-                    {m.label}{m.apenasPorte && !isPP ? ' (apenas pequeno porte)' : ''}
-                  </option>
+                {GRUPOS.map(grupo => (
+                  <optgroup key={grupo.label} label={grupo.label}>
+                    {Object.entries(grupo.modalidades).map(([k, m]) => (
+                      <option key={k} value={k} disabled={m.apenasPorte && !isPP}>
+                        {m.label}{m.apenasPorte && !isPP ? ' (apenas pequeno porte)' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               {modAtual && (
                 <div style={{ fontSize: 11, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '6px 10px', marginTop: 4 }}>
-                  <strong>Inscrição elegível até:</strong> {modAtual.inscricaoAte}<br />{modAtual.descricao}
+                  <strong>Elegível até:</strong> {modAtual.inscricaoAte}<br />
+                  {modAtual.descricao}<br />
+                  <span style={{ color: '#64748b' }}>📜 {modAtual.fonte}</span>
                 </div>
               )}
             </Campo>
 
-            {modalidade === 'capag' && (
-              <Campo label="CAPAG (Capacidade de Pagamento) *">
+            {(modalidade === 'capag' || modalidade === 'individual') && (
+              <Campo label="CAPAG *">
                 <select value={capag} onChange={e => setCapag(e.target.value)} style={selectStyle}>
                   <option value="A">A — Boa capacidade (sem desconto automático)</option>
                   <option value="B">B — Capacidade moderada (sem desconto automático)</option>
                   <option value="C">C — Capacidade reduzida (desconto até {isPP ? '70' : '65'}%)</option>
                   <option value="D">D — Sem capacidade (desconto até {isPP ? '70' : '65'}%)</option>
                 </select>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Verificar CAPAG oficial no Portal Regularize.</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Verificar CAPAG oficial no Portal Regularize antes de negociar.</div>
               </Campo>
             )}
 
-            <Campo label="Número de parcelas desejadas">
+            <Campo label="Número de parcelas">
               <select value={nParcelas} onChange={e => setNParcelas(e.target.value)} style={selectStyle}>
-                {[1,5,6,7,12,24,30,36,48,55,60,84,108,120,133].map(n => (
+                {[1,5,6,7,12,24,30,36,48,55,60,72,84,108,120,133].map(n => (
                   <option key={n} value={n}>{n === 1 ? 'À vista' : `${n} parcelas`}</option>
                 ))}
               </select>
             </Campo>
 
-            <button onClick={calcular} style={btnCalc}>⚡ Simular transação</button>
+            <button onClick={calcular} style={btnCalc}>⚡ Simular</button>
             <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e' }}>
               ⚠️ Simulação estimativa. Composição real da dívida e CAPAG oficial impactam os valores. Consulte o Portal Regularize e um especialista tributário.
             </div>
           </div>
         </Card>
 
-        {/* Resultado */}
         {result ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: '#0B1F4D', borderRadius: 12, padding: '14px 18px', color: '#fff' }}>
-              <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>EDITAL PGFN {EDITAL.numero} · ATÉ {EDITAL.prazoAdesao}</div>
+              <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>SIMULAÇÃO DE TRANSAÇÃO / PARCELAMENTO</div>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{result.modLabel}</div>
               <div style={{ fontSize: 12, color: '#93c5fd' }}>{result.naturezaLabel} · {TIPOS_PESSOA[tipoPessoa]?.label}</div>
             </div>
@@ -784,17 +815,18 @@ function SimTransacao({ isMobile }) {
             {result.obsCondicao && (
               <div style={{ background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#1e40af', lineHeight: 1.6 }}>
                 📌 {result.obsCondicao}
-                <div style={{ marginTop: 4, color: '#64748b' }}>Inscrição elegível até: {result.inscricaoAte}</div>
+                {result.inscricaoAte && <div style={{ marginTop: 4, color: '#64748b' }}>Inscrição elegível até: {result.inscricaoAte}</div>}
+                {result.fonte && <div style={{ marginTop: 2, color: '#64748b' }}>📜 {result.fonte}</div>}
               </div>
             )}
 
             <Card style={{ padding: '14px 18px' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>📊 Composição estimada da dívida</div>
               {[
-                { label: 'Principal (est. 45%)',  valor: result.estimPrincipal, cor: '#0B1F4D' },
-                { label: 'Multas (est. 30%)',     valor: result.estimMultas,    cor: '#dc2626' },
-                { label: 'Juros (est. 20%)',      valor: result.estimJuros,     cor: '#d97706' },
-                { label: 'Encargos (est. 5%)',    valor: result.estimEncargos,  cor: '#7c3aed' },
+                { label: 'Principal (est. 45%)', valor: result.estimPrincipal, cor: '#0B1F4D' },
+                { label: 'Multas (est. 30%)',    valor: result.estimMultas,    cor: '#dc2626' },
+                { label: 'Juros (est. 20%)',     valor: result.estimJuros,     cor: '#d97706' },
+                { label: 'Encargos (est. 5%)',   valor: result.estimEncargos,  cor: '#7c3aed' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < 3 ? `1px solid ${C.border}` : 'none', fontSize: 12 }}>
                   <span style={{ color: C.muted }}>{item.label}</span>
@@ -810,30 +842,40 @@ function SimTransacao({ isMobile }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <ResultCard label="Desconto estimado"   valor={fmtR(result.totalDesconto)} cor="#16a34a" sub={`${result.pctDesconto.toFixed(1)}% do valor`} />
               <ResultCard label="Saldo após desconto" valor={fmtR(result.saldoFinal)}    cor="#0B1F4D" />
-              <ResultCard label={`Entrada (${(result.entradaPct * 100).toFixed(0)}%) em ${result.entradaParc}x`} valor={fmtR(result.entrada)} cor="#7c3aed" />
+              {result.entradaPct > 0 && (
+                <ResultCard label={`Entrada (${(result.entradaPct * 100).toFixed(0)}%) em ${result.entradaParc}x`} valor={fmtR(result.entrada)} cor="#7c3aed" />
+              )}
               <ResultCard label={`Parcela (${result.nParc}x)`} valor={fmtR(result.parcela)} cor="#d97706" sub={`Máx. ${result.maxParc} parcelas`} />
             </div>
 
-            {modalidade === 'capag' && ['A', 'B'].includes(capag) && (
+            {(modalidade === 'capag' || modalidade === 'individual') && ['A','B'].includes(capag) && (
               <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#92400e' }}>
-                ⚠️ CAPAG {capag} — sem desconto automático nesta faixa. A transação oferece apenas prazo diferenciado. Verifique o CAPAG oficial no Regularize.
+                ⚠️ CAPAG {capag} — sem desconto automático. A PGFN oferece apenas prazo diferenciado. Verifique o CAPAG oficial no Regularize.
               </div>
             )}
 
-            <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
-              🌐 Adesão exclusivamente pelo Portal Regularize até 30/09/2026 às 19h<br />
-              <span style={{ fontWeight: 400, color: '#16a34a' }}>regularize.pgfn.gov.br</span>
-            </div>
+            {['capag','dificil','pequeno_valor','garantido','desenrola_rural','individual'].includes(modalidade) && (
+              <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
+                🌐 {['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? `Adesão pelo Regularize até ${EDITAL.prazoAdesao}` : 'Negociação contínua — sem prazo de edital'}<br />
+                <span style={{ fontWeight: 400, color: '#16a34a' }}>{EDITAL.portal}</span>
+              </div>
+            )}
+
+            {['parcelamento_ordinario','parcelamento_especial'].includes(modalidade) && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#475569' }}>
+                ℹ️ Parcelamento sem desconto. Considere avaliar as modalidades de transação do Edital 6/2026 — podem oferecer condições mais vantajosas.
+              </div>
+            )}
           </div>
         ) : (
           <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 400 }}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>🤝</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Edital PGFN 6/2026 — Vigente</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Simule sua negociação</div>
             <div style={{ fontSize: 13, textAlign: 'center', maxWidth: 280, lineHeight: 1.6 }}>
-              Selecione a natureza do débito, tipo de contribuinte e modalidade para simular as condições do edital vigente.
+              Selecione a natureza do débito, tipo de contribuinte e modalidade desejada.
             </div>
             <div style={{ marginTop: 16, background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 14px', fontSize: 11, color: '#92400e', textAlign: 'center' }}>
-              ⏰ Prazo de adesão: <strong>30/09/2026 às 19h</strong>
+              ⏰ Edital 6/2026 — prazo até <strong>30/09/2026 às 19h</strong>
             </div>
           </Card>
         )}
@@ -926,8 +968,10 @@ function SimHonorarios({ isMobile }) {
   function calcular() {
     const c = parseMoeda(credito); const pf = parseFloat(pctFixo)||0; const ps = parseFloat(pctSucesso)||0; const pr = parseInt(prazoRec)||12
     if (!c) { alert('Informe o crédito identificado.'); return }
-    const honorarioFixo = c*(pf/100); const honorarioSucesso = c*(ps/100)
-    const receitaTotal = honorarioFixo+honorarioSucesso; const mensalidadeFixa = honorarioFixo/pr
+    const honorarioFixo    = c*(pf/100)
+    const honorarioSucesso = c*(ps/100)
+    const receitaTotal     = honorarioFixo+honorarioSucesso
+    const mensalidadeFixa  = honorarioFixo/pr
     setResult({ honorarioFixo, honorarioSucesso, receitaTotal, mensalidadeFixa, c, pf, ps, pr })
   }
 
@@ -998,7 +1042,7 @@ export default function Simuladores() {
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: isMobile ? '20px 20px' : '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>e-FISCALTRIBE — FERRAMENTAS COMERCIAIS</div>
         <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
-        <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo impacto da Reforma Tributária 2026–2032 e Edital PGFN 6/2026.</p>
+        <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo Reforma Tributária 2026–2032 e Edital PGFN 6/2026.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
