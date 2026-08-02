@@ -1,0 +1,729 @@
+/**
+ * AuditorSPED.jsx — e-FiscalTribe
+ * Auditor de SPED — Pente fino antes da entrega à Receita Federal.
+ *
+ * Funcionalidades:
+ * — Importação de EFD-Contribuições, EFD-ICMS/IPI, ECD, ECF
+ * — Análise linha a linha dos registros
+ * — Identificação de inconsistências e erros de cálculo
+ * — Relatório executivo com fundamentação legal
+ * — Sugestão de correção por item
+ *
+ * Versão: 1.0
+ * Data: 2026-07-30
+ */
+
+import { useState, useRef } from 'react'
+import { supabase } from '../supabase'
+
+// ─────────────────────────────────────────────────────────────
+// CONSTANTES
+// ─────────────────────────────────────────────────────────────
+
+const TIPOS_SPED = [
+  { id: 'EFD_CONTRIB',  label: 'EFD-Contribuições',  descricao: 'PIS/COFINS — Blocos 0, A, C, D, F, M, 1, 9', extensao: '.txt', cor: '#00c896' },
+  { id: 'EFD_ICMS_IPI', label: 'EFD-ICMS/IPI',      descricao: 'ICMS/IPI — Blocos 0, C, D, E, G, H, K, 1, 9', extensao: '.txt', cor: '#1a9fff' },
+  { id: 'ECD',          label: 'ECD',                descricao: 'Escrituração Contábil Digital', extensao: '.txt', cor: '#a855f7' },
+  { id: 'ECF',          label: 'ECF',                descricao: 'Escrituração Contábil Fiscal — IRPJ/CSLL', extensao: '.txt', cor: '#f59e0b' },
+]
+
+const CATEGORIAS_ERRO = {
+  CALCULO:       { label: 'Erro de Cálculo',          cor: '#ef4444', icone: '🔢' },
+  CAMPO_VAZIO:   { label: 'Campo Obrigatório Vazio',  cor: '#f97316', icone: '📭' },
+  INCONSISTENCIA:{ label: 'Inconsistência entre Blocos', cor: '#eab308', icone: '⚡' },
+  ALIQUOTA:      { label: 'Alíquota Incorreta',       cor: '#a855f7', icone: '📊' },
+  CFOP:          { label: 'CFOP Inválido/Incorreto',  cor: '#3b82f6', icone: '📋' },
+  CST:           { label: 'CST Incorreto',            cor: '#06b6d4', icone: '🏷️' },
+  TOTAL:         { label: 'Total Divergente',         cor: '#ec4899', icone: '🧮' },
+  AVISO:         { label: 'Aviso / Atenção',          cor: '#64748b', icone: '⚠️' },
+}
+
+const C = {
+  bg:     '#0a1628',
+  card:   '#0f1e35',
+  border: 'rgba(255,255,255,0.08)',
+  verde:  '#00c896',
+  azul:   '#1a9fff',
+  branco: '#ffffff',
+  cinza:  '#8a9bb0',
+  text:   '#e2e8f0',
+}
+
+// ─────────────────────────────────────────────────────────────
+// PARSER SPED
+// ─────────────────────────────────────────────────────────────
+
+function parsearSPED(conteudo, tipo) {
+  const linhas   = conteudo.split('\n').map(l => l.trim()).filter(Boolean)
+  const registros = []
+
+  linhas.forEach((linha, idx) => {
+    if (!linha.startsWith('|')) return
+    const campos = linha.split('|').filter((_, i) => i > 0 && i < linha.split('|').length - 1)
+    if (campos.length === 0) return
+    registros.push({
+      numero:   idx + 1,
+      registro: campos[0] || '',
+      campos,
+      linha,
+    })
+  })
+
+  return registros
+}
+
+function analisarEFDContrib(registros) {
+  const erros    = []
+  const avisos   = []
+  const resumo   = { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 }
+
+  // Conta registros por bloco
+  registros.forEach(r => {
+    const bloco = r.registro?.[0] || '?'
+    resumo.blocos[bloco] = (resumo.blocos[bloco] || 0) + 1
+  })
+
+  registros.forEach(r => {
+    const reg    = r.registro
+    const campos = r.campos
+
+    // ── Registro 0000 — Abertura ──────────────────────────────
+    if (reg === '0000') {
+      if (!campos[3] || campos[3].length !== 14) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'CNPJ inválido ou ausente no registro 0000', campo: 'Campo 4 (CNPJ)', correcao: 'Informar o CNPJ com 14 dígitos sem formatação', fundamentacao: 'Guia Prático EFD-Contribuições — Registro 0000' })
+      }
+      if (!campos[8]) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'AVISO', descricao: 'Indicador de situação especial não informado', campo: 'Campo 9 (IND_SIT_ESP)', correcao: 'Verificar se a empresa está em situação especial no período' })
+      }
+    }
+
+    // ── Registro C100 — NF-e de entrada/saída ────────────────
+    if (reg === 'C100') {
+      const vNF   = parseFloat(campos[9]?.replace(',', '.') || 0)
+      const vDesc = parseFloat(campos[10]?.replace(',', '.') || 0)
+      const vFrete= parseFloat(campos[11]?.replace(',', '.') || 0)
+      const vSeg  = parseFloat(campos[12]?.replace(',', '.') || 0)
+      const vOut  = parseFloat(campos[13]?.replace(',', '.') || 0)
+      const vBC   = parseFloat(campos[14]?.replace(',', '.') || 0)
+
+      if (!campos[4] || campos[4].length < 5) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'Chave de acesso da NF-e ausente ou incompleta', campo: 'Campo 5 (CHV_NFE)', correcao: 'Informar a chave de acesso completa com 44 dígitos', fundamentacao: 'Guia Prático EFD-Contribuições — Registro C100' })
+      }
+
+      if (vNF > 0 && vBC > vNF + vFrete + vSeg + vOut + 1) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Base de cálculo (${fmtVal(vBC)}) maior que o valor da NF-e + encargos (${fmtVal(vNF + vFrete + vSeg + vOut)})`, campo: 'Campo 15 (VL_BC_PIS/COFINS)', correcao: 'Recalcular a base de cálculo conforme art. 1º das Leis 10.637/2002 e 10.833/2003', fundamentacao: 'Lei 10.637/2002 art. 1º; Lei 10.833/2003 art. 1º' })
+      }
+    }
+
+    // ── Registro C170 — Itens do documento ───────────────────
+    if (reg === 'C170') {
+      const cfop = campos[3] || ''
+      const cst  = campos[8] || ''
+      const vItem= parseFloat(campos[5]?.replace(',', '.') || 0)
+      const aliqPIS   = parseFloat(campos[12]?.replace(',', '.') || 0)
+      const aliqCOFINS= parseFloat(campos[16]?.replace(',', '.') || 0)
+
+      // CFOP deve ter 4 dígitos
+      if (cfop && (cfop.length !== 4 || isNaN(parseInt(cfop)))) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CFOP', descricao: `CFOP inválido: "${cfop}"`, campo: 'Campo 4 (CFOP)', correcao: 'Informar CFOP com 4 dígitos numéricos conforme tabela CFOP vigente', fundamentacao: 'Convênio S/N de 15/12/1970 — Tabela CFOP' })
+      }
+
+      // CST PIS/COFINS válidos: 01-09, 49, 50-99
+      const cstNum = parseInt(cst)
+      if (cst && (isNaN(cstNum) || cst.length !== 2)) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CST', descricao: `CST inválido: "${cst}"`, campo: 'Campo 9 (CST_PIS)', correcao: 'Informar CST com 2 dígitos conforme Tabela de CST do Anexo I da IN RFB 2.121/2022', fundamentacao: 'IN RFB 2.121/2022 — Tabela CST PIS/COFINS' })
+      }
+
+      // Alíquota PIS padrão: 0.65% (cumulativo) ou 1.65% (não-cumulativo)
+      if (aliqPIS > 0 && aliqPIS !== 0.65 && aliqPIS !== 1.65 && aliqPIS !== 0 && cstNum <= 49) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'ALIQUOTA', descricao: `Alíquota de PIS incomum: ${aliqPIS}%. Padrão: 0,65% (cumulativo) ou 1,65% (não-cumulativo)`, campo: 'Campo 13 (ALIQ_PIS)', correcao: 'Verificar o regime de apuração (cumulativo/não-cumulativo) e aplicar a alíquota correta', fundamentacao: 'Lei 10.637/2002 art. 2º; Lei 10.833/2003 art. 2º' })
+      }
+
+      // Alíquota COFINS padrão: 3% (cumulativo) ou 7.6% (não-cumulativo)
+      if (aliqCOFINS > 0 && aliqCOFINS !== 3 && aliqCOFINS !== 7.6 && aliqCOFINS !== 0 && cstNum <= 49) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'ALIQUOTA', descricao: `Alíquota de COFINS incomum: ${aliqCOFINS}%. Padrão: 3% (cumulativo) ou 7,6% (não-cumulativo)`, campo: 'Campo 17 (ALIQ_COFINS)', correcao: 'Verificar o regime de apuração e aplicar a alíquota correta', fundamentacao: 'Lei 10.833/2003 art. 2º' })
+      }
+    }
+
+    // ── Registro M200 — Apuração do PIS ──────────────────────
+    if (reg === 'M200') {
+      const vEntBC = parseFloat(campos[1]?.replace(',', '.') || 0)
+      const vEntAl = parseFloat(campos[3]?.replace(',', '.') || 0)
+      const vCred  = parseFloat(campos[5]?.replace(',', '.') || 0)
+
+      if (vEntBC > 0 && vEntAl > 0) {
+        const credEsperado = vEntBC * vEntAl / 100
+        if (Math.abs(credEsperado - vCred) > 0.10) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de PIS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_PIS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.637/2002 art. 3º — apuração do crédito de PIS' })
+        }
+      }
+    }
+
+    // ── Registro M600 — Apuração do COFINS ───────────────────
+    if (reg === 'M600') {
+      const vEntBC = parseFloat(campos[1]?.replace(',', '.') || 0)
+      const vEntAl = parseFloat(campos[3]?.replace(',', '.') || 0)
+      const vCred  = parseFloat(campos[5]?.replace(',', '.') || 0)
+
+      if (vEntBC > 0 && vEntAl > 0) {
+        const credEsperado = vEntBC * vEntAl / 100
+        if (Math.abs(credEsperado - vCred) > 0.10) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de COFINS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_COFINS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.833/2003 art. 3º — apuração do crédito de COFINS' })
+        }
+      }
+    }
+
+    // ── Registro 9001 — Encerramento ─────────────────────────
+    if (reg === '9001') {
+      if (!campos[1] || campos[1] !== '1') {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'AVISO', descricao: 'Indicador de movimento do bloco 9 diferente de "1"', campo: 'Campo 2 (IND_MOV)', correcao: 'Verificar se o bloco 9 possui registros válidos' })
+      }
+    }
+  })
+
+  resumo.erros  = erros.length
+  resumo.avisos = avisos.length
+
+  return { erros, avisos, resumo }
+}
+
+function analisarEFDICMS(registros) {
+  const erros  = []
+  const avisos = []
+  const resumo = { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 }
+
+  registros.forEach(r => {
+    const bloco = r.registro?.[0] || '?'
+    resumo.blocos[bloco] = (resumo.blocos[bloco] || 0) + 1
+  })
+
+  registros.forEach(r => {
+    const reg    = r.registro
+    const campos = r.campos
+
+    // ── C100 — NF-e ──────────────────────────────────────────
+    if (reg === 'C100') {
+      const vICMS = parseFloat(campos[13]?.replace(',', '.') || 0)
+      const vBC   = parseFloat(campos[12]?.replace(',', '.') || 0)
+      const aliq  = parseFloat(campos[14]?.replace(',', '.') || 0)
+
+      if (vBC > 0 && aliq > 0) {
+        const icmsEsperado = vBC * aliq / 100
+        if (Math.abs(icmsEsperado - vICMS) > 0.10) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS calculado (${fmtVal(vICMS)}) diverge do esperado (${fmtVal(icmsEsperado)})`, campo: 'Campo 14 (VL_ICMS)', correcao: `Recalcular: BC (${fmtVal(vBC)}) × Alíquota (${aliq}%) = ${fmtVal(icmsEsperado)}`, fundamentacao: 'RICMS estadual — regras de cálculo do ICMS próprio' })
+        }
+      }
+
+      if (!campos[4] || campos[4].length < 5) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'Chave de acesso da NF-e ausente', campo: 'Campo 5 (CHV_DOC)', correcao: 'Informar a chave de acesso completa com 44 dígitos', fundamentacao: 'Ajuste SINIEF 07/2005 — NF-e' })
+      }
+    }
+
+    // ── C170 — Itens ─────────────────────────────────────────
+    if (reg === 'C170') {
+      const cfop   = campos[3] || ''
+      const cst    = campos[7] || ''
+      const vItem  = parseFloat(campos[5]?.replace(',', '.') || 0)
+      const vICMS  = parseFloat(campos[9]?.replace(',', '.') || 0)
+      const vBC    = parseFloat(campos[8]?.replace(',', '.') || 0)
+      const aliq   = parseFloat(campos[10]?.replace(',', '.') || 0)
+
+      if (cfop && cfop.length !== 4) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CFOP', descricao: `CFOP inválido: "${cfop}"`, campo: 'Campo 4 (CFOP)', correcao: 'Informar CFOP com 4 dígitos numéricos', fundamentacao: 'Convênio S/N de 15/12/1970 — Tabela CFOP' })
+      }
+
+      if (vBC > 0 && aliq > 0) {
+        const esperado = vBC * aliq / 100
+        if (Math.abs(esperado - vICMS) > 0.05) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS do item divergente: calculado ${fmtVal(vICMS)}, esperado ${fmtVal(esperado)}`, campo: 'Campo 10 (VL_ICMS)', correcao: `BC (${fmtVal(vBC)}) × ${aliq}% = ${fmtVal(esperado)}`, fundamentacao: 'RICMS estadual — cálculo do ICMS por item' })
+        }
+      }
+
+      // ICMS-ST
+      const vBCST  = parseFloat(campos[11]?.replace(',', '.') || 0)
+      const aliqST = parseFloat(campos[12]?.replace(',', '.') || 0)
+      const vST    = parseFloat(campos[13]?.replace(',', '.') || 0)
+
+      if (vBCST > 0 && aliqST > 0) {
+        const stEsperado = vBCST * aliqST / 100
+        if (Math.abs(stEsperado - vST) > 0.05) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS-ST divergente: calculado ${fmtVal(vST)}, esperado ${fmtVal(stEsperado)}`, campo: 'Campo 14 (VL_ICMS_ST)', correcao: `BC-ST (${fmtVal(vBCST)}) × ${aliqST}% = ${fmtVal(stEsperado)}`, fundamentacao: 'Convênio ICMS 52/2017 — ICMS-ST' })
+        }
+      }
+    }
+
+    // ── E110 — Apuração do ICMS ──────────────────────────────
+    if (reg === 'E110') {
+      const vTotDeb = parseFloat(campos[1]?.replace(',', '.') || 0)
+      const vTotCred= parseFloat(campos[6]?.replace(',', '.') || 0)
+      const vSaldo  = parseFloat(campos[11]?.replace(',', '.') || 0)
+      const saldoEsp= vTotDeb - vTotCred
+
+      if (Math.abs(saldoEsp - vSaldo) > 0.10) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'TOTAL', descricao: `Saldo do ICMS (${fmtVal(vSaldo)}) diverge do calculado (${fmtVal(saldoEsp)}) — diferença de ${fmtVal(Math.abs(saldoEsp - vSaldo))}`, campo: 'Campo 12 (VL_SLD_APURADO)', correcao: `Débitos (${fmtVal(vTotDeb)}) − Créditos (${fmtVal(vTotCred)}) = ${fmtVal(saldoEsp)}`, fundamentacao: 'Guia Prático EFD-ICMS/IPI — Registro E110' })
+      }
+    }
+  })
+
+  resumo.erros  = erros.length
+  resumo.avisos = avisos.length
+
+  return { erros, avisos, resumo }
+}
+
+function analisarECD(registros) {
+  const erros  = []
+  const avisos = []
+  const resumo = { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 }
+
+  registros.forEach(r => {
+    const bloco = r.registro?.[0] || '?'
+    resumo.blocos[bloco] = (resumo.blocos[bloco] || 0) + 1
+  })
+
+  registros.forEach(r => {
+    const reg    = r.registro
+    const campos = r.campos
+
+    // ── I050 — Plano de Contas ───────────────────────────────
+    if (reg === 'I050') {
+      if (!campos[3]) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'Código da conta ausente no plano de contas', campo: 'Campo 4 (COD_CTA)', correcao: 'Informar o código da conta contábil', fundamentacao: 'Guia Prático ECD — Registro I050' })
+      }
+      if (!campos[5]) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'Nome da conta ausente no plano de contas', campo: 'Campo 6 (NOME_CTA)', correcao: 'Informar o nome completo da conta contábil', fundamentacao: 'Guia Prático ECD — Registro I050' })
+      }
+    }
+
+    // ── I155 — Lançamentos ───────────────────────────────────
+    if (reg === 'I155') {
+      const vDeb = parseFloat(campos[3]?.replace(',', '.') || 0)
+      const vCred= parseFloat(campos[4]?.replace(',', '.') || 0)
+
+      if (vDeb === 0 && vCred === 0) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'AVISO', descricao: 'Lançamento com valor zero (débito e crédito zerados)', campo: 'Campos 4 e 5 (VL_DEB / VL_CRED)', correcao: 'Verificar se o lançamento é válido ou deve ser excluído', fundamentacao: 'NBC TG 00 (R2) — Estrutura conceitual para relatórios financeiros' })
+      }
+
+      if (vDeb > 0 && vCred > 0) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'INCONSISTENCIA', descricao: 'Lançamento com débito E crédito preenchidos simultaneamente', campo: 'Campos 4 e 5 (VL_DEB / VL_CRED)', correcao: 'Cada linha de lançamento deve ter débito OU crédito, não ambos', fundamentacao: 'Resolução CFC 1.330/2011 — Plano de Contas' })
+      }
+    }
+  })
+
+  resumo.erros  = erros.length
+  resumo.avisos = avisos.length
+
+  return { erros, avisos, resumo }
+}
+
+function analisarECF(registros) {
+  const erros  = []
+  const avisos = []
+  const resumo = { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 }
+
+  registros.forEach(r => {
+    const bloco = r.registro?.[0] || '?'
+    resumo.blocos[bloco] = (resumo.blocos[bloco] || 0) + 1
+  })
+
+  registros.forEach(r => {
+    const reg    = r.registro
+    const campos = r.campos
+
+    // ── 0000 — Abertura ECF ──────────────────────────────────
+    if (reg === '0000') {
+      const tipo = campos[3] || ''
+      if (!['0', '1', '2', '3'].includes(tipo)) {
+        avisos.push({ linha: r.numero, registro: reg, categoria: 'AVISO', descricao: `Tipo de escrituração incomum: "${tipo}"`, campo: 'Campo 4 (TIPO_ECF)', correcao: 'Verificar o tipo correto: 0=Original, 1=Retificadora, 2=Cancelamento, 3=Void', fundamentacao: 'Instrução Normativa RFB 2.004/2021 — ECF' })
+      }
+
+      if (!campos[7] || campos[7].length !== 14) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'CNPJ inválido ou ausente no registro de abertura', campo: 'Campo 8 (CNPJ)', correcao: 'Informar o CNPJ com 14 dígitos sem formatação', fundamentacao: 'Instrução Normativa RFB 2.004/2021 — ECF' })
+      }
+    }
+
+    // ── P100 — LALUR ─────────────────────────────────────────
+    if (reg === 'P100') {
+      const vLucroLiq = parseFloat(campos[2]?.replace(',', '.') || 0)
+      const vAdicoes  = parseFloat(campos[3]?.replace(',', '.') || 0)
+      const vExclusoes= parseFloat(campos[4]?.replace(',', '.') || 0)
+      const vLucroReal= parseFloat(campos[5]?.replace(',', '.') || 0)
+      const esperado  = vLucroLiq + vAdicoes - vExclusoes
+
+      if (Math.abs(esperado - vLucroReal) > 1) {
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Lucro Real calculado (${fmtVal(vLucroReal)}) diverge do esperado (${fmtVal(esperado)}) — diferença de ${fmtVal(Math.abs(esperado - vLucroReal))}`, campo: 'Campo 6 (VL_LUC_REAL)', correcao: `Lucro Líquido (${fmtVal(vLucroLiq)}) + Adições (${fmtVal(vAdicoes)}) − Exclusões (${fmtVal(vExclusoes)}) = ${fmtVal(esperado)}`, fundamentacao: 'RIR/2018 art. 258 — apuração do Lucro Real' })
+      }
+    }
+
+    // ── Y612 — IRPJ ──────────────────────────────────────────
+    if (reg === 'Y612') {
+      const vBase = parseFloat(campos[1]?.replace(',', '.') || 0)
+      const vIRPJ = parseFloat(campos[2]?.replace(',', '.') || 0)
+
+      if (vBase > 0) {
+        const irpjEsp = vBase * 0.15 + Math.max(0, (vBase - 240000) * 0.10)
+        if (Math.abs(irpjEsp - vIRPJ) > 1) {
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `IRPJ calculado (${fmtVal(vIRPJ)}) diverge do esperado (${fmtVal(irpjEsp)}) considerando alíquota 15% + adicional 10%`, campo: 'Campo 3 (VL_IRPJ)', correcao: `Base (${fmtVal(vBase)}) × 15% + Adicional sobre excedente de R$ 240k = ${fmtVal(irpjEsp)}`, fundamentacao: 'RIR/2018 art. 622 — alíquota do IRPJ' })
+        }
+      }
+    }
+  })
+
+  resumo.erros  = erros.length
+  resumo.avisos = avisos.length
+
+  return { erros, avisos, resumo }
+}
+
+function executarAnalise(registros, tipo) {
+  switch (tipo) {
+    case 'EFD_CONTRIB':  return analisarEFDContrib(registros)
+    case 'EFD_ICMS_IPI': return analisarEFDICMS(registros)
+    case 'ECD':          return analisarECD(registros)
+    case 'ECF':          return analisarECF(registros)
+    default:             return { erros: [], avisos: [], resumo: { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 } }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+function fmtVal(v) {
+  return 'R$ ' + (parseFloat(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+}
+
+function gerarRelatorio(resultado, tipo, nomeArquivo, cliente) {
+  const { erros, avisos, resumo } = resultado
+  const tipoLabel = TIPOS_SPED.find(t => t.id === tipo)?.label || tipo
+  const data      = new Date().toLocaleDateString('pt-BR')
+
+  const linhas = [
+    `═══════════════════════════════════════════════════════════`,
+    `  RELATÓRIO DE AUDITORIA DE SPED — e-FiscalTribe`,
+    `═══════════════════════════════════════════════════════════`,
+    ``,
+    `  Tipo:       ${tipoLabel}`,
+    `  Arquivo:    ${nomeArquivo}`,
+    `  Cliente:    ${cliente?.razao_social || 'Não informado'}`,
+    `  CNPJ:       ${cliente?.cnpj || 'Não informado'}`,
+    `  Regime:     ${cliente?.regime || 'Não informado'}`,
+    `  Data:       ${data}`,
+    ``,
+    `───────────────────────────────────────────────────────────`,
+    `  RESUMO`,
+    `───────────────────────────────────────────────────────────`,
+    `  Total de registros analisados: ${resumo.totalRegistros}`,
+    `  Erros encontrados:             ${resumo.erros}`,
+    `  Avisos encontrados:            ${resumo.avisos}`,
+    ``,
+    `  Registros por bloco:`,
+    ...Object.entries(resumo.blocos).map(([b, n]) => `    Bloco ${b}: ${n} registro(s)`),
+    ``,
+  ]
+
+  if (erros.length > 0) {
+    linhas.push(`───────────────────────────────────────────────────────────`)
+    linhas.push(`  ERROS (${erros.length})`)
+    linhas.push(`───────────────────────────────────────────────────────────`)
+    erros.forEach((e, i) => {
+      linhas.push(``)
+      linhas.push(`  [ERRO ${i + 1}] Linha ${e.linha} — Registro ${e.registro}`)
+      linhas.push(`  Categoria:    ${CATEGORIAS_ERRO[e.categoria]?.label || e.categoria}`)
+      linhas.push(`  Descrição:    ${e.descricao}`)
+      linhas.push(`  Campo:        ${e.campo}`)
+      linhas.push(`  Correção:     ${e.correcao}`)
+      linhas.push(`  Fundamento:   ${e.fundamentacao}`)
+    })
+  }
+
+  if (avisos.length > 0) {
+    linhas.push(``)
+    linhas.push(`───────────────────────────────────────────────────────────`)
+    linhas.push(`  AVISOS (${avisos.length})`)
+    linhas.push(`───────────────────────────────────────────────────────────`)
+    avisos.forEach((a, i) => {
+      linhas.push(``)
+      linhas.push(`  [AVISO ${i + 1}] Linha ${a.linha} — Registro ${a.registro}`)
+      linhas.push(`  Descrição:  ${a.descricao}`)
+      linhas.push(`  Campo:      ${a.campo}`)
+      linhas.push(`  Correção:   ${a.correcao}`)
+    })
+  }
+
+  linhas.push(``)
+  linhas.push(`═══════════════════════════════════════════════════════════`)
+  linhas.push(`  e-FiscalTribe® — Zenthor Consultoria & BPO`)
+  linhas.push(`  Relatório gerado em ${data}`)
+  linhas.push(`═══════════════════════════════════════════════════════════`)
+
+  return linhas.join('\n')
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMPONENTE PRINCIPAL
+// ─────────────────────────────────────────────────────────────
+
+export default function AuditorSPED({ cliente, onVoltar }) {
+  const [tipoSelecionado, setTipoSelecionado] = useState('EFD_CONTRIB')
+  const [arquivo, setArquivo]     = useState(null)
+  const [conteudo, setConteudo]   = useState('')
+  const [analisando, setAnalisando] = useState(false)
+  const [resultado, setResultado] = useState(null)
+  const [filtro, setFiltro]       = useState('TODOS')
+  const [busca, setBusca]         = useState('')
+  const [abaSelecionada, setAbaSelecionada] = useState('erros')
+  const inputRef = useRef()
+
+  async function carregarArquivo(file) {
+    if (!file) return
+    setArquivo(file)
+    setResultado(null)
+    const texto = await file.text()
+    setConteudo(texto)
+  }
+
+  async function executar() {
+    if (!conteudo) return
+    setAnalisando(true)
+    setResultado(null)
+
+    await new Promise(r => setTimeout(r, 800))
+
+    try {
+      const registros  = parsearSPED(conteudo, tipoSelecionado)
+      const analise    = executarAnalise(registros, tipoSelecionado)
+      setResultado(analise)
+    } catch (e) {
+      setResultado({ erro: e.message })
+    }
+
+    setAnalisando(false)
+  }
+
+  function baixarRelatorio() {
+    if (!resultado) return
+    const texto = gerarRelatorio(resultado, tipoSelecionado, arquivo?.name || 'sped.txt', cliente)
+    const blob  = new Blob([texto], { type: 'text/plain;charset=utf-8' })
+    const url   = URL.createObjectURL(blob)
+    const a     = document.createElement('a')
+    a.href      = url
+    a.download  = `auditoria_sped_${new Date().toISOString().slice(0,10)}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const itensFiltrados = resultado ? [
+    ...(abaSelecionada === 'erros'  ? resultado.erros  || [] : []),
+    ...(abaSelecionada === 'avisos' ? resultado.avisos || [] : []),
+  ].filter(item => {
+    if (filtro !== 'TODOS' && item.categoria !== filtro) return false
+    if (busca && !JSON.stringify(item).toLowerCase().includes(busca.toLowerCase())) return false
+    return true
+  }) : []
+
+  const tipoAtual = TIPOS_SPED.find(t => t.id === tipoSelecionado)
+
+  return (
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#e2e8f0', minHeight: '100vh' }}>
+
+      {/* Cabeçalho */}
+      <div style={{ background: 'linear-gradient(135deg, #0a1628, #0d2444)', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid rgba(0,200,150,0.2)' }}>
+        <div style={{ fontSize: 10, color: C.verde, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>e-FiscalTribe — Auditor Fiscal</div>
+        <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>Auditor de SPED</h1>
+        <p style={{ fontSize: 13, color: C.cinza, margin: 0 }}>Pente fino antes da entrega à Receita Federal. Importe o arquivo SPED e identifique erros, inconsistências e cálculos incorretos.</p>
+        {cliente && (
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ background: 'rgba(0,200,150,0.15)', border: '1px solid rgba(0,200,150,0.3)', color: C.verde, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{cliente.razao_social}</span>
+            <span style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: C.cinza, padding: '3px 10px', borderRadius: 20, fontSize: 11 }}>{cliente.regime}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Seleção do tipo */}
+      <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.cinza, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 1 }}>Tipo de SPED</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+          {TIPOS_SPED.map(tipo => (
+            <button key={tipo.id} onClick={() => { setTipoSelecionado(tipo.id); setResultado(null) }}
+              style={{
+                padding: '12px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                background: tipoSelecionado === tipo.id ? `${tipo.cor}18` : 'rgba(255,255,255,0.03)',
+                border: `1.5px solid ${tipoSelecionado === tipo.id ? tipo.cor : 'rgba(255,255,255,0.08)'}`,
+                transition: 'all 0.2s',
+              }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: tipoSelecionado === tipo.id ? tipo.cor : '#fff', marginBottom: 4 }}>{tipo.label}</div>
+              <div style={{ fontSize: 11, color: C.cinza }}>{tipo.descricao}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Upload do arquivo */}
+      <div style={{ background: '#0f1e35', borderRadius: 14, border: `2px dashed ${arquivo ? tipoAtual?.cor || C.verde : 'rgba(255,255,255,0.15)'}`, padding: 24, marginBottom: 16, textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) carregarArquivo(f) }}>
+        <input ref={inputRef} type="file" accept=".txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) carregarArquivo(f); e.target.value = '' }} />
+        {arquivo ? (
+          <>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: tipoAtual?.cor || C.verde, marginBottom: 4 }}>{arquivo.name}</div>
+            <div style={{ fontSize: 12, color: C.cinza }}>{(arquivo.size / 1024).toFixed(1)} KB — Clique para trocar</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>Arraste o arquivo SPED aqui ou clique para selecionar</div>
+            <div style={{ fontSize: 12, color: C.cinza }}>Formato: .txt — {tipoAtual?.descricao}</div>
+          </>
+        )}
+      </div>
+
+      {/* Botão analisar */}
+      {arquivo && !resultado && (
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <button onClick={executar} disabled={analisando}
+            style={{ padding: '14px 40px', background: analisando ? '#1e293b' : C.verde, color: analisando ? C.cinza : '#0a1628', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: analisando ? 'default' : 'pointer', transition: 'all 0.2s' }}>
+            {analisando ? '⏳ Analisando...' : '🔍 Iniciar Auditoria'}
+          </button>
+        </div>
+      )}
+
+      {/* Resultado */}
+      {resultado && !resultado.erro && (
+        <>
+          {/* KPIs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+            {[
+              { label: 'Registros analisados', valor: resultado.resumo.totalRegistros, cor: C.azul, icone: '📋' },
+              { label: 'Erros encontrados',    valor: resultado.resumo.erros,          cor: '#ef4444', icone: '🔴' },
+              { label: 'Avisos',               valor: resultado.resumo.avisos,         cor: '#f59e0b', icone: '⚠️' },
+              { label: 'Blocos identificados', valor: Object.keys(resultado.resumo.blocos).length, cor: C.verde, icone: '📦' },
+            ].map((kpi, i) => (
+              <div key={i} style={{ background: '#0f1e35', borderRadius: 12, padding: '14px 16px', border: `1px solid rgba(255,255,255,0.08)`, borderTop: `3px solid ${kpi.cor}` }}>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{kpi.icone}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: kpi.cor }}>{kpi.valor}</div>
+                <div style={{ fontSize: 11, color: C.cinza, marginTop: 4 }}>{kpi.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Veredicto */}
+          <div style={{ borderRadius: 14, padding: 20, marginBottom: 16, background: resultado.resumo.erros === 0 ? 'rgba(0,200,150,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${resultado.resumo.erros === 0 ? C.verde : '#ef4444'}` }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: resultado.resumo.erros === 0 ? C.verde : '#ef4444', marginBottom: 6 }}>
+              {resultado.resumo.erros === 0 ? '✅ SPED sem erros críticos identificados' : `🔴 ${resultado.resumo.erros} erro(s) crítico(s) identificado(s) — NÃO transmitir antes de corrigir`}
+            </div>
+            <div style={{ fontSize: 13, color: C.cinza }}>
+              {resultado.resumo.erros === 0
+                ? `${resultado.resumo.avisos > 0 ? `${resultado.resumo.avisos} aviso(s) de atenção encontrado(s). Revise antes de transmitir.` : 'Nenhum erro ou aviso identificado. SPED apto para transmissão.'}`
+                : `Corrija os erros apontados antes de transmitir à Receita Federal para evitar multas e autuações.`}
+            </div>
+          </div>
+
+          {/* Blocos encontrados */}
+          <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.cinza, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Blocos identificados</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {Object.entries(resultado.resumo.blocos).map(([bloco, qtd]) => (
+                <span key={bloco} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: 20, fontSize: 12, color: '#fff' }}>
+                  Bloco {bloco}: <strong style={{ color: C.verde }}>{qtd}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Abas erros/avisos */}
+          {(resultado.erros.length > 0 || resultado.avisos.length > 0) && (
+            <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+
+              {/* Abas */}
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                {[
+                  { id: 'erros',  label: `🔴 Erros (${resultado.erros.length})` },
+                  { id: 'avisos', label: `⚠️ Avisos (${resultado.avisos.length})` },
+                ].map(aba => (
+                  <button key={aba.id} onClick={() => setAbaSelecionada(aba.id)}
+                    style={{ padding: '12px 20px', background: 'none', border: 'none', borderBottom: abaSelecionada === aba.id ? `2px solid ${C.verde}` : '2px solid transparent', color: abaSelecionada === aba.id ? C.verde : C.cinza, fontSize: 13, fontWeight: abaSelecionada === aba.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
+                    {aba.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filtros */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar..."
+                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, width: 180, outline: 'none' }} />
+                <select value={filtro} onChange={e => setFiltro(e.target.value)}
+                  style={{ padding: '6px 10px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                  <option value="TODOS">Todas as categorias</option>
+                  {Object.entries(CATEGORIAS_ERRO).map(([id, cat]) => (
+                    <option key={id} value={id}>{cat.label}</option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 12, color: C.cinza, marginLeft: 'auto' }}>{itensFiltrados.length} item(s)</span>
+              </div>
+
+              {/* Lista de erros/avisos */}
+              <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                {itensFiltrados.length === 0 ? (
+                  <div style={{ padding: 32, textAlign: 'center', color: C.cinza, fontSize: 13 }}>Nenhum item encontrado.</div>
+                ) : (
+                  itensFiltrados.map((item, idx) => {
+                    const cat = CATEGORIAS_ERRO[item.categoria] || CATEGORIAS_ERRO.AVISO
+                    return (
+                      <div key={idx} style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', borderLeft: `3px solid ${cat.cor}` }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                          <span style={{ fontSize: 16, flexShrink: 0 }}>{cat.icone}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                              <span style={{ background: `${cat.cor}20`, color: cat.cor, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{cat.label}</span>
+                              <span style={{ color: C.cinza, fontSize: 11 }}>Linha {item.linha}</span>
+                              <span style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>Reg. {item.registro}</span>
+                            </div>
+                            <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 6 }}>{item.descricao}</div>
+                            <div style={{ fontSize: 12, color: C.cinza, marginBottom: 4 }}>
+                              <span style={{ color: '#94a3b8' }}>Campo: </span>{item.campo}
+                            </div>
+                            <div style={{ fontSize: 12, background: 'rgba(0,200,150,0.08)', border: '1px solid rgba(0,200,150,0.15)', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>
+                              <span style={{ color: C.verde, fontWeight: 700 }}>✓ Correção: </span>
+                              <span style={{ color: '#cbd5e1' }}>{item.correcao}</span>
+                            </div>
+                            {item.fundamentacao && (
+                              <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+                                📜 {item.fundamentacao}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Botões de ação */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+            <button onClick={baixarRelatorio}
+              style={{ padding: '12px 24px', background: C.verde, color: '#0a1628', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              📄 Baixar Relatório .txt
+            </button>
+            <button onClick={() => { setResultado(null); setArquivo(null); setConteudo('') }}
+              style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              🔄 Nova Análise
+            </button>
+          </div>
+        </>
+      )}
+
+      {resultado?.erro && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#fca5a5' }}>
+          <strong>Erro na análise:</strong> {resultado.erro}
+        </div>
+      )}
+
+    </div>
+  )
+}

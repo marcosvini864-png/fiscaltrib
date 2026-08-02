@@ -22,6 +22,7 @@ import ImportarCDA from './ImportarCDA'
 import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
+import AuditorSPED from './pages/AuditorSPED'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -65,6 +66,7 @@ const MODULES = {
   relatorios:   { label:'Relatorios',              icon:'📄', tabs:['Relatorio Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligencia Tributaria', icon:'🧠', tabs:['Central Tributaria','Reforma Tributaria'] },
   divida:       { label:'Divida Ativa',            icon:'⚠️', tabs:['Diagnostico','Importar CDA PDF'] },
+  sped: { label:'Auditor de SPED', icon:'🔎', tabs:[] },
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
 }
@@ -130,7 +132,8 @@ const MENU_MODULOS = [
     titulo: 'Importação Inteligente de Arquivos',
     descricao: 'Centralize toda a leitura de documentos fiscais.',
     itens: [
-      { label: 'Importar XML / CSV / SPED', module: 'clientes', tab: 3 },
+      { label: 'Auditor de SPED', module: 'sped', tab: 0 },
+	  { label: 'Importar XML / CSV / SPED', module: 'clientes', tab: 3 },
       { label: 'Importar CDA PDF', module: 'divida', tab: 1 },
       { label: 'Clientes', module: 'clientes', tab: 0 },
       { label: 'Novo Cliente', module: 'clientes', tab: 1 },
@@ -960,7 +963,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               />
             )}
 
-            {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
+            {module==='sped' && (
+            <AuditorSPED
+            cliente={active}
+            onVoltar={() => navigateTo('painel')}
+            />
+)}
+			{module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
             {module==='dev' && <Laboratorio onVoltar={()=>navigateTo('painel')} />}
