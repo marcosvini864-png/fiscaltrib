@@ -16,11 +16,14 @@ function aplicarMascara(valor) {
 const C = {
   navy: '#0B1F4D', bg: '#F5F7FA', border: '#E2E8F0',
   text: '#1E293B', muted: '#64748B', white: '#FFFFFF',
+  verde: '#16a34a', azul: '#2563eb', roxo: '#7c3aed',
+  laranja: '#d97706', vermelho: '#dc2626',
 }
 
 const ABAS = [
+  { id: 'regime',      icon: '⚖️', label: 'Regime + Reforma' },
   { id: 'recuperacao', icon: '💰', label: 'Recuperação Tributária' },
-  { id: 'economia',    icon: '⚖️', label: 'Economia Fiscal' },
+  { id: 'economia',    icon: '📊', label: 'Economia Fiscal' },
   { id: 'transacao',   icon: '🤝', label: 'Transação Tributária' },
   { id: 'parcelamento',icon: '📋', label: 'Parcelamento' },
   { id: 'honorarios',  icon: '🏆', label: 'Honorários' },
@@ -61,24 +64,361 @@ function Campo({ label, children }) {
 
 function InputMoeda({ value, onChange, placeholder }) {
   function handleChange(e) {
-    const mascara = aplicarMascara(e.target.value)
-    onChange(mascara)
+    onChange(aplicarMascara(e.target.value))
   }
   return (
-    <input
-      value={value}
-      onChange={handleChange}
-      placeholder={placeholder || 'Ex: 100.000'}
-      inputMode="numeric"
-      style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
-    />
+    <input value={value} onChange={handleChange} placeholder={placeholder || 'Ex: 100.000'} inputMode="numeric"
+      style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
   )
 }
 
 const selectStyle = { padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }
 const btnCalc = { width: '100%', padding: '14px 0', background: C.navy, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 8 }
 
-// ─── SIMULADOR 1: RECUPERAÇÃO TRIBUTÁRIA ─────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// TABELAS SIMPLES NACIONAL 2024
+// ─────────────────────────────────────────────────────────────
+
+const ANEXOS_SN = {
+  I: [ // Comércio
+    { ate: 180000,   aliq: 0.040,  ded: 0 },
+    { ate: 360000,   aliq: 0.073,  ded: 5940 },
+    { ate: 720000,   aliq: 0.095,  ded: 13860 },
+    { ate: 1800000,  aliq: 0.107,  ded: 22500 },
+    { ate: 3600000,  aliq: 0.143,  ded: 87300 },
+    { ate: 4800000,  aliq: 0.190,  ded: 378000 },
+  ],
+  III: [ // Serviços — Fator R ≥ 28%
+    { ate: 180000,   aliq: 0.060,  ded: 0 },
+    { ate: 360000,   aliq: 0.112,  ded: 9360 },
+    { ate: 720000,   aliq: 0.135,  ded: 17640 },
+    { ate: 1800000,  aliq: 0.160,  ded: 35640 },
+    { ate: 3600000,  aliq: 0.210,  ded: 125640 },
+    { ate: 4800000,  aliq: 0.330,  ded: 648000 },
+  ],
+  V: [ // Serviços — Fator R < 28%
+    { ate: 180000,   aliq: 0.155,  ded: 0 },
+    { ate: 360000,   aliq: 0.180,  ded: 4500 },
+    { ate: 720000,   aliq: 0.195,  ded: 9900 },
+    { ate: 1800000,  aliq: 0.205,  ded: 17100 },
+    { ate: 3600000,  aliq: 0.230,  ded: 62100 },
+    { ate: 4800000,  aliq: 0.305,  ded: 540000 },
+  ],
+}
+
+function calcAliqEfetivaSN(rbt12, anexo) {
+  const tabela = ANEXOS_SN[anexo] || ANEXOS_SN.I
+  const faixa  = tabela.find(f => rbt12 <= f.ate) || tabela[tabela.length - 1]
+  if (rbt12 <= 0) return 0
+  return ((rbt12 * faixa.aliq) - faixa.ded) / rbt12
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABELA DE TRANSIÇÃO DA REFORMA TRIBUTÁRIA (2026–2032)
+// Fonte: LC 214/2025 — Alíquotas de referência aprovadas
+// ─────────────────────────────────────────────────────────────
+
+const REFORMA = {
+  // Alíquotas CBS (federal) por ano
+  CBS: { 2026: 0.009, 2027: 0.009, 2028: 0.088, 2029: 0.088, 2030: 0.088, 2031: 0.088, 2032: 0.088 },
+  // Alíquotas IBS (estadual+municipal) por ano — estimativa de referência
+  IBS: { 2026: 0.000, 2027: 0.010, 2028: 0.010, 2029: 0.177, 2030: 0.177, 2031: 0.177, 2032: 0.177 },
+  // Redução do PIS/COFINS (substituído pela CBS)
+  PIS_COFINS_REDUCAO: { 2026: 1.0, 2027: 1.0, 2028: 0.0, 2029: 0.0, 2030: 0.0, 2031: 0.0, 2032: 0.0 },
+  // Redução do ICMS/ISS (substituído pelo IBS)
+  ICMS_ISS_REDUCAO: { 2026: 1.0, 2027: 1.0, 2028: 1.0, 2029: 0.0, 2030: 0.0, 2031: 0.0, 2032: 0.0 },
+}
+
+const ANOS_PROJECAO = [2026, 2027, 2028, 2029, 2030, 2031, 2032]
+
+// ─────────────────────────────────────────────────────────────
+// SIMULADOR REGIME + REFORMA TRIBUTÁRIA
+// ─────────────────────────────────────────────────────────────
+
+function SimRegimeReforma({ isMobile }) {
+  const [receita,    setReceita]    = useState('')
+  const [folha,      setFolha]      = useState('')
+  const [margem,     setMargem]     = useState('20')
+  const [atividade,  setAtividade]  = useState('comercio')
+  const [anexoSN,    setAnexoSN]    = useState('I')
+  const [result,     setResult]     = useState(null)
+  const [abaRes,     setAbaRes]     = useState('hoje')
+
+  function calcular() {
+    const r   = parseMoeda(receita)
+    const f   = parseMoeda(folha)
+    const m   = parseFloat(margem) || 20
+    if (!r) { alert('Informe a receita mensal.'); return }
+
+    const rMensal  = r
+    const rAnual   = r * 12
+    const lucro    = r * (m / 100)
+    const fatorR   = f > 0 ? f / r : 0
+
+    // ── HOJE ─────────────────────────────────────────────────
+
+    // Simples Nacional
+    const aliqEfSN  = calcAliqEfetivaSN(rAnual, anexoSN)
+    const impostoSN = rMensal * aliqEfSN
+
+    // Lucro Presumido
+    const pLP    = atividade === 'servicos' ? 0.32 : atividade === 'industria' ? 0.08 : 0.08
+    const biIRPJ = rMensal * pLP
+    const biCSLL = rMensal * (atividade === 'servicos' ? 0.32 : 0.12)
+    const irpj   = biIRPJ * 0.15 + Math.max(0, (biIRPJ * 3 - 60000) / 3) * 0.10
+    const csll   = biCSLL * 0.09
+    const pisLP  = rMensal * 0.0065
+    const cofLP  = rMensal * 0.03
+    const inssLP = f * 0.28
+    const impostoLP = irpj + csll + pisLP + cofLP + inssLP
+
+    // Lucro Real
+    const pisLR   = rMensal * 0.0165
+    const cofLR   = rMensal * 0.076
+    const csllLR  = lucro * 0.09
+    const irpjLR  = lucro * 0.15 + Math.max(0, (lucro - 20000) * 0.10)
+    const inssLR  = f * 0.28
+    const impostoLR = pisLR + cofLR + csllLR + irpjLR + inssLR
+
+    // ── PROJEÇÃO REFORMA POR ANO ─────────────────────────────
+    const projecao = ANOS_PROJECAO.map(ano => {
+      const cbsAliq  = REFORMA.CBS[ano]
+      const ibsAliq  = REFORMA.IBS[ano]
+      const redPF    = REFORMA.PIS_COFINS_REDUCAO[ano]
+      const redICMS  = REFORMA.ICMS_ISS_REDUCAO[ano]
+
+      // CBS e IBS sobre receita
+      const cbs = rMensal * cbsAliq
+      const ibs = rMensal * ibsAliq
+
+      // Simples — transição gradual (Simples tem regras específicas, estimativa)
+      const snTransicao  = impostoSN * (redPF * 0.3 + redICMS * 0.4 + 0.3)
+      const snTotal      = snTransicao + cbs * 0.3 + ibs * 0.3  // CBS/IBS parcial no Simples
+
+      // LP — PIS/COFINS substituído por CBS, ICMS/ISS por IBS
+      const pisCofinsTrans = (pisLP + cofLP) * redPF
+      const icmsTrans      = rMensal * 0.12 * redICMS  // ICMS estimado 12%
+      const lpTotal        = irpj + csll + inssLP + pisCofinsTrans + icmsTrans + cbs * (1 - redPF) + ibs * (1 - redICMS)
+
+      // LR — similar ao LP mas com créditos
+      const pisCofinsTrLR = (pisLR + cofLR) * redPF
+      const lrTotal       = csllLR + irpjLR + inssLR + pisCofinsTrLR + cbs * (1 - redPF) + ibs * (1 - redICMS)
+
+      const melhor = Math.min(snTotal, lpTotal, lrTotal)
+      const melhorLabel = snTotal === melhor ? 'Simples' : lpTotal === melhor ? 'Lucro Presumido' : 'Lucro Real'
+
+      return { ano, cbs, ibs, snTotal, lpTotal, lrTotal, melhor, melhorLabel }
+    })
+
+    const melhorHoje  = Math.min(impostoSN, impostoLP, impostoLR)
+    const melhorLabel = impostoSN === melhorHoje ? 'Simples Nacional' : impostoLP === melhorHoje ? 'Lucro Presumido' : 'Lucro Real'
+    const piorHoje    = Math.max(impostoSN, impostoLP, impostoLR)
+    const economia    = piorHoje - melhorHoje
+
+    setResult({
+      impostoSN, impostoLP, impostoLR,
+      aliqEfSN, pLP, fatorR,
+      melhorLabel, melhorHoje, economia,
+      projecao, rMensal, rAnual,
+    })
+    setAbaRes('hoje')
+  }
+
+  const comparar = (val, todos) => {
+    const min = Math.min(...todos)
+    const max = Math.max(...todos)
+    if (val === min) return { cor: C.verde,    label: '⭐ Melhor hoje' }
+    if (val === max) return { cor: C.vermelho, label: '⚠️ Maior carga' }
+    return { cor: C.laranja, label: '• Intermediário' }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Banner Reforma */}
+      <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #7c3aed)', borderRadius: 14, padding: '16px 20px', color: '#fff', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 32 }}>🏛️</div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Simulador com Reforma Tributária 2026–2032</div>
+          <div style={{ fontSize: 12, color: '#c4b5fd' }}>Compara Simples Nacional, Lucro Presumido e Lucro Real com projeção do impacto da CBS e IBS conforme LC 214/2025.</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
+
+        {/* Formulário */}
+        <Card>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📋 Dados da empresa</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            <Campo label="Receita mensal bruta (R$)">
+              <InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 150.000" />
+            </Campo>
+
+            <Campo label="Folha de pagamento mensal (R$)">
+              <InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 40.000 (para Fator R)" />
+            </Campo>
+
+            <Campo label="Margem líquida (%)">
+              <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20"
+                style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
+            </Campo>
+
+            <Campo label="Atividade principal">
+              <select value={atividade} onChange={e => setAtividade(e.target.value)} style={selectStyle}>
+                <option value="comercio">Comércio</option>
+                <option value="industria">Indústria</option>
+                <option value="servicos">Serviços</option>
+              </select>
+            </Campo>
+
+            <Campo label="Anexo do Simples Nacional">
+              <select value={anexoSN} onChange={e => setAnexoSN(e.target.value)} style={selectStyle}>
+                <option value="I">Anexo I — Comércio</option>
+                <option value="III">Anexo III — Serviços (Fator R ≥ 28%)</option>
+                <option value="V">Anexo V — Serviços (Fator R &lt; 28%)</option>
+              </select>
+            </Campo>
+
+            <button onClick={calcular} style={btnCalc}>⚡ Simular regimes + Reforma</button>
+
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#1e40af' }}>
+              💡 Inclui projeção CBS/IBS por ano (2026–2032) conforme LC 214/2025 e alíquotas de referência aprovadas.
+            </div>
+          </div>
+        </Card>
+
+        {/* Resultado */}
+        {result ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Abas resultado */}
+            <div style={{ display: 'flex', gap: 6, borderBottom: `2px solid ${C.border}`, paddingBottom: 0 }}>
+              {[
+                { id: 'hoje',    label: '📊 Hoje' },
+                { id: 'reforma', label: '🏛️ Reforma 2026–2032' },
+              ].map(a => (
+                <button key={a.id} onClick={() => setAbaRes(a.id)}
+                  style={{ padding: '8px 14px', background: 'none', border: 'none', borderBottom: abaRes === a.id ? `3px solid ${C.navy}` : '3px solid transparent', color: abaRes === a.id ? C.navy : C.muted, fontSize: 13, fontWeight: abaRes === a.id ? 700 : 400, cursor: 'pointer', marginBottom: -2 }}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ABA HOJE */}
+            {abaRes === 'hoje' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* Fator R */}
+                {result.fatorR > 0 && (
+                  <div style={{ background: result.fatorR >= 0.28 ? '#f0fdf4' : '#fffbeb', border: `1px solid ${result.fatorR >= 0.28 ? '#86efac' : '#fde68a'}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: result.fatorR >= 0.28 ? '#166534' : '#92400e' }}>
+                    <strong>Fator R: {(result.fatorR * 100).toFixed(1)}%</strong> — {result.fatorR >= 0.28 ? '✅ Elegível ao Anexo III (menor carga)' : '⚠️ Abaixo de 28% — tributado pelo Anexo V'}
+                  </div>
+                )}
+
+                {/* Comparativo regimes */}
+                {[
+                  { regime: 'Simples Nacional', valor: result.impostoSN, desc: `Alíquota efetiva: ${(result.aliqEfSN * 100).toFixed(2)}% — Anexo ${anexoSN}` },
+                  { regime: 'Lucro Presumido',  valor: result.impostoLP, desc: `PIS+COFINS+IRPJ+CSLL+INSS — Presunção ${(result.pLP * 100).toFixed(0)}%` },
+                  { regime: 'Lucro Real',       valor: result.impostoLR, desc: 'Regime não cumulativo — base no lucro real' },
+                ].map((r, i) => {
+                  const comp = comparar(r.valor, [result.impostoSN, result.impostoLP, result.impostoLR])
+                  const pct  = result.rMensal > 0 ? (r.valor / result.rMensal * 100).toFixed(1) : '0'
+                  return (
+                    <div key={i} style={{ background: comp.cor + '10', border: `2px solid ${comp.cor}33`, borderRadius: 12, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{r.regime}</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{r.desc}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: comp.cor, marginTop: 4 }}>{comp.label}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: comp.cor }}>{fmtR(r.valor)}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{pct}% da receita</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{fmtR(r.valor * 12)}/ano</div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <ResultCard label={`Economia optando pelo melhor regime — ${result.melhorLabel}`} valor={fmtR(result.economia)} cor={C.navy} sub={`${fmtR(result.economia * 12)} por ano`} />
+              </div>
+            )}
+
+            {/* ABA REFORMA */}
+            {abaRes === 'reforma' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Carga tributária estimada por regime em cada ano da transição (valores mensais):</div>
+
+                {/* Tabela projeção */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        {['Ano', 'Simples', 'L. Presumido', 'L. Real', 'CBS', 'IBS', '⭐ Melhor'].map(h => (
+                          <th key={h} style={{ padding: '8px 10px', textAlign: 'center', color: C.muted, fontWeight: 700, borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap', fontSize: 11 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.projecao.map((p, i) => {
+                        const melhorVal = Math.min(p.snTotal, p.lpTotal, p.lrTotal)
+                        return (
+                          <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, color: C.navy, textAlign: 'center' }}>{p.ano}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.snTotal === melhorVal ? C.verde : C.text, fontWeight: p.snTotal === melhorVal ? 700 : 400 }}>{fmtR(p.snTotal)}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lpTotal === melhorVal ? C.verde : C.text, fontWeight: p.lpTotal === melhorVal ? 700 : 400 }}>{fmtR(p.lpTotal)}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lrTotal === melhorVal ? C.verde : C.text, fontWeight: p.lrTotal === melhorVal ? 700 : 400 }}>{fmtR(p.lrTotal)}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>{fmtR(p.cbs)}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>{fmtR(p.ibs)}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                              <span style={{ background: C.verde + '20', color: C.verde, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{p.melhorLabel}</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Gráfico de barras visual */}
+                <Card style={{ padding: '16px 20px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 14 }}>Evolução da carga tributária — CBS + IBS (mensal)</div>
+                  {result.projecao.map((p, i) => {
+                    const max  = Math.max(...result.projecao.map(x => x.cbs + x.ibs)) || 1
+                    const pct  = ((p.cbs + p.ibs) / max * 100).toFixed(0)
+                    return (
+                      <div key={i} style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted, marginBottom: 3 }}>
+                          <span style={{ fontWeight: 600, color: C.text }}>{p.ano}</span>
+                          <span>{fmtR(p.cbs + p.ibs)}/mês — CBS: {fmtR(p.cbs)} | IBS: {fmtR(p.ibs)}</span>
+                        </div>
+                        <div style={{ background: C.border, borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                          <div style={{ background: 'linear-gradient(90deg, #7c3aed, #2563eb)', height: 8, width: pct + '%', borderRadius: 4, transition: 'width 0.5s' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </Card>
+
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#92400e' }}>
+                  ⚠️ Projeção baseada nas alíquotas de referência da LC 214/2025. Alíquotas definitivas serão fixadas por resolução do Senado Federal. Valores estimados para planejamento.
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 400 }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>🏛️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Compare regimes com impacto da Reforma</div>
+            <div style={{ fontSize: 13, textAlign: 'center', maxWidth: 260 }}>Preencha os dados e veja como a CBS e o IBS afetam cada regime de 2026 a 2032</div>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── SIMULADOR 2: RECUPERAÇÃO TRIBUTÁRIA ─────────────────────────────────────
 function SimRecuperacao({ isMobile }) {
   const [fat,    setFat]    = useState('')
   const [meses,  setMeses]  = useState('60')
@@ -138,7 +478,6 @@ function SimRecuperacao({ isMobile }) {
           <button onClick={calcular} style={btnCalc}>⚡ Simular recuperação</button>
         </div>
       </Card>
-
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
@@ -162,14 +501,13 @@ function SimRecuperacao({ isMobile }) {
         <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>💰</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Preencha os dados e simule</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>O resultado aparecerá aqui</div>
         </Card>
       )}
     </div>
   )
 }
 
-// ─── SIMULADOR 2: ECONOMIA FISCAL ────────────────────────────────────────────
+// ─── SIMULADOR 3: ECONOMIA FISCAL ────────────────────────────────────────────
 function SimEconomia({ isMobile }) {
   const [receita, setReceita] = useState('')
   const [folha,   setFolha]   = useState('')
@@ -190,30 +528,22 @@ function SimEconomia({ isMobile }) {
     if (r * 12 > 1800000) aliqSN = 21.0
     if (r * 12 > 3600000) aliqSN = 33.0
     const impostoSN = r * (aliqSN / 100)
-
-    const pis      = r * 0.0065
-    const cofins   = r * 0.03
-    const csll     = (r * 0.32) * 0.09
-    const irpj     = (r * 0.32) * 0.15 + Math.max(0, (r * 0.32 * 3 - 60000)) * 0.10 / 3
-    const inss     = f * 0.26
+    const pis   = r * 0.0065; const cofins = r * 0.03
+    const csll  = (r * 0.32) * 0.09
+    const irpj  = (r * 0.32) * 0.15 + Math.max(0, (r * 0.32 * 3 - 60000)) * 0.10 / 3
+    const inss  = f * 0.26
     const impostoLP = pis + cofins + csll + irpj + inss
-
-    const pisLR    = r * 0.0165
-    const cofinsLR = r * 0.076
-    const csllLR   = lucro * 0.09
-    const irpjLR   = lucro * 0.15 + Math.max(0, lucro - 20000) * 0.10
+    const pisLR = r * 0.0165; const cofinsLR = r * 0.076
+    const csllLR = lucro * 0.09
+    const irpjLR = lucro * 0.15 + Math.max(0, lucro - 20000) * 0.10
     const impostoLR = pisLR + cofinsLR + csllLR + irpjLR + inss
-
-    const pior    = Math.max(impostoSN, impostoLP, impostoLR)
-    const melhor  = Math.min(impostoSN, impostoLP, impostoLR)
-    const economia = pior - melhor
-
-    setResult({ impostoSN, impostoLP, impostoLR, economia, aliqSN })
+    const pior = Math.max(impostoSN, impostoLP, impostoLR)
+    const melhor = Math.min(impostoSN, impostoLP, impostoLR)
+    setResult({ impostoSN, impostoLP, impostoLR, economia: pior - melhor, aliqSN })
   }
 
   const comparar = (val, todos) => {
-    const min = Math.min(...todos)
-    const max = Math.max(...todos)
+    const min = Math.min(...todos); const max = Math.max(...todos)
     if (val === min) return { cor: '#16a34a', label: '⭐ Melhor opção' }
     if (val === max) return { cor: '#dc2626', label: '⚠️ Maior carga' }
     return { cor: '#d97706', label: '• Intermediário' }
@@ -222,21 +552,17 @@ function SimEconomia({ isMobile }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
       <Card>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>⚖️ Dados da empresa</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📊 Dados da empresa</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Receita mensal (R$)">
-            <InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 80.000" />
-          </Campo>
-          <Campo label="Folha de pagamento mensal (R$)">
-            <InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 20.000" />
-          </Campo>
+          <Campo label="Receita mensal (R$)"><InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 80.000" /></Campo>
+          <Campo label="Folha de pagamento mensal (R$)"><InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 20.000" /></Campo>
           <Campo label="Margem líquida estimada (%)">
-            <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20" style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
+            <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20"
+              style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
           </Campo>
           <button onClick={calcular} style={btnCalc}>⚡ Comparar regimes</button>
         </div>
       </Card>
-
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[
@@ -263,7 +589,7 @@ function SimEconomia({ isMobile }) {
         </div>
       ) : (
         <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>⚖️</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Compare os regimes tributários</div>
         </Card>
       )}
@@ -271,7 +597,7 @@ function SimEconomia({ isMobile }) {
   )
 }
 
-// ─── SIMULADOR 3: TRANSAÇÃO TRIBUTÁRIA ───────────────────────────────────────
+// ─── SIMULADOR 4: TRANSAÇÃO TRIBUTÁRIA ───────────────────────────────────────
 function SimTransacao({ isMobile }) {
   const [divida,     setDivida]     = useState('')
   const [capacidade, setCapacidade] = useState('')
@@ -280,44 +606,25 @@ function SimTransacao({ isMobile }) {
   const [result,     setResult]     = useState(null)
 
   const MODALIDADES = {
-    'Capacidade de Pagamento': {
-      multa: 0.50, juros: 0.40, prazoMax: 120,
-      desc: 'Para contribuintes cuja capacidade de pagamento é insuficiente para quitar o passivo em até 5 anos. Prazo de até 120 meses.',
-    },
-    'Débitos de Difícil Recuperação': {
-      multa: 0.70, juros: 1.00, prazoMax: 72,
-      desc: 'Para dívidas com maior risco de não recebimento. Redução de até 100% em juros e multas. Prazo de até 72 meses.',
-    },
-    'Transação de Pequeno Valor': {
-      multa: 0.50, juros: 0.50, prazoMax: 60,
-      desc: 'Para pessoas físicas, MEI, microempresas e EPP com dívidas de até 60 salários mínimos.',
-    },
-    'Seguro Garantia ou Carta Fiança': {
-      multa: 0.30, juros: 0.20, prazoMax: 84,
-      desc: 'Para débitos garantidos judicialmente por apólice de seguro garantia ou carta fiança.',
-    },
-    'Desenrola Rural': {
-      multa: 0.60, juros: 0.50, prazoMax: 96,
-      desc: 'Regularização de dívidas de Crédito Rural da Agricultura Familiar. Condições especiais por edital.',
-    },
+    'Capacidade de Pagamento':        { multa: 0.50, juros: 0.40, prazoMax: 120, desc: 'Para contribuintes cuja capacidade de pagamento é insuficiente. Prazo de até 120 meses.' },
+    'Débitos de Difícil Recuperação': { multa: 0.70, juros: 1.00, prazoMax: 72,  desc: 'Para dívidas com maior risco de não recebimento. Redução de até 100% em juros e multas.' },
+    'Transação de Pequeno Valor':     { multa: 0.50, juros: 0.50, prazoMax: 60,  desc: 'Para MEI, microempresas e EPP com dívidas de até 60 salários mínimos.' },
+    'Seguro Garantia ou Carta Fiança':{ multa: 0.30, juros: 0.20, prazoMax: 84,  desc: 'Para débitos garantidos judicialmente por apólice ou carta fiança.' },
+    'Desenrola Rural':                { multa: 0.60, juros: 0.50, prazoMax: 96,  desc: 'Regularização de dívidas de Crédito Rural da Agricultura Familiar.' },
   }
 
   function calcular() {
-    const d = parseMoeda(divida)
-    const c = parseMoeda(capacidade)
-    const p = parseInt(prazo) || 60
+    const d = parseMoeda(divida); const c = parseMoeda(capacidade); const p = parseInt(prazo) || 60
     if (!d) { alert('Informe o valor da dívida.'); return }
-
-    const mod          = MODALIDADES[modalidade]
-    const multaOrig    = d * 0.75
+    const mod = MODALIDADES[modalidade]
+    const multaOrig = d * 0.75
     const reducaoMulta = multaOrig * mod.multa
     const reducaoJuros = multaOrig * Math.min(mod.juros, 1.0)
     const totalReducao = Math.min(reducaoMulta + reducaoJuros, multaOrig)
-    const saldoFinal   = d - totalReducao
-    const entradaPct   = c > 0 ? Math.min(0.20, c / saldoFinal) : 0.05
-    const entrada      = saldoFinal * entradaPct
-    const parcela      = (saldoFinal - entrada) / p
-
+    const saldoFinal = d - totalReducao
+    const entradaPct = c > 0 ? Math.min(0.20, c / saldoFinal) : 0.05
+    const entrada = saldoFinal * entradaPct
+    const parcela = (saldoFinal - entrada) / p
     setResult({ saldoFinal, entrada, parcela, totalReducao, reducaoMulta, reducaoJuros, desc: mod.desc, prazoMax: mod.prazoMax, p })
   }
 
@@ -326,12 +633,8 @@ function SimTransacao({ isMobile }) {
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🤝 Dados da transação</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Valor total da dívida (R$)">
-            <InputMoeda value={divida} onChange={setDivida} placeholder="Ex: 500.000" />
-          </Campo>
-          <Campo label="Capacidade de pagamento mensal (R$)">
-            <InputMoeda value={capacidade} onChange={setCapacidade} placeholder="Ex: 5.000" />
-          </Campo>
+          <Campo label="Valor total da dívida (R$)"><InputMoeda value={divida} onChange={setDivida} placeholder="Ex: 500.000" /></Campo>
+          <Campo label="Capacidade de pagamento mensal (R$)"><InputMoeda value={capacidade} onChange={setCapacidade} placeholder="Ex: 5.000" /></Campo>
           <Campo label="Modalidade">
             <select value={modalidade} onChange={e => setModalidade(e.target.value)} style={selectStyle}>
               {Object.keys(MODALIDADES).map(m => <option key={m}>{m}</option>)}
@@ -345,12 +648,10 @@ function SimTransacao({ isMobile }) {
           <button onClick={calcular} style={btnCalc}>⚡ Simular transação</button>
         </div>
       </Card>
-
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#1e40af', fontWeight: 600, lineHeight: 1.6 }}>
-            📌 {result.desc}
-            <span style={{ display: 'block', marginTop: 4, color: '#64748b', fontWeight: 400 }}>Prazo máximo desta modalidade: {result.prazoMax} meses</span>
+            📌 {result.desc}<span style={{ display: 'block', marginTop: 4, color: '#64748b', fontWeight: 400 }}>Prazo máximo: {result.prazoMax} meses</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <ResultCard label="Saldo após descontos" valor={fmtR(result.saldoFinal)} cor="#0B1F4D" />
@@ -361,17 +662,12 @@ function SimTransacao({ isMobile }) {
           <Card style={{ padding: '14px 18px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>Composição da economia</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-              <span style={{ color: C.muted }}>Redução de multas</span>
-              <span style={{ fontWeight: 700, color: '#16a34a' }}>{fmtR(result.reducaoMulta)}</span>
+              <span style={{ color: C.muted }}>Redução de multas</span><span style={{ fontWeight: 700, color: '#16a34a' }}>{fmtR(result.reducaoMulta)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: C.muted }}>Redução de juros</span>
-              <span style={{ fontWeight: 700, color: '#16a34a' }}>{fmtR(result.reducaoJuros)}</span>
+              <span style={{ color: C.muted }}>Redução de juros</span><span style={{ fontWeight: 700, color: '#16a34a' }}>{fmtR(result.reducaoJuros)}</span>
             </div>
           </Card>
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#92400e' }}>
-            ⚠️ Simulação baseada em estimativas. Consulte um advogado tributarista para valores exatos.
-          </div>
         </div>
       ) : (
         <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300 }}>
@@ -383,36 +679,20 @@ function SimTransacao({ isMobile }) {
   )
 }
 
-// ─── SIMULADOR 4: PARCELAMENTO ────────────────────────────────────────────────
+// ─── SIMULADOR 5: PARCELAMENTO ────────────────────────────────────────────────
 function SimParcelamento({ isMobile }) {
-  const [valor,  setValor]  = useState('')
-  const [taxa,   setTaxa]   = useState('1')
-  const [qtd,    setQtd]    = useState('60')
-  const [result, setResult] = useState(null)
+  const [valor, setValor] = useState('')
+  const [taxa,  setTaxa]  = useState('1')
+  const [qtd,   setQtd]   = useState('60')
+  const [result,setResult]= useState(null)
 
   function calcular() {
-    const pv = parseMoeda(valor)
-    const i  = parseFloat(taxa) / 100
-    const n  = parseInt(qtd)
+    const pv = parseMoeda(valor); const i = parseFloat(taxa) / 100; const n = parseInt(qtd)
     if (!pv) { alert('Informe o valor.'); return }
-
     let parcela, totalPago, totalJuros
-    if (i === 0) {
-      parcela    = pv / n
-      totalPago  = pv
-      totalJuros = 0
-    } else {
-      parcela    = pv * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1)
-      totalPago  = parcela * n
-      totalJuros = totalPago - pv
-    }
-
-    const tabela = Array.from({ length: Math.min(n, 12) }, (_, idx) => {
-      const mes   = idx + 1
-      const juros = (pv - (parcela - pv * i) * (mes - 1) / n) * i
-      return { mes, parcela, juros: i > 0 ? juros : 0 }
-    })
-
+    if (i === 0) { parcela = pv / n; totalPago = pv; totalJuros = 0 }
+    else { parcela = pv * (i * Math.pow(1+i,n)) / (Math.pow(1+i,n)-1); totalPago = parcela*n; totalJuros = totalPago-pv }
+    const tabela = Array.from({ length: Math.min(n,12) }, (_, idx) => ({ mes: idx+1, parcela, juros: i>0 ? (pv-(parcela-pv*i)*(idx)/n)*i : 0 }))
     setResult({ parcela, totalPago, totalJuros, n, tabela })
   }
 
@@ -421,13 +701,11 @@ function SimParcelamento({ isMobile }) {
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📋 Dados do parcelamento</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Valor total (R$)">
-            <InputMoeda value={valor} onChange={setValor} placeholder="Ex: 120.000" />
-          </Campo>
+          <Campo label="Valor total (R$)"><InputMoeda value={valor} onChange={setValor} placeholder="Ex: 120.000" /></Campo>
           <Campo label="Taxa de juros mensal (%)">
             <select value={taxa} onChange={e => setTaxa(e.target.value)} style={selectStyle}>
               <option value="0">0% (sem juros)</option>
-              <option value="0.5">0,5% a.m. (SELIC baixa)</option>
+              <option value="0.5">0,5% a.m.</option>
               <option value="1">1% a.m.</option>
               <option value="1.5">1,5% a.m.</option>
               <option value="2">2% a.m.</option>
@@ -441,7 +719,6 @@ function SimParcelamento({ isMobile }) {
           <button onClick={calcular} style={btnCalc}>⚡ Calcular parcelamento</button>
         </div>
       </Card>
-
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
@@ -453,22 +730,8 @@ function SimParcelamento({ isMobile }) {
             <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 12 }}>Primeiras 12 parcelas</div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc' }}>
-                    {['Mês','Parcela','Juros'].map(h => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.tabela.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '7px 10px', color: C.muted, whiteSpace: 'nowrap' }}>{row.mes}ª</td>
-                      <td style={{ padding: '7px 10px', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{fmtR(row.parcela)}</td>
-                      <td style={{ padding: '7px 10px', color: row.juros > 0 ? '#dc2626' : C.muted, whiteSpace: 'nowrap' }}>{fmtR(row.juros)}</td>
-                    </tr>
-                  ))}
-                </tbody>
+                <thead><tr style={{ background: '#f8fafc' }}>{['Mês','Parcela','Juros'].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+                <tbody>{result.tabela.map((row,i) => <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '7px 10px', color: C.muted }}>{row.mes}ª</td><td style={{ padding: '7px 10px', fontWeight: 700, color: C.navy }}>{fmtR(row.parcela)}</td><td style={{ padding: '7px 10px', color: row.juros > 0 ? '#dc2626' : C.muted }}>{fmtR(row.juros)}</td></tr>)}</tbody>
               </table>
             </div>
           </Card>
@@ -483,7 +746,7 @@ function SimParcelamento({ isMobile }) {
   )
 }
 
-// ─── SIMULADOR 5: HONORÁRIOS ──────────────────────────────────────────────────
+// ─── SIMULADOR 6: HONORÁRIOS ──────────────────────────────────────────────────
 function SimHonorarios({ isMobile }) {
   const [credito,    setCredito]    = useState('')
   const [pctFixo,    setPctFixo]    = useState('5')
@@ -492,17 +755,10 @@ function SimHonorarios({ isMobile }) {
   const [result,     setResult]     = useState(null)
 
   function calcular() {
-    const c  = parseMoeda(credito)
-    const pf = parseFloat(pctFixo)    || 0
-    const ps = parseFloat(pctSucesso) || 0
-    const pr = parseInt(prazoRec)     || 12
+    const c = parseMoeda(credito); const pf = parseFloat(pctFixo)||0; const ps = parseFloat(pctSucesso)||0; const pr = parseInt(prazoRec)||12
     if (!c) { alert('Informe o crédito identificado.'); return }
-
-    const honorarioFixo    = c * (pf / 100)
-    const honorarioSucesso = c * (ps / 100)
-    const receitaTotal     = honorarioFixo + honorarioSucesso
-    const mensalidadeFixa  = honorarioFixo / pr
-
+    const honorarioFixo = c*(pf/100); const honorarioSucesso = c*(ps/100)
+    const receitaTotal = honorarioFixo+honorarioSucesso; const mensalidadeFixa = honorarioFixo/pr
     setResult({ honorarioFixo, honorarioSucesso, receitaTotal, mensalidadeFixa, c, pf, ps, pr })
   }
 
@@ -511,28 +767,19 @@ function SimHonorarios({ isMobile }) {
       <Card>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>🏆 Dados dos honorários</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Crédito identificado (R$)">
-            <InputMoeda value={credito} onChange={setCredito} placeholder="Ex: 300.000" />
-          </Campo>
+          <Campo label="Crédito identificado (R$)"><InputMoeda value={credito} onChange={setCredito} placeholder="Ex: 300.000" /></Campo>
           <Campo label="Honorário fixo sobre crédito (%)">
-            <select value={pctFixo} onChange={e => setPctFixo(e.target.value)} style={selectStyle}>
-              {[2,3,5,7,10,12,15].map(p => <option key={p} value={p}>{p}%</option>)}
-            </select>
+            <select value={pctFixo} onChange={e => setPctFixo(e.target.value)} style={selectStyle}>{[2,3,5,7,10,12,15].map(p => <option key={p} value={p}>{p}%</option>)}</select>
           </Campo>
           <Campo label="Honorário de sucesso (%)">
-            <select value={pctSucesso} onChange={e => setPctSucesso(e.target.value)} style={selectStyle}>
-              {[10,15,20,25,30].map(p => <option key={p} value={p}>{p}%</option>)}
-            </select>
+            <select value={pctSucesso} onChange={e => setPctSucesso(e.target.value)} style={selectStyle}>{[10,15,20,25,30].map(p => <option key={p} value={p}>{p}%</option>)}</select>
           </Campo>
           <Campo label="Prazo de recuperação estimado (meses)">
-            <select value={prazoRec} onChange={e => setPrazoRec(e.target.value)} style={selectStyle}>
-              {[6,12,18,24,36].map(p => <option key={p} value={p}>{p} meses</option>)}
-            </select>
+            <select value={prazoRec} onChange={e => setPrazoRec(e.target.value)} style={selectStyle}>{[6,12,18,24,36].map(p => <option key={p} value={p}>{p} meses</option>)}</select>
           </Campo>
           <button onClick={calcular} style={btnCalc}>⚡ Calcular honorários</button>
         </div>
       </Card>
-
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
@@ -556,7 +803,7 @@ function SimHonorarios({ isMobile }) {
             ))}
           </Card>
           <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
-            💼 Proposta comercial: honorário fixo de {fmtR(result.mensalidadeFixa)}/mês + {result.ps}% de sucesso
+            💼 Proposta: honorário fixo de {fmtR(result.mensalidadeFixa)}/mês + {result.ps}% de sucesso
           </div>
         </div>
       ) : (
@@ -572,16 +819,14 @@ function SimHonorarios({ isMobile }) {
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function Simuladores() {
   const isMobile = useIsMobile()
-  const [aba, setAba] = useState('recuperacao')
+  const [aba, setAba] = useState('regime')
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
       <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: isMobile ? '20px 20px' : '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — FERRAMENTAS COMERCIAIS</div>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>e-FISCALTRIBE — FERRAMENTAS COMERCIAIS</div>
         <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
-        <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>
-          Demonstre oportunidades e feche contratos com simulações rápidas e profissionais.
-        </p>
+        <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo impacto da Reforma Tributária 2026–2032.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
@@ -593,11 +838,12 @@ export default function Simuladores() {
         ))}
       </div>
 
-      {aba === 'recuperacao'  && <SimRecuperacao isMobile={isMobile} />}
-      {aba === 'economia'     && <SimEconomia isMobile={isMobile} />}
-      {aba === 'transacao'    && <SimTransacao isMobile={isMobile} />}
-      {aba === 'parcelamento' && <SimParcelamento isMobile={isMobile} />}
-      {aba === 'honorarios'   && <SimHonorarios isMobile={isMobile} />}
+      {aba === 'regime'      && <SimRegimeReforma isMobile={isMobile} />}
+      {aba === 'recuperacao' && <SimRecuperacao   isMobile={isMobile} />}
+      {aba === 'economia'    && <SimEconomia      isMobile={isMobile} />}
+      {aba === 'transacao'   && <SimTransacao     isMobile={isMobile} />}
+      {aba === 'parcelamento'&& <SimParcelamento  isMobile={isMobile} />}
+      {aba === 'honorarios'  && <SimHonorarios    isMobile={isMobile} />}
     </div>
   )
 }
