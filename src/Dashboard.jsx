@@ -94,8 +94,8 @@ const MENU_SECOES = [
     id: 'trabalho',
     titulo: 'TRABALHO',
     itens: [
-      { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F465}' }, // 👥
-      { label: 'Importações',               module: 'clientes',    tab: 3, icon: '\u{1F4E5}' }, // 📥
+      { label: 'Clientes',                  module: 'clientes',    tab: 0, tabs: [0,1,2,4], icon: '\u{1F465}' }, // 👥
+      { label: 'Importações',               module: 'clientes',    tab: 3, tabs: [3], icon: '\u{1F4E5}' }, // 📥
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
@@ -183,7 +183,13 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
   }
 
   function isItemAtivo(item) {
-    return module === item.module && activeTab === item.tab
+    if (module !== item.module) return false
+    if (item.tabs) return item.tabs.includes(activeTab)
+    return activeTab === item.tab
+  }function isItemAtivo(item) {
+    if (module !== item.module) return false
+    if (item.tabs) return item.tabs.includes(activeTab)
+    return activeTab === item.tab
   }
 
   if (isMobile && !menuAberto) return null
