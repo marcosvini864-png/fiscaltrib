@@ -187,7 +187,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
   if (isMobile && !menuAberto) return null
 
   const aberta = isMobile ? true : expandido
-  const largura = isMobile ? 260 : (aberta ? 220 : 52)
+  const largura = isMobile ? 260 : (aberta ? 295 : 68)
 
   return (
     <>
