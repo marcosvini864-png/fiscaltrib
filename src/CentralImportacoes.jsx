@@ -866,21 +866,12 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   const clienteHistorico       = relatorioAberto ? { razao_social: relatorioAberto.cliente_nome, cnpj: relatorioAberto.cliente_cnpj, regime: relatorioAberto.cliente_regime } : null
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
-     <div style={{ marginBottom: 20 }}>
-  <div style={{ fontSize: 22, fontWeight: 700, color: '#0F172A' }}>Gestão de Recuperações</div>
-  <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
+    <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 24, color: '#fff' }}>
+  <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>FISCALTRIB — COLETA INTELIGENTE</div>
+  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>Gestão de Recuperações</div>
+  <div style={{ fontSize: 13, color: '#93c5fd' }}>
     Importe arquivos fiscais e receba o Raio-X Tributário Automático com as oportunidades do seu cliente.
   </div>
-  </div>
-
-  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 24 }}>
-  {[{ v:'NCM', l:'Monofásicos' },{ v:'CST/CFOP', l:'Substituição Tributária' },{ v:'Teses', l:'Motor automático' },{ v:'Raio-X', l:'Potencial em R$' }].map((c,i)=>(
-    <div key={i} style={{ background:'#fff', borderRadius:10, padding:'14px 16px', border:'1px solid #E2E8F0', minWidth: 0, boxSizing: 'border-box', textAlign: 'center' }}>
-      <div style={{ fontSize:16, fontWeight:700, color:'#2563EB', marginBottom:4 }}>{c.v}</div>
-      <div style={{ fontSize:11, color:'#64748B' }}>{c.l}</div>
-   </div>
-  ))}
   </div>
    
       {relatorios.length > 0 && (
