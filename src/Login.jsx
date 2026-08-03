@@ -210,7 +210,7 @@ export default function Login({ onLogin, onCadastro }) {
     return (
       <div className="ft-page">
         <div className="ft-header">
-          <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 48, borderRadius: 8 }} />
+          <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 62, borderRadius: 8 }} />
         </div>
 
         <div className="ft-body" style={{ justifyContent: 'center' }}>
