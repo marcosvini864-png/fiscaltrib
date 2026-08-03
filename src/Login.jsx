@@ -44,6 +44,18 @@ const cssResponsivo = `
   .ft-right {
     flex-shrink: 0;
   }
+  .ft-login-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 36px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 50px rgba(15,23,42,0.10);
+    box-sizing: border-box;
+    border: 1px solid #F1F5F9;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+  }
   .ft-login-input {
     width: 100%;
     padding: 13px 14px;
@@ -59,19 +71,22 @@ const cssResponsivo = `
     border-color: #2563EB;
     box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
   }
-  .ft-login-input {
+  .ft-btn-principal {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    box-sizing: border-box;
-    font-size: 14px;
-    color: #1e293b;
-    outline: none;
-    transition: border-color 0.15s;
+    padding: 14px;
+    background: #2563EB;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.32);
+    transition: background 0.15s, transform 0.1s;
   }
-  .ft-login-input:focus {
-    border-color: #2563EB;
+  .ft-btn-principal:hover:not(:disabled) {
+    background: #1D4ED8;
+    transform: translateY(-1px);
   }
   .ft-btn-outline {
     width: 100%;
@@ -87,22 +102,6 @@ const cssResponsivo = `
   }
   .ft-btn-outline:hover {
     background: #F1F5F9;
-    border-color: #CBD5E1;
-  }
-  .ft-btn-outline {
-    width: 100%;
-    padding: 10px;
-    background: transparent;
-    color: #334155;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .ft-btn-outline:hover {
-    background: #F8FAFC;
     border-color: #CBD5E1;
   }
   .ft-recurso-item {
@@ -278,7 +277,7 @@ export default function Login({ onLogin, onCadastro }) {
   return (
     <div className="ft-page">
       <div className="ft-header">
-        <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 48, borderRadius: 8 }} />
+        <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 62, borderRadius: 8 }} />
       </div>
 
       <div className="ft-body">
