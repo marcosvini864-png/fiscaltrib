@@ -10,7 +10,7 @@
  * — Sugestão de correção por item
  * — Geração de arquivo SPED corrigido para erros de cálculo (com revisão)
  *
- * Versão: 1.1
+ * Versão: 1.2 — tema claro, alinhado ao design system do produto
  * Data: 2026-08-03
  */
 
@@ -22,32 +22,32 @@ import { supabase } from '../supabase'
 // ─────────────────────────────────────────────────────────────
 
 const TIPOS_SPED = [
-  { id: 'EFD_CONTRIB',  label: 'EFD-Contribuições',  descricao: 'PIS/COFINS — Blocos 0, A, C, D, F, M, 1, 9', extensao: '.txt', cor: '#00c896' },
-  { id: 'EFD_ICMS_IPI', label: 'EFD-ICMS/IPI',      descricao: 'ICMS/IPI — Blocos 0, C, D, E, G, H, K, 1, 9', extensao: '.txt', cor: '#1a9fff' },
-  { id: 'ECD',          label: 'ECD',                descricao: 'Escrituração Contábil Digital', extensao: '.txt', cor: '#a855f7' },
-  { id: 'ECF',          label: 'ECF',                descricao: 'Escrituração Contábil Fiscal — IRPJ/CSLL', extensao: '.txt', cor: '#f59e0b' },
+  { id: 'EFD_CONTRIB',  label: 'EFD-Contribuições',  descricao: 'PIS/COFINS — Blocos 0, A, C, D, F, M, 1, 9' },
+  { id: 'EFD_ICMS_IPI', label: 'EFD-ICMS/IPI',      descricao: 'ICMS/IPI — Blocos 0, C, D, E, G, H, K, 1, 9' },
+  { id: 'ECD',          label: 'ECD',                descricao: 'Escrituração Contábil Digital' },
+  { id: 'ECF',          label: 'ECF',                descricao: 'Escrituração Contábil Fiscal — IRPJ/CSLL' },
 ]
 
 const CATEGORIAS_ERRO = {
-  CALCULO:       { label: 'Erro de Cálculo',          cor: '#ef4444', icone: '🔢' },
-  CAMPO_VAZIO:   { label: 'Campo Obrigatório Vazio',  cor: '#f97316', icone: '📭' },
-  INCONSISTENCIA:{ label: 'Inconsistência entre Blocos', cor: '#eab308', icone: '⚡' },
-  ALIQUOTA:      { label: 'Alíquota Incorreta',       cor: '#a855f7', icone: '📊' },
-  CFOP:          { label: 'CFOP Inválido/Incorreto',  cor: '#3b82f6', icone: '📋' },
-  CST:           { label: 'CST Incorreto',            cor: '#06b6d4', icone: '🏷️' },
-  TOTAL:         { label: 'Total Divergente',         cor: '#ec4899', icone: '🧮' },
-  AVISO:         { label: 'Aviso / Atenção',          cor: '#64748b', icone: '⚠️' },
+  CALCULO:       { label: 'Erro de Cálculo',          cor: '#DC2626' },
+  CAMPO_VAZIO:   { label: 'Campo Obrigatório Vazio',  cor: '#EA580C' },
+  INCONSISTENCIA:{ label: 'Inconsistência entre Blocos', cor: '#CA8A04' },
+  ALIQUOTA:      { label: 'Alíquota Incorreta',       cor: '#7C3AED' },
+  CFOP:          { label: 'CFOP Inválido/Incorreto',  cor: '#2563EB' },
+  CST:           { label: 'CST Incorreto',            cor: '#0891B2' },
+  TOTAL:         { label: 'Total Divergente',         cor: '#DB2777' },
+  AVISO:         { label: 'Aviso / Atenção',          cor: '#64748B' },
 }
 
 const C = {
-  bg:     '#0a1628',
-  card:   '#0f1e35',
-  border: 'rgba(255,255,255,0.08)',
-  verde:  '#00c896',
-  azul:   '#1a9fff',
-  branco: '#ffffff',
-  cinza:  '#8a9bb0',
-  text:   '#e2e8f0',
+  bg:     '#F8FAFC',
+  white:  '#FFFFFF',
+  border: '#E2E8F0',
+  text:   '#0F172A',
+  muted:  '#64748B',
+  blue:   '#2563EB',
+  green:  '#16A34A',
+  red:    '#DC2626',
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -78,7 +78,6 @@ function analisarEFDContrib(registros) {
   const avisos   = []
   const resumo   = { totalRegistros: registros.length, blocos: {}, erros: 0, avisos: 0 }
 
-  // Conta registros por bloco
   registros.forEach(r => {
     const bloco = r.registro?.[0] || '?'
     resumo.blocos[bloco] = (resumo.blocos[bloco] || 0) + 1
@@ -88,7 +87,6 @@ function analisarEFDContrib(registros) {
     const reg    = r.registro
     const campos = r.campos
 
-    // ── Registro 0000 — Abertura ──────────────────────────────
     if (reg === '0000') {
       if (!campos[3] || campos[3].length !== 14) {
         erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'CNPJ inválido ou ausente no registro 0000', campo: 'Campo 4 (CNPJ)', correcao: 'Informar o CNPJ com 14 dígitos sem formatação', fundamentacao: 'Guia Prático EFD-Contribuições — Registro 0000' })
@@ -98,10 +96,8 @@ function analisarEFDContrib(registros) {
       }
     }
 
-    // ── Registro C100 — NF-e de entrada/saída ────────────────
     if (reg === 'C100') {
       const vNF   = parseFloat(campos[9]?.replace(',', '.') || 0)
-      const vDesc = parseFloat(campos[10]?.replace(',', '.') || 0)
       const vFrete= parseFloat(campos[11]?.replace(',', '.') || 0)
       const vSeg  = parseFloat(campos[12]?.replace(',', '.') || 0)
       const vOut  = parseFloat(campos[13]?.replace(',', '.') || 0)
@@ -116,37 +112,30 @@ function analisarEFDContrib(registros) {
       }
     }
 
-    // ── Registro C170 — Itens do documento ───────────────────
     if (reg === 'C170') {
       const cfop = campos[3] || ''
       const cst  = campos[8] || ''
-      const vItem= parseFloat(campos[5]?.replace(',', '.') || 0)
       const aliqPIS   = parseFloat(campos[12]?.replace(',', '.') || 0)
       const aliqCOFINS= parseFloat(campos[16]?.replace(',', '.') || 0)
 
-      // CFOP deve ter 4 dígitos
       if (cfop && (cfop.length !== 4 || isNaN(parseInt(cfop)))) {
         erros.push({ linha: r.numero, registro: reg, categoria: 'CFOP', descricao: `CFOP inválido: "${cfop}"`, campo: 'Campo 4 (CFOP)', correcao: 'Informar CFOP com 4 dígitos numéricos conforme tabela CFOP vigente', fundamentacao: 'Convênio S/N de 15/12/1970 — Tabela CFOP' })
       }
 
-      // CST PIS/COFINS válidos: 01-09, 49, 50-99
       const cstNum = parseInt(cst)
       if (cst && (isNaN(cstNum) || cst.length !== 2)) {
         erros.push({ linha: r.numero, registro: reg, categoria: 'CST', descricao: `CST inválido: "${cst}"`, campo: 'Campo 9 (CST_PIS)', correcao: 'Informar CST com 2 dígitos conforme Tabela de CST do Anexo I da IN RFB 2.121/2022', fundamentacao: 'IN RFB 2.121/2022 — Tabela CST PIS/COFINS' })
       }
 
-      // Alíquota PIS padrão: 0.65% (cumulativo) ou 1.65% (não-cumulativo)
       if (aliqPIS > 0 && aliqPIS !== 0.65 && aliqPIS !== 1.65 && aliqPIS !== 0 && cstNum <= 49) {
         avisos.push({ linha: r.numero, registro: reg, categoria: 'ALIQUOTA', descricao: `Alíquota de PIS incomum: ${aliqPIS}%. Padrão: 0,65% (cumulativo) ou 1,65% (não-cumulativo)`, campo: 'Campo 13 (ALIQ_PIS)', correcao: 'Verificar o regime de apuração (cumulativo/não-cumulativo) e aplicar a alíquota correta', fundamentacao: 'Lei 10.637/2002 art. 2º; Lei 10.833/2003 art. 2º' })
       }
 
-      // Alíquota COFINS padrão: 3% (cumulativo) ou 7.6% (não-cumulativo)
       if (aliqCOFINS > 0 && aliqCOFINS !== 3 && aliqCOFINS !== 7.6 && aliqCOFINS !== 0 && cstNum <= 49) {
         avisos.push({ linha: r.numero, registro: reg, categoria: 'ALIQUOTA', descricao: `Alíquota de COFINS incomum: ${aliqCOFINS}%. Padrão: 3% (cumulativo) ou 7,6% (não-cumulativo)`, campo: 'Campo 17 (ALIQ_COFINS)', correcao: 'Verificar o regime de apuração e aplicar a alíquota correta', fundamentacao: 'Lei 10.833/2003 art. 2º' })
       }
     }
 
-    // ── Registro M200 — Apuração do PIS ──────────────────────
     if (reg === 'M200') {
       const vEntBC = parseFloat(campos[1]?.replace(',', '.') || 0)
       const vEntAl = parseFloat(campos[3]?.replace(',', '.') || 0)
@@ -160,7 +149,6 @@ function analisarEFDContrib(registros) {
       }
     }
 
-    // ── Registro M600 — Apuração do COFINS ───────────────────
     if (reg === 'M600') {
       const vEntBC = parseFloat(campos[1]?.replace(',', '.') || 0)
       const vEntAl = parseFloat(campos[3]?.replace(',', '.') || 0)
@@ -174,7 +162,6 @@ function analisarEFDContrib(registros) {
       }
     }
 
-    // ── Registro 9001 — Encerramento ─────────────────────────
     if (reg === '9001') {
       if (!campos[1] || campos[1] !== '1') {
         avisos.push({ linha: r.numero, registro: reg, categoria: 'AVISO', descricao: 'Indicador de movimento do bloco 9 diferente de "1"', campo: 'Campo 2 (IND_MOV)', correcao: 'Verificar se o bloco 9 possui registros válidos' })
@@ -202,7 +189,6 @@ function analisarEFDICMS(registros) {
     const reg    = r.registro
     const campos = r.campos
 
-    // ── C100 — NF-e ──────────────────────────────────────────
     if (reg === 'C100') {
       const vICMS = parseFloat(campos[13]?.replace(',', '.') || 0)
       const vBC   = parseFloat(campos[12]?.replace(',', '.') || 0)
@@ -220,11 +206,8 @@ function analisarEFDICMS(registros) {
       }
     }
 
-    // ── C170 — Itens ─────────────────────────────────────────
     if (reg === 'C170') {
       const cfop   = campos[3] || ''
-      const cst    = campos[7] || ''
-      const vItem  = parseFloat(campos[5]?.replace(',', '.') || 0)
       const vICMS  = parseFloat(campos[9]?.replace(',', '.') || 0)
       const vBC    = parseFloat(campos[8]?.replace(',', '.') || 0)
       const aliq   = parseFloat(campos[10]?.replace(',', '.') || 0)
@@ -240,7 +223,6 @@ function analisarEFDICMS(registros) {
         }
       }
 
-      // ICMS-ST
       const vBCST  = parseFloat(campos[11]?.replace(',', '.') || 0)
       const aliqST = parseFloat(campos[12]?.replace(',', '.') || 0)
       const vST    = parseFloat(campos[13]?.replace(',', '.') || 0)
@@ -253,7 +235,6 @@ function analisarEFDICMS(registros) {
       }
     }
 
-    // ── E110 — Apuração do ICMS ──────────────────────────────
     if (reg === 'E110') {
       const vTotDeb = parseFloat(campos[1]?.replace(',', '.') || 0)
       const vTotCred= parseFloat(campos[6]?.replace(',', '.') || 0)
@@ -286,7 +267,6 @@ function analisarECD(registros) {
     const reg    = r.registro
     const campos = r.campos
 
-    // ── I050 — Plano de Contas ───────────────────────────────
     if (reg === 'I050') {
       if (!campos[3]) {
         erros.push({ linha: r.numero, registro: reg, categoria: 'CAMPO_VAZIO', descricao: 'Código da conta ausente no plano de contas', campo: 'Campo 4 (COD_CTA)', correcao: 'Informar o código da conta contábil', fundamentacao: 'Guia Prático ECD — Registro I050' })
@@ -296,7 +276,6 @@ function analisarECD(registros) {
       }
     }
 
-    // ── I155 — Lançamentos ───────────────────────────────────
     if (reg === 'I155') {
       const vDeb = parseFloat(campos[3]?.replace(',', '.') || 0)
       const vCred= parseFloat(campos[4]?.replace(',', '.') || 0)
@@ -331,7 +310,6 @@ function analisarECF(registros) {
     const reg    = r.registro
     const campos = r.campos
 
-    // ── 0000 — Abertura ECF ──────────────────────────────────
     if (reg === '0000') {
       const tipo = campos[3] || ''
       if (!['0', '1', '2', '3'].includes(tipo)) {
@@ -343,7 +321,6 @@ function analisarECF(registros) {
       }
     }
 
-    // ── P100 — LALUR ─────────────────────────────────────────
     if (reg === 'P100') {
       const vLucroLiq = parseFloat(campos[2]?.replace(',', '.') || 0)
       const vAdicoes  = parseFloat(campos[3]?.replace(',', '.') || 0)
@@ -356,7 +333,6 @@ function analisarECF(registros) {
       }
     }
 
-    // ── Y612 — IRPJ ──────────────────────────────────────────
     if (reg === 'Y612') {
       const vBase = parseFloat(campos[1]?.replace(',', '.') || 0)
       const vIRPJ = parseFloat(campos[2]?.replace(',', '.') || 0)
@@ -473,8 +449,7 @@ function gerarSPEDCorrigido(conteudoOriginal, itensAprovados) {
     if (!itemDaLinha) return linhaTexto
 
     const partes = linhaTexto.split('|')
-    // partes[0] é sempre vazio (linha começa com |), partes[1] é o registro, campos começam em partes[2]
-    const indiceReal = itemDaLinha.campoIndex + 1 // +1 porque partes[0] é vazio
+    const indiceReal = itemDaLinha.campoIndex + 1
     if (partes[indiceReal] !== undefined) {
       const valorFormatado = itemDaLinha.valorCorrigido.toFixed(2).replace('.', ',')
       partes[indiceReal] = valorFormatado
@@ -576,67 +551,68 @@ export default function AuditorSPED({ cliente, onVoltar }) {
   const tipoAtual = TIPOS_SPED.find(t => t.id === tipoSelecionado)
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#e2e8f0', minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: C.text }}>
 
-      {/* Cabeçalho */}
-      <div style={{ background: 'linear-gradient(135deg, #0a1628, #0d2444)', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid rgba(0,200,150,0.2)' }}>
-        <div style={{ fontSize: 10, color: C.verde, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>e-FiscalTribe — Auditor Fiscal</div>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>Auditor de SPED</h1>
-        <p style={{ fontSize: 13, color: C.cinza, margin: 0 }}>Pente fino antes da entrega à Receita Federal. Importe o arquivo SPED e identifique erros, inconsistências e cálculos incorretos.</p>
+      {/* Cabeçalho simples — mesmo padrão do resto do produto */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>Auditor de SPED</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+          Pente fino antes da entrega à Receita Federal. Importe o arquivo SPED e identifique erros, inconsistências e cálculos incorretos.
+        </div>
         {cliente && (
-          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ background: 'rgba(0,200,150,0.15)', border: '1px solid rgba(0,200,150,0.3)', color: C.verde, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{cliente.razao_social}</span>
-            <span style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: C.cinza, padding: '3px 10px', borderRadius: 20, fontSize: 11 }}>{cliente.regime}</span>
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{cliente.razao_social}</span>
+            <span style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.muted, padding: '3px 10px', borderRadius: 20, fontSize: 11 }}>{cliente.regime}</span>
           </div>
         )}
       </div>
 
       {/* Seleção do tipo */}
-      <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.cinza, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 1 }}>Tipo de SPED</div>
+      <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 18, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tipo de SPED</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
           {TIPOS_SPED.map(tipo => (
             <button key={tipo.id} onClick={() => { setTipoSelecionado(tipo.id); setResultado(null) }}
               style={{
                 padding: '12px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                background: tipoSelecionado === tipo.id ? `${tipo.cor}18` : 'rgba(255,255,255,0.03)',
-                border: `1.5px solid ${tipoSelecionado === tipo.id ? tipo.cor : 'rgba(255,255,255,0.08)'}`,
-                transition: 'all 0.2s',
+                background: tipoSelecionado === tipo.id ? '#EFF4FF' : C.white,
+                border: `1.5px solid ${tipoSelecionado === tipo.id ? C.blue : C.border}`,
+                transition: 'all 0.15s',
               }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: tipoSelecionado === tipo.id ? tipo.cor : '#fff', marginBottom: 4 }}>{tipo.label}</div>
-              <div style={{ fontSize: 11, color: C.cinza }}>{tipo.descricao}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: tipoSelecionado === tipo.id ? C.blue : C.text, marginBottom: 4 }}>{tipo.label}</div>
+              <div style={{ fontSize: 11, color: C.muted }}>{tipo.descricao}</div>
             </button>
           ))}
         </div>
       </div>
 
       {/* Upload do arquivo */}
-      <div style={{ background: '#0f1e35', borderRadius: 14, border: `2px dashed ${arquivo ? tipoAtual?.cor || C.verde : 'rgba(255,255,255,0.15)'}`, padding: 24, marginBottom: 16, textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+      <div style={{ background: C.white, borderRadius: 12, border: `2px dashed ${arquivo ? C.blue : C.border}`, padding: 24, marginBottom: 16, textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
         onClick={() => inputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) carregarArquivo(f) }}>
         <input ref={inputRef} type="file" accept=".txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) carregarArquivo(f); e.target.value = '' }} />
         {arquivo ? (
           <>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: tipoAtual?.cor || C.verde, marginBottom: 4 }}>{arquivo.name}</div>
-            <div style={{ fontSize: 12, color: C.cinza }}>{(arquivo.size / 1024).toFixed(1)} KB — Clique para trocar</div>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.blue, marginBottom: 4 }}>{arquivo.name}</div>
+            <div style={{ fontSize: 12, color: C.muted }}>{(arquivo.size / 1024).toFixed(1)} KB — Clique para trocar</div>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>Arraste o arquivo SPED aqui ou clique para selecionar</div>
-            <div style={{ fontSize: 12, color: C.cinza }}>Formato: .txt — {tipoAtual?.descricao}</div>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📂</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 6 }}>Arraste o arquivo SPED aqui ou clique para selecionar</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Formato: .txt — {tipoAtual?.descricao}</div>
           </>
         )}
       </div>
 
       {/* Botão analisar */}
       {arquivo && !resultado && (
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ marginBottom: 20 }}>
           <button onClick={executar} disabled={analisando}
-            style={{ padding: '14px 40px', background: analisando ? '#1e293b' : C.verde, color: analisando ? C.cinza : '#0a1628', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: analisando ? 'default' : 'pointer', transition: 'all 0.2s' }}>
-            {analisando ? '⏳ Analisando...' : '🔍 Iniciar Auditoria'}
+            style={{ padding: '11px 28px', background: analisando ? C.border : C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: analisando ? 'default' : 'pointer' }}>
+            {analisando ? 'Analisando...' : 'Iniciar Auditoria'}
           </button>
         </div>
       )}
@@ -647,25 +623,24 @@ export default function AuditorSPED({ cliente, onVoltar }) {
           {/* KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
             {[
-              { label: 'Registros analisados', valor: resultado.resumo.totalRegistros, cor: C.azul, icone: '📋' },
-              { label: 'Erros encontrados',    valor: resultado.resumo.erros,          cor: '#ef4444', icone: '🔴' },
-              { label: 'Avisos',               valor: resultado.resumo.avisos,         cor: '#f59e0b', icone: '⚠️' },
-              { label: 'Blocos identificados', valor: Object.keys(resultado.resumo.blocos).length, cor: C.verde, icone: '📦' },
+              { label: 'Registros analisados', valor: resultado.resumo.totalRegistros, cor: C.text },
+              { label: 'Erros encontrados',    valor: resultado.resumo.erros,          cor: C.red },
+              { label: 'Avisos',               valor: resultado.resumo.avisos,         cor: '#CA8A04' },
+              { label: 'Blocos identificados', valor: Object.keys(resultado.resumo.blocos).length, cor: C.blue },
             ].map((kpi, i) => (
-              <div key={i} style={{ background: '#0f1e35', borderRadius: 12, padding: '14px 16px', border: `1px solid rgba(255,255,255,0.08)`, borderTop: `3px solid ${kpi.cor}` }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{kpi.icone}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: kpi.cor }}>{kpi.valor}</div>
-                <div style={{ fontSize: 11, color: C.cinza, marginTop: 4 }}>{kpi.label}</div>
+              <div key={i} style={{ background: C.white, borderRadius: 10, padding: '14px 16px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: kpi.cor }}>{kpi.valor}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{kpi.label}</div>
               </div>
             ))}
           </div>
 
           {/* Veredicto */}
-          <div style={{ borderRadius: 14, padding: 20, marginBottom: 16, background: resultado.resumo.erros === 0 ? 'rgba(0,200,150,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${resultado.resumo.erros === 0 ? C.verde : '#ef4444'}` }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: resultado.resumo.erros === 0 ? C.verde : '#ef4444', marginBottom: 6 }}>
-              {resultado.resumo.erros === 0 ? '✅ SPED sem erros críticos identificados' : `🔴 ${resultado.resumo.erros} erro(s) crítico(s) identificado(s) — NÃO transmitir antes de corrigir`}
+          <div style={{ borderRadius: 12, padding: '16px 20px', marginBottom: 16, background: resultado.resumo.erros === 0 ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${resultado.resumo.erros === 0 ? '#86EFAC' : '#FECACA'}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: resultado.resumo.erros === 0 ? C.green : C.red, marginBottom: 4 }}>
+              {resultado.resumo.erros === 0 ? 'SPED sem erros críticos identificados' : `${resultado.resumo.erros} erro(s) crítico(s) identificado(s) — não transmitir antes de corrigir`}
             </div>
-            <div style={{ fontSize: 13, color: C.cinza }}>
+            <div style={{ fontSize: 12, color: C.muted }}>
               {resultado.resumo.erros === 0
                 ? `${resultado.resumo.avisos > 0 ? `${resultado.resumo.avisos} aviso(s) de atenção encontrado(s). Revise antes de transmitir.` : 'Nenhum erro ou aviso identificado. SPED apto para transmissão.'}`
                 : `Corrija os erros apontados antes de transmitir à Receita Federal para evitar multas e autuações.`}
@@ -673,12 +648,12 @@ export default function AuditorSPED({ cliente, onVoltar }) {
           </div>
 
           {/* Blocos encontrados */}
-          <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', padding: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.cinza, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Blocos identificados</div>
+          <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Blocos identificados</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {Object.entries(resultado.resumo.blocos).map(([bloco, qtd]) => (
-                <span key={bloco} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: 20, fontSize: 12, color: '#fff' }}>
-                  Bloco {bloco}: <strong style={{ color: C.verde }}>{qtd}</strong>
+                <span key={bloco} style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '4px 12px', borderRadius: 20, fontSize: 12, color: C.text }}>
+                  Bloco {bloco}: <strong style={{ color: C.blue }}>{qtd}</strong>
                 </span>
               ))}
             </div>
@@ -686,67 +661,59 @@ export default function AuditorSPED({ cliente, onVoltar }) {
 
           {/* Abas erros/avisos */}
           {(resultado.erros.length > 0 || resultado.avisos.length > 0) && (
-            <div style={{ background: '#0f1e35', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 16 }}>
 
-              {/* Abas */}
-              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}` }}>
                 {[
-                  { id: 'erros',  label: `🔴 Erros (${resultado.erros.length})` },
-                  { id: 'avisos', label: `⚠️ Avisos (${resultado.avisos.length})` },
+                  { id: 'erros',  label: `Erros (${resultado.erros.length})` },
+                  { id: 'avisos', label: `Avisos (${resultado.avisos.length})` },
                 ].map(aba => (
                   <button key={aba.id} onClick={() => setAbaSelecionada(aba.id)}
-                    style={{ padding: '12px 20px', background: 'none', border: 'none', borderBottom: abaSelecionada === aba.id ? `2px solid ${C.verde}` : '2px solid transparent', color: abaSelecionada === aba.id ? C.verde : C.cinza, fontSize: 13, fontWeight: abaSelecionada === aba.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
+                    style={{ padding: '10px 18px', background: 'none', border: 'none', borderBottom: abaSelecionada === aba.id ? `2px solid ${C.blue}` : '2px solid transparent', color: abaSelecionada === aba.id ? C.blue : C.muted, fontSize: 13, fontWeight: abaSelecionada === aba.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
                     {aba.label}
                   </button>
                 ))}
               </div>
 
-              {/* Filtros */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar..."
-                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, width: 180, outline: 'none' }} />
+                  style={{ padding: '6px 12px', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 12, width: 180, outline: 'none' }} />
                 <select value={filtro} onChange={e => setFiltro(e.target.value)}
-                  style={{ padding: '6px 10px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                  style={{ padding: '6px 10px', background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 12, cursor: 'pointer' }}>
                   <option value="TODOS">Todas as categorias</option>
                   {Object.entries(CATEGORIAS_ERRO).map(([id, cat]) => (
                     <option key={id} value={id}>{cat.label}</option>
                   ))}
                 </select>
-                <span style={{ fontSize: 12, color: C.cinza, marginLeft: 'auto' }}>{itensFiltrados.length} item(s)</span>
+                <span style={{ fontSize: 12, color: C.muted, marginLeft: 'auto' }}>{itensFiltrados.length} item(s)</span>
               </div>
 
-              {/* Lista de erros/avisos */}
               <div style={{ maxHeight: 500, overflowY: 'auto' }}>
                 {itensFiltrados.length === 0 ? (
-                  <div style={{ padding: 32, textAlign: 'center', color: C.cinza, fontSize: 13 }}>Nenhum item encontrado.</div>
+                  <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: 13 }}>Nenhum item encontrado.</div>
                 ) : (
                   itensFiltrados.map((item, idx) => {
                     const cat = CATEGORIAS_ERRO[item.categoria] || CATEGORIAS_ERRO.AVISO
                     return (
-                      <div key={idx} style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', borderLeft: `3px solid ${cat.cor}` }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                          <span style={{ fontSize: 16, flexShrink: 0 }}>{cat.icone}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
-                              <span style={{ background: `${cat.cor}20`, color: cat.cor, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{cat.label}</span>
-                              <span style={{ color: C.cinza, fontSize: 11 }}>Linha {item.linha}</span>
-                              <span style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>Reg. {item.registro}</span>
-                            </div>
-                            <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 6 }}>{item.descricao}</div>
-                            <div style={{ fontSize: 12, color: C.cinza, marginBottom: 4 }}>
-                              <span style={{ color: '#94a3b8' }}>Campo: </span>{item.campo}
-                            </div>
-                            <div style={{ fontSize: 12, background: 'rgba(0,200,150,0.08)', border: '1px solid rgba(0,200,150,0.15)', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>
-                              <span style={{ color: C.verde, fontWeight: 700 }}>✓ Correção: </span>
-                              <span style={{ color: '#cbd5e1' }}>{item.correcao}</span>
-                            </div>
-                            {item.fundamentacao && (
-                              <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
-                                📜 {item.fundamentacao}
-                              </div>
-                            )}
-                          </div>
+                      <div key={idx} style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${cat.cor}` }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                          <span style={{ background: `${cat.cor}18`, color: cat.cor, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{cat.label}</span>
+                          <span style={{ color: C.muted, fontSize: 11 }}>Linha {item.linha}</span>
+                          <span style={{ background: C.bg, color: C.muted, padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>Reg. {item.registro}</span>
                         </div>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 500, marginBottom: 6 }}>{item.descricao}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                          <span>Campo: </span>{item.campo}
+                        </div>
+                        <div style={{ fontSize: 12, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>
+                          <span style={{ color: C.green, fontWeight: 700 }}>Correção: </span>
+                          <span style={{ color: C.text }}>{item.correcao}</span>
+                        </div>
+                        {item.fundamentacao && (
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                            {item.fundamentacao}
+                          </div>
+                        )}
                       </div>
                     )
                   })
@@ -758,54 +725,54 @@ export default function AuditorSPED({ cliente, onVoltar }) {
           {/* Botões de ação */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
             <button onClick={baixarRelatorio}
-              style={{ padding: '12px 24px', background: C.verde, color: '#0a1628', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              📄 Baixar Relatório .txt
+              style={{ padding: '10px 20px', background: C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Baixar Relatório .txt
             </button>
             {resultado.erros.some(e => (e.categoria === 'CALCULO' || e.categoria === 'TOTAL') && e.valorCorrigido !== undefined) && (
               <button onClick={abrirRevisaoCorrecao}
-                style={{ padding: '12px 24px', background: C.azul, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                🛠️ Gerar arquivo corrigido
+                style={{ padding: '10px 20px', background: C.white, color: C.blue, border: `1.5px solid ${C.blue}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Gerar arquivo corrigido
               </button>
             )}
             <button onClick={() => { setResultado(null); setArquivo(null); setConteudo('') }}
-              style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              🔄 Nova Análise
+              style={{ padding: '10px 20px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              Nova Análise
             </button>
           </div>
         </>
       )}
 
       {resultado?.erro && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#fca5a5' }}>
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: 16, color: C.red, fontSize: 13 }}>
           <strong>Erro na análise:</strong> {resultado.erro}
         </div>
       )}
 
       {/* Modal de revisão de correções */}
       {mostrarRevisao && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#0f1e35', borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🛠️ Revisar correções antes de gerar o arquivo</div>
-              <div style={{ fontSize: 13, color: C.cinza }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ background: C.white, borderRadius: 14, width: '100%', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', border: `1px solid ${C.border}` }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>Revisar correções antes de gerar o arquivo</div>
+              <div style={{ fontSize: 13, color: C.muted }}>
                 Confira cada valor antes de aceitar. Desmarque os itens que não deseja corrigir automaticamente.
               </div>
             </div>
 
             <div style={{ padding: '16px 24px' }}>
               {itensRevisao.length === 0 ? (
-                <div style={{ color: C.cinza, fontSize: 13, textAlign: 'center', padding: 20 }}>Nenhum erro de cálculo identificado.</div>
+                <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: 20 }}>Nenhum erro de cálculo identificado.</div>
               ) : (
                 itensRevisao.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: idx < itensRevisao.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: idx < itensRevisao.length - 1 ? `1px solid ${C.border}` : 'none' }}>
                     <input type="checkbox" checked={item.aprovado} onChange={() => alternarAprovacao(idx)}
-                      style={{ marginTop: 4, width: 16, height: 16, accentColor: C.verde, cursor: 'pointer' }} />
+                      style={{ marginTop: 4, width: 16, height: 16, accentColor: C.blue, cursor: 'pointer' }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: C.cinza, marginBottom: 4 }}>Linha {item.linha} — Registro {item.registro} — {item.campo}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Linha {item.linha} — Registro {item.registro} — {item.campo}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
-                        <span style={{ color: '#ef4444', textDecoration: 'line-through' }}>{fmtVal(item.valorAtual)}</span>
-                        <span style={{ color: C.cinza }}>→</span>
-                        <span style={{ color: C.verde, fontWeight: 700 }}>{fmtVal(item.valorCorrigido)}</span>
+                        <span style={{ color: C.red, textDecoration: 'line-through' }}>{fmtVal(item.valorAtual)}</span>
+                        <span style={{ color: C.muted }}>→</span>
+                        <span style={{ color: C.green, fontWeight: 700 }}>{fmtVal(item.valorCorrigido)}</span>
                       </div>
                     </div>
                   </div>
@@ -813,14 +780,14 @@ export default function AuditorSPED({ cliente, onVoltar }) {
               )}
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div style={{ padding: '16px 24px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setMostrarRevisao(false)}
-                style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ padding: '10px 18px', background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={confirmarCorrecao} disabled={!itensRevisao.some(i => i.aprovado)}
-                style={{ padding: '10px 20px', background: itensRevisao.some(i => i.aprovado) ? C.verde : 'rgba(255,255,255,0.1)', color: itensRevisao.some(i => i.aprovado) ? '#0a1628' : C.cinza, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: itensRevisao.some(i => i.aprovado) ? 'pointer' : 'not-allowed' }}>
-                ✓ Aplicar {itensRevisao.filter(i => i.aprovado).length} correção(ões) e baixar
+                style={{ padding: '10px 18px', background: itensRevisao.some(i => i.aprovado) ? C.blue : C.border, color: itensRevisao.some(i => i.aprovado) ? '#fff' : C.muted, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: itensRevisao.some(i => i.aprovado) ? 'pointer' : 'not-allowed' }}>
+                Aplicar {itensRevisao.filter(i => i.aprovado).length} correção(ões) e baixar
               </button>
             </div>
           </div>
