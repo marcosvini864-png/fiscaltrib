@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { parseXMLNFe, agruparPorCompetencia } from '../utils/parseXMLNFe'
 import MotorInteligenciaTributaria from '../motor/MotorInteligenciaTributaria'
-import FunctionalPageTemplate, { DS, PageHeader, KpiCard, ValorDestaque, ContentCard, ListaDocumentos, BtnPrimario, BtnSecundario } from './FunctionalPageTemplate'
 
 const NCM_MONOFASICOS = {
   '27101259': 'Gasolina', '27101921': 'Óleo Diesel', '27111290': 'GLP',
@@ -1138,6 +1137,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
       descricao: 'Para identificar produtos sujeitos à tributação monofásica e possíveis valores pagos indevidamente, é necessário importar os arquivos fiscais da empresa.',
       instrucao: 'Importe os XMLs de notas fiscais para iniciar a análise.',
       documentos: ['XMLs de NF-e de entrada', 'XMLs de NF-e de saída'],
+      cor: '#7c3aed',
       dados: resultadoUltimo?.monofasicos || [],
       total: (resultadoUltimo?.monofasicos || []).reduce((s, o) => s + (o.credito || 0), 0),
     },
@@ -1147,6 +1147,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
       descricao: 'Para calcular o ICMS indevidamente incluído na base de PIS/COFINS, é necessário importar os XMLs de notas fiscais com valores de ICMS.',
       instrucao: 'Importe os XMLs de NF-e para iniciar a análise (Lucro Presumido ou Real).',
       documentos: ['XMLs de NF-e de entrada e saída', 'Aplicável apenas para Lucro Presumido e Lucro Real'],
+      cor: '#0891b2',
       dados: resultadoUltimo?.exclusaoICMS || [],
       total: (resultadoUltimo?.exclusaoICMS || []).reduce((s, o) => s + (o.credito || 0), 0),
     },
@@ -1156,6 +1157,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
       descricao: 'Para identificar créditos de ICMS-ST nas entradas, é necessário importar os XMLs de notas fiscais que contenham ICMS por substituição tributária.',
       instrucao: 'Importe os XMLs de NF-e de entrada (aplicável apenas no Lucro Real).',
       documentos: ['XMLs de NF-e de entrada com ICMS-ST', 'Aplicável apenas para Lucro Real'],
+      cor: '#ea580c',
       dados: resultadoUltimo?.icmsST || [],
       total: (resultadoUltimo?.icmsST || []).reduce((s, o) => s + (o.credito || 0), 0),
     },
@@ -1165,6 +1167,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
       descricao: 'Para identificar retenções indevidas sofridas por empresas do Simples Nacional, é necessário importar os XMLs de notas fiscais de serviços.',
       instrucao: 'Importe os XMLs de NF-e para iniciar a análise (Simples Nacional).',
       documentos: ['XMLs de NF-e de saída com retenções', 'Aplicável apenas para Simples Nacional'],
+      cor: '#dc2626',
       dados: resultadoUltimo?.retencoes || [],
       total: (resultadoUltimo?.retencoes || []).reduce((s, o) => s + (o.credito || 0), 0),
     },
@@ -1174,6 +1177,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
       descricao: 'Para verificar se as receitas foram corretamente segregadas no PGDAS-D, é necessário importar o PDF da declaração do Simples Nacional.',
       instrucao: 'Importe o PDF do PGDAS-D para iniciar a análise.',
       documentos: ['PDF do PGDAS-D', 'Declaração do Simples Nacional', 'Aplicável apenas para Simples Nacional'],
+      cor: '#ea580c',
       dados: resultadoUltimo?.pgdas ? [resultadoUltimo.pgdas] : [],
       total: resultadoUltimo?.pgdas?.diferenca_total || 0,
     },
@@ -1186,112 +1190,170 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     const temDados = config.dados.length > 0 || config.total > 0
 
     return (
-      <FunctionalPageTemplate
-        icon={config.icone}
-        title={config.titulo}
-        description={config.descricao}
-        badges={[regime, cliente?.razao_social].filter(Boolean)}
-        hasData={temDados}
-        emptyState={{
-          instrucao: config.instrucao,
-          documentos: config.documentos,
-          onAcaoPrincipal: () => onMudarTese && onMudarTese('importar'),
-          textoAcaoPrincipal: 'Importar arquivos',
-          onVoltar: () => onMudarTese && onMudarTese('importar'),
-        }}
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
-          <KpiCard value={config.dados.length} label="Itens identificados" tone="accent" />
-          <KpiCard value={fmtR(config.total)} label="Potencial de recuperação" tone="positive" />
-          <KpiCard value={ultimoDiagnostico ? new Date(ultimoDiagnostico.data_diagnostico).toLocaleDateString('pt-BR') : '—'} label="Diagnóstico de" />
+      <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
+
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${config.cor}, ${config.cor}dd)`, borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DINHEIRO RECUPERÁVEL</div>
+          <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{config.icone} {config.titulo}</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{regime}</span>
+            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{cliente?.razao_social}</span>
+          </div>
         </div>
 
-        <ValorDestaque label={`Potencial de recuperação — ${config.titulo}`} valor={fmtR(config.total)} />
+        {!temDados ? (
+          /* ── SEM DIAGNÓSTICO ── */
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #C8D0DC', padding: '48px 40px', textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
+            <div style={{ fontSize: 56, marginBottom: 20 }}>{config.icone}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#0B1F4D', marginBottom: 12 }}>{config.titulo}</div>
+            <div style={{ fontSize: 14, color: '#64748B', lineHeight: 1.8, marginBottom: 8 }}>{config.descricao}</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 28 }}>{config.instrucao}</div>
 
-        {teseAtiva === 'monofasicos' && resultadoUltimo && (
-          <DiagnosticoNarrativo resultado={resultadoUltimo} regime={regime} />
-        )}
-
-        {teseAtiva === 'icms_tema69' && resultadoUltimo?.exclusaoICMS?.length > 0 && (
-          <ContentCard title="Exclusão ICMS — por Competência">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-              <thead><tr style={{ background: DS.bg }}>
-                {['Competência', 'ICMS na Base', 'Crédito Estimado'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {resultadoUltimo.exclusaoICMS.map((e, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={tdStyle({ fontWeight: 600 })}>{e.competencia}</td>
-                    <td style={tdStyle()}>{fmtR(e.vICMS)}</td>
-                    <td style={tdStyle({ fontWeight: 700, color: DS.green })}>{fmtR(e.credito)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: DS.green }}>Total: {fmtR(config.total)}</div>
-          </ContentCard>
-        )}
-
-        {teseAtiva === 'icms_st' && resultadoUltimo?.icmsST?.length > 0 && (
-          <ContentCard title="Crédito ICMS-ST — por Item">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-              <thead><tr style={{ background: DS.bg }}>
-                {['Produto', 'ICMS-ST', 'Crédito'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {resultadoUltimo.icmsST.slice(0, 20).map((e, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={tdStyle()}>{e.produto || e.descricao || '—'}</td>
-                    <td style={tdStyle()}>{fmtR(e.vST)}</td>
-                    <td style={tdStyle({ fontWeight: 700, color: DS.green })}>{fmtR(e.credito)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: DS.green }}>Total: {fmtR(config.total)}</div>
-          </ContentCard>
-        )}
-
-        {teseAtiva === 'retencoes' && resultadoUltimo?.retencoes?.length > 0 && (
-          <ContentCard title="Retenções Indevidas — por NF-e">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-              <thead><tr style={{ background: DS.bg }}>
-                {['NF', 'Competência', 'Valor Retido'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {resultadoUltimo.retencoes.slice(0, 20).map((e, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={tdStyle({ fontWeight: 600 })}>{e.nNF}</td>
-                    <td style={tdStyle()}>{e.competencia}</td>
-                    <td style={tdStyle({ fontWeight: 700, color: DS.green })}>{fmtR(e.credito)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: DS.green }}>Total: {fmtR(config.total)}</div>
-          </ContentCard>
-        )}
-
-        {teseAtiva === 'pgdas' && resultadoUltimo?.pgdas && (
-          <ContentCard title="PGDAS-D — Análise de Segregação">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-              {[
-                { label: 'Receita Bruta Total', valor: fmtR(resultadoUltimo.pgdas.receita_bruta_total), tone: 'neutral' },
-                { label: 'Receita Monofásica', valor: fmtR(resultadoUltimo.pgdas.receita_monofasica), tone: 'positive' },
-                { label: 'DAS Recolhido', valor: fmtR(resultadoUltimo.pgdas.das_recolhido), tone: 'neutral' },
-                { label: 'DAS Correto Estimado', valor: fmtR(resultadoUltimo.pgdas.das_correto_estimado), tone: 'positive' },
-                { label: 'Diferença Recuperável', valor: fmtR(resultadoUltimo.pgdas.diferenca_total), tone: 'accent' },
-                { label: 'Segregou Corretamente', valor: resultadoUltimo.pgdas.segregou_monofasicos ? 'Sim' : 'Não', tone: resultadoUltimo.pgdas.segregou_monofasicos ? 'positive' : 'negative' },
-              ].map((k, i) => <KpiCard key={i} value={k.valor} label={k.label} tone={k.tone} />)}
+            <div style={{ background: '#f8fafc', borderRadius: 10, padding: '14px 20px', marginBottom: 28, textAlign: 'left' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Documentos necessários</div>
+              {config.documentos.map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1E293B', marginBottom: 4 }}>
+                  <span style={{ color: config.cor, fontWeight: 700 }}>•</span> {d}
+                </div>
+              ))}
             </div>
-          </ContentCard>
-        )}
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-          <BtnPrimario onClick={() => onMudarTese && onMudarTese('importar')}>Novo Diagnóstico</BtnPrimario>
-          <BtnSecundario onClick={() => ultimoDiagnostico && abrirDiagnosticoSalvo(ultimoDiagnostico)}>Ver Diagnóstico Completo</BtnSecundario>
-        </div>
-      </FunctionalPageTemplate>
+            <button onClick={() => onMudarTese && onMudarTese('importar')}
+              style={{ padding: '14px 32px', background: config.cor, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%', marginBottom: 12 }}>
+              📂 Importar arquivos XML
+            </button>
+            <button onClick={() => onMudarTese && onMudarTese('importar')}
+              style={{ padding: '10px 24px', background: 'none', color: '#64748B', border: '1.5px solid #C8D0DC', borderRadius: 10, fontSize: 13, cursor: 'pointer', width: '100%' }}>
+              ← Voltar para Importar
+            </button>
+          </div>
+        ) : (
+          /* ── COM DIAGNÓSTICO ── */
+          <div>
+            {/* KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+              {[
+                { label: 'Itens identificados', valor: config.dados.length, cor: config.cor },
+                { label: 'Potencial de recuperação', valor: fmtR(config.total), cor: '#16a34a' },
+                { label: 'Diagnóstico de', valor: ultimoDiagnostico ? new Date(ultimoDiagnostico.data_diagnostico).toLocaleDateString('pt-BR') : '—', cor: '#0891b2' },
+              ].map((k, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #C8D0DC', textAlign: 'center' }}>
+                  <div style={{ fontSize: i === 1 ? 16 : 22, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Potencial */}
+            <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 14, padding: '20px 24px', marginBottom: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#64748B', marginBottom: 4, fontWeight: 700, letterSpacing: 1 }}>POTENCIAL DE RECUPERAÇÃO — {config.titulo.toUpperCase()}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: '#16a34a' }}>{fmtR(config.total)}</div>
+            </div>
+
+            {/* Dados da tese */}
+            {teseAtiva === 'monofasicos' && resultadoUltimo && (
+              <DiagnosticoNarrativo resultado={resultadoUltimo} regime={regime} />
+            )}
+
+            {teseAtiva === 'icms_tema69' && resultadoUltimo?.exclusaoICMS?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0891b2', marginBottom: 12 }}>⚖️ Exclusão ICMS — por Competência</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['Competência', 'ICMS na Base', 'Crédito Estimado'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.exclusaoICMS.map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle({ fontWeight: 600 })}>{e.competencia}</td>
+                        <td style={tdStyle()}>{fmtR(e.vICMS)}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'icms_st' && resultadoUltimo?.icmsST?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#ea580c', marginBottom: 12 }}>🔄 Crédito ICMS-ST — por Item</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['Produto', 'ICMS-ST', 'Crédito'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.icmsST.slice(0, 20).map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle()}>{e.produto || e.descricao || '—'}</td>
+                        <td style={tdStyle()}>{fmtR(e.vST)}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'retencoes' && resultadoUltimo?.retencoes?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 12 }}>🚫 Retenções Indevidas — por NF-e</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['NF', 'Competência', 'Valor Retido'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.retencoes.slice(0, 20).map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle({ fontWeight: 600 })}>{e.nNF}</td>
+                        <td style={tdStyle()}>{e.competencia}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'pgdas' && resultadoUltimo?.pgdas && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#ea580c', marginBottom: 12 }}>📋 PGDAS-D — Análise de Segregação</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                  {[
+                    { label: 'Receita Bruta Total', valor: fmtR(resultadoUltimo.pgdas.receita_bruta_total), cor: '#1E293B' },
+                    { label: 'Receita Monofásica', valor: fmtR(resultadoUltimo.pgdas.receita_monofasica), cor: '#16a34a' },
+                    { label: 'DAS Recolhido', valor: fmtR(resultadoUltimo.pgdas.das_recolhido), cor: '#1E293B' },
+                    { label: 'DAS Correto Estimado', valor: fmtR(resultadoUltimo.pgdas.das_correto_estimado), cor: '#16a34a' },
+                    { label: 'Diferença Recuperável', valor: fmtR(resultadoUltimo.pgdas.diferenca_total), cor: '#ea580c' },
+                    { label: 'Segregou Corretamente', valor: resultadoUltimo.pgdas.segregou_monofasicos ? 'Sim ✅' : 'Não ❌', cor: resultadoUltimo.pgdas.segregou_monofasicos ? '#16a34a' : '#dc2626' },
+                  ].map((k, i) => (
+                    <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', border: '1px solid #C8D0DC' }}>
+                      <div style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>{k.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Botões */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              <button onClick={() => onMudarTese && onMudarTese('importar')}
+                style={{ flex: 1, padding: 12, background: config.cor, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                📂 Novo Diagnóstico
+              </button>
+              <button onClick={() => ultimoDiagnostico && abrirDiagnosticoSalvo(ultimoDiagnostico)}
+                style={{ flex: 1, padding: 12, background: '#fff', color: '#0B1F4D', border: '1.5px solid #0B1F4D', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                📁 Ver Diagnóstico Completo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
   
