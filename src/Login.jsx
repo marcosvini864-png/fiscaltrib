@@ -418,12 +418,7 @@ export default function Login({ onLogin, onCadastro }) {
 
             {/* Contatos */}
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-              <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10, textAlign: 'center' }}>Dúvidas? Fale conosco:</p>
               <div className="ft-contatos">
-                <a href="https://wa.me/5511999579822" target="_blank" rel="noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16A34A', color: '#fff', padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
-                  📲 (11) 99957-9822
-                </a>
                 <a href="mailto:contato@fiscaltrib.com.br"
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EFF6FF', color: '#2563EB', padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
                   ✉️ contato@fiscaltrib.com.br
