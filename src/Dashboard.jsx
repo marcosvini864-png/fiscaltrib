@@ -23,6 +23,7 @@ import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
 import AuditorSPED from './pages/AuditorSPED'
+import DadosComplementares from './pages/DadosComplementares'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -859,6 +860,14 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 onMudarTese={setTeseDiagnostico}
               />
             )}
+			
+			{module==='dados_complementares' && (
+  <DadosComplementares
+    clienteId={activeId}
+    cliente={active}
+    onDadosSalvos={(dados) => console.log('Dados complementares salvos:', dados)}
+  />
+)}
 
             {module==='analise' && activeTab===0 && <>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
