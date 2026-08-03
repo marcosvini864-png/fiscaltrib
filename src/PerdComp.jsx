@@ -319,43 +319,37 @@ export default function PerdComp() {
         </div>
       </div>
 
-      {/* ABA DASHBOARD */}
-      {aba === 'dashboard' && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 12 : 20, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
             {[
-              { label: 'Em andamento',     valor: emAndamento,                                              cor: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
-              { label: 'Com exigência',    valor: comExigencia,                                             cor: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
-              { label: 'Homologados',      valor: perdcomps.filter(p => p.status === 'Homologado').length,  cor: '#16a34a', bg: '#f0fdf4', border: '#86efac' },
-              { label: 'Recuperados',      valor: perdcomps.filter(p => p.status === 'Recuperado').length,  cor: '#0d9488', bg: '#f0fdfa', border: '#99f6e4' },
-              { label: 'Total processos',  valor: perdcomps.length,                                         cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-              { label: 'Exig. pendentes',  valor: exigPendentes.length,                                     cor: '#f97316', bg: '#fff7ed', border: '#fed7aa' },
+              { label: 'Em andamento',     valor: emAndamento,                                              cor: '#0F172A' },
+              { label: 'Com exigência',    valor: comExigencia,                                             cor: '#DC2626' },
+              { label: 'Homologados',      valor: perdcomps.filter(p => p.status === 'Homologado').length,  cor: '#16A34A' },
+              { label: 'Recuperados',      valor: perdcomps.filter(p => p.status === 'Recuperado').length,  cor: '#16A34A' },
+              { label: 'Total processos',  valor: perdcomps.length,                                         cor: '#2563EB' },
+              { label: 'Exig. pendentes',  valor: exigPendentes.length,                                     cor: '#DC2626' },
             ].map((c, i) => (
-              <div key={i} style={{ background: c.bg, border: `2px solid ${c.border}`, borderRadius: 14, padding: isMobile ? '16px' : '24px', minWidth: 0, boxSizing: 'border-box' }}>
-                <div style={{ fontSize: isMobile ? 28 : 40, fontWeight: 900, color: c.cor, marginBottom: 8 }}>{c.valor}</div>
-                <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{c.label}</div>
+              <div key={i} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: isMobile ? '14px' : '16px 18px', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
+                <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>{c.label}</div>
               </div>
             ))}
           </div>
 
           {/* Pipeline visual */}
-          <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20, boxSizing: 'border-box' }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#1e3a5f', marginBottom: 20 }}>Pipeline de Recuperação</div>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', padding: '20px', marginBottom: 20, boxSizing: 'border-box' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 16 }}>Pipeline de Recuperação</div>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
               {STATUS_PIPELINE.map(st => {
                 const qtd = perdcomps.filter(p => p.status === st.id).length
                 return (
-                  <div key={st.id} style={{ flex: 1, minWidth: 120, background: st.bg, border: `2px solid ${st.border}`, borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, marginBottom: 6 }}>{st.emoji}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: st.cor, marginBottom: 8, lineHeight: 1.3 }}>{st.id}</div>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: st.cor }}>{qtd}</div>
+                  <div key={st.id} style={{ flex: 1, minWidth: 120, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '14px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 8, lineHeight: 1.3 }}>{st.id}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: qtd > 0 ? '#2563EB' : '#94A3B8' }}>{qtd}</div>
                   </div>
                 )
               })}
             </div>
           </div>
-        </div>
-      )}
 
       {/* ABA PROCESSOS */}
       {aba === 'processos' && (
