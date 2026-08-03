@@ -553,16 +553,17 @@ export default function AuditorSPED({ cliente, onVoltar }) {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: C.text }}>
 
-      {/* Cabeçalho simples — mesmo padrão do resto do produto */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>Auditor de SPED</div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+      {/* Banner navy — mesmo padrão usado no Diagnóstico Tributário */}
+      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff' }}>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — AUDITORIA FISCAL</div>
+        <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4, color: '#fff' }}>🔎 Auditor de SPED</div>
+        <div style={{ fontSize: 13, color: '#93C5FD', marginBottom: cliente ? 12 : 0 }}>
           Pente fino antes da entrega à Receita Federal. Importe o arquivo SPED e identifique erros, inconsistências e cálculos incorretos.
         </div>
         {cliente && (
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{cliente.razao_social}</span>
-            <span style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.muted, padding: '3px 10px', borderRadius: 20, fontSize: 11 }}>{cliente.regime}</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{cliente.razao_social}</span>
+            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{cliente.regime}</span>
           </div>
         )}
       </div>
