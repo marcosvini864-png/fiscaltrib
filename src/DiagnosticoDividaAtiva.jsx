@@ -853,27 +853,27 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
-      <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
+      <div style={{background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)',borderRadius:16,padding:'24px 28px',color:'#fff',marginBottom:20}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
           <div>
-            <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB — DIAGNÓSTICO</div>
-            <h1 style={{fontSize:24,fontWeight:900,marginBottom:8,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</h1>
-            <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
+            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DIAGNÓSTICO</div>
+            <div style={{fontSize:22,fontWeight:900,marginBottom:4,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</div>
+            <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
           </div>
           <div style={{display:'flex',gap:10}}>
-            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
               + Nova análise
             </button>
-            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-              📂 Análises salvas
+            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              Análises salvas
             </button>
 			<button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
-            style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-           📋 CDAs Salvas
+            style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+           CDAs Salvas
            </button>
           </div>
         </div>
-        <div style={{marginTop:16}}>
+        <div style={{marginTop:14}}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
         </div>
       </div>

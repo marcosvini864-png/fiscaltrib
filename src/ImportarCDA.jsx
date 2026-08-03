@@ -606,13 +606,13 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
   return (
     <div style={{maxWidth:900,margin:'0 auto'}}>
 
-      <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:14,padding:'24px 28px',color:'#fff',marginBottom:20}}>
-        <div style={{fontSize:10,color:'#94a3b8',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
-        <h2 style={{fontSize:20,fontWeight:900,margin:'0 0 6px',color:'#fff'}}>📄 Importar CDA via PDF</h2>
-        <p style={{fontSize:13,color:'#cbd5e1',margin:0}}>Faça upload do PDF completo — CDA + Execução Fiscal + Discriminativo de Crédito para diagnóstico completo</p>
+      <div style={{background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)',borderRadius:16,padding:'24px 28px',color:'#fff',marginBottom:20}}>
+        <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4,color:'#fff'}}>📄 Importar CDA via PDF</div>
+        <div style={{fontSize:13,color:'#93c5fd'}}>Faça upload do PDF completo — CDA + Execução Fiscal + Discriminativo de Crédito para diagnóstico completo</div>
         {clienteEfetivo && (
-          <div style={{marginTop:12,background:'rgba(255,255,255,0.1)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <span>👤 <strong>{clienteEfetivo.razao_social}</strong>{clienteEfetivo.cnpj&&<span style={{marginLeft:10,color:'#94a3b8'}}>{clienteEfetivo.cnpj}</span>}</span>
+          <div style={{marginTop:12,background:'rgba(255,255,255,0.12)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span><strong>{clienteEfetivo.razao_social}</strong>{clienteEfetivo.cnpj&&<span style={{marginLeft:10,color:'#93c5fd'}}>{clienteEfetivo.cnpj}</span>}</span>
             {!active && <button onClick={()=>setClienteEfetivo(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:4,padding:'2px 8px',color:'#fff',fontSize:11,cursor:'pointer'}}>Trocar</button>}
           </div>
         )}
