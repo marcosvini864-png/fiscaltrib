@@ -9,18 +9,18 @@ const cssResponsivo = `
   .ft-page {
     height: 100vh;
     overflow: hidden;
-    background: #F1F3F6;
+    background: #FAFBFC;
     display: flex;
     flex-direction: column;
     font-family: 'Inter', sans-serif;
   }
   .ft-header {
     background: #fff;
-    border-bottom: 1px solid #E2E8F0;
+    border-bottom: 1px solid #EEF1F4;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 16px;
+    padding: 14px 16px;
     flex-shrink: 0;
   }
   .ft-body {
@@ -28,9 +28,9 @@ const cssResponsivo = `
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 56px;
+    gap: 72px;
     padding: 20px 24px;
-    max-width: 1200px;
+    max-width: 1180px;
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
@@ -47,75 +47,76 @@ const cssResponsivo = `
   .ft-login-card {
     background: #fff;
     border-radius: 16px;
-    padding: 24px 32px;
+    padding: 28px 32px;
     width: 100%;
     max-width: 380px;
-    box-shadow: 0 8px 30px rgba(15,23,42,0.08);
+    box-shadow: 0 12px 40px rgba(15,23,42,0.06);
     box-sizing: border-box;
-    border: 1px solid #E2E8F0;
+    border: 1px solid #EEF1F4;
     max-height: calc(100vh - 140px);
     overflow-y: auto;
   }
   .ft-login-input {
     width: 100%;
-    padding: 9px 12px;
-    border: 1px solid #cbd5e1;
+    padding: 10px 12px;
+    border: 1px solid #E2E8F0;
     border-radius: 8px;
     box-sizing: border-box;
     font-size: 14px;
     color: #1e293b;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s;
   }
   .ft-login-input:focus {
     border-color: #2563EB;
   }
   .ft-btn-principal {
     width: 100%;
-    padding: 10px;
+    padding: 11px;
     background: #2563EB;
     color: #fff;
     border: none;
     border-radius: 8px;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.15s;
   }
   .ft-btn-principal:hover:not(:disabled) {
     background: #1D4ED8;
   }
   .ft-btn-outline {
     width: 100%;
-    padding: 9px;
+    padding: 10px;
     background: transparent;
-    color: #2563EB;
-    border: 2px solid #2563EB;
+    color: #334155;
+    border: 1px solid #E2E8F0;
     border-radius: 8px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.15s, border-color 0.15s;
   }
   .ft-btn-outline:hover {
-    background: #2563EB;
-    color: #fff;
+    background: #F8FAFC;
+    border-color: #CBD5E1;
   }
-  .ft-contatos {
+  .ft-recurso-item {
     display: flex;
-    justify-content: center;
+    align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    padding: 9px 0;
   }
-  .ft-tese-chip {
-    background: #fff;
-    border: 1px solid #E2E8F0;
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #334155;
-    white-space: nowrap;
+  .ft-recurso-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #EFF4FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
   }
   @media (max-width: 900px) {
     .ft-page {
@@ -125,15 +126,15 @@ const cssResponsivo = `
     }
     .ft-body {
       flex-direction: column;
-      gap: 32px;
-      padding: 24px 20px;
+      gap: 36px;
+      padding: 28px 20px;
       overflow: visible;
     }
     .ft-left {
       max-width: 100%;
       text-align: center;
     }
-    .ft-left .ft-tese-chips {
+    .ft-left .ft-recurso-item {
       justify-content: center;
     }
     .ft-login-card {
@@ -143,27 +144,19 @@ const cssResponsivo = `
   }
   @media (max-width: 767px) {
     .ft-login-card {
-      padding: 20px 18px;
+      padding: 22px 18px;
       border-radius: 12px;
-    }
-    .ft-contatos {
-      flex-direction: column;
-      align-items: center;
-    }
-    .ft-contatos a {
-      width: 100%;
-      justify-content: center;
     }
   }
 `
 
-const TESES_DESTAQUE = [
-  'Exclusão do ICMS (Tema 69)',
-  'Monofásicos PIS/COFINS',
-  'ICMS-ST indevido',
-  'Fator R — Simples Nacional',
-  'JCP e Prejuízo Fiscal',
-  'Prescrição e Decadência',
+const RECURSOS = [
+  { icon: '🔍', label: 'Diagnóstico Tributário Inteligente' },
+  { icon: '💰', label: 'Recuperação Tributária' },
+  { icon: '⚠️', label: 'Inteligência da Dívida Ativa' },
+  { icon: '📡', label: 'Radar Tributário 24h' },
+  { icon: '🧮', label: 'Simuladores Tributários' },
+  { icon: '📊', label: 'Relatórios Executivos' },
 ]
 
 export default function Login({ onLogin, onCadastro }) {
@@ -217,24 +210,24 @@ export default function Login({ onLogin, onCadastro }) {
     return (
       <div className="ft-page">
         <div className="ft-header">
-          <img src="/Logo6.png" alt="e-FiscalTribe" style={{ height: 52, borderRadius: 8 }} />
+          <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 48, borderRadius: 8 }} />
         </div>
 
         <div className="ft-body" style={{ justifyContent: 'center' }}>
           <div className="ft-login-card">
 
-            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
-              🔑 Recuperar senha
+            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
+              Recuperar senha
             </h2>
-            <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 16 }}>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginBottom: 20 }}>
               Digite seu e-mail e enviaremos um link para criar uma nova senha.
             </p>
 
             {msgRec && (
               <div style={{
-                background: tipo === 'ok' ? '#f0fdf4' : '#fff1f2',
-                border: `1px solid ${tipo === 'ok' ? '#86efac' : '#fecdd3'}`,
-                borderRadius: 8, padding: '10px 12px', marginBottom: 12,
+                background: tipo === 'ok' ? '#F0FDF4' : '#FEF2F2',
+                border: `1px solid ${tipo === 'ok' ? '#BBF7D0' : '#FECACA'}`,
+                borderRadius: 8, padding: '10px 12px', marginBottom: 14,
                 fontSize: 13, color: tipo === 'ok' ? '#16A34A' : '#DC2626', fontWeight: 500
               }}>
                 {tipo === 'ok' ? '✅ ' : '⚠️ '}{msg}
@@ -259,7 +252,7 @@ export default function Login({ onLogin, onCadastro }) {
                 onClick={handleRecuperar}
                 disabled={loadRec}
               >
-                {loadRec ? 'Enviando...' : '📧 Enviar link de recuperação'}
+                {loadRec ? 'Enviando...' : 'Enviar link de recuperação'}
               </button>
             )}
 
@@ -281,36 +274,26 @@ export default function Login({ onLogin, onCadastro }) {
   return (
     <div className="ft-page">
       <div className="ft-header">
-        <img src="/Logo6.png" alt="e-FiscalTribe" style={{ height: 52, borderRadius: 8 }} />
+        <img src="/Logo6.png" alt="FiscalTribe" style={{ height: 48, borderRadius: 8 }} />
       </div>
 
       <div className="ft-body">
 
-        {/* Coluna esquerda — apresentação */}
+        {/* Coluna esquerda — proposta de valor + recursos */}
         <div className="ft-left">
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', marginBottom: 8, lineHeight: 1.2 }}>
-            Inteligência Tributária Ofensiva
+          <h1 style={{ fontSize: 30, fontWeight: 700, color: '#0F172A', marginBottom: 12, lineHeight: 1.25, letterSpacing: '-0.5px' }}>
+            Descubra créditos tributários que sua empresa está deixando de recuperar
           </h1>
-          <p style={{ fontSize: 14, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
-            O Motor de Inteligência Tributária do e-FiscalTribe identifica créditos e oportunidades de recuperação automaticamente — com fundamentação jurídica completa.
+          <p style={{ fontSize: 15, color: '#64748B', marginBottom: 32, lineHeight: 1.6, fontWeight: 400 }}>
+            O FiscalTribe transforma seus documentos fiscais em oportunidades reais de recuperação — com inteligência tributária que encontra o que sua empresa pagou a mais.
           </p>
 
-          <div style={{
-            background: '#fff', borderRadius: 16, border: '1px solid #E2E8F0',
-            padding: '18px 22px', marginBottom: 18, boxShadow: '0 4px 16px rgba(15,23,42,0.05)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 5 }}>
-              <span style={{ fontSize: 36, fontWeight: 900, color: '#2563EB', lineHeight: 1 }}>9+</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>módulos do Motor de Inteligência Tributária</span>
-            </div>
-            <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>
-              Cada módulo analisa uma tese tributária diferente, cruzando seus documentos fiscais com a legislação vigente para encontrar o que sua empresa pagou a mais.
-            </p>
-          </div>
-
-          <div className="ft-tese-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {TESES_DESTAQUE.map((t, i) => (
-              <span key={i} className="ft-tese-chip">{t}</span>
+          <div>
+            {RECURSOS.map((r, i) => (
+              <div key={i} className="ft-recurso-item">
+                <div className="ft-recurso-icon">{r.icon}</div>
+                <span style={{ fontSize: 14, fontWeight: 500, color: '#334155' }}>{r.label}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -319,22 +302,22 @@ export default function Login({ onLogin, onCadastro }) {
         <div className="ft-right">
           <div className="ft-login-card">
 
-            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 19, fontWeight: 600, marginBottom: 4 }}>
               Acesse sua conta
             </h2>
-            <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, marginBottom: 18 }}>
+            <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, marginBottom: 22 }}>
               Digite seus dados de acesso
             </p>
 
             {/* Erro */}
             {erro && (
-              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13, color: '#DC2626' }}>
-                ⚠️ {erro}
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 13, color: '#DC2626' }}>
+                {erro}
               </div>
             )}
 
             {/* E-mail */}
-            <div style={{ marginBottom: 10 }}>
+            <div style={{ marginBottom: 12 }}>
               <label style={st.label}>E-mail</label>
               <input
                 className="ft-login-input"
@@ -348,7 +331,7 @@ export default function Login({ onLogin, onCadastro }) {
             </div>
 
             {/* Senha */}
-            <div style={{ marginBottom: 4 }}>
+            <div style={{ marginBottom: 6 }}>
               <label style={st.label}>Senha</label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -364,7 +347,7 @@ export default function Login({ onLogin, onCadastro }) {
                 <button
                   type="button"
                   onClick={() => setMostrarSenha(v => !v)}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 0 }}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, padding: 0, opacity: 0.6 }}
                 >
                   {mostrarSenha ? '🙈' : '👁️'}
                 </button>
@@ -372,10 +355,10 @@ export default function Login({ onLogin, onCadastro }) {
             </div>
 
             {/* Esqueci */}
-            <div style={{ textAlign: 'right', marginBottom: 16 }}>
+            <div style={{ textAlign: 'right', marginBottom: 20 }}>
               <button
                 onClick={() => { setTela('esqueci'); setEmailRec(email) }}
-                style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 12, cursor: 'pointer', padding: 0 }}
               >
                 Esqueci minha senha
               </button>
@@ -384,46 +367,38 @@ export default function Login({ onLogin, onCadastro }) {
             {/* Botão entrar */}
             <button
               className="ft-btn-principal"
-              style={{ marginBottom: 10, opacity: load ? 0.7 : 1 }}
+              style={{ marginBottom: 12, opacity: load ? 0.7 : 1 }}
               onClick={handleLogin}
               disabled={load}
             >
-              {load ? 'Entrando...' : 'Entrar →'}
+              {load ? 'Entrando...' : 'Entrar'}
             </button>
 
             {/* Criar conta */}
             <button
               className="ft-btn-outline"
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 18 }}
               onClick={onCadastro}
             >
               Criar nova conta
             </button>
 
-            {/* Retomar pagamento */}
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14, marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8, textAlign: 'center' }}>
-                Já se cadastrou mas não conseguiu efetuar o pagamento?
-              </p>
+            {/* Retomar pagamento — discreto */}
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
               <button
-                style={{ width: '100%', padding: 10, background: '#F0B429', color: '#0f172a', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                 onClick={handleLogin}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
               >
-                👉 Retomar meu pagamento
+                Já se cadastrou mas não concluiu o pagamento? Clique aqui após entrar
               </button>
-              <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, textAlign: 'center' }}>
-                Digite seu e-mail e senha acima e clique neste botão.
-              </p>
             </div>
 
             {/* Contatos */}
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-              <div className="ft-contatos">
-                <a href="mailto:contato@fiscaltrib.com.br"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EFF6FF', color: '#2563EB', padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
-                  ✉️ contato@fiscaltrib.com.br
-                </a>
-              </div>
+            <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 14, textAlign: 'center' }}>
+              <a href="mailto:contato@fiscaltrib.com.br"
+                style={{ fontSize: 12, color: '#64748B', textDecoration: 'none' }}>
+                contato@fiscaltrib.com.br
+              </a>
             </div>
 
           </div>
@@ -441,13 +416,13 @@ const st = {
     display: 'block',
     color: '#475569',
     fontSize: 13,
-    fontWeight: 600,
-    marginBottom: 2,
+    fontWeight: 500,
+    marginBottom: 4,
   },
   rodape: {
-    color: '#94A3B8',
+    color: '#CBD5E1',
     fontSize: 11,
-    padding: '10px 0 14px',
+    padding: '8px 0 12px',
     textAlign: 'center',
     flexShrink: 0,
   },
