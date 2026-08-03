@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { parseXMLNFe, agruparPorCompetencia } from '../utils/parseXMLNFe'
 import MotorInteligenciaTributaria from '../motor/MotorInteligenciaTributaria'
-import FunctionalPageTemplate, { DS, PageHeader, KpiCard, ValorDestaque, ContentCard, ListaDocumentos, BtnPrimario, BtnSecundario } from './FunctionalPageTemplate'
+import FunctionalPageTemplate, { DS, PageHeader, KpiCard, ValorDestaque, ContentCard, ListaDocumentos, BtnPrimario, BtnSecundario } from '../FunctionalPageTemplate'
 
 const NCM_MONOFASICOS = {
   '27101259': 'Gasolina', '27101921': 'Óleo Diesel', '27111290': 'GLP',
