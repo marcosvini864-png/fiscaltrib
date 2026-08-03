@@ -8,9 +8,10 @@
  * — Identificação de inconsistências e erros de cálculo
  * — Relatório executivo com fundamentação legal
  * — Sugestão de correção por item
+ * — Geração de arquivo SPED corrigido para erros de cálculo (com revisão)
  *
- * Versão: 1.0
- * Data: 2026-07-30
+ * Versão: 1.1
+ * Data: 2026-08-03
  */
 
 import { useState, useRef } from 'react'
@@ -154,7 +155,7 @@ function analisarEFDContrib(registros) {
       if (vEntBC > 0 && vEntAl > 0) {
         const credEsperado = vEntBC * vEntAl / 100
         if (Math.abs(credEsperado - vCred) > 0.10) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de PIS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_PIS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.637/2002 art. 3º — apuração do crédito de PIS' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de PIS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_PIS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.637/2002 art. 3º — apuração do crédito de PIS', campoIndex: 5, valorAtual: vCred, valorCorrigido: credEsperado, linhaOriginal: r.linha })
         }
       }
     }
@@ -168,7 +169,7 @@ function analisarEFDContrib(registros) {
       if (vEntBC > 0 && vEntAl > 0) {
         const credEsperado = vEntBC * vEntAl / 100
         if (Math.abs(credEsperado - vCred) > 0.10) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de COFINS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_COFINS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.833/2003 art. 3º — apuração do crédito de COFINS' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Crédito de COFINS calculado (${fmtVal(vCred)}) diverge do esperado (${fmtVal(credEsperado)}) — diferença de ${fmtVal(Math.abs(credEsperado - vCred))}`, campo: 'Campo 6 (VL_CRED_COFINS_TRIB_MI)', correcao: `Recalcular: Base (${fmtVal(vEntBC)}) × Alíquota (${vEntAl}%) = ${fmtVal(credEsperado)}`, fundamentacao: 'Lei 10.833/2003 art. 3º — apuração do crédito de COFINS', campoIndex: 5, valorAtual: vCred, valorCorrigido: credEsperado, linhaOriginal: r.linha })
         }
       }
     }
@@ -210,7 +211,7 @@ function analisarEFDICMS(registros) {
       if (vBC > 0 && aliq > 0) {
         const icmsEsperado = vBC * aliq / 100
         if (Math.abs(icmsEsperado - vICMS) > 0.10) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS calculado (${fmtVal(vICMS)}) diverge do esperado (${fmtVal(icmsEsperado)})`, campo: 'Campo 14 (VL_ICMS)', correcao: `Recalcular: BC (${fmtVal(vBC)}) × Alíquota (${aliq}%) = ${fmtVal(icmsEsperado)}`, fundamentacao: 'RICMS estadual — regras de cálculo do ICMS próprio' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS calculado (${fmtVal(vICMS)}) diverge do esperado (${fmtVal(icmsEsperado)})`, campo: 'Campo 14 (VL_ICMS)', correcao: `Recalcular: BC (${fmtVal(vBC)}) × Alíquota (${aliq}%) = ${fmtVal(icmsEsperado)}`, fundamentacao: 'RICMS estadual — regras de cálculo do ICMS próprio', campoIndex: 13, valorAtual: vICMS, valorCorrigido: icmsEsperado, linhaOriginal: r.linha })
         }
       }
 
@@ -235,7 +236,7 @@ function analisarEFDICMS(registros) {
       if (vBC > 0 && aliq > 0) {
         const esperado = vBC * aliq / 100
         if (Math.abs(esperado - vICMS) > 0.05) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS do item divergente: calculado ${fmtVal(vICMS)}, esperado ${fmtVal(esperado)}`, campo: 'Campo 10 (VL_ICMS)', correcao: `BC (${fmtVal(vBC)}) × ${aliq}% = ${fmtVal(esperado)}`, fundamentacao: 'RICMS estadual — cálculo do ICMS por item' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS do item divergente: calculado ${fmtVal(vICMS)}, esperado ${fmtVal(esperado)}`, campo: 'Campo 10 (VL_ICMS)', correcao: `BC (${fmtVal(vBC)}) × ${aliq}% = ${fmtVal(esperado)}`, fundamentacao: 'RICMS estadual — cálculo do ICMS por item', campoIndex: 9, valorAtual: vICMS, valorCorrigido: esperado, linhaOriginal: r.linha })
         }
       }
 
@@ -247,7 +248,7 @@ function analisarEFDICMS(registros) {
       if (vBCST > 0 && aliqST > 0) {
         const stEsperado = vBCST * aliqST / 100
         if (Math.abs(stEsperado - vST) > 0.05) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS-ST divergente: calculado ${fmtVal(vST)}, esperado ${fmtVal(stEsperado)}`, campo: 'Campo 14 (VL_ICMS_ST)', correcao: `BC-ST (${fmtVal(vBCST)}) × ${aliqST}% = ${fmtVal(stEsperado)}`, fundamentacao: 'Convênio ICMS 52/2017 — ICMS-ST' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `ICMS-ST divergente: calculado ${fmtVal(vST)}, esperado ${fmtVal(stEsperado)}`, campo: 'Campo 14 (VL_ICMS_ST)', correcao: `BC-ST (${fmtVal(vBCST)}) × ${aliqST}% = ${fmtVal(stEsperado)}`, fundamentacao: 'Convênio ICMS 52/2017 — ICMS-ST', campoIndex: 13, valorAtual: vST, valorCorrigido: stEsperado, linhaOriginal: r.linha })
         }
       }
     }
@@ -260,7 +261,7 @@ function analisarEFDICMS(registros) {
       const saldoEsp= vTotDeb - vTotCred
 
       if (Math.abs(saldoEsp - vSaldo) > 0.10) {
-        erros.push({ linha: r.numero, registro: reg, categoria: 'TOTAL', descricao: `Saldo do ICMS (${fmtVal(vSaldo)}) diverge do calculado (${fmtVal(saldoEsp)}) — diferença de ${fmtVal(Math.abs(saldoEsp - vSaldo))}`, campo: 'Campo 12 (VL_SLD_APURADO)', correcao: `Débitos (${fmtVal(vTotDeb)}) − Créditos (${fmtVal(vTotCred)}) = ${fmtVal(saldoEsp)}`, fundamentacao: 'Guia Prático EFD-ICMS/IPI — Registro E110' })
+        erros.push({ linha: r.numero, registro: reg, categoria: 'TOTAL', descricao: `Saldo do ICMS (${fmtVal(vSaldo)}) diverge do calculado (${fmtVal(saldoEsp)}) — diferença de ${fmtVal(Math.abs(saldoEsp - vSaldo))}`, campo: 'Campo 12 (VL_SLD_APURADO)', correcao: `Débitos (${fmtVal(vTotDeb)}) − Créditos (${fmtVal(vTotCred)}) = ${fmtVal(saldoEsp)}`, fundamentacao: 'Guia Prático EFD-ICMS/IPI — Registro E110', campoIndex: 11, valorAtual: vSaldo, valorCorrigido: saldoEsp, linhaOriginal: r.linha })
       }
     }
   })
@@ -351,7 +352,7 @@ function analisarECF(registros) {
       const esperado  = vLucroLiq + vAdicoes - vExclusoes
 
       if (Math.abs(esperado - vLucroReal) > 1) {
-        erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Lucro Real calculado (${fmtVal(vLucroReal)}) diverge do esperado (${fmtVal(esperado)}) — diferença de ${fmtVal(Math.abs(esperado - vLucroReal))}`, campo: 'Campo 6 (VL_LUC_REAL)', correcao: `Lucro Líquido (${fmtVal(vLucroLiq)}) + Adições (${fmtVal(vAdicoes)}) − Exclusões (${fmtVal(vExclusoes)}) = ${fmtVal(esperado)}`, fundamentacao: 'RIR/2018 art. 258 — apuração do Lucro Real' })
+        erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `Lucro Real calculado (${fmtVal(vLucroReal)}) diverge do esperado (${fmtVal(esperado)}) — diferença de ${fmtVal(Math.abs(esperado - vLucroReal))}`, campo: 'Campo 6 (VL_LUC_REAL)', correcao: `Lucro Líquido (${fmtVal(vLucroLiq)}) + Adições (${fmtVal(vAdicoes)}) − Exclusões (${fmtVal(vExclusoes)}) = ${fmtVal(esperado)}`, fundamentacao: 'RIR/2018 art. 258 — apuração do Lucro Real', campoIndex: 5, valorAtual: vLucroReal, valorCorrigido: esperado, linhaOriginal: r.linha })
       }
     }
 
@@ -363,7 +364,7 @@ function analisarECF(registros) {
       if (vBase > 0) {
         const irpjEsp = vBase * 0.15 + Math.max(0, (vBase - 240000) * 0.10)
         if (Math.abs(irpjEsp - vIRPJ) > 1) {
-          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `IRPJ calculado (${fmtVal(vIRPJ)}) diverge do esperado (${fmtVal(irpjEsp)}) considerando alíquota 15% + adicional 10%`, campo: 'Campo 3 (VL_IRPJ)', correcao: `Base (${fmtVal(vBase)}) × 15% + Adicional sobre excedente de R$ 240k = ${fmtVal(irpjEsp)}`, fundamentacao: 'RIR/2018 art. 622 — alíquota do IRPJ' })
+          erros.push({ linha: r.numero, registro: reg, categoria: 'CALCULO', descricao: `IRPJ calculado (${fmtVal(vIRPJ)}) diverge do esperado (${fmtVal(irpjEsp)}) considerando alíquota 15% + adicional 10%`, campo: 'Campo 3 (VL_IRPJ)', correcao: `Base (${fmtVal(vBase)}) × 15% + Adicional sobre excedente de R$ 240k = ${fmtVal(irpjEsp)}`, fundamentacao: 'RIR/2018 art. 622 — alíquota do IRPJ', campoIndex: 2, valorAtual: vIRPJ, valorCorrigido: irpjEsp, linhaOriginal: r.linha })
         }
       }
     }
@@ -461,6 +462,30 @@ function gerarRelatorio(resultado, tipo, nomeArquivo, cliente) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// GERAÇÃO DE ARQUIVO SPED CORRIGIDO
+// ─────────────────────────────────────────────────────────────
+
+function gerarSPEDCorrigido(conteudoOriginal, itensAprovados) {
+  const linhas = conteudoOriginal.split('\n')
+
+  const linhasCorrigidas = linhas.map((linhaTexto) => {
+    const itemDaLinha = itensAprovados.find(item => item.linhaOriginal === linhaTexto)
+    if (!itemDaLinha) return linhaTexto
+
+    const partes = linhaTexto.split('|')
+    // partes[0] é sempre vazio (linha começa com |), partes[1] é o registro, campos começam em partes[2]
+    const indiceReal = itemDaLinha.campoIndex + 1 // +1 porque partes[0] é vazio
+    if (partes[indiceReal] !== undefined) {
+      const valorFormatado = itemDaLinha.valorCorrigido.toFixed(2).replace('.', ',')
+      partes[indiceReal] = valorFormatado
+    }
+    return partes.join('|')
+  })
+
+  return linhasCorrigidas.join('\n')
+}
+
+// ─────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 
@@ -473,6 +498,8 @@ export default function AuditorSPED({ cliente, onVoltar }) {
   const [filtro, setFiltro]       = useState('TODOS')
   const [busca, setBusca]         = useState('')
   const [abaSelecionada, setAbaSelecionada] = useState('erros')
+  const [mostrarRevisao, setMostrarRevisao] = useState(false)
+  const [itensRevisao, setItensRevisao] = useState([])
   const inputRef = useRef()
 
   async function carregarArquivo(file) {
@@ -511,6 +538,30 @@ export default function AuditorSPED({ cliente, onVoltar }) {
     a.download  = `auditoria_sped_${new Date().toISOString().slice(0,10)}.txt`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function abrirRevisaoCorrecao() {
+    const errosCalculo = (resultado?.erros || []).filter(e => (e.categoria === 'CALCULO' || e.categoria === 'TOTAL') && e.valorCorrigido !== undefined)
+    setItensRevisao(errosCalculo.map(e => ({ ...e, aprovado: true })))
+    setMostrarRevisao(true)
+  }
+
+  function alternarAprovacao(idx) {
+    setItensRevisao(prev => prev.map((item, i) => i === idx ? { ...item, aprovado: !item.aprovado } : item))
+  }
+
+  function confirmarCorrecao() {
+    const aprovados = itensRevisao.filter(i => i.aprovado)
+    if (aprovados.length === 0) { setMostrarRevisao(false); return }
+    const textoCorrigido = gerarSPEDCorrigido(conteudo, aprovados)
+    const blob = new Blob([textoCorrigido], { type: 'text/plain;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `${(arquivo?.name || 'sped').replace('.txt', '')}_corrigido.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMostrarRevisao(false)
   }
 
   const itensFiltrados = resultado ? [
@@ -710,6 +761,12 @@ export default function AuditorSPED({ cliente, onVoltar }) {
               style={{ padding: '12px 24px', background: C.verde, color: '#0a1628', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               📄 Baixar Relatório .txt
             </button>
+            {resultado.erros.some(e => (e.categoria === 'CALCULO' || e.categoria === 'TOTAL') && e.valorCorrigido !== undefined) && (
+              <button onClick={abrirRevisaoCorrecao}
+                style={{ padding: '12px 24px', background: C.azul, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                🛠️ Gerar arquivo corrigido
+              </button>
+            )}
             <button onClick={() => { setResultado(null); setArquivo(null); setConteudo('') }}
               style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               🔄 Nova Análise
@@ -721,6 +778,52 @@ export default function AuditorSPED({ cliente, onVoltar }) {
       {resultado?.erro && (
         <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#fca5a5' }}>
           <strong>Erro na análise:</strong> {resultado.erro}
+        </div>
+      )}
+
+      {/* Modal de revisão de correções */}
+      {mostrarRevisao && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ background: '#0f1e35', borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 4 }}>🛠️ Revisar correções antes de gerar o arquivo</div>
+              <div style={{ fontSize: 13, color: C.cinza }}>
+                Confira cada valor antes de aceitar. Desmarque os itens que não deseja corrigir automaticamente.
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 24px' }}>
+              {itensRevisao.length === 0 ? (
+                <div style={{ color: C.cinza, fontSize: 13, textAlign: 'center', padding: 20 }}>Nenhum erro de cálculo identificado.</div>
+              ) : (
+                itensRevisao.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: idx < itensRevisao.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                    <input type="checkbox" checked={item.aprovado} onChange={() => alternarAprovacao(idx)}
+                      style={{ marginTop: 4, width: 16, height: 16, accentColor: C.verde, cursor: 'pointer' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: C.cinza, marginBottom: 4 }}>Linha {item.linha} — Registro {item.registro} — {item.campo}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+                        <span style={{ color: '#ef4444', textDecoration: 'line-through' }}>{fmtVal(item.valorAtual)}</span>
+                        <span style={{ color: C.cinza }}>→</span>
+                        <span style={{ color: C.verde, fontWeight: 700 }}>{fmtVal(item.valorCorrigido)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setMostrarRevisao(false)}
+                style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarCorrecao} disabled={!itensRevisao.some(i => i.aprovado)}
+                style={{ padding: '10px 20px', background: itensRevisao.some(i => i.aprovado) ? C.verde : 'rgba(255,255,255,0.1)', color: itensRevisao.some(i => i.aprovado) ? '#0a1628' : C.cinza, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: itensRevisao.some(i => i.aprovado) ? 'pointer' : 'not-allowed' }}>
+                ✓ Aplicar {itensRevisao.filter(i => i.aprovado).length} correção(ões) e baixar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
