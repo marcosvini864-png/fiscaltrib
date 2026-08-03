@@ -87,15 +87,13 @@ const RESTRICTED = {
 }
 
 // ── NOVO MENU — linguagem natural, por seções (reformulação visual) ────────
-// Mapeamento module/tab preservado 1:1 do MENU_MODULOS anterior, apenas
-// reorganizado nas seções Trabalho / Planejamento / Relatórios / Relacionamento.
 const MENU_SECOES = [
   {
     id: 'trabalho',
     titulo: 'TRABALHO',
     itens: [
-      { label: 'Clientes',                  module: 'clientes',    tab: 0, tabs: [0,1,2,4], icon: '\u{1F465}' }, // 👥
-      { label: 'Importações',               module: 'clientes',    tab: 3, tabs: [3], icon: '\u{1F4E5}' }, // 📥
+      { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F465}' }, // 👥
+      { label: 'Importações',               module: 'clientes',    tab: 3, icon: '\u{1F4E5}' }, // 📥
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
@@ -162,7 +160,7 @@ function TabBar({ tabs, activeTab, onTab }) {
   )
 }
 
-function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
+function Sidebar({ module, activeTab, sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   const [expandido, setExpandido] = useState(false)
   const [travada, setTravada] = useState(() => localStorage.getItem('fiscaltrib_sidebar_travada') === '1')
   useEffect(() => { localStorage.setItem('fiscaltrib_sidebar_travada', travada ? '1' : '0') }, [travada])
@@ -183,13 +181,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
   }
 
   function isItemAtivo(item) {
-    if (module !== item.module) return false
-    if (item.tabs) return item.tabs.includes(activeTab)
-    return activeTab === item.tab
-  }function isItemAtivo(item) {
-    if (module !== item.module) return false
-    if (item.tabs) return item.tabs.includes(activeTab)
-    return activeTab === item.tab
+    return sidebarAtiva === (item.module + ':' + item.tab)
   }
 
   if (isMobile && !menuAberto) return null
@@ -258,10 +250,10 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
             width:'100%', display:'flex', alignItems:'center', gap:12,
             padding: aberta ? '13px 16px' : '13px 0',
             justifyContent: aberta ? 'flex-start' : 'center',
-            background: module==='painel' ? '#1E293B' : 'none',
-            border:'none', borderLeft: module==='painel' ? `3px solid ${C.blue}` : '3px solid transparent',
-            cursor:'pointer', color: module==='painel' ? C.sidebarActiveText : C.sidebarText,
-            fontSize:14, textAlign:'left', fontWeight: module==='painel' ? 600 : 500,
+            background: sidebarAtiva==='painel:0' ? '#1E293B' : 'none',
+            border:'none', borderLeft: sidebarAtiva==='painel:0' ? `3px solid ${C.blue}` : '3px solid transparent',
+            cursor:'pointer', color: sidebarAtiva==='painel:0' ? C.sidebarActiveText : C.sidebarText,
+            fontSize:14, textAlign:'left', fontWeight: sidebarAtiva==='painel:0' ? 600 : 500,
           }}>
           <span style={{fontSize:18, flexShrink:0}}>📊</span>
           {aberta && <span style={{whiteSpace:'nowrap'}}>Painel</span>}
@@ -312,10 +304,10 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                   width:'100%', display:'flex', alignItems:'center', gap:12,
                   padding: aberta ? '10px 16px' : '10px 0',
                   justifyContent: aberta ? 'flex-start' : 'center',
-                  background: module===key ? '#1E293B' : 'none',
-                  border:'none', borderLeft: module===key ? `3px solid ${C.blue}` : '3px solid transparent',
-                  cursor:'pointer', color: module===key ? C.sidebarActiveText : C.sidebarText,
-                  fontSize:13, textAlign:'left', fontWeight: module===key ? 600 : 400,
+                  background: sidebarAtiva===(key+':0') ? '#1E293B' : 'none',
+                  border:'none', borderLeft: sidebarAtiva===(key+':0') ? `3px solid ${C.blue}` : '3px solid transparent',
+                  cursor:'pointer', color: sidebarAtiva===(key+':0') ? C.sidebarActiveText : C.sidebarText,
+                  fontSize:13, textAlign:'left', fontWeight: sidebarAtiva===(key+':0') ? 600 : 400,
                 }}>
                 <span style={{fontSize:16, flexShrink:0}}>{mod.icon}</span>
                 {aberta && <span style={{whiteSpace:'nowrap'}}>{mod.label}</span>}
@@ -408,6 +400,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 }, [])
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
+  const [sidebarAtiva, setSidebarAtiva] = useState('painel:0')
   const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
@@ -522,6 +515,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   function navigateTo(mod, tab=0) { setModule(mod); setActiveTab(tab) }
   function handleNavigate(key, tab=0) {
     setModule(key); setActiveTab(tab)
+    setSidebarAtiva(key + ':' + tab)
     if(key==='clientes') setNovoCliente(null)
     if(key==='diagnostico') setTeseDiagnostico('importar')
   }
@@ -621,6 +615,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         <Sidebar
           module={module}
           activeTab={activeTab}
+          sidebarAtiva={sidebarAtiva}
           onNavigate={handleNavigate}
           clientes={clientes}
           activeId={activeId}
