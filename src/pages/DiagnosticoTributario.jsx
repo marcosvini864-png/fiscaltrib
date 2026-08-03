@@ -1193,12 +1193,19 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
         badges={[regime, cliente?.razao_social].filter(Boolean)}
         hasData={temDados}
         emptyState={{
-          instrucao: config.instrucao,
-          documentos: config.documentos,
-          onAcaoPrincipal: () => onMudarTese && onMudarTese('importar'),
-          textoAcaoPrincipal: 'Importar arquivos',
-          onVoltar: () => onMudarTese && onMudarTese('importar'),
-        }}
+  instrucao: config.instrucao,
+  documentos: config.documentos,
+  onArquivoSelecionado: (files) => {
+    const novos = Array.from(files).map(f => ({
+      file: f, nome: f.name,
+      tipo: f.name.endsWith('.xml') ? 'xml' : f.name.endsWith('.csv') ? 'csv' : f.name.endsWith('.pdf') ? 'pdf' : 'outro',
+    }))
+    setArquivos(prev => [...prev, ...novos])
+    },
+    onDepoisDeSelecionar: () => analisar(),
+    textoAcaoPrincipal: 'Selecionar arquivos',
+    onVoltar: () => onMudarTese && onMudarTese('importar'),
+    }}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
           <KpiCard value={config.dados.length} label="Itens identificados" tone="accent" />

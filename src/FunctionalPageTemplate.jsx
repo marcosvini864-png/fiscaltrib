@@ -167,6 +167,29 @@ export default function FunctionalPageTemplate({
             <div style={{ fontSize: 13, color: DS.muted, marginBottom: 22 }}>{emptyState.instrucao}</div>
           )}
           {emptyState.documentos && <ListaDocumentos itens={emptyState.documentos} />}
+          {emptyState.onArquivoSelecionado && (
+            <>
+              <input
+                type="file"
+                multiple
+                accept=".xml,.csv,.pdf"
+                id="fpt-file-input"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    emptyState.onArquivoSelecionado(e.target.files)
+                    if (emptyState.onDepoisDeSelecionar) {
+                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 0)
+                    }
+                  }
+                  e.target.value = ''
+                }}
+              />
+              <BtnPrimario onClick={() => document.getElementById('fpt-file-input').click()} style={{ marginBottom: 10 }}>
+                {emptyState.textoAcaoPrincipal || 'Selecionar arquivos'}
+              </BtnPrimario>
+            </>
+          )}
           {emptyState.onAcaoPrincipal && (
             <BtnPrimario onClick={emptyState.onAcaoPrincipal} style={{ marginBottom: 10 }}>
               {emptyState.textoAcaoPrincipal || 'Importar arquivos'}
