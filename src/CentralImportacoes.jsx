@@ -866,6 +866,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
   const clienteHistorico       = relatorioAberto ? { razao_social: relatorioAberto.cliente_nome, cnpj: relatorioAberto.cliente_cnpj, regime: relatorioAberto.cliente_regime } : null
 
   return (
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
     <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 24, color: '#fff' }}>
   <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>FISCALTRIB — COLETA INTELIGENTE</div>
   <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>Gestão de Recuperações</div>
