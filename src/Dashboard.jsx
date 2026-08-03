@@ -164,15 +164,17 @@ function TabBar({ tabs, activeTab, onTab }) {
 
 function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   const [expandido, setExpandido] = useState(false)
+  const [travada, setTravada] = useState(() => localStorage.getItem('fiscaltrib_sidebar_travada') === '1')
+  useEffect(() => { localStorage.setItem('fiscaltrib_sidebar_travada', travada ? '1' : '0') }, [travada])
   const fecharTimeout = { current: null }
 
   function handleMouseEnter() {
-    if (isMobile) return
-    setExpandido(true)
+  if (isMobile) return
+  setExpandido(true)
   }
   function handleMouseLeave() {
-    if (isMobile) return
-    setTimeout(() => setExpandido(false), 200)
+  if (isMobile || travada) return
+  setTimeout(() => setExpandido(false), 200)
   }
 
   function handleItem(item) {
@@ -186,7 +188,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
 
   if (isMobile && !menuAberto) return null
 
-  const aberta = isMobile ? true : expandido
+  const aberta = isMobile ? true : (travada || expandido)
   const largura = isMobile ? 260 : (aberta ? 295 : 68)
 
   return (
@@ -205,6 +207,21 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           transition: isMobile ? 'none' : 'width 0.2s ease',
           ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
         }}>
+		
+		{!isMobile && aberta && (
+  <div style={{display:'flex', justifyContent:'flex-end', padding:'8px 10px 0'}}>
+    <button onClick={() => setTravada(t => !t)}
+      title={travada ? 'Desafixar menu' : 'Fixar menu aberto'}
+      style={{
+        background: travada ? '#1E293B' : 'none',
+        border:'1px solid #334155', borderRadius:6,
+        width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center',
+        cursor:'pointer', color: travada ? C.blue : C.sidebarText, fontSize:13,
+      }}>
+      📌
+    </button>
+  </div>
+  )}
 
         {isMobile && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:'1px solid #1E293B' }}>
@@ -249,9 +266,9 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           {MENU_SECOES.map(secao => (
             <div key={secao.id} style={{marginBottom:10}}>
               {aberta && (
-                <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'6px 16px 4px',whiteSpace:'nowrap'}}>
-                  {secao.titulo}
-                </div>
+                <div style={{fontSize:12,fontWeight:700,color:'#FFFFFF',letterSpacing:1,padding:'6px 16px 4px',whiteSpace:'nowrap'}}>
+                {secao.titulo}
+                </div> 
               )}
               {!aberta && <div style={{height:1, background:'#1E293B', margin:'6px 10px'}} />}
               {secao.itens.map((item, idx) => {
@@ -281,7 +298,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
           {/* Restrito */}
           {isAdmin && <>
             <div style={{height:1, background:'#1E293B', margin:'8px 10px'}} />
-            {aberta && <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 4px',whiteSpace:'nowrap'}}>SISTEMA</div>}
+            {aberta && <div style={{fontSize:12,fontWeight:700,color:'#FFFFFF',letterSpacing:1,padding:'4px 16px 4px',whiteSpace:'nowrap'}}>SISTEMA</div>}
             {Object.entries(RESTRICTED).map(([key, mod]) => (
               <button key={key} onClick={() => { onNavigate(key, 0); if(isMobile) setMenuAberto(false) }}
                 title={!aberta ? mod.label : undefined}
