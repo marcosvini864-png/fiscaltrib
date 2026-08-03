@@ -867,22 +867,21 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '32px 36px', marginBottom: 28, color: '#fff', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — AUTOMAÇÃO FISCAL</div>
-        <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>💼 Gestão de Recuperações</h1>
-        <p style={{ fontSize: 15, color: '#93c5fd', marginBottom: 24, maxWidth: 560 }}>
-          Importe arquivos fiscais e receba o <strong style={{ color: '#4ade80' }}>Raio-X Tributário Automático</strong> com as oportunidades do seu cliente.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 14 }}>
-          {[{ v:'NCM', l:'Monofásicos' },{ v:'CST/CFOP', l:'Substituição Tributária' },{ v:'Teses', l:'Motor automático' },{ v:'⚡ Raio-X', l:'Potencial em R$' }].map((c,i)=>(
-            <div key={i} style={{ background:'rgba(255,255,255,0.08)', borderRadius:10, padding:'12px 16px', border:'1px solid rgba(255,255,255,0.1)', minWidth: 0, boxSizing: 'border-box' }}>
-              <div style={{ fontSize:18, fontWeight:900, color:'#7CC4FF', marginBottom:4 }}>{c.v}</div>
-              <div style={{ fontSize:11, color:'#93c5fd' }}>{c.l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+     <div style={{ marginBottom: 20 }}>
+  <div style={{ fontSize: 22, fontWeight: 700, color: '#0F172A' }}>Gestão de Recuperações</div>
+  <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
+    Importe arquivos fiscais e receba o Raio-X Tributário Automático com as oportunidades do seu cliente.
+  </div>
+  </div>
 
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 24 }}>
+  {[{ v:'NCM', l:'Monofásicos' },{ v:'CST/CFOP', l:'Substituição Tributária' },{ v:'Teses', l:'Motor automático' },{ v:'Raio-X', l:'Potencial em R$' }].map((c,i)=>(
+    <div key={i} style={{ background:'#fff', borderRadius:10, padding:'14px 16px', border:'1px solid #E2E8F0', minWidth: 0, boxSizing: 'border-box', textAlign: 'center' }}>
+      <div style={{ fontSize:16, fontWeight:700, color:'#2563EB', marginBottom:4 }}>{c.v}</div>
+      <div style={{ fontSize:11, color:'#64748B' }}>{c.l}</div>
+   </div>
+  ))}
+   
       {relatorios.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20, boxSizing: 'border-box' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🗂️ Relatórios Anteriores</div>
