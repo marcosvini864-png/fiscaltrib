@@ -2,8 +2,13 @@
 import { supabase } from './supabase'
 
 const cssResponsivo = `
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
   .ft-page {
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     background: #F1F3F6;
     display: flex;
     flex-direction: column;
@@ -15,23 +20,26 @@ const cssResponsivo = `
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 18px 16px;
+    padding: 12px 16px;
+    flex-shrink: 0;
   }
   .ft-body {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 64px;
-    padding: 56px 24px;
-    max-width: 1240px;
+    gap: 56px;
+    padding: 20px 24px;
+    max-width: 1200px;
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
+    min-height: 0;
+    overflow: hidden;
   }
   .ft-left {
     flex: 1;
-    max-width: 560px;
+    max-width: 520px;
   }
   .ft-right {
     flex-shrink: 0;
@@ -39,16 +47,18 @@ const cssResponsivo = `
   .ft-login-card {
     background: #fff;
     border-radius: 16px;
-    padding: 32px 40px;
+    padding: 24px 32px;
     width: 100%;
-    max-width: 420px;
+    max-width: 380px;
     box-shadow: 0 8px 30px rgba(15,23,42,0.08);
     box-sizing: border-box;
     border: 1px solid #E2E8F0;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
   }
   .ft-login-input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 12px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     box-sizing: border-box;
@@ -62,7 +72,7 @@ const cssResponsivo = `
   }
   .ft-btn-principal {
     width: 100%;
-    padding: 11px;
+    padding: 10px;
     background: #2563EB;
     color: #fff;
     border: none;
@@ -77,7 +87,7 @@ const cssResponsivo = `
   }
   .ft-btn-outline {
     width: 100%;
-    padding: 10px;
+    padding: 9px;
     background: transparent;
     color: #2563EB;
     border: 2px solid #2563EB;
@@ -101,17 +111,23 @@ const cssResponsivo = `
     background: #fff;
     border: 1px solid #E2E8F0;
     border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: 5px 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #334155;
     white-space: nowrap;
   }
   @media (max-width: 900px) {
+    .ft-page {
+      height: auto;
+      overflow: auto;
+      min-height: 100vh;
+    }
     .ft-body {
       flex-direction: column;
-      gap: 40px;
-      padding: 32px 20px;
+      gap: 32px;
+      padding: 24px 20px;
+      overflow: visible;
     }
     .ft-left {
       max-width: 100%;
@@ -120,10 +136,14 @@ const cssResponsivo = `
     .ft-left .ft-tese-chips {
       justify-content: center;
     }
+    .ft-login-card {
+      max-height: none;
+      overflow: visible;
+    }
   }
   @media (max-width: 767px) {
     .ft-login-card {
-      padding: 24px 18px;
+      padding: 20px 18px;
       border-radius: 12px;
     }
     .ft-contatos {
@@ -268,22 +288,22 @@ export default function Login({ onLogin, onCadastro }) {
 
         {/* Coluna esquerda — apresentação */}
         <div className="ft-left">
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: '#0F172A', marginBottom: 10, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', marginBottom: 8, lineHeight: 1.2 }}>
             Inteligência Tributária Ofensiva
           </h1>
-          <p style={{ fontSize: 15, color: '#64748B', marginBottom: 28, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 14, color: '#64748B', marginBottom: 20, lineHeight: 1.5 }}>
             O Motor de Inteligência Tributária do e-FiscalTribe identifica créditos e oportunidades de recuperação automaticamente — com fundamentação jurídica completa.
           </p>
 
           <div style={{
             background: '#fff', borderRadius: 16, border: '1px solid #E2E8F0',
-            padding: '24px 28px', marginBottom: 24, boxShadow: '0 4px 16px rgba(15,23,42,0.05)',
+            padding: '18px 22px', marginBottom: 18, boxShadow: '0 4px 16px rgba(15,23,42,0.05)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 44, fontWeight: 900, color: '#2563EB', lineHeight: 1 }}>9+</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#0F172A' }}>módulos do Motor de Inteligência Tributária</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 5 }}>
+              <span style={{ fontSize: 36, fontWeight: 900, color: '#2563EB', lineHeight: 1 }}>9+</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>módulos do Motor de Inteligência Tributária</span>
             </div>
-            <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
+            <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>
               Cada módulo analisa uma tese tributária diferente, cruzando seus documentos fiscais com a legislação vigente para encontrar o que sua empresa pagou a mais.
             </p>
           </div>
@@ -432,7 +452,8 @@ const st = {
   rodape: {
     color: '#94A3B8',
     fontSize: 11,
-    padding: '16px 0 24px',
+    padding: '10px 0 14px',
     textAlign: 'center',
+    flexShrink: 0,
   },
 }
