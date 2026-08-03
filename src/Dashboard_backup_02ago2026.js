@@ -40,20 +40,12 @@ const maskCNAE  = v => { const n=v.replace(/\D/g,'').slice(0,7); if(n.length<=2)
 const maskCNAES = v => { const parts=v.split(','); return parts.map((c,i)=>i<parts.length-1?maskCNAE(c.trim()):c.replace(/\D/g,'').slice(0,7)).join(', ') }
 const fmtR      = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 
-// ── NOVA PALETA (reformulação visual) ───────────────────────────────────────
 const C = {
-  bg: '#F8FAFC',
-  white: '#FFFFFF',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  muted: '#64748B',
-  blue: '#2563EB',
-  green: '#16A34A',
-  red: '#DC2626',
-  navy: '#2563EB',
-  sidebarBg: '#0F172A',
-  sidebarText: '#94A3B8',
-  sidebarActiveText: '#FFFFFF',
+  navy:'#0B1F4D', navyHov:'#163B8C', navyAct:'#1A4499',
+  green:'#22C55E', white:'#FFFFFF',
+  bg:'#E4E7EC', border:'#C8D0DC',
+  text:'#1E293B', muted:'#64748B',
+  sidebar:'#FFFFFF', sidebarBorder:'#C8D0DC',
 }
 
 const TESES_DIAGNOSTICO = [
@@ -86,55 +78,94 @@ const RESTRICTED = {
   dev:   { label:'Centro de Desenvolvimento', icon:'🔧' },
 }
 
-// ── NOVO MENU — linguagem natural, por seções (reformulação visual) ────────
-// Mapeamento module/tab preservado 1:1 do MENU_MODULOS anterior, apenas
-// reorganizado nas seções Trabalho / Planejamento / Relatórios / Relacionamento.
-const MENU_SECOES = [
+// ── NOVO MENU ACCORDION ─────────────────────────────────────────────────────
+const MENU_MODULOS = [
   {
-    id: 'trabalho',
-    titulo: 'TRABALHO',
+    id: 'fiscalrecovery',
+    cor: '#22C55E',
+    icone: '🟩',
+    nome: 'FiscalRecovery',
+    titulo: 'Recuperação Tributária Inteligente',
+    descricao: 'Encontre créditos tributários automaticamente.',
     itens: [
-      { label: 'Clientes',                  module: 'clientes',    tab: 0 },
-      { label: 'Importações',               module: 'clientes',    tab: 3 },
-      { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0 },
-      { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0 },
-      { label: 'Auditor de SPED',           module: 'sped',        tab: 0 },
-      { label: 'Recuperações',              module: 'recuperacao', tab: 0 },
-      { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1 },
-      { label: 'Acompanhamento',            module: 'recuperacao', tab: 2 },
-      { label: 'Dívida Ativa',              module: 'divida',      tab: 0 },
-      { label: 'Importar CDA PDF',          module: 'divida',      tab: 1 },
+      { label: 'Dinheiro Recuperável', module: 'diagnostico', tab: 0 },
+      { label: 'Análise Fiscal', module: 'analise', tab: 0 },
+      { label: 'Teses Tributárias', module: 'analise', tab: 2 },
+      { label: 'Simuladores', module: 'analise', tab: 3 },
+      { label: 'Gestão de Recuperações', module: 'recuperacao', tab: 0 },
+      { label: 'PER/DCOMP', module: 'recuperacao', tab: 1 },
+      { label: 'Acompanhamento', module: 'recuperacao', tab: 2 },
+      { label: 'Relatórios', module: 'relatorios', tab: 0 },
+	  { label: 'Dados Complementares', module: 'dados_complementares', tab: 0 },
     ],
   },
   {
-    id: 'planejamento',
-    titulo: 'PLANEJAMENTO',
+    id: 'fiscaldebt',
+    cor: '#EF4444',
+    icone: '🟥',
+    nome: 'FiscalDebt',
+    titulo: 'Inteligência da Dívida Ativa',
+    descricao: 'Analise passivos fiscais e descubra estratégias jurídicas.',
     itens: [
-      { label: 'Análise Fiscal',            module: 'analise',      tab: 0 },
-      { label: 'Análise IA',                module: 'analise',      tab: 1 },
-      { label: 'Teses Tributárias',         module: 'analise',      tab: 2 },
-      { label: 'Simuladores',               module: 'analise',      tab: 3 },
-      { label: 'Calculadoras',              module: 'analise',      tab: 4 },
-      { label: 'Prazos Prescricionais',     module: 'prazos',       tab: 0 },
-      { label: 'Prazos Fiscais',            module: 'prazos',       tab: 1 },
-      { label: 'Inteligência Tributária',   module: 'inteligencia', tab: 0 },
-      { label: 'Reforma Tributária',        module: 'inteligencia', tab: 1 },
+      { label: 'Diagnóstico Dívida Ativa', module: 'divida', tab: 0 },
+      { label: 'Importar CDA PDF', module: 'divida', tab: 1 },
+      { label: 'Prazos Prescricionais', module: 'prazos', tab: 0 },
+      { label: 'Prazos Fiscais', module: 'prazos', tab: 1 },
     ],
   },
   {
-    id: 'relatorios',
-    titulo: 'RELATÓRIOS',
+    id: 'fiscalai',
+    cor: '#EAB308',
+    icone: '🟨',
+    nome: 'FiscalAI',
+    titulo: 'Especialista Tributário por IA',
+    descricao: 'Receba diagnósticos, análises e recomendações automáticas.',
     itens: [
-      { label: 'Relatório Matador',         module: 'relatorios', tab: 0 },
-      { label: 'Score Fiscal',              module: 'relatorios', tab: 1 },
+      { label: 'Inteligência Tributária', module: 'inteligencia', tab: 0 },
+      { label: 'Reforma Tributária', module: 'inteligencia', tab: 1 },
+      { label: 'Score Fiscal', module: 'relatorios', tab: 1 },
+      { label: 'Análise IA', module: 'analise', tab: 1 },
     ],
   },
   {
-    id: 'relacionamento',
-    titulo: 'RELACIONAMENTO',
+    id: 'fiscalscan',
+    cor: '#3B82F6',
+    icone: '🟦',
+    nome: 'FiscalScan',
+    titulo: 'Importação Inteligente de Arquivos',
+    descricao: 'Centralize toda a leitura de documentos fiscais.',
     itens: [
-      { label: 'CRM Comercial',             module: 'prospeccao', tab: 0 },
-      { label: 'Comunicação',               module: 'mensagens',  tab: 0 },
+      { label: 'Auditor de SPED', module: 'sped', tab: 0 },
+	  { label: 'Importar XML / CSV / SPED', module: 'clientes', tab: 3 },
+      { label: 'Importar CDA PDF', module: 'divida', tab: 1 },
+      { label: 'Clientes', module: 'clientes', tab: 0 },
+      { label: 'Novo Cliente', module: 'clientes', tab: 1 },
+      { label: 'Checklist Documental', module: 'clientes', tab: 4 },
+    ],
+  },
+  {
+    id: 'fiscalreports',
+    cor: '#A855F7',
+    icone: '🟪',
+    nome: 'FiscalReports',
+    titulo: 'Relatórios Executivos Inteligentes',
+    descricao: 'Transforme análises complexas em relatórios profissionais.',
+    itens: [
+      { label: 'Relatório Matador Fiscal', module: 'relatorios', tab: 0 },
+      { label: 'Score Fiscal', module: 'relatorios', tab: 1 },
+    ],
+  },
+  {
+    id: 'fiscalsim',
+    cor: '#F97316',
+    icone: '🟧',
+    nome: 'FiscalSim',
+    titulo: 'Simuladores Tributários',
+    descricao: 'Compare cenários e descubra a melhor estratégia tributária.',
+    itens: [
+      { label: 'Simuladores', module: 'analise', tab: 3 },
+      { label: 'Calculadoras Tributárias', module: 'analise', tab: 4 },
+      { label: 'Reforma Tributária', module: 'inteligencia', tab: 1 },
     ],
   },
 ]
@@ -155,7 +186,7 @@ function TabBar({ tabs, activeTab, onTab }) {
     <div style={{ display:'flex', borderBottom:`2px solid ${C.border}`, background:C.white, padding:'0 12px', flexShrink:0, overflowX:'auto' }}>
       {tabs.map((tab, i) => (
         <button key={i} onClick={() => onTab(i)}
-          style={{ padding:'10px 14px', fontSize:12, fontWeight: activeTab===i ? 600 : 400, color: activeTab===i ? C.blue : C.muted, background:'none', border:'none', borderBottom: activeTab===i ? `2px solid ${C.blue}` : '2px solid transparent', marginBottom:-2, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s' }}>
+          style={{ padding:'10px 14px', fontSize:12, fontWeight: activeTab===i ? 600 : 400, color: activeTab===i ? C.navy : C.muted, background:'none', border:'none', borderBottom: activeTab===i ? `2px solid ${C.navy}` : '2px solid transparent', marginBottom:-2, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s' }}>
           {tab}
         </button>
       ))}
@@ -164,16 +195,10 @@ function TabBar({ tabs, activeTab, onTab }) {
 }
 
 function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
-  const [expandido, setExpandido] = useState(false)
-  const fecharTimeout = { current: null }
-
-  function handleMouseEnter() {
-    if (isMobile) return
-    setExpandido(true)
-  }
-  function handleMouseLeave() {
-    if (isMobile) return
-    setTimeout(() => setExpandido(false), 200)
+  const [aberto, setAberto] = useState(null)
+ 
+  function toggleModulo(id) {
+    setAberto(prev => prev === id ? null : id)
   }
 
   function handleItem(item) {
@@ -187,124 +212,167 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
 
   if (isMobile && !menuAberto) return null
 
-  const aberta = isMobile ? true : expandido
-  const largura = isMobile ? 260 : (aberta ? 220 : 52)
-
   return (
     <>
       {isMobile && (
         <div onClick={() => setMenuAberto(false)}
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:99 }} />
       )}
-      <aside
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        style={{
-          width: largura, minHeight:'100%', background: C.sidebarBg,
-          borderRight:'1px solid #1E293B',
-          display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto', overflowX:'hidden',
-          transition: isMobile ? 'none' : 'width 0.2s ease',
-          ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
-        }}>
+      <aside style={{
+        width: 300, minHeight:'100%', background: '#0F172A',
+        borderRight:`1px solid #1E293B`,
+        display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto',
+        ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
+      }}>
 
         {isMobile && (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:'1px solid #1E293B' }}>
-            <img src="/Logo6.png" alt="e-FiscalTribe" style={{ height:28, borderRadius:6 }} />
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:`1px solid #1E293B` }}>
+            <img src="/Logo3.png" alt="FiscalTrib" style={{ height:28 }} />
             <button onClick={() => setMenuAberto(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#FFFFFF' }}>✕</button>
           </div>
         )}
 
         {/* Seletor de cliente */}
-        {aberta ? (
-          <div style={{padding:'12px 14px 10px', borderBottom:'1px solid #1E293B'}}>
-            <div style={{fontSize:10,fontWeight:700,color:C.sidebarText,letterSpacing:1,marginBottom:5,whiteSpace:'nowrap'}}>CLIENTE ATIVO</div>
-            <select value={activeId?.toString()||''} onChange={e=>{onChangeCliente(e.target.value||null); if(isMobile) setMenuAberto(false)}}
-              style={{width:'100%',padding:'6px 8px',border:'1px solid #334155',borderRadius:6,fontSize:12,color:'#FFFFFF',background:'#1E293B',cursor:'pointer'}}>
-              <option value=''>-- Nenhum --</option>
-              {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
-            </select>
-          </div>
-        ) : (
-          <div style={{padding:'14px 0', display:'flex', justifyContent:'center', borderBottom:'1px solid #1E293B'}}>
-            <span style={{fontSize:18}} title="Cliente ativo">👤</span>
-          </div>
-        )}
+        <div style={{padding:'12px 14px 10px', borderBottom:`1px solid #1E293B`}}>
+          <div style={{fontSize:10,fontWeight:700,color:'#94A3B8',letterSpacing:1,marginBottom:5}}>CLIENTE ATIVO</div>
+          <select value={activeId?.toString()||''} onChange={e=>{onChangeCliente(e.target.value||null); if(isMobile) setMenuAberto(false)}}
+            style={{width:'100%',padding:'6px 8px',border:`1px solid #334155`,borderRadius:6,fontSize:12,color:'#FFFFFF',background:'#1E293B',cursor:'pointer'}}>
+            <option value=''>-- Nenhum --</option>
+            {clientes.map(c=><option key={c.id} value={c.id.toString()}>{c.razao_social}</option>)}
+          </select>
+        </div>
 
         {/* Painel */}
         <button onClick={() => { onNavigate('painel', 0); if(isMobile) setMenuAberto(false) }}
           style={{
             width:'100%', display:'flex', alignItems:'center', gap:12,
-            padding: aberta ? '13px 16px' : '13px 0',
-            justifyContent: aberta ? 'flex-start' : 'center',
+            padding:'14px 16px',
             background: module==='painel' ? '#1E293B' : 'none',
-            border:'none', borderLeft: module==='painel' ? `3px solid ${C.blue}` : '3px solid transparent',
-            cursor:'pointer', color: module==='painel' ? C.sidebarActiveText : C.sidebarText,
-            fontSize:14, textAlign:'left', fontWeight: module==='painel' ? 600 : 500,
+            border:'none', borderLeft: module==='painel' ? '3px solid #22C55E' : '3px solid transparent',
+            cursor:'pointer', color: module==='painel' ? '#22C55E' : '#FFFFFF',
+            fontSize:16, textAlign:'left', fontWeight: module==='painel' ? 700 : 500,
           }}>
-          <span style={{fontSize:18, flexShrink:0}}>📊</span>
-          {aberta && <span style={{whiteSpace:'nowrap'}}>Painel</span>}
+          <span style={{fontSize:22}}>📊</span>
+          <span>Painel</span>
         </button>
 
-        {/* Menu por seções */}
-        <nav style={{flex:1, padding:'8px 0'}}>
-          {MENU_SECOES.map(secao => (
-            <div key={secao.id} style={{marginBottom:10}}>
-              {aberta && (
-                <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'6px 16px 4px',whiteSpace:'nowrap'}}>
-                  {secao.titulo}
-                </div>
-              )}
-              {!aberta && <div style={{height:1, background:'#1E293B', margin:'6px 10px'}} />}
-              {secao.itens.map((item, idx) => {
-                const ativo = isItemAtivo(item)
-                return (
-                  <button key={idx} onClick={() => handleItem(item)}
-                    title={!aberta ? item.label : undefined}
-                    style={{
-                      width:'100%', display:'flex', alignItems:'center', gap:12,
-                      padding: aberta ? '9px 16px' : '9px 0',
-                      justifyContent: aberta ? 'flex-start' : 'center',
-                      background: ativo ? '#1E293B' : 'none',
-                      border:'none', borderLeft: ativo ? `3px solid ${C.blue}` : '3px solid transparent',
-                      cursor:'pointer', textAlign:'left',
-                      color: ativo ? C.sidebarActiveText : C.sidebarText,
-                      fontSize:13, fontWeight: ativo ? 600 : 400,
-                      transition:'all 0.1s',
-                    }}>
-                    <span style={{fontSize:7, color: ativo ? C.blue : '#475569', flexShrink:0}}>●</span>
-                    {aberta && <span style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{item.label}</span>}
-                  </button>
-                )
-              })}
-            </div>
+        {/* Módulos accordion */}
+        <nav style={{flex:1, padding:'4px 0'}}>
+          {MENU_MODULOS.map(mod => {
+            const isOpen = aberto === mod.id
+            const temItemAtivo = mod.itens.some(i => i.module === module && activeTab === i.tab)
+
+            return (
+              <div key={mod.id} style={{
+                margin:'4px 8px',
+                borderRadius: 10,
+                background: isOpen || temItemAtivo ? '#1E293B' : 'transparent',
+                border: isOpen || temItemAtivo ? `1px solid ${mod.cor}30` : '1px solid transparent',
+                overflow:'hidden',
+                transition:'all 0.2s',
+              }}>
+                {/* Cabeçalho */}
+                <button onClick={() => toggleModulo(mod.id)}
+                  style={{
+                    width:'100%', display:'flex', alignItems:'center', gap:12,
+                    padding:'14px 14px',
+                    background:'none', border:'none',
+                    borderLeft: temItemAtivo ? `4px solid ${mod.cor}` : '4px solid transparent',
+                    cursor:'pointer', textAlign:'left',
+                  }}>
+                  <span style={{fontSize:22, flexShrink:0}}>{mod.icone}</span>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{
+                      fontSize:16, fontWeight:700,
+                      color: temItemAtivo ? mod.cor : '#FFFFFF',
+                      lineHeight:1.2, marginBottom:4,
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                    }}>{mod.nome}</div>
+                    <div style={{
+                      fontSize:12, color:'#CBD5E1',
+                      lineHeight:1.3, fontWeight:400,
+                    }}>{mod.titulo}</div>
+                  </div>
+                  <span style={{
+                    fontSize:12, color:'#64748B', flexShrink:0,
+                    transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition:'transform 0.2s',
+                  }}>▶</span>
+                </button>
+
+                {/* Submenu */}
+                {isOpen && (
+                  <div style={{borderTop:`1px solid ${mod.cor}30`, paddingBottom:8}}>
+                    {isOpen && (
+                      <div style={{padding:'8px 14px 4px 14px', fontSize:14, color:'#94A3B8', fontStyle:'italic'}}>
+                        {mod.descricao}
+                      </div>
+                    )}
+                    {mod.itens.map((item, idx) => {
+                      const ativo = isItemAtivo(item)
+                      return (
+                        <button key={idx} onClick={() => handleItem(item)}
+                          style={{
+                            width:'100%', display:'flex', alignItems:'center', gap:10,
+                            padding:'9px 14px 9px 42px',
+                            background: ativo ? `${mod.cor}20` : 'none',
+                            border:'none', cursor:'pointer', textAlign:'left',
+                            color: ativo ? mod.cor : '#FFFFFF',
+                            fontSize:13, fontWeight: ativo ? 700 : 400,
+                            transition:'all 0.1s',
+                          }}>
+                          <span style={{fontSize:8, color: ativo ? mod.cor : '#64748B', flexShrink:0}}>●</span>
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {/* Standalone */}
+          {[
+            { key:'prospeccao', label:'Prospecção', icon:'🎯', cor:'#0EA5E9' },
+            { key:'mensagens',  label:'Mensagens Rápidas', icon:'⚡', cor:'#F59E0B' },
+          ].map(item => (
+            <button key={item.key} onClick={() => { onNavigate(item.key, 0); if(isMobile) setMenuAberto(false) }}
+              style={{
+                width:'100%', display:'flex', alignItems:'center', gap:12,
+                padding:'14px 16px',
+                background: module===item.key ? '#1E293B' : 'none',
+                border:'none', borderLeft: module===item.key ? `3px solid ${item.cor}` : '3px solid transparent',
+                cursor:'pointer', color: module===item.key ? item.cor : '#FFFFFF',
+                fontSize:15, textAlign:'left', fontWeight: module===item.key ? 700 : 500,
+              }}>
+              <span style={{fontSize:20}}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
           ))}
 
           {/* Restrito */}
           {isAdmin && <>
-            <div style={{height:1, background:'#1E293B', margin:'8px 10px'}} />
-            {aberta && <div style={{fontSize:10,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 4px',whiteSpace:'nowrap'}}>SISTEMA</div>}
+            <div style={{height:1, background:'#1E293B', margin:'8px 0'}} />
+            <div style={{fontSize:13,fontWeight:700,color:'#475569',letterSpacing:1,padding:'4px 16px 2px'}}>RESTRITO</div>
             {Object.entries(RESTRICTED).map(([key, mod]) => (
               <button key={key} onClick={() => { onNavigate(key, 0); if(isMobile) setMenuAberto(false) }}
-                title={!aberta ? mod.label : undefined}
                 style={{
                   width:'100%', display:'flex', alignItems:'center', gap:12,
-                  padding: aberta ? '10px 16px' : '10px 0',
-                  justifyContent: aberta ? 'flex-start' : 'center',
+                  padding:'12px 16px',
                   background: module===key ? '#1E293B' : 'none',
-                  border:'none', borderLeft: module===key ? `3px solid ${C.blue}` : '3px solid transparent',
-                  cursor:'pointer', color: module===key ? C.sidebarActiveText : C.sidebarText,
-                  fontSize:13, textAlign:'left', fontWeight: module===key ? 600 : 400,
+                  border:'none', borderLeft: module===key ? '3px solid #F59E0B' : '3px solid transparent',
+                  cursor:'pointer', color: module===key ? '#F59E0B' : '#FFFFFF',
+                  fontSize:14, textAlign:'left', fontWeight: module===key ? 600 : 400,
                 }}>
-                <span style={{fontSize:16, flexShrink:0}}>{mod.icon}</span>
-                {aberta && <span style={{whiteSpace:'nowrap'}}>{mod.label}</span>}
+                <span style={{fontSize:18}}>{mod.icon}</span>
+                <span>{mod.label}</span>
               </button>
             ))}
           </>}
         </nav>
 
-        <div style={{padding: aberta ? '10px 16px' : '10px 0', textAlign: aberta ? 'left' : 'center', borderTop:'1px solid #1E293B',fontSize:11,color:'#475569',whiteSpace:'nowrap',overflow:'hidden'}}>
-          {aberta ? 'e-FiscalTribe®' : '●'}
-        </div>
+        <div style={{padding:'10px 16px',borderTop:`1px solid #1E293B`,fontSize:14,color:'#475569'}}>fiscaltrib.com.br</div>
       </aside>
     </>
   )
@@ -347,30 +415,30 @@ function PaginaReforma() {
 
   return (
     <div style={{maxWidth:860,margin:'0 auto'}}>
-      <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:16,padding:'24px',marginBottom:20}}>
-        <div style={{fontSize:11,color:C.blue,fontWeight:700,letterSpacing:2,marginBottom:8}}>E-FISCALTRIBE -- INTELIGENCIA TRIBUTARIA</div>
-        <h1 style={{fontSize:20,fontWeight:900,marginBottom:8,color:C.text}}>Reforma Tributaria</h1>
-        <p style={{fontSize:13,color:C.muted,margin:0}}>Consulte leis, decretos e impactos da Reforma -- CBS, IBS, IS e periodo de transicao (2026-2032).</p>
+      <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:16,padding:'24px',color:'#fff',marginBottom:20}}>
+        <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:8}}>FISCALTRIB -- INTELIGENCIA TRIBUTARIA</div>
+        <h1 style={{fontSize:20,fontWeight:900,marginBottom:8,color:'#fff'}}>Reforma Tributaria</h1>
+        <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Consulte leis, decretos e impactos da Reforma -- CBS, IBS, IS e periodo de transicao (2026-2032).</p>
       </div>
-      <div style={{background:'#fff',borderRadius:14,border:`1px solid ${C.border}`,padding:'16px',marginBottom:16}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:14}}>Pergunte sobre a Reforma Tributaria</div>
+      <div style={{background:'#fff',borderRadius:14,border:'2px solid #e2e8f0',padding:'16px',marginBottom:16}}>
+        <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:14}}>Pergunte sobre a Reforma Tributaria</div>
         <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
           <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&buscar()}
             placeholder="Ex: Como funciona a CBS?"
-            style={{flex:1,minWidth:200,padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,color:C.text,outline:'none'}} />
+            style={{flex:1,minWidth:200,padding:'10px 14px',border:'2px solid #e2e8f0',borderRadius:10,fontSize:13,color:C.text,outline:'none'}} />
           <button onClick={()=>buscar()} disabled={carregando}
-            style={{padding:'10px 16px',background:C.blue,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:carregando?'default':'pointer',opacity:carregando?0.7:1}}>
+            style={{padding:'10px 16px',background:C.navy,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:carregando?'default':'pointer',opacity:carregando?0.7:1}}>
             {carregando?'Buscando...':'Buscar'}
           </button>
         </div>
         <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
           {SUGESTOES.map((s,i)=>(
             <button key={i} onClick={()=>{setQuery(s);buscar(s)}}
-              style={{padding:'5px 10px',background:C.bg,border:`1px solid ${C.border}`,borderRadius:20,fontSize:11,color:C.muted,cursor:'pointer',fontWeight:500}}>{s}</button>
+              style={{padding:'5px 10px',background:'#f1f5f9',border:'1px solid #e2e8f0',borderRadius:20,fontSize:11,color:'#475569',cursor:'pointer',fontWeight:500}}>{s}</button>
           ))}
         </div>
-        {carregando&&<div style={{marginTop:16,background:C.bg,borderRadius:10,padding:'16px',display:'flex',alignItems:'center',gap:12}}><div style={{fontSize:13,color:C.muted}}>Consultando...</div></div>}
-        {resposta&&!carregando&&<div style={{marginTop:16,background:'#F0FDF4',border:'1px solid #86efac',borderRadius:10,padding:'16px'}}><div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8,textTransform:'uppercase',letterSpacing:1}}>Resposta</div><div style={{fontSize:13,color:C.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{resposta}</div></div>}
+        {carregando&&<div style={{marginTop:16,background:'#f8fafc',borderRadius:10,padding:'16px',display:'flex',alignItems:'center',gap:12}}><div style={{fontSize:13,color:C.muted}}>Consultando...</div></div>}
+        {resposta&&!carregando&&<div style={{marginTop:16,background:'#f0fdf4',border:'2px solid #86efac',borderRadius:10,padding:'16px'}}><div style={{fontSize:11,fontWeight:700,color:'#16a34a',marginBottom:8,textTransform:'uppercase',letterSpacing:1}}>Resposta</div><div style={{fontSize:13,color:C.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{resposta}</div></div>}
       </div>
     </div>
   )
@@ -541,40 +609,40 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   function calcIRPJ(){const rb=parseFloat(cRbt)||0;const p=parseFloat(cAtv2)||8;const bi=rb*(p/100);const bc=rb*(p===32?32:p===16?16:12)/100;const irpj=bi*0.15+Math.max(0,(bi-60000)*0.10);const csll=bc*0.09;setCalcResult(`IRPJ: ${fmtR(irpj)}\nCSLL: ${fmtR(csll)}\nTotal: ${fmtR(irpj+csll)}`)}
   function calcPrescricao(){if(!cDtpag){setCalcResult('Informe a data.');return}const p=new Date(cDtpag);const l=new Date(p);l.setFullYear(l.getFullYear()+5);const dias=Math.round((l-hoje)/(1000*60*60*24));if(dias<0){setCalcResult(`PRAZO PRESCRITO em ${l.toLocaleDateString('pt-BR')}!`)}else{setCalcResult(`Prazo limite: ${l.toLocaleDateString('pt-BR')}\nDias restantes: ${dias}\n${dias<=365?'CRITICO -- menos de 1 ano!':'Prazo confortavel.'}`)}}
 
-  const btnPrimary={padding:'10px 16px',background:C.blue,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
-  const btnOutline={padding:'10px 16px',background:C.white,color:C.blue,border:`1.5px solid ${C.blue}`,borderRadius:8,fontSize:13,cursor:'pointer'}
+  const btnPrimary={padding:'10px 16px',background:C.navy,color:C.white,border:'none',borderRadius:8,fontSize:13,cursor:'pointer',fontWeight:500}
+  const btnOutline={padding:'10px 16px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}
   const btnDanger ={padding:'4px 12px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:8,fontSize:12,cursor:'pointer',fontWeight:500}
   const btnVoltar ={ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', background:'none', border:`1.5px solid ${C.border}`, borderRadius:8, color:C.muted, fontSize:13, cursor:'pointer', marginBottom:16 }
 
   const currentTabs = MODULES[module]?.tabs || []
   const padding = isMobile ? '16px' : '24px 28px'
 
-  if(loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,system-ui,sans-serif',fontSize:16,color:C.blue}}>Carregando...</div>
+  if(loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,system-ui,sans-serif',fontSize:16,color:C.navy}}>Carregando...</div>
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+      <div style={{background:C.navy,flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:52,gap:10}}>
           {isMobile && (
-            <button onClick={() => setMenuAberto(true)} style={{ background:'none', border:'none', color:C.text, fontSize:22, cursor:'pointer', padding:'4px 8px', flexShrink:0 }}>Menu</button>
+            <button onClick={() => setMenuAberto(true)} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', padding:'4px 8px', flexShrink:0 }}>Menu</button>
           )}
-          <img src="/Logo6.png" alt="e-FiscalTribe" style={{height:30,objectFit:'contain',flexShrink:0,borderRadius:6}} />
-          {!isMobile && <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnostico e recuperacao tributaria</span>}
+          <img src="/Logo3.png" alt="e-FiscalTrib" style={{height:30,objectFit:'contain',flexShrink:0}} />
+          {!isMobile && <span style={{fontSize:12,color:'rgba(255,255,255,0.7)',flex:1}}>Sistema de diagnostico e recuperacao tributaria</span>}
           <div style={{flex:1}} />
           {active && !isMobile && (
-            <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,padding:'4px 10px',borderRadius:20,border:`1px solid ${C.border}`}}>
-              <div style={{width:7,height:7,borderRadius:'50%',background:C.green,flexShrink:0}}></div>
-              <span style={{fontSize:11,color:C.text,fontWeight:500,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{active.razao_social}</span>
+            <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.1)',padding:'4px 10px',borderRadius:20}}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:'#F0B429',flexShrink:0}}></div>
+              <span style={{fontSize:11,color:C.white,fontWeight:500,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{active.razao_social}</span>
             </div>
           )}
-          {!isMobile && <span style={{fontSize:12,color:C.muted}}>Usuario: {nomeUsuario||'Usuario'}</span>}
-          {onAdmin && !isMobile && <button onClick={onAdmin} style={{background:C.blue,border:'none',color:C.white,padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>Admin</button>}
-          <button onClick={()=>onLogout()} style={{background:'none',border:`1px solid ${C.border}`,color:C.muted,padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
+          {!isMobile && <span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>Usuario: {nomeUsuario||'Usuario'}</span>}
+          {onAdmin && !isMobile && <button onClick={onAdmin} style={{background:'#F59E0B',border:'none',color:C.white,padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>Admin</button>}
+          <button onClick={()=>onLogout()} style={{background:'none',border:'1px solid rgba(255,255,255,0.3)',color:'rgba(255,255,255,0.7)',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12}}>Sair</button>
         </div>
 
         {module === 'diagnostico' && (
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderTop:`1px solid ${C.border}`,overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.white}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingLeft:300,borderTop:'1px solid rgba(255,255,255,0.12)',overflowX:'auto',width:'100%',boxSizing:'border-box',background:C.navy}}>
             {TESES_DIAGNOSTICO.map(tese => {
               const ativa = teseDiagnostico === tese.id
               return (
@@ -582,10 +650,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   style={{
                     display:'flex', alignItems:'center', justifyContent:'center', gap:6,
                     padding:'11px 20px', background:'none', border:'none',
-                    borderBottom: ativa ? `3px solid ${C.blue}` : '3px solid transparent',
-                    color: ativa ? C.blue : C.muted, fontSize:13, cursor:'pointer', whiteSpace:'nowrap',
+                    borderBottom: ativa ? '3px solid #fff' : '3px solid transparent',
+                    color:'#fff', fontSize:13, cursor:'pointer', whiteSpace:'nowrap',
                     flexShrink:0, transition:'all 0.15s', opacity:1,
-                    fontWeight: ativa ? 700 : 400,
+                    fontWeight: ativa ? 800 : 400,
                   }}>
                   {tese.label}
                 </button>
@@ -624,10 +692,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 <strong>Aviso:</strong> Analise preliminar -- nao dispensa revisao profissional.
               </div>
               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)',gap:12,marginBottom:20}}>
-                <KpiCard icon="👥" value={clientes.length}  label="Clientes"        color={C.blue} />
-                <KpiCard icon="🎯" value={totalOpp}         label="Oportunidades"   color={C.blue} />
-                <KpiCard icon="💰" value={fmtR(totalGeral)} label="Potencial"       color={C.green} />
-                <KpiCard icon="⚠️" value={criticos}         label="Criticos"        color={C.red} />
+                <KpiCard icon="👥" value={clientes.length}  label="Clientes"        color="#2563EB" />
+                <KpiCard icon="🎯" value={totalOpp}         label="Oportunidades"   color="#7C3AED" />
+                <KpiCard icon="💰" value={fmtR(totalGeral)} label="Potencial"       color="#16A34A" />
+                <KpiCard icon="⚠️" value={criticos}         label="Criticos"        color="#DC2626" />
               </div>
               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12,marginBottom:20}}>
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
@@ -659,13 +727,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                   </div>
                   <div style={{overflowX:'auto'}}>
                     <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                      <thead><tr style={{background:C.bg}}>{['Razao Social','CNPJ','Regime','Potencial',''].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+                      <thead><tr style={{background:'#F8FAFC'}}>{['Razao Social','CNPJ','Regime','Potencial',''].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
                       <tbody>{clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
                         <tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
                           <td style={{padding:'10px 12px',fontWeight:600,color:C.text,whiteSpace:'nowrap'}}>{c.razao_social}</td>
                           <td style={{padding:'10px 12px',color:C.muted,fontSize:11,whiteSpace:'nowrap'}}>{c.cnpj}</td>
                           <td style={{padding:'10px 12px'}}>{badge(c.regime)}</td>
-                          <td style={{padding:'10px 12px',color:C.green,fontWeight:600,whiteSpace:'nowrap'}}>{fmtR(tot)}</td>
+                          <td style={{padding:'10px 12px',color:'#16A34A',fontWeight:600,whiteSpace:'nowrap'}}>{fmtR(tot)}</td>
                           <td style={{padding:'10px 12px'}}><button onClick={()=>{setActiveId(c.id.toString());navigateTo('analise',0)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Analisar</button></td>
                         </tr>
                       )})}</tbody>
@@ -690,7 +758,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{badge(c.regime)}</div>
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontSize:18,fontWeight:700,color:C.green}}>{fmtR(tot)}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:'#16A34A'}}>{fmtR(tot)}</div>
                       <div style={{fontSize:10,color:C.muted,marginBottom:8}}>potencial</div>
                       <div style={{display:'flex',gap:6,justifyContent:'flex-end',flexWrap:'wrap'}}>
                         <button onClick={()=>{setNovoCliente({...c});setActiveTab(1)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Editar</button>
@@ -719,7 +787,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               )}
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:16,marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:600,color:C.blue,marginBottom:14}}>Identificacao</div>
+                <div style={{fontSize:13,fontWeight:600,color:C.navy,marginBottom:14}}>Identificacao</div>
                 <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14}}>
                   {[['Razao Social *','razao_social'],['Nome Fantasia','nome_fantasia'],['CNPJ *','cnpj'],['CNAE Principal','cnae_principal'],['CNAEs Secundarios','cnaes_secundarios'],['Inscricao Estadual','inscricao_estadual'],['Inscricao Municipal','inscricao_municipal'],['Municipio','municipio'],['UF','uf']].map(([lb,k])=>(
                     <div key={k} style={{display:'flex',flexDirection:'column',gap:5}}>
@@ -736,7 +804,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               </div>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:16,marginBottom:16}}>
-                <div style={{fontSize:13,fontWeight:600,color:C.blue,marginBottom:14}}>Periodo de analise</div>
+                <div style={{fontSize:13,fontWeight:600,color:C.navy,marginBottom:14}}>Periodo de analise</div>
                 <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14}}>
                   {[['Competencia inicial','competencia_inicio','month'],['Competencia final','competencia_fim','month'],['Responsavel contabil','responsavel_contabil','text'],['Observacoes','observacoes','text']].map(([lb,k,tp])=>(
                     <div key={k} style={{display:'flex',flexDirection:'column',gap:5}}>
@@ -815,7 +883,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)',gap:12,marginBottom:20}}>
-                {[[fmtR(totalPot),'Total potencial',C.green],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Confirmados','#0D9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possiveis','#D97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'A validar',C.red]].map(([v,lb,vc],i)=>(
+                {[[fmtR(totalPot),'Total potencial','#16A34A'],[ents.filter(e=>e.risco==='baixo'&&e.credito>0).length,'Confirmados','#0D9488'],[ents.filter(e=>e.risco==='medio'&&e.credito>0).length,'Possiveis','#D97706'],[ents.filter(e=>e.risco==='alto'&&e.credito>0).length,'A validar','#DC2626']].map(([v,lb,vc],i)=>(
                   <div key={i} style={{background:C.white,borderRadius:12,padding:16,borderTop:`4px solid ${vc}`}}>
                     <div style={{fontSize:i===0?16:22,fontWeight:700,color:vc,marginBottom:4}}>{v}</div>
                     <div style={{fontSize:11,color:C.muted}}>{lb}</div>
@@ -825,12 +893,12 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               {ents.filter(e=>e.credito>0).length>0 ? (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                    <thead><tr style={{background:C.bg}}>{['Competencia','Tributo','Credito','Risco'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.4,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{background:'#F8FAFC'}}>{['Competencia','Tributo','Credito','Risco'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.4,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
                     <tbody>{ents.filter(e=>e.credito>0).map((e,i)=>(
                       <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
                         <td style={{padding:'8px 12px',whiteSpace:'nowrap'}}>{e.competencia}</td>
                         <td style={{padding:'8px 12px'}}>{e.tributo}</td>
-                        <td style={{padding:'8px 12px',fontWeight:600,color:C.green,whiteSpace:'nowrap'}}>{fmtR(e.credito)}</td>
+                        <td style={{padding:'8px 12px',fontWeight:600,color:'#16A34A',whiteSpace:'nowrap'}}>{fmtR(e.credito)}</td>
                         <td style={{padding:'8px 12px'}}>{riskBadge(e.risco)}</td>
                       </tr>
                     ))}</tbody>
@@ -864,15 +932,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Estimativas para diagnostico</div>
               <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:`2px solid ${C.border}`,overflowX:'auto'}}>
                 {[['fator-r','Fator R'],['das','DAS'],['regime','Regime'],['irpj','IRPJ'],['prescricao','Prescricao']].map(([id,lb])=>(
-                  <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 14px',fontSize:12,fontWeight:calcTab===id?600:500,color:calcTab===id?C.blue:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.blue:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>{lb}</div>
+                  <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 14px',fontSize:12,fontWeight:calcTab===id?600:500,color:calcTab===id?C.navy:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.navy:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>{lb}</div>
                 ))}
               </div>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,maxWidth:580}}>
-                {calcTab==='fator-r'    && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Fator R</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='das'        && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita do mes (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='regime'     && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Simulador de regime</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Margem liquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comercio'],['industria','Industria'],['servicos','Servicos']])}</div></div><button onClick={calcRegime} style={btnPrimary}>Simular</button></>}
-                {calcTab==='irpj'       && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>IRPJ/CSLL</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta trimestral (R$)</label>{inp(cRbt,setCRbt,'Ex: 300000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv2,setCAtv2,[['8','Comercio/Industria (8%)'],['16','Transporte (16%)'],['32','Servicos (32%)']])}</div></div><button onClick={calcIRPJ} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='prescricao' && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Prescricao</div><div style={{marginBottom:14}}><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Data de pagamento indevido</label><input type="date" value={cDtpag} onChange={e=>setCDtpag(e.target.value)} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} /></div><button onClick={calcPrescricao} style={btnPrimary}>Calcular</button></>}
+                {calcTab==='fator-r'    && <><div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:14}}>Fator R</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={btnPrimary}>Calcular</button></>}
+                {calcTab==='das'        && <><div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:14}}>DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita do mes (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={btnPrimary}>Calcular</button></>}
+                {calcTab==='regime'     && <><div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:14}}>Simulador de regime</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Margem liquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comercio'],['industria','Industria'],['servicos','Servicos']])}</div></div><button onClick={calcRegime} style={btnPrimary}>Simular</button></>}
+                {calcTab==='irpj'       && <><div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:14}}>IRPJ/CSLL</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta trimestral (R$)</label>{inp(cRbt,setCRbt,'Ex: 300000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv2,setCAtv2,[['8','Comercio/Industria (8%)'],['16','Transporte (16%)'],['32','Servicos (32%)']])}</div></div><button onClick={calcIRPJ} style={btnPrimary}>Calcular</button></>}
+                {calcTab==='prescricao' && <><div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:14}}>Prescricao</div><div style={{marginBottom:14}}><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Data de pagamento indevido</label><input type="date" value={cDtpag} onChange={e=>setCDtpag(e.target.value)} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} /></div><button onClick={calcPrescricao} style={btnPrimary}>Calcular</button></>}
                 {calcResult && <div style={{marginTop:16,background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,padding:'14px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
               </div>
             </>}
