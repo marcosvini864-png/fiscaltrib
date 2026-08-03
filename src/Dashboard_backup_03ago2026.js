@@ -1,5 +1,6 @@
 import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
+import Acompanhamento from './Acompanhamento'
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
@@ -64,15 +65,12 @@ const TESES_DIAGNOSTICO = [
   { id: 'pgdas',       label: 'PGDAS-D' },
 ]
 
-// ── MODULES: Clientes agora tem 3 abas (Clientes / Novo cliente / Checklist
-// de Documentos). Importações virou módulo próprio, isolado, sem TabBar. ───
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
-  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
-  importacoes:  { label:'Central de Importações',  icon:'📥', tabs:[] },
+  clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Upload XML','Importacoes','Checklist'] },
   diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
-  recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP'] },
+  recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP','Acompanhamento'] },
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatorios',              icon:'📄', tabs:['Relatorio Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligencia Tributaria', icon:'🧠', tabs:['Central Tributaria','Reforma Tributaria'] },
@@ -95,12 +93,13 @@ const MENU_SECOES = [
     titulo: 'TRABALHO',
     itens: [
       { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F465}' }, // 👥
-      { label: 'Central de Importações',    module: 'importacoes', tab: 0, icon: '\u{1F4E5}' }, // 📥
+      { label: 'Importações',               module: 'clientes',    tab: 3, icon: '\u{1F4E5}' }, // 📥
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
       { label: 'Recuperações',              module: 'recuperacao', tab: 0, icon: '\u{267B}' },  // ♻
       { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
+      { label: 'Acompanhamento',            module: 'recuperacao', tab: 2, icon: '\u{1F4CC}' }, // 📌
       { label: 'Dívida Ativa',              module: 'divida',      tab: 0, icon: '\u{26A0}' },  // ⚠
       { label: 'Importar CDA PDF',          module: 'divida',      tab: 1, icon: '\u{1F4C4}' }, // 📄
     ],
@@ -411,7 +410,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [calcTab, setCalcTab] = useState('fator-r')
   const [calcResult, setCalcResult] = useState('')
   const [novoCliente, setNovoCliente] = useState(null)
-  const [modoNovoCliente, setModoNovoCliente] = useState(null) // 'manual' | 'xml' | null (tela de escolha)
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
@@ -507,7 +505,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
       if(!error&&data){ setClientes([data[0],...clientes]); setActiveId(data[0].id.toString()); setEntradas({...entradas,[data[0].id]:[]}) }
       else alert('Erro: '+error.message)
     }
-    setSalvando(false); setModoNovoCliente(null); navigateTo('clientes', 0)
+    setSalvando(false); navigateTo('clientes', 0)
   }
   function toggleCheck(idx) {
     const arr=checklist[activeId]||(REGIME_DOCS[active?.regime]||[]).map(()=>false)
@@ -518,13 +516,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   function handleNavigate(key, tab=0) {
     setModule(key); setActiveTab(tab)
     setSidebarAtiva(key + ':' + tab)
-    if(key==='clientes') { setNovoCliente(null); setModoNovoCliente(null) }
+    if(key==='clientes') setNovoCliente(null)
     if(key==='diagnostico') setTeseDiagnostico('importar')
   }
-  function handleTab(i) {
-    setActiveTab(i)
-    if(module==='clientes' && i===1) { setNovoCliente(null); setModoNovoCliente(null) }
-  }
+  function handleTab(i) { setActiveTab(i); if(module==='clientes' && i===1) setNovoCliente({...CLIENTE_VAZIO}) }
   async function preencherViaXML(file) {
     const text = await file.text()
     const doc = new DOMParser().parseFromString(text, 'application/xml')
@@ -715,7 +710,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                       <div style={{fontSize:18,fontWeight:700,color:C.green}}>{fmtR(tot)}</div>
                       <div style={{fontSize:10,color:C.muted,marginBottom:8}}>potencial</div>
                       <div style={{display:'flex',gap:6,justifyContent:'flex-end',flexWrap:'wrap'}}>
-                        <button onClick={()=>{setNovoCliente({...c});setModoNovoCliente('manual');setActiveTab(1)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Editar</button>
+                        <button onClick={()=>{setNovoCliente({...c});setActiveTab(1)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Editar</button>
                         <button onClick={()=>{setActiveId(c.id.toString());navigateTo('analise',0)}} style={{...btnPrimary,padding:'4px 10px',fontSize:11}}>Analisar</button>
                         <button onClick={()=>excluirCliente(c)} style={btnDanger}>Excluir</button>
                       </div>
@@ -725,35 +720,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               )})}
             </>}
 
-            {/* ── NOVO CLIENTE: tela de escolha (manual x XML) ── */}
-            {module==='clientes' && activeTab===1 && !modoNovoCliente && <>
+            {module==='clientes' && activeTab===1 && novoCliente && <>
               <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>Voltar</button>
-              <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:8}}>Novo cliente</div>
-              <div style={{fontSize:13,color:C.muted,marginBottom:24}}>Como você quer cadastrar este cliente?</div>
-              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16,maxWidth:720}}>
-                <div onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setModoNovoCliente('manual')}}
-                  style={{background:C.white,borderRadius:12,border:`1.5px solid ${C.border}`,padding:24,cursor:'pointer',transition:'all 0.15s'}}>
-                  <div style={{fontSize:32,marginBottom:12}}>✍️</div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:6}}>Cadastro Manual</div>
-                  <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Preencha os dados do cliente diretamente no formulário — razão social, CNPJ, regime tributário e demais informações.</div>
-                </div>
-                <div onClick={()=>{setNovoCliente({...CLIENTE_VAZIO});setModoNovoCliente('xml')}}
-                  style={{background:C.white,borderRadius:12,border:`1.5px solid ${C.border}`,padding:24,cursor:'pointer',transition:'all 0.15s'}}>
-                  <div style={{fontSize:32,marginBottom:12}}>📄</div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:6}}>Cadastro com Arquivo XML Importado</div>
-                  <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Envie um XML de NF-e e o sistema preenche automaticamente razão social, CNPJ, CNAE, endereço e regime tributário.</div>
-                </div>
-              </div>
-            </>}
-
-            {/* ── NOVO/EDITAR CLIENTE: formulário (manual ou via XML) ── */}
-            {module==='clientes' && activeTab===1 && novoCliente && modoNovoCliente && <>
-              <button onClick={()=>{ if(novoCliente.id){ navigateTo('clientes',0) } else { setModoNovoCliente(null) } }} style={btnVoltar}>Voltar</button>
               <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:20}}>{novoCliente.id?'Editar cliente':'Novo cliente'}</div>
-              {!novoCliente.id && modoNovoCliente==='xml' && (
+              {!novoCliente.id && (
                 <div style={{background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:12,padding:'14px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:4}}>Cadastro com Arquivo XML Importado</div>
+                    <div style={{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:4}}>Preencher via XML de NF-e</div>
                     <div style={{fontSize:12,color:C.muted}}>Importe um XML para preencher automaticamente</div>
                   </div>
                   <label style={{padding:'8px 16px',background:'#1e40af',color:'#fff',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
@@ -792,13 +765,25 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={salvarCliente} disabled={salvando} style={btnPrimary}>{salvando?'Salvando...':'Salvar'}</button>
-                <button onClick={()=>{ if(novoCliente.id){ navigateTo('clientes',0) } else { setModoNovoCliente(null) } }} style={btnOutline}>Cancelar</button>
+                <button onClick={()=>setActiveTab(0)} style={btnOutline}>Cancelar</button>
               </div>
             </>}
 
-            {module==='clientes' && activeTab===2 && <>
+            {module==='clientes' && activeTab===2 && <EntradaDados clienteId={activeId} cliente={active} onSalvo={()=>carregarClientes()} setPage={(destino) => {
+              if (destino === 'lista') navigateTo('clientes', 0)
+              else if (destino === 'diagnostico') navigateTo('analise', 0)
+              else if (destino === 'importacoes') navigateTo('clientes', 3)
+              else if (destino === 'relatorio') navigateTo('relatorios', 0)
+            }} />}
+
+            {module==='clientes' && activeTab===3 && <>
               <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>Voltar</button>
-              <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist de Documentos</div>
+              <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
+            </>}
+
+            {module==='clientes' && activeTab===4 && <>
+              <button onClick={()=>navigateTo('clientes',0)} style={btnVoltar}>Voltar</button>
+              <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:4}}>Checklist documental</div>
               <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{active?.razao_social} . {active?.regime}</div>
               <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:16,marginBottom:14}}>
                 <div style={{background:C.border,borderRadius:99,height:8,overflow:'hidden',marginBottom:6}}><div style={{background:C.green,height:8,borderRadius:99,width:pct+'%',transition:'width .3s'}}></div></div>
@@ -812,13 +797,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 ))}
               </div>
               <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                <button onClick={()=>navigateTo('clientes',2)} style={btnPrimary}>Avancar</button>
                 <button onClick={()=>navigateTo('analise',0)} style={btnOutline}>Ir para diagnostico</button>
               </div>
             </>}
-
-            {module==='importacoes' && (
-              <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
-            )}
 
             {module==='diagnostico' && (
               <DiagnosticoTributario
@@ -880,7 +862,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                       <div style={{fontSize:13,color:'#9A3412'}}>O Motor de Inteligencia Tributaria analisou os dados deste cliente e nao encontrou hipoteses de recuperacao.</div>
                     </div>
                   </div>
-                  <button onClick={()=>navigateTo('importacoes',0)} style={{padding:'10px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar mais XMLs</button>
+                  <button onClick={()=>navigateTo('clientes',3)} style={{padding:'10px 20px',background:'#EA580C',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar mais XMLs</button>
                 </div>
               ) : (
                 <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
@@ -914,6 +896,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
             {module==='recuperacao' && activeTab===0 && <GestaoRecuperacoes />}
             {module==='recuperacao' && activeTab===1 && <PerdComp />}
+            {module==='recuperacao' && activeTab===2 && <Acompanhamento />}
             {module==='prazos' && activeTab===0 && <PrazosPrescricionais active={active} />}
             {module==='prazos' && activeTab===1 && <PrazosFiscais />}
             {module==='relatorios' && activeTab===0 && <Relatorio active={active} ents={ents} />}
