@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { parseXMLNFe, agruparPorCompetencia } from '../utils/parseXMLNFe'
+import MotorInteligenciaTributaria from '../motor/MotorInteligenciaTributaria'
 
 const NCM_MONOFASICOS = {
   '27101259': 'Gasolina', '27101921': 'Óleo Diesel', '27111290': 'GLP',
@@ -750,65 +751,259 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
   }
 
   async function analisar() {
-    if (arquivos.length === 0) return
-    setEtapa('processando'); setErro(''); setErroPGDAS(''); setParecerIA(null); setMensagensChat([])
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const notasXML = []
-      let pgdasConsolidado = null
-      for (const arq of arquivos) {
-        if (arq.tipo === 'xml') {
-          const texto = await arq.file.text()
-          const xmls = texto.includes('<nfeProc') ? texto.split('</nfeProc>').filter(x => x.includes('<nfeProc')).map(x => x + '</nfeProc>') : [texto]
-          for (const xml of xmls) { try { const n = parseXMLNFe(xml); if (n.competencia) notasXML.push(n) } catch (e) { console.warn('XML inválido:', e) } }
-        }
-      }
-      const arquivosPDF = arquivos.filter(a => a.tipo === 'pdf')
-      if (arquivosPDF.length > 0) {
-        setLoadingPGDAS(true)
-        try {
-          const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF, session)
-          pgdasConsolidado = consolidarPGDAS(resultadosPGDAS)
-        } catch (e) { setErroPGDAS('Erro ao processar PDF: ' + e.message) }
-        finally { setLoadingPGDAS(false) }
-      }
-      if (notasXML.length === 0 && !pgdasConsolidado) throw new Error('Nenhum documento válido encontrado.')
-      const competencias = notasXML.length > 0 ? agruparPorCompetencia(notasXML) : []
-      const entradas = notasXML.filter(n => n.tipo === 'entrada')
-      const saidas = notasXML.filter(n => n.tipo === 'saida')
-      const itensEntrada = entradas.flatMap(n => n.itens)
-      const monofasicos = []
-      for (const item of itensEntrada) {
-        const ncm8 = item.ncm?.substring(0, 8); const desc = NCM_MONOFASICOS[ncm8]
-        if (desc) {
-          if ((regime === 'Lucro Presumido' || regime === 'Lucro Real') && (item.vPIS > 0 || item.vCOFINS > 0)) monofasicos.push({ ...item, descricao: desc, credito: item.vPIS + item.vCOFINS, tese: 'MONOFASICO' })
-          if (regime === 'Simples Nacional') monofasicos.push({ ...item, descricao: desc, credito: 0, tese: 'SEGREGACAO_MONOFASICO' })
-        }
-      }
-      const exclusaoICMS = []
-      if (regime === 'Lucro Presumido' || regime === 'Lucro Real') {
-        for (const comp of competencias) {
-          if (comp.totalICMS > 0) { const aliq = regime === 'Lucro Real' ? 0.0925 : 0.0365; exclusaoICMS.push({ competencia: comp.competencia, vICMS: comp.totalICMS, credito: comp.totalICMS * aliq, tese: 'EXCLUSAO_ICMS_TEMA69' }) }
-        }
-      }
-      const icmsST = []
-      if (regime === 'Lucro Real') { for (const item of itensEntrada) { if (item.vST > 0) icmsST.push({ ...item, credito: item.vST * 0.0925, tese: 'ICMS_ST' }) } }
-      const retencoes = []
-      if (regime === 'Simples Nacional') { for (const nota of notasXML) { if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1') retencoes.push({ nNF: nota.nNF, competencia: nota.competencia, credito: nota.totalPIS + nota.totalCOFINS, tese: 'RETENCAO_INDEVIDA' }) } }
-      const totalCreditoXML = monofasicos.reduce((s, o) => s + o.credito, 0) + exclusaoICMS.reduce((s, o) => s + o.credito, 0) + icmsST.reduce((s, o) => s + o.credito, 0) + retencoes.reduce((s, o) => s + o.credito, 0)
-      const totalCredito = totalCreditoXML + (pgdasConsolidado?.diferenca_total || 0)
-      const resumoCompetencias = competencias.map(comp => ({
-        competencia: comp.competencia, receita_bruta: comp.totalProd, receita_tributada: comp.totalProd,
-        receita_monofasica: comp.itens.filter(i => NCM_MONOFASICOS[i.ncm?.substring(0, 8)]).reduce((s, i) => s + i.vProd, 0),
-        tributo_pago: comp.totalPIS + comp.totalCOFINS, tributo_devido: 0,
-        credito: exclusaoICMS.filter(o => o.competencia === comp.competencia).reduce((s, o) => s + o.credito, 0),
-        nfes_analisadas: comp.notas.length, periodo_inicio: comp.competencia + '-01', periodo_fim: comp.competencia + '-01',
-      }))
-      setResultado({ totalNotas: notasXML.length, entradas: entradas.length, saidas: saidas.length, competencias, resumoCompetencias, monofasicos, exclusaoICMS, icmsST, retencoes, totalCredito, notasRaw: notasXML, pgdas: pgdasConsolidado })
-      setEtapa('resultado')
-    } catch (e) { setErro(e.message); setEtapa('inicio') }
-  }
+  if (arquivos.length === 0) return
+  setEtapa('processando'); setErro(''); setErroPGDAS(''); setParecerIA(null); setMensagensChat([])
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user } } = await supabase.auth.getUser()
 
+    // ── 1. Carrega dados complementares salvos ──────────────
+    const { data: dadosComp } = await supabase
+      .from('clientes_dados_complementares')
+      .select('*')
+      .eq('cliente_id', clienteId)
+      .maybeSingle()
+
+    // ── 2. Processa XMLs ────────────────────────────────────
+    const notasXML = []
+    for (const arq of arquivos) {
+      if (arq.tipo === 'xml') {
+        const texto = await arq.file.text()
+        const xmls = texto.includes('<nfeProc')
+          ? texto.split('</nfeProc>').filter(x => x.includes('<nfeProc')).map(x => x + '</nfeProc>')
+          : [texto]
+        for (const xml of xmls) {
+          try { const n = parseXMLNFe(xml); if (n.competencia) notasXML.push(n) }
+          catch (e) { console.warn('XML inválido:', e) }
+        }
+      }
+    }
+
+    // ── 3. Processa PDFs PGDAS ──────────────────────────────
+    let pgdasConsolidado = null
+    const arquivosPDF = arquivos.filter(a => a.tipo === 'pdf')
+    if (arquivosPDF.length > 0) {
+      setLoadingPGDAS(true)
+      try {
+        const resultadosPGDAS = await processarPDFsPGDAS(arquivosPDF, session)
+        pgdasConsolidado = consolidarPGDAS(resultadosPGDAS)
+      } catch (e) { setErroPGDAS('Erro ao processar PDF: ' + e.message) }
+      finally { setLoadingPGDAS(false) }
+    }
+
+    if (notasXML.length === 0 && !pgdasConsolidado) throw new Error('Nenhum documento válido encontrado.')
+
+    // ── 4. Monta opcoes para o Motor ────────────────────────
+    const opcoes = {}
+
+    // FATOR_R — Simples Nacional
+    if (regime === 'Simples Nacional' && dadosComp) {
+      const folha    = parseFloat(dadosComp.folha_mensal || 0)
+      const prolabore= parseFloat(dadosComp.valor_prolabore || 0)
+      const folhaTotal = folha + prolabore
+      const rbt12    = parseFloat(dadosComp.rbt12 || 0)
+      const recMensal = rbt12 / 12
+      opcoes.FATOR_R = {
+        folhaMensal:    folhaTotal,
+        receitaMensal:  recMensal,
+        receita12Meses: rbt12,
+        anexoAtual:     dadosComp.anexo_simples || 'V',
+      }
+    }
+
+    // INSS — verbas indenizatórias
+    if (dadosComp?.possui_folha_inss && dadosComp?.folha_inss?.length > 0) {
+      opcoes.INSS = { folha: dadosComp.folha_inss }
+    }
+
+    // IRPJ/CSLL — Lucro Presumido e Real
+    if ((regime === 'Lucro Presumido' || regime === 'Lucro Real') && dadosComp) {
+      opcoes.IRPJ_CSLL = {
+        receitaBruta:      parseFloat(dadosComp.faturamento_anual || 0),
+        lucroContabil:     parseFloat(dadosComp.lucro_contabil || 0),
+        patrimonioLiquido: parseFloat(dadosComp.patrimonio_liquido || 0),
+        prejuizoAcumulado: parseFloat(dadosComp.prejuizo_acumulado || 0),
+        selicRecebida:     parseFloat(dadosComp.selic_recebida || 0),
+        irpjCsllPago:      parseFloat(dadosComp.irpj_csll_pago || 0),
+      }
+    }
+
+    // CAPAG + TRANSACAO + PRESCRICAO + DECADENCIA — Dívida Ativa
+    if (dadosComp?.possui_divida_ativa) {
+      const cdas = dadosComp.cdas || []
+
+      opcoes.CAPAG = {
+        totalDivida:     parseFloat(dadosComp.valor_total_divida || 0),
+        faturamentoAnual: parseFloat(dadosComp.faturamento_anual || dadosComp.faturamento_mensal * 12 || 0),
+        bensPenhoraveis:  parseFloat(dadosComp.bens_penhoraveis || 0),
+        emRecuperacao:    dadosComp.em_recuperacao_judicial || false,
+        capagInformado:   dadosComp.capag || null,
+      }
+
+      opcoes.TRANSACAO = {
+        totalDivida:       parseFloat(dadosComp.valor_total_divida || 0),
+        valorPrincipal:    parseFloat(dadosComp.valor_principal || 0),
+        valorMultas:       parseFloat(dadosComp.valor_multas || 0),
+        valorJuros:        parseFloat(dadosComp.valor_juros || 0),
+        capag:             dadosComp.capag || 'C',
+        faturamentoMensal: parseFloat(dadosComp.faturamento_mensal_pgfn || dadosComp.faturamento_mensal || 0),
+      }
+
+      if (cdas.length > 0) {
+        opcoes.PRESCRICAO = { dividas: cdas }
+        opcoes.DECADENCIA = {
+          lancamentos: cdas.map(c => ({
+            id:              c.numero,
+            numero:          c.numero,
+            tributo:         c.tributo,
+            valor:           parseFloat(c.valor || 0),
+            dataFatoGerador: c.dataInscricao || null,
+            dataLancamento:  c.dataInscricao || null,
+          }))
+        }
+        opcoes.DIVIDA_ATIVA = {
+          cdas,
+          financeiro: {
+            totalDivida:       parseFloat(dadosComp.valor_total_divida || 0),
+            valorPrincipal:    parseFloat(dadosComp.valor_principal || 0),
+            valorMultas:       parseFloat(dadosComp.valor_multas || 0),
+            valorJuros:        parseFloat(dadosComp.valor_juros || 0),
+            faturamentoAnual:  parseFloat(dadosComp.faturamento_anual || 0),
+            faturamentoMensal: parseFloat(dadosComp.faturamento_mensal || 0),
+            bensPenhoraveis:   parseFloat(dadosComp.bens_penhoraveis || 0),
+            emRecuperacao:     dadosComp.em_recuperacao_judicial || false,
+            capag:             dadosComp.capag || null,
+          }
+        }
+      }
+    }
+
+    // ── 5. Roda o Motor ─────────────────────────────────────
+    const clienteMotor = {
+      razao_social: cliente?.razao_social || '',
+      cnpj:         cliente?.cnpj || '',
+      regime,
+    }
+
+    const resultadoMotor = await MotorInteligenciaTributaria.analisar(
+      notasXML,
+      clienteMotor,
+      opcoes
+    )
+
+    console.log('Resultado Motor:', resultadoMotor)
+
+    // ── 6. Extrai resultados dos módulos ────────────────────
+    const getModulo = (id) => resultadoMotor.resultados?.find(r => r.modulo === id)
+
+    const modMonofasicos  = getModulo('MONOFASICOS')
+    const modExclusao     = getModulo('EXCLUSAO_ICMS')
+    const modICMSST       = getModulo('ICMS_ST')
+    const modFatorR       = getModulo('FATOR_R')
+    const modINSS         = getModulo('INSS')
+    const modIRPJCSLL     = getModulo('IRPJ_CSLL')
+    const modCAPAG        = getModulo('CAPAG')
+    const modTransacao    = getModulo('TRANSACAO')
+    const modPrescricao   = getModulo('PRESCRICAO')
+    const modDecadencia   = getModulo('DECADENCIA')
+    const modDividaAtiva  = getModulo('DIVIDA_ATIVA')
+
+    // ── 7. Monta arrays no formato legado do DiagnosticoNarrativo ──
+    const competencias = agruparPorCompetencia(notasXML)
+    const entradas     = notasXML.filter(n => n.tipo === 'entrada')
+    const saidas       = notasXML.filter(n => n.tipo === 'saida')
+
+    // Monofásicos
+    const monofasicos = modMonofasicos?.oportunidades?.[0]?.evidencias?.map(ev => ({
+      ...ev,
+      ncm:      ev.item?.ncm || ev.ncm || '',
+      descricao: ev.descricao || '',
+      credito:   ev.valorCredito || ev.credito || 0,
+      vProd:     ev.item?.vProd || 0,
+      tese:      regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO',
+    })) || []
+
+    // Exclusão ICMS
+    const exclusaoICMS = modExclusao?.oportunidades?.[0]?.calculos?.porCompetencia
+      ? Object.values(modExclusao.oportunidades[0].calculos.porCompetencia).map(c => ({
+          competencia: c.competencia,
+          vICMS:       c.vICMSTotal || 0,
+          credito:     c.creditoTotal || 0,
+          tese:        'EXCLUSAO_ICMS_TEMA69',
+        }))
+      : []
+
+    // ICMS-ST
+    const icmsST = modICMSST?.oportunidades?.[0]?.evidencias?.map(ev => ({
+      ...ev,
+      produto:  ev.descricao || '',
+      vST:      ev.item?.vST || 0,
+      credito:  ev.valorCredito || ev.credito || 0,
+      tese:     'ICMS_ST',
+    })) || []
+
+    // Retenções (mantém análise manual — Motor ainda não tem módulo específico)
+    const retencoes = []
+    if (regime === 'Simples Nacional') {
+      for (const nota of notasXML) {
+        if ((nota.totalPIS > 0 || nota.totalCOFINS > 0) && nota.crt === '1') {
+          retencoes.push({ nNF: nota.nNF, competencia: nota.competencia, credito: nota.totalPIS + nota.totalCOFINS, tese: 'RETENCAO_INDEVIDA' })
+        }
+      }
+    }
+
+    // ── 8. Crédito total consolidado ────────────────────────
+    const creditoMotor   = resultadoMotor.consolidado?.creditoTotal || 0
+    const creditoRetencoes = retencoes.reduce((s, o) => s + o.credito, 0)
+    const totalCredito   = creditoMotor + creditoRetencoes + (pgdasConsolidado?.diferenca_total || 0)
+
+    // ── 9. Resumo por competência ───────────────────────────
+    const resumoCompetencias = competencias.map(comp => ({
+      competencia:      comp.competencia,
+      receita_bruta:    comp.totalProd,
+      receita_tributada: comp.totalProd,
+      receita_monofasica: comp.itens.filter(i => NCM_MONOFASICOS[i.ncm?.substring(0, 8)]).reduce((s, i) => s + i.vProd, 0),
+      tributo_pago:     comp.totalPIS + comp.totalCOFINS,
+      tributo_devido:   0,
+      credito:          exclusaoICMS.filter(o => o.competencia === comp.competencia).reduce((s, o) => s + o.credito, 0),
+      nfes_analisadas:  comp.notas.length,
+      periodo_inicio:   comp.competencia + '-01',
+      periodo_fim:      comp.competencia + '-01',
+    }))
+
+    // ── 10. Resultado final ─────────────────────────────────
+    setResultado({
+      totalNotas:        notasXML.length,
+      entradas:          entradas.length,
+      saidas:            saidas.length,
+      competencias,
+      resumoCompetencias,
+      monofasicos,
+      exclusaoICMS,
+      icmsST,
+      retencoes,
+      totalCredito,
+      notasRaw:          notasXML,
+      pgdas:             pgdasConsolidado,
+      // Resultados extras do Motor
+      motorResultado:    resultadoMotor,
+      modFatorR,
+      modINSS,
+      modIRPJCSLL,
+      modCAPAG,
+      modTransacao,
+      modPrescricao,
+      modDecadencia,
+      modDividaAtiva,
+    })
+
+    setEtapa('resultado')
+
+  } catch (e) {
+    setErro(e.message)
+    setEtapa('inicio')
+  }
+}
   async function analisarComIA() {
     if (!resultado) return
     setLoadingIA(true); setErroIA(''); setParecerIA(null); setMostrarChat(false)
@@ -931,6 +1126,237 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     const janela = window.open('', '_blank'); janela.document.write(html); janela.document.close()
   }
 
+  // ── TELAS POR TESE ──────────────────────────────────────────────────────────
+  const ultimoDiagnostico = diagnosticosSalvos[0] || null
+  const resultadoUltimo = ultimoDiagnostico?.resultado_json || null
+
+  const TESES_CONFIG = {
+    monofasicos: {
+      icone: '💊',
+      titulo: 'Monofásicos PIS/COFINS',
+      descricao: 'Para identificar produtos sujeitos à tributação monofásica e possíveis valores pagos indevidamente, é necessário importar os arquivos fiscais da empresa.',
+      instrucao: 'Importe os XMLs de notas fiscais para iniciar a análise.',
+      documentos: ['XMLs de NF-e de entrada', 'XMLs de NF-e de saída'],
+      cor: '#7c3aed',
+      dados: resultadoUltimo?.monofasicos || [],
+      total: (resultadoUltimo?.monofasicos || []).reduce((s, o) => s + (o.credito || 0), 0),
+    },
+    icms_tema69: {
+      icone: '⚖️',
+      titulo: 'Exclusão ICMS — STF Tema 69',
+      descricao: 'Para calcular o ICMS indevidamente incluído na base de PIS/COFINS, é necessário importar os XMLs de notas fiscais com valores de ICMS.',
+      instrucao: 'Importe os XMLs de NF-e para iniciar a análise (Lucro Presumido ou Real).',
+      documentos: ['XMLs de NF-e de entrada e saída', 'Aplicável apenas para Lucro Presumido e Lucro Real'],
+      cor: '#0891b2',
+      dados: resultadoUltimo?.exclusaoICMS || [],
+      total: (resultadoUltimo?.exclusaoICMS || []).reduce((s, o) => s + (o.credito || 0), 0),
+    },
+    icms_st: {
+      icone: '🔄',
+      titulo: 'Crédito de ICMS-ST',
+      descricao: 'Para identificar créditos de ICMS-ST nas entradas, é necessário importar os XMLs de notas fiscais que contenham ICMS por substituição tributária.',
+      instrucao: 'Importe os XMLs de NF-e de entrada (aplicável apenas no Lucro Real).',
+      documentos: ['XMLs de NF-e de entrada com ICMS-ST', 'Aplicável apenas para Lucro Real'],
+      cor: '#ea580c',
+      dados: resultadoUltimo?.icmsST || [],
+      total: (resultadoUltimo?.icmsST || []).reduce((s, o) => s + (o.credito || 0), 0),
+    },
+    retencoes: {
+      icone: '🚫',
+      titulo: 'Retenções Indevidas de PIS/COFINS/CSLL',
+      descricao: 'Para identificar retenções indevidas sofridas por empresas do Simples Nacional, é necessário importar os XMLs de notas fiscais de serviços.',
+      instrucao: 'Importe os XMLs de NF-e para iniciar a análise (Simples Nacional).',
+      documentos: ['XMLs de NF-e de saída com retenções', 'Aplicável apenas para Simples Nacional'],
+      cor: '#dc2626',
+      dados: resultadoUltimo?.retencoes || [],
+      total: (resultadoUltimo?.retencoes || []).reduce((s, o) => s + (o.credito || 0), 0),
+    },
+    pgdas: {
+      icone: '📋',
+      titulo: 'Segregação no PGDAS-D',
+      descricao: 'Para verificar se as receitas foram corretamente segregadas no PGDAS-D, é necessário importar o PDF da declaração do Simples Nacional.',
+      instrucao: 'Importe o PDF do PGDAS-D para iniciar a análise.',
+      documentos: ['PDF do PGDAS-D', 'Declaração do Simples Nacional', 'Aplicável apenas para Simples Nacional'],
+      cor: '#ea580c',
+      dados: resultadoUltimo?.pgdas ? [resultadoUltimo.pgdas] : [],
+      total: resultadoUltimo?.pgdas?.diferenca_total || 0,
+    },
+  }
+
+  if (teseAtiva && teseAtiva !== 'importar') {
+    const config = TESES_CONFIG[teseAtiva]
+    if (!config) return null
+
+    const temDados = config.dados.length > 0 || config.total > 0
+
+    return (
+      <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
+
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${config.cor}, ${config.cor}dd)`, borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DINHEIRO RECUPERÁVEL</div>
+          <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{config.icone} {config.titulo}</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{regime}</span>
+            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{cliente?.razao_social}</span>
+          </div>
+        </div>
+
+        {!temDados ? (
+          /* ── SEM DIAGNÓSTICO ── */
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #C8D0DC', padding: '48px 40px', textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
+            <div style={{ fontSize: 56, marginBottom: 20 }}>{config.icone}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#0B1F4D', marginBottom: 12 }}>{config.titulo}</div>
+            <div style={{ fontSize: 14, color: '#64748B', lineHeight: 1.8, marginBottom: 8 }}>{config.descricao}</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 28 }}>{config.instrucao}</div>
+
+            <div style={{ background: '#f8fafc', borderRadius: 10, padding: '14px 20px', marginBottom: 28, textAlign: 'left' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Documentos necessários</div>
+              {config.documentos.map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1E293B', marginBottom: 4 }}>
+                  <span style={{ color: config.cor, fontWeight: 700 }}>•</span> {d}
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => onMudarTese && onMudarTese('importar')}
+              style={{ padding: '14px 32px', background: config.cor, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%', marginBottom: 12 }}>
+              📂 Importar arquivos XML
+            </button>
+            <button onClick={() => onMudarTese && onMudarTese('importar')}
+              style={{ padding: '10px 24px', background: 'none', color: '#64748B', border: '1.5px solid #C8D0DC', borderRadius: 10, fontSize: 13, cursor: 'pointer', width: '100%' }}>
+              ← Voltar para Importar
+            </button>
+          </div>
+        ) : (
+          /* ── COM DIAGNÓSTICO ── */
+          <div>
+            {/* KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+              {[
+                { label: 'Itens identificados', valor: config.dados.length, cor: config.cor },
+                { label: 'Potencial de recuperação', valor: fmtR(config.total), cor: '#16a34a' },
+                { label: 'Diagnóstico de', valor: ultimoDiagnostico ? new Date(ultimoDiagnostico.data_diagnostico).toLocaleDateString('pt-BR') : '—', cor: '#0891b2' },
+              ].map((k, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #C8D0DC', textAlign: 'center' }}>
+                  <div style={{ fontSize: i === 1 ? 16 : 22, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Potencial */}
+            <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 14, padding: '20px 24px', marginBottom: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#64748B', marginBottom: 4, fontWeight: 700, letterSpacing: 1 }}>POTENCIAL DE RECUPERAÇÃO — {config.titulo.toUpperCase()}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: '#16a34a' }}>{fmtR(config.total)}</div>
+            </div>
+
+            {/* Dados da tese */}
+            {teseAtiva === 'monofasicos' && resultadoUltimo && (
+              <DiagnosticoNarrativo resultado={resultadoUltimo} regime={regime} />
+            )}
+
+            {teseAtiva === 'icms_tema69' && resultadoUltimo?.exclusaoICMS?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0891b2', marginBottom: 12 }}>⚖️ Exclusão ICMS — por Competência</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['Competência', 'ICMS na Base', 'Crédito Estimado'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.exclusaoICMS.map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle({ fontWeight: 600 })}>{e.competencia}</td>
+                        <td style={tdStyle()}>{fmtR(e.vICMS)}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'icms_st' && resultadoUltimo?.icmsST?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#ea580c', marginBottom: 12 }}>🔄 Crédito ICMS-ST — por Item</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['Produto', 'ICMS-ST', 'Crédito'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.icmsST.slice(0, 20).map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle()}>{e.produto || e.descricao || '—'}</td>
+                        <td style={tdStyle()}>{fmtR(e.vST)}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'retencoes' && resultadoUltimo?.retencoes?.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 12 }}>🚫 Retenções Indevidas — por NF-e</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#f8fafc' }}>
+                    {['NF', 'Competência', 'Valor Retido'].map(h => <th key={h} style={thStyle()}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {resultadoUltimo.retencoes.slice(0, 20).map((e, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={tdStyle({ fontWeight: 600 })}>{e.nNF}</td>
+                        <td style={tdStyle()}>{e.competencia}</td>
+                        <td style={tdStyle({ fontWeight: 700, color: '#16a34a' })}>{fmtR(e.credito)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Total: {fmtR(config.total)}</div>
+              </div>
+            )}
+
+            {teseAtiva === 'pgdas' && resultadoUltimo?.pgdas && (
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #C8D0DC', padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#ea580c', marginBottom: 12 }}>📋 PGDAS-D — Análise de Segregação</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                  {[
+                    { label: 'Receita Bruta Total', valor: fmtR(resultadoUltimo.pgdas.receita_bruta_total), cor: '#1E293B' },
+                    { label: 'Receita Monofásica', valor: fmtR(resultadoUltimo.pgdas.receita_monofasica), cor: '#16a34a' },
+                    { label: 'DAS Recolhido', valor: fmtR(resultadoUltimo.pgdas.das_recolhido), cor: '#1E293B' },
+                    { label: 'DAS Correto Estimado', valor: fmtR(resultadoUltimo.pgdas.das_correto_estimado), cor: '#16a34a' },
+                    { label: 'Diferença Recuperável', valor: fmtR(resultadoUltimo.pgdas.diferenca_total), cor: '#ea580c' },
+                    { label: 'Segregou Corretamente', valor: resultadoUltimo.pgdas.segregou_monofasicos ? 'Sim ✅' : 'Não ❌', cor: resultadoUltimo.pgdas.segregou_monofasicos ? '#16a34a' : '#dc2626' },
+                  ].map((k, i) => (
+                    <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', border: '1px solid #C8D0DC' }}>
+                      <div style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>{k.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Botões */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              <button onClick={() => onMudarTese && onMudarTese('importar')}
+                style={{ flex: 1, padding: 12, background: config.cor, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                📂 Novo Diagnóstico
+              </button>
+              <button onClick={() => ultimoDiagnostico && abrirDiagnosticoSalvo(ultimoDiagnostico)}
+                style={{ flex: 1, padding: 12, background: '#fff', color: '#0B1F4D', border: '1.5px solid #0B1F4D', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                📁 Ver Diagnóstico Completo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+  
   if (!clienteId) return (
     <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🔎</div>
