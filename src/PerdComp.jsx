@@ -249,29 +249,28 @@ export default function PerdComp() {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
 
-      {/* BANNER */}
-      <div style={{ background: 'linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #0d9488 100%)', borderRadius: '0 0 24px 24px', padding: isMobile ? '24px 20px 28px' : '36px 40px 40px', marginBottom: 32, color: '#fff', position: 'relative', overflow: 'hidden', boxSizing: 'border-box' }}>
-        <div style={{ position: 'absolute', top: -40, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 12, color: '#9db8d8', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — RECUPERAÇÃO TRIBUTÁRIA</div>
-          <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, marginBottom: 8, color: '#fff' }}>📤 PER/DCOMP</h1>
-          <p style={{ fontSize: isMobile ? 14 : 16, color: '#9db8d8', marginBottom: isMobile ? 20 : 28, lineHeight: 1.6, maxWidth: 560 }}>
-            Gerencie todos os pedidos de restituição e compensação tributária. Do protocolo à recuperação financeira.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
-            {[
-              { valor: fmtR(totalProtocolado), label: 'Valor protocolado',  cor: '#60a5fa' },
-              { valor: fmtR(totalHomologado),  label: 'Valor homologado',   cor: '#4ade80' },
-              { valor: fmtR(totalRecuperado),  label: 'Valor recuperado',   cor: '#fbbf24' },
-              { valor: fmtR(totalGlosado),     label: 'Valor glosado',      cor: '#f87171' },
-            ].map((c, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: isMobile ? '12px 14px' : '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0, boxSizing: 'border-box' }}>
-                <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 900, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
-                <div style={{ fontSize: 11, color: '#9db8d8', fontWeight: 600 }}>{c.label}</div>
-              </div>
-            ))}
-          </div>
+      {/* BANNER — mesmo padrão navy compacto usado nas demais telas */}
+      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff' }}>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — RECUPERAÇÃO TRIBUTÁRIA</div>
+        <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4, color: '#fff' }}>📤 PER/DCOMP</div>
+        <div style={{ fontSize: 13, color: '#93C5FD' }}>
+          Gerencie todos os pedidos de restituição e compensação tributária. Do protocolo à recuperação financeira.
         </div>
+      </div>
+
+      {/* KPIs — linha de boxes neutros abaixo do banner */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        {[
+          { valor: fmtR(totalProtocolado), label: 'Valor protocolado',  cor: '#0F172A' },
+          { valor: fmtR(totalHomologado),  label: 'Valor homologado',   cor: '#16A34A' },
+          { valor: fmtR(totalRecuperado),  label: 'Valor recuperado',   cor: '#2563EB' },
+          { valor: fmtR(totalGlosado),     label: 'Valor glosado',      cor: '#DC2626' },
+        ].map((c, i) => (
+          <div key={i} style={{ background: '#fff', borderRadius: 10, padding: isMobile ? '12px 14px' : '14px 16px', border: '1px solid #E2E8F0', textAlign: 'center', minWidth: 0, boxSizing: 'border-box' }}>
+            <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 700, color: c.cor, marginBottom: 4 }}>{c.valor}</div>
+            <div style={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>{c.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* ALERTAS DE EXIGÊNCIA */}
