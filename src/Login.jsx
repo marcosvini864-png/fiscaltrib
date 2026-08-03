@@ -44,17 +44,20 @@ const cssResponsivo = `
   .ft-right {
     flex-shrink: 0;
   }
-  .ft-login-card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 28px 32px;
+  .ft-login-input {
     width: 100%;
-    max-width: 380px;
-    box-shadow: 0 12px 40px rgba(15,23,42,0.06);
+    padding: 13px 14px;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
     box-sizing: border-box;
-    border: 1px solid #EEF1F4;
-    max-height: calc(100vh - 140px);
-    overflow-y: auto;
+    font-size: 14px;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ft-login-input:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
   }
   .ft-login-input {
     width: 100%;
@@ -70,20 +73,21 @@ const cssResponsivo = `
   .ft-login-input:focus {
     border-color: #2563EB;
   }
-  .ft-btn-principal {
+  .ft-btn-outline {
     width: 100%;
-    padding: 11px;
-    background: #2563EB;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
+    padding: 13px;
+    background: #F8FAFC;
+    color: #334155;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
   }
-  .ft-btn-principal:hover:not(:disabled) {
-    background: #1D4ED8;
+  .ft-btn-outline:hover {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
   }
   .ft-btn-outline {
     width: 100%;
@@ -302,10 +306,10 @@ export default function Login({ onLogin, onCadastro }) {
         <div className="ft-right">
           <div className="ft-login-card">
 
-            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 19, fontWeight: 600, marginBottom: 4 }}>
+            <h2 style={{ textAlign: 'center', color: '#0F172A', fontSize: 23, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.3px' }}>
               Acesse sua conta
             </h2>
-            <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, marginBottom: 22 }}>
+            <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, marginBottom: 26 }}>
               Digite seus dados de acesso
             </p>
 
@@ -355,10 +359,10 @@ export default function Login({ onLogin, onCadastro }) {
             </div>
 
             {/* Esqueci */}
-            <div style={{ textAlign: 'right', marginBottom: 20 }}>
+            <div style={{ textAlign: 'right', marginBottom: 22 }}>
               <button
                 onClick={() => { setTela('esqueci'); setEmailRec(email) }}
-                style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 12, cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
               >
                 Esqueci minha senha
               </button>
