@@ -70,6 +70,7 @@ const MODULES = {
   sped: { label:'Auditor de SPED', icon:'🔎', tabs:[] },
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
+  dados_complementares: { label:'Dados Complementares', icon:'📋', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -95,6 +96,7 @@ const MENU_MODULOS = [
       { label: 'PER/DCOMP', module: 'recuperacao', tab: 1 },
       { label: 'Acompanhamento', module: 'recuperacao', tab: 2 },
       { label: 'Relatórios', module: 'relatorios', tab: 0 },
+	  { label: 'Dados Complementares', module: 'dados_complementares', tab: 0 },
     ],
   },
   {
