@@ -881,6 +881,7 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
       <div style={{ fontSize:11, color:'#64748B' }}>{c.l}</div>
    </div>
   ))}
+  </div>
    
       {relatorios.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20, boxSizing: 'border-box' }}>
