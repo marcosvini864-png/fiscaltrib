@@ -94,51 +94,50 @@ const MENU_SECOES = [
     id: 'trabalho',
     titulo: 'TRABALHO',
     itens: [
-      { label: 'Clientes',                  module: 'clientes',    tab: 0 },
-      { label: 'Importações',               module: 'clientes',    tab: 3 },
-      { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0 },
-      { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0 },
-      { label: 'Auditor de SPED',           module: 'sped',        tab: 0 },
-      { label: 'Recuperações',              module: 'recuperacao', tab: 0 },
-      { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1 },
-      { label: 'Acompanhamento',            module: 'recuperacao', tab: 2 },
-      { label: 'Dívida Ativa',              module: 'divida',      tab: 0 },
-      { label: 'Importar CDA PDF',          module: 'divida',      tab: 1 },
+      { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F465}' }, // 👥
+      { label: 'Importações',               module: 'clientes',    tab: 3, icon: '\u{1F4E5}' }, // 📥
+      { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
+      { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
+      { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
+      { label: 'Recuperações',              module: 'recuperacao', tab: 0, icon: '\u{267B}' },  // ♻
+      { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
+      { label: 'Acompanhamento',            module: 'recuperacao', tab: 2, icon: '\u{1F4CC}' }, // 📌
+      { label: 'Dívida Ativa',              module: 'divida',      tab: 0, icon: '\u{26A0}' },  // ⚠
+      { label: 'Importar CDA PDF',          module: 'divida',      tab: 1, icon: '\u{1F4C4}' }, // 📄
     ],
   },
   {
     id: 'planejamento',
     titulo: 'PLANEJAMENTO',
     itens: [
-      { label: 'Análise Fiscal',            module: 'analise',      tab: 0 },
-      { label: 'Análise IA',                module: 'analise',      tab: 1 },
-      { label: 'Teses Tributárias',         module: 'analise',      tab: 2 },
-      { label: 'Simuladores',               module: 'analise',      tab: 3 },
-      { label: 'Calculadoras',              module: 'analise',      tab: 4 },
-      { label: 'Prazos Prescricionais',     module: 'prazos',       tab: 0 },
-      { label: 'Prazos Fiscais',            module: 'prazos',       tab: 1 },
-      { label: 'Inteligência Tributária',   module: 'inteligencia', tab: 0 },
-      { label: 'Reforma Tributária',        module: 'inteligencia', tab: 1 },
+      { label: 'Análise Fiscal',            module: 'analise',      tab: 0, icon: '\u{1F4C8}' }, // 📈
+      { label: 'Análise IA',                module: 'analise',      tab: 1, icon: '\u{2728}' },  // ✨
+      { label: 'Teses Tributárias',         module: 'analise',      tab: 2, icon: '\u{2696}' },  // ⚖
+      { label: 'Simuladores',               module: 'analise',      tab: 3, icon: '\u{1F9EE}' }, // 🧮
+      { label: 'Calculadoras',              module: 'analise',      tab: 4, icon: '\u{1F522}' }, // 🔢
+      { label: 'Prazos Prescricionais',     module: 'prazos',       tab: 0, icon: '\u{23F3}' },  // ⏳
+      { label: 'Prazos Fiscais',            module: 'prazos',       tab: 1, icon: '\u{1F4C5}' }, // 📅
+      { label: 'Inteligência Tributária',   module: 'inteligencia', tab: 0, icon: '\u{1F9E0}' }, // 🧠
+      { label: 'Reforma Tributária',        module: 'inteligencia', tab: 1, icon: '\u{1F3DB}' }, // 🏛
     ],
   },
   {
     id: 'relatorios',
     titulo: 'RELATÓRIOS',
     itens: [
-      { label: 'Relatório Matador',         module: 'relatorios', tab: 0 },
-      { label: 'Score Fiscal',              module: 'relatorios', tab: 1 },
+      { label: 'Relatório Matador',         module: 'relatorios', tab: 0, icon: '\u{1F4CA}' }, // 📊
+      { label: 'Score Fiscal',              module: 'relatorios', tab: 1, icon: '\u{1F3AF}' }, // 🎯
     ],
   },
   {
     id: 'relacionamento',
     titulo: 'RELACIONAMENTO',
     itens: [
-      { label: 'CRM Comercial',             module: 'prospeccao', tab: 0 },
-      { label: 'Comunicação',               module: 'mensagens',  tab: 0 },
+      { label: 'CRM Comercial',             module: 'prospeccao', tab: 0, icon: '\u{1F91D}' }, // 🤝
+      { label: 'Comunicação',               module: 'mensagens',  tab: 0, icon: '\u{1F4AC}' }, // 💬
     ],
   },
 ]
-
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   useEffect(() => {
@@ -271,7 +270,7 @@ function Sidebar({ module, activeTab, onNavigate, clientes, activeId, onChangeCl
                       fontSize:13, fontWeight: ativo ? 600 : 400,
                       transition:'all 0.1s',
                     }}>
-                    <span style={{fontSize:7, color: ativo ? C.blue : '#475569', flexShrink:0}}>●</span>
+                    <span style={{fontSize:16, flexShrink:0, opacity: ativo ? 1 : 0.85}}>{item.icon}</span>
                     {aberta && <span style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{item.label}</span>}
                   </button>
                 )
