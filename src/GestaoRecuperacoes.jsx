@@ -118,45 +118,43 @@ export default function GestaoRecuperacoes() {
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'0 16px 40px' }}>
 
-      {/* BANNER */}
-      <div style={{ background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius:16, padding:'28px 32px', marginBottom:24, color:'#fff' }}>
-        <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:8 }}>FISCALTRIB — PIPELINE DE RECUPERAÇÃO</div>
-        <h1 style={{ fontSize:26, fontWeight:900, marginBottom:8, color:'#fff' }}>💼 Gestão de Recuperações</h1>
-        <p style={{ fontSize:14, color:'#93c5fd', marginBottom:24, maxWidth:560 }}>
+      {/* BANNER — compacto, padrão navy */}
+      <div style={{ background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius:16, padding:'24px 28px', marginBottom:20, color:'#fff' }}>
+        <div style={{ fontSize:11, color:'#7CC4FF', fontWeight:700, letterSpacing:2, marginBottom:6 }}>FISCALTRIB — PIPELINE DE RECUPERAÇÃO</div>
+        <div style={{ fontSize:22, fontWeight:900, marginBottom:4, color:'#fff' }}>💼 Gestão de Recuperações</div>
+        <div style={{ fontSize:13, color:'#93c5fd' }}>
           Acompanhe cada processo do diagnóstico até o crédito recuperado.
-        </p>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
-          {[
-            { valor:fmtR(totalCredito),    label:'Créditos identificados', cor:'#7CC4FF' },
-            { valor:fmtR(totalPotencial),  label:'Potencial recuperável',  cor:'#4ade80' },
-            { valor:String(emAndamento),   label:'Processos em andamento', cor:'#fbbf24' },
-            { valor:fmtR(totalRecuperado), label:'Efetivamente recuperado', cor:'#f472b6' },
-          ].map((c,i) => (
-            <div key={i} style={{ background:'rgba(255,255,255,0.08)', borderRadius:12, padding:'16px 20px', border:'1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize:18, fontWeight:900, color:c.cor, marginBottom:4 }}>{c.valor}</div>
-              <div style={{ fontSize:11, color:'#93c5fd', fontWeight:600 }}>{c.label}</div>
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* PIPELINE VISUAL — barra de progresso */}
-      <div style={{ background:'#fff', borderRadius:14, border:'2px solid #e2e8f0', padding:'20px 24px', marginBottom:24 }}>
-        <div style={{ fontSize:14, fontWeight:700, color:'#0B1F4D', marginBottom:16 }}>📊 Visão geral do pipeline</div>
+      {/* KPIs — boxes neutros abaixo do banner */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+        {[
+          { valor:fmtR(totalCredito),    label:'Créditos identificados',  cor:'#0F172A' },
+          { valor:fmtR(totalPotencial),  label:'Potencial recuperável',   cor:'#2563EB' },
+          { valor:String(emAndamento),   label:'Processos em andamento', cor:'#0F172A' },
+          { valor:fmtR(totalRecuperado), label:'Efetivamente recuperado', cor:'#16A34A' },
+        ].map((c,i) => (
+          <div key={i} style={{ background:'#fff', borderRadius:10, padding:'14px 16px', border:'1px solid #E2E8F0', textAlign:'center' }}>
+            <div style={{ fontSize:18, fontWeight:700, color:c.cor, marginBottom:4 }}>{c.valor}</div>
+            <div style={{ fontSize:11, color:'#64748B', fontWeight:500 }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* PIPELINE VISUAL — simplificado, neutro */}
+      <div style={{ background:'#fff', borderRadius:12, border:'1px solid #E2E8F0', padding:'18px 20px', marginBottom:20 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#0F172A', marginBottom:14 }}>Visão geral do pipeline</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8 }}>
-          {STATUS_PIPELINE.map((st, i) => {
+          {STATUS_PIPELINE.map((st) => {
             const qtd = recuperacoes.filter(r => r.status === st.id).length
             const val = recuperacoes.filter(r => r.status === st.id).reduce((s,r) => s+(r.potencial_recuperavel||0), 0)
+            const ativo = filtroStatus === st.id
             return (
               <div key={st.id} onClick={() => setFiltroStatus(st.id === filtroStatus ? 'Todos' : st.id)}
-                style={{ background: filtroStatus === st.id ? st.bg : '#f8fafc', border:`2px solid ${filtroStatus===st.id?st.cor:'#e2e8f0'}`, borderRadius:12, padding:'14px 10px', textAlign:'center', cursor:'pointer', transition:'all 0.15s', position:'relative' }}>
-                {/* Seta conectora */}
-                {i < STATUS_PIPELINE.length - 1 && (
-                  <div style={{ position:'absolute', right:-10, top:'50%', transform:'translateY(-50%)', fontSize:14, color:'#cbd5e1', zIndex:1 }}>›</div>
-                )}
-                <div style={{ fontSize:22, marginBottom:6 }}>{st.emoji}</div>
-                <div style={{ fontSize:10, fontWeight:800, color:st.cor, lineHeight:1.3, marginBottom:6 }}>{st.id}</div>
-                <div style={{ fontSize:22, fontWeight:900, color:st.cor }}>{qtd}</div>
+                style={{ background: ativo ? '#EFF4FF' : '#F8FAFC', border:`1px solid ${ativo ? '#2563EB' : '#E2E8F0'}`, borderRadius:10, padding:'12px 10px', textAlign:'center', cursor:'pointer', transition:'all 0.15s' }}>
+                <div style={{ fontSize:11, fontWeight:600, color: ativo ? '#2563EB' : '#64748B', lineHeight:1.3, marginBottom:6 }}>{st.id}</div>
+                <div style={{ fontSize:20, fontWeight:700, color: qtd > 0 ? '#2563EB' : '#94A3B8' }}>{qtd}</div>
                 {val > 0 && <div style={{ fontSize:10, color:'#64748b', marginTop:4 }}>{fmtR(val)}</div>}
               </div>
             )
@@ -167,9 +165,9 @@ export default function GestaoRecuperacoes() {
       {/* CONTROLES */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', gap:8 }}>
-          {[['pipeline','📊 Pipeline'],['lista','📋 Lista']].map(([v,l]) => (
+          {[['pipeline','Pipeline'],['lista','Lista']].map(([v,l]) => (
             <button key={v} onClick={() => setView(v)}
-              style={{ padding:'8px 16px', background:view===v?'#0B1F4D':'#fff', color:view===v?'#fff':'#374151', border:`2px solid ${view===v?'#0B1F4D':'#e2e8f0'}`, borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              style={{ padding:'7px 14px', background:view===v?'#2563EB':'#fff', color:view===v?'#fff':'#374151', border:`1px solid ${view===v?'#2563EB':'#E2E8F0'}`, borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }}>
               {l}
             </button>
           ))}
