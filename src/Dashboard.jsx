@@ -894,8 +894,11 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='analise' && activeTab===2 && <TesesTributarias />}
             {module==='analise' && activeTab===3 && <Simuladores />}
             {module==='analise' && activeTab===4 && <>
-              <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text,marginBottom:4}}>Calculadoras tributarias</div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Estimativas para diagnostico</div>
+              <div style={{background:'#0B1F4D',borderRadius:14,padding:isMobile?'16px 18px':'18px 24px',marginBottom:16,color:'#fff',boxSizing:'border-box'}}>
+                <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>e-FISCALTRIBE — PLANEJAMENTO</div>
+                <div style={{fontSize:isMobile?16:18,fontWeight:700,color:'#fff',marginBottom:4}}>Calculadoras Tributárias</div>
+                <div style={{fontSize:13,color:'#93c5fd'}}>Estimativas rápidas para diagnóstico tributário.</div>
+              </div>
               <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:`2px solid ${C.border}`,overflowX:'auto'}}>
                 {[['fator-r','Fator R'],['das','DAS'],['regime','Regime'],['irpj','IRPJ'],['prescricao','Prescricao']].map(([id,lb])=>(
                   <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 14px',fontSize:12,fontWeight:calcTab===id?600:500,color:calcTab===id?C.blue:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.blue:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>{lb}</div>
