@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
-import ImportarCDA from './ImportarCDA'
 
 const C = {
   navy:'#0B1F4D', white:'#FFFFFF',
@@ -466,7 +465,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [sisparLoading, setSisparLoading] = useState(false)
   const [cdasSalvas, setCdasSalvas] = useState([])
   const [mostrarCdasSalvas, setMostrarCdasSalvas] = useState(false)
-  const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
   const [loadingCdas, setLoadingCdas] = useState(false)
 
   useEffect(()=>{
@@ -852,18 +850,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     background:'#dce6f7', whiteSpace:'nowrap'
   }
 
-  if (mostrarImportarCDA) {
-    return (
-      <ImportarCDA
-        active={active}
-        onSalvo={() => setMostrarImportarCDA(false)}
-        onDiagnostico={() => setMostrarImportarCDA(false)}
-        onVoltar={() => setMostrarImportarCDA(false)}
-      />
-    )
-  }
-
-    return (
+  return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
       <div style={{background:'linear-gradient(135deg,#1e293b,#0B1F4D)',borderRadius:16,padding:'28px 32px',color:'#fff',marginBottom:20}}>
@@ -874,20 +861,17 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <p style={{fontSize:14,color:'#cbd5e1',margin:0}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</p>
           </div>
           <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>setMostrarImportarCDA(true)} style={{background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-                  📄 Importar CDA
-                </button>
-                <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-                  + Nova análise
-                </button>
-                <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-                  📂 Análises salvas
-                </button>
-                <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
-                style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-              📋 CDAs Salvas
-                </button>
-              </div>
+            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              + Nova análise
+            </button>
+            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              📂 Análises salvas
+            </button>
+			<button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+            style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 16px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+           📋 CDAs Salvas
+           </button>
+          </div>
         </div>
         <div style={{marginTop:16}}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
