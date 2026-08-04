@@ -108,7 +108,9 @@ export default function AnaliseFiscal({ clienteAtivo }) {
   }, [clienteAtivo, clientes])
 
   useEffect(() => {
-    fimRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (mensagens.length > 1) {
+      fimRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [mensagens])
 
   const cliente = clientes.find(c => c.id === clienteId)
