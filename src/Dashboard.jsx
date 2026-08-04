@@ -522,6 +522,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   }
   function handleTab(i) {
     setActiveTab(i)
+    window.scrollTo(0, 0)
     if(module==='clientes' && i===1) { setNovoCliente(null); setModoNovoCliente(null) }
   }
   async function preencherViaXML(file) {
