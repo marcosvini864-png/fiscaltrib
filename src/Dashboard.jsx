@@ -76,7 +76,7 @@ const MODULES = {
   prazos:       { label:'Prazos',                  icon:'📅', tabs:['Prescricionais','Prazos Fiscais'] },
   relatorios:   { label:'Relatorios',              icon:'📄', tabs:['Relatorio Matador','Score Fiscal'] },
   inteligencia: { label:'Inteligencia Tributaria', icon:'🧠', tabs:['Central Tributaria','Reforma Tributaria'] },
-  divida:       { label:'Divida Ativa',            icon:'⚠️', tabs:['Diagnostico','Importar CDA PDF'] },
+  divida:       { label:'Divida Ativa',            icon:'⚠️', tabs:[] },
   sped: { label:'Auditor de SPED', icon:'🔎', tabs:[] },
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
@@ -102,7 +102,6 @@ const MENU_SECOES = [
       { label: 'Recuperações',              module: 'recuperacao', tab: 0, icon: '\u{267B}' },  // ♻
       { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
       { label: 'Dívida Ativa',              module: 'divida',      tab: 0, icon: '\u{26A0}' },  // ⚠
-      { label: 'Importar CDA PDF',          module: 'divida',      tab: 1, icon: '\u{1F4C4}' }, // 📄
     ],
   },
   {
@@ -415,6 +414,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
+  const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
@@ -921,22 +921,23 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
 
-            {module==='divida' && activeTab===0 && (
+            {module==='divida' && (
               <DiagnosticoDividaAtiva
                 active={active}
                 cdaParaDiagnostico={cdaParaDiagnostico}
                 onCdaConsumed={() => setCdaParaDiagnostico(null)}
+                onImportarCDA={() => setMostrarImportarCDA(true)}
               />
             )}
-            {module==='divida' && activeTab===1 && (
+            {mostrarImportarCDA && (
               <ImportarCDA
                 active={active}
-                onSalvo={()=>navigateTo('divida',0)}
+                onSalvo={()=>setMostrarImportarCDA(false)}
                 onDiagnostico={({campos,clienteEfetivo})=>{
                   setCdaParaDiagnostico({campos,clienteEfetivo})
-                  navigateTo('divida',0)
+                  setMostrarImportarCDA(false)
                 }}
-                onVoltar={()=>navigateTo('divida',0)}
+                onVoltar={()=>setMostrarImportarCDA(false)}
               />
             )}
 

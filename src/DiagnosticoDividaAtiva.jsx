@@ -441,7 +441,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
   )
 }
 
-export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onCdaConsumed }) {
+export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onCdaConsumed, onImportarCDA }) {
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
   const [aba, setAba] = useState(0)
   const [historico, setHistorico] = useState([])
@@ -861,18 +861,22 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
           </div>
           <div style={{display:'flex',gap:10}}>
+            {onImportarCDA && (
+              <button onClick={onImportarCDA} style={{background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                📄 Importar CDA
+              </button>
+            )}
             <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
               + Nova análise
             </button>
             <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
               Análises salvas
             </button>
-			<button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
-            style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-           CDAs Salvas
-           </button>
+            <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+              style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              CDAs Salvas
+            </button>
           </div>
-        </div>
         <div style={{marginTop:14}}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
         </div>
