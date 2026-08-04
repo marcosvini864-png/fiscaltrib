@@ -99,7 +99,6 @@ const MENU_SECOES = [
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
-      { label: 'Recuperações',              module: 'recuperacao', tab: 0, icon: '\u{267B}' },  // ♻
       { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
       { label: 'Dívida Ativa',              module: 'divida',      tab: 0, icon: '\u{26A0}' },  // ⚠
     ],
