@@ -197,11 +197,11 @@ function SimRegimeReforma({ isMobile }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #7c3aed)', borderRadius: 14, padding: '16px 20px', color: '#fff', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 32 }}>🏛️</div>
+      <div style={{ background: '#F0F4FF', border: '2px solid #C7D7FF', borderRadius: 14, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 28 }}>🏛️</div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Simulador com Reforma Tributária 2026–2032</div>
-          <div style={{ fontSize: 12, color: '#c4b5fd' }}>Compara Simples Nacional, Lucro Presumido e Lucro Real com projeção CBS e IBS conforme LC 214/2025.</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Simulador com Reforma Tributária 2026–2032</div>
+          <div style={{ fontSize: 12, color: '#1e40af' }}>Compara Simples Nacional, Lucro Presumido e Lucro Real com projeção CBS e IBS conforme LC 214/2025.</div>
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
@@ -709,16 +709,16 @@ function SimTransacao({ isMobile }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #0369a1)', borderRadius: 14, padding: '14px 20px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '14px 18px' : '16px 24px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, boxSizing: 'border-box' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>EDITAL PGFN Nº {EDITAL.numero} — VIGENTE</div>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>Transação Tributária — Dívida Ativa da União</div>
-          <div style={{ fontSize: 12, color: '#bae6fd', marginTop: 4 }}>Publicado em {EDITAL.publicacao} · {EDITAL.portal}</div>
+          <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>EDITAL PGFN Nº {EDITAL.numero} — VIGENTE</div>
+          <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#fff' }}>Transação Tributária — Dívida Ativa da União</div>
+          <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 4 }}>Publicado em {EDITAL.publicacao} · {EDITAL.portal}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, color: '#fde68a', fontWeight: 700, marginBottom: 2 }}>⏰ PRAZO EDITAL 6/2026</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#fde68a' }}>30/09/2026</div>
-          <div style={{ fontSize: 11, color: '#bae6fd' }}>até 19h — Portal Regularize</div>
+          <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: '#fde68a' }}>30/09/2026</div>
+          <div style={{ fontSize: 11, color: '#93c5fd' }}>até 19h — Portal Regularize</div>
         </div>
       </div>
 
@@ -1040,10 +1040,10 @@ export default function Simuladores() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: isMobile ? '20px 20px' : '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>e-FISCALTRIBE — FERRAMENTAS COMERCIAIS</div>
-        <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>🧮 Simuladores Tributários</h1>
-        <p style={{ fontSize: 14, color: '#93c5fd', maxWidth: 560 }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo Reforma Tributária 2026–2032 e Edital PGFN 6/2026.</p>
+      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '16px 18px' : '18px 24px', marginBottom: 16, color: '#fff', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>e-FISCALTRIBE — FERRAMENTAS COMERCIAIS</div>
+        <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Simuladores Tributários</div>
+        <div style={{ fontSize: 13, color: '#93c5fd' }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo Reforma Tributária 2026–2032 e Edital PGFN 6/2026.</div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
