@@ -1538,5 +1538,5 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 			  </div>
             </div>
           </>
-      	  );
+		 )}
 		}
