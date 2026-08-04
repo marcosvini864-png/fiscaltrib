@@ -1315,9 +1315,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     const r = diagnosticoAberto.resultado_json
     return (
       <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
-        <div style={{ background: 'linear-gradient(135deg,#0B1F4D,#163B8C)', borderRadius: 16, padding: '20px 28px', marginBottom: 16, color: '#fff' }}>
+        <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 16, color: '#fff' }}>
           <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DIAGNÓSTICO SALVO</div>
-          <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>📁 {diagnosticoAberto.cliente_nome}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>📁 {diagnosticoAberto.cliente_nome}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
             <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{diagnosticoAberto.regime}</span>
             <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{diagnosticoAberto.cliente_cnpj}</span>
@@ -1440,9 +1440,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
 
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 16, color: '#fff' }}>
+      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 16, color: '#fff' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>FISCALTRIB — DIAGNÓSTICO TRIBUTÁRIO</div>
-        <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>🔎 {cliente?.razao_social}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>🔎 {cliente?.razao_social}</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
           <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{regime}</span>
           <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: 20, fontSize: 12 }}>{cliente?.cnpj}</span>
