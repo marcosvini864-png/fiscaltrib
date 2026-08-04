@@ -419,7 +419,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
   const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8'); const [cDtpag,setCDtpag]=useState('')
   const [permissoesModulos, setPermissoesModulos] = useState(null)
-  const contentRef = useRef(null)
 
   useEffect(()=>{ carregarClientes(); if(!onAdmin) carregarPermissoesModulos() },[])
   useEffect(()=>{
@@ -523,7 +522,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   }
   function handleTab(i) {
     setActiveTab(i)
-    contentRef.current?.scrollTo(0, 0)
+    window.scrollTo(0, 0)
     if(module==='clientes' && i===1) { setNovoCliente(null); setModoNovoCliente(null) }
   }
   async function preencherViaXML(file) {
@@ -636,7 +635,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
 
-          <div ref={contentRef} style={{flex:1,overflowY:'auto',overflowX:'hidden',padding,background:C.bg,minWidth:0}}>
+          <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding,background:C.bg,minWidth:0}}>
 
             {module==='painel' && <>
               <div style={{marginBottom:16}}>
