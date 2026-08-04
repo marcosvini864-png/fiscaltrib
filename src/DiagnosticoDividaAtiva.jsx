@@ -1535,6 +1535,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               <div>• Relatório gerado em {new Date().toLocaleString('pt-BR')} · FiscalTrib — fiscaltrib.com.br</div>
               <div style={{marginTop:6,color:'#DC2626',fontWeight:600}}>⚠️ Relatório preliminar — não substitui análise jurídica profissional.</div>
             </div>
-           </>
-		   )}
-		 </>}		
+          </>
+        )}
+      </>}
+
+    </div>
+  )
+}
