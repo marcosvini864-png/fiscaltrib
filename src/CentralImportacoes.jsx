@@ -591,13 +591,13 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
     setCriando(true)
     try {
       await supabase.from('recuperacoes').upsert({
-      cliente_id: clienteId, competencia: new Date().toISOString().slice(0, 7),
-      tributo: oportunidades[0]?.tese || 'A definir', valor_credito: potencialFinal,
-      potencial_recuperavel: potencialFinal, tese_aplicada: oportunidades.map(o => o.tese).join(', '),
-      risco: oportunidades.some(o => o.risco === 'baixo') ? 'baixo' : 'medio',
-      origem: origem || 'Raio-X XML', status: 'Identificado', score_fiscal: score,
-      observacoes: `Raio-X automático. ${oportunidades.length} oportunidades detectadas via ${origem}.`,
-}, { onConflict: 'cliente_id' })
+        cliente_id: clienteId, competencia: new Date().toISOString().slice(0, 7),
+        tributo: oportunidades[0]?.tese || 'A definir', valor_credito: potencialFinal,
+        potencial_recuperavel: potencialFinal, tese_aplicada: oportunidades.map(o => o.tese).join(', '),
+        risco: oportunidades.some(o => o.risco === 'baixo') ? 'baixo' : 'medio',
+        origem: origem || 'Raio-X XML', status: 'Identificado', score_fiscal: score,
+        observacoes: `Raio-X automático. ${oportunidades.length} oportunidades detectadas via ${origem}.`,
+      }, { onConflict: 'cliente_id' })
       setCriado(true)
       if (onIniciarRecuperacao) onIniciarRecuperacao()
     } catch (e) { alert('Erro: ' + e.message) }
@@ -606,37 +606,41 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
 
   return (
     <div style={{ marginTop: 32 }}>
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)', borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>FISCALTRIB — ANÁLISE AUTOMÁTICA</div>
-        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, color: '#fff' }}>⚡ Raio-X Tributário</h2>
-        <div style={{ fontSize: 14, color: '#93c5fd', marginBottom: 16 }}>
-          Cliente: <strong style={{ color: '#fff' }}>{cliente?.razao_social}</strong> · Regime: <strong style={{ color: '#4ade80' }}>{cliente?.regime}</strong>
+
+      {/* BANNER NAVY COMPACTO */}
+      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '20px 24px', marginBottom: 16, color: '#fff', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>e-FISCALTRIBE — ANÁLISE AUTOMÁTICA</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>⚡ Raio-X Tributário</div>
+        <div style={{ fontSize: 13, color: '#93c5fd' }}>
+          Cliente: <strong style={{ color: '#fff' }}>{cliente?.razao_social}</strong> · Regime: <strong style={{ color: '#fff' }}>{cliente?.regime}</strong>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16, marginTop: 8 }}>
-          {[
-            { label: 'NF-e analisadas',   valor: nfes?.length || 0,    cor: '#7CC4FF' },
-            { label: 'Oportunidades',      valor: oportunidades.length,  cor: '#4ade80' },
-            { label: 'Potencial estimado', valor: fmtR(potencialFinal),  cor: '#fbbf24' },
-            { label: 'Prazos críticos',    valor: criticos.length,       cor: criticos.length > 0 ? '#f87171' : '#4ade80' },
-          ].map((c, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: '14px 16px', minWidth: 0, boxSizing: 'border-box' }}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: c.cor }}>{c.valor}</div>
-              <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 4 }}>{c.label}</div>
-            </div>
-          ))}
-        </div>
+      </div>
+
+      {/* KPIs EM BOXES BRANCOS NEUTROS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 24 }}>
+        {[
+          { label: 'NF-e analisadas',   valor: nfes?.length || 0,   cor: '#0F172A' },
+          { label: 'Oportunidades',      valor: oportunidades.length, cor: '#0F172A' },
+          { label: 'Potencial estimado', valor: fmtR(potencialFinal), cor: '#2563EB' },
+          { label: 'Prazos críticos',    valor: criticos.length,      cor: criticos.length > 0 ? '#dc2626' : '#16a34a' },
+        ].map((c, i) => (
+          <div key={i} style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', padding: '14px 16px', minWidth: 0, boxSizing: 'border-box' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: c.cor }}>{c.valor}</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{c.label}</div>
+          </div>
+        ))}
       </div>
 
       {oportunidades.length > 0 ? (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginBottom: 16 }}>
             🎯 {oportunidades.length} Oportunidade{oportunidades.length > 1 ? 's' : ''} Encontrada{oportunidades.length > 1 ? 's' : ''}
           </div>
           {oportunidades.map((op, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 14, border: `2px solid ${op.cor}22`, borderLeft: `5px solid ${op.cor}`, padding: '20px 24px', marginBottom: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1F4D', marginBottom: 4 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>
                     {op.icon} {op.tese}
                     <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: op.risco === 'baixo' ? '#dcfce7' : '#fef9c3', color: op.risco === 'baixo' ? '#166534' : '#854d0e' }}>
                       risco {op.risco}
@@ -646,14 +650,14 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 20 }}>
                   <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Média mensal</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: op.cor }}>{fmtR(op.mediaMensal)}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: op.cor }}>{fmtR(op.mediaMensal)}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                 {op.projecoes.map((p, j) => (
                   <div key={j} style={{ flex: '1 1 110px', minWidth: 110, padding: '12px 16px', textAlign: 'center', background: j === 3 ? op.cor + '12' : '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
                     <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
-                    <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 900 : 700, color: j === 3 ? op.cor : '#1e293b' }}>{fmtR(p.valor)}</div>
+                    <div style={{ fontSize: j === 3 ? 18 : 15, fontWeight: j === 3 ? 700 : 600, color: j === 3 ? op.cor : '#1e293b' }}>{fmtR(p.valor)}</div>
                     {j === 3 && <div style={{ fontSize: 10, color: op.cor, fontWeight: 700, marginTop: 2 }}>★ POTENCIAL MÁXIMO</div>}
                   </div>
                 ))}
@@ -667,12 +671,14 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
               {op.produtos?.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>Ex: {op.produtos.join(' · ')}</div>}
             </div>
           ))}
-          <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', flexWrap: 'wrap', gap: 12 }}>
+
+          {/* CARD POTENCIAL TOTAL — MEIO TERMO */}
+          <div style={{ background: '#F0F4FF', border: '2px solid #C7D7FF', borderRadius: 14, padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>POTENCIAL TOTAL IDENTIFICADO</div>
-              <div style={{ fontSize: 12, color: '#93c5fd' }}>{oportunidades.length} teses · {nfes?.length || 0} NF-e analisadas</div>
+              <div style={{ fontSize: 13, color: '#1e40af', fontWeight: 700, marginBottom: 4 }}>POTENCIAL TOTAL IDENTIFICADO</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{oportunidades.length} teses · {nfes?.length || 0} NF-e analisadas</div>
             </div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: '#4ade80' }}>{fmtR(totalPotencial)}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#2563EB' }}>{fmtR(totalPotencial)}</div>
           </div>
         </div>
       ) : (
@@ -712,7 +718,7 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
       </div>
 
       <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '24px', marginBottom: 20, boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#0B1F4D', marginBottom: 16 }}>🎯 Próximas ações recomendadas</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 16 }}>🎯 Próximas ações recomendadas</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <button onClick={onDiagnostico} style={{ padding: '14px 20px', background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#1e40af', cursor: 'pointer', textAlign: 'left' }}>📋 Gerar diagnóstico completo</button>
           <button onClick={onRelatorio}   style={{ padding: '14px 20px', background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#166534', cursor: 'pointer', textAlign: 'left' }}>📄 Emitir relatório executivo</button>
@@ -721,12 +727,12 @@ function RaioXTributario({ clienteId, cliente, entradas, origem, nfes, onIniciar
 
       {!criado ? (
         <button onClick={iniciarRecuperacao} disabled={criando || potencialFinal === 0}
-          style={{ width: '100%', padding: '18px 0', background: potencialFinal > 0 ? 'linear-gradient(135deg, #0B1F4D, #163B8C)' : '#e2e8f0', color: potencialFinal > 0 ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, fontSize: 17, fontWeight: 900, cursor: potencialFinal > 0 ? 'pointer' : 'default' }}>
+          style={{ width: '100%', padding: '16px 0', background: potencialFinal > 0 ? '#0B1F4D' : '#e2e8f0', color: potencialFinal > 0 ? '#fff' : '#94a3b8', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: potencialFinal > 0 ? 'pointer' : 'default' }}>
           {criando ? '⏳ Criando processo...' : potencialFinal > 0 ? `🚀 Iniciar processo de recuperação — ${fmtR(potencialFinal)}` : '⚠️ Nenhum crédito identificado'}
         </button>
       ) : (
         <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 12, padding: '20px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', marginBottom: 8 }}>✅ Processo de recuperação criado!</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#16a34a', marginBottom: 8 }}>✅ Processo de recuperação criado!</div>
           <div style={{ fontSize: 14, color: '#64748b' }}>Acesse <strong>Recuperação → Recuperações</strong> para acompanhar.</div>
         </div>
       )}
@@ -867,14 +873,14 @@ export default function CentralImportacoes({ abaInicial = 'nfe', onDiagnostico, 
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 16px 40px', boxSizing: 'border-box' }}>
-    <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 24, color: '#fff' }}>
-  <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>FISCALTRIB — COLETA INTELIGENTE</div>
-  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>Gestão de Recuperações</div>
-  <div style={{ fontSize: 13, color: '#93c5fd' }}>
-    Importe arquivos fiscais e receba o Raio-X Tributário Automático com as oportunidades do seu cliente.
-  </div>
-  </div>
-   
+      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 24, color: '#fff' }}>
+        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>e-FISCALTRIBE — COLETA INTELIGENTE</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>Central de Importações</div>
+        <div style={{ fontSize: 13, color: '#93c5fd' }}>
+          Importe arquivos fiscais e receba o Raio-X Tributário Automático com as oportunidades do seu cliente.
+        </div>
+      </div>
+
       {relatorios.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 14, border: '2px solid #e2e8f0', padding: '20px 24px', marginBottom: 20, boxSizing: 'border-box' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1F4D', marginBottom: 14 }}>🗂️ Relatórios Anteriores</div>
@@ -1010,7 +1016,7 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
         onClick={()=>inputRef.current.click()}
         style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'48px 32px', textAlign:'center', cursor:'pointer', marginBottom:24, boxSizing: 'border-box' }}>
         <div style={{ fontSize:48, marginBottom:12 }}>🧾</div>
-        <div style={{ fontSize:18, fontWeight:800, color:'#0B1F4D', marginBottom:8 }}>Arraste os XMLs de NF-e aqui</div>
+        <div style={{ fontSize:18, fontWeight:700, color:'#0B1F4D', marginBottom:8 }}>Arraste os XMLs de NF-e aqui</div>
         <div style={{ fontSize:14, color:'#64748b', marginBottom:16 }}>Múltiplos arquivos · Leitura de NCM, CST, CFOP automática</div>
         <div style={{ display:'inline-block', padding:'10px 24px', background:'#0B1F4D', color:'#fff', borderRadius:8, fontSize:14, fontWeight:700 }}>📂 Selecionar XMLs</div>
         <input ref={inputRef} type="file" accept=".xml" multiple style={{ display:'none' }} onChange={e=>processarArquivos(e.target.files)} />
@@ -1026,14 +1032,14 @@ function AbaXMLNFe({ clienteId, cliente, onSalvo }) {
               { label:'PIS+COFINS',  valor:fmtR(nfes.reduce((s,n)=>s+n.vPIS+n.vCOFINS,0)), cor:'#7c3aed' },
             ].map((c,i)=>(
               <div key={i} style={{ background:'#fff', borderRadius:12, border:'2px solid #e2e8f0', padding:'16px 20px', minWidth: 0, boxSizing: 'border-box' }}>
-                <div style={{ fontSize:18, fontWeight:800, color:c.cor }}>{c.valor}</div>
+                <div style={{ fontSize:18, fontWeight:700, color:c.cor }}>{c.valor}</div>
                 <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{c.label}</div>
               </div>
             ))}
           </div>
           {oportunidadesPreview.length > 0 && (
             <div style={{ background:'#f0fdf4', border:'2px solid #86efac', borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
-              <div style={{ fontSize:14, fontWeight:800, color:'#166534', marginBottom:12 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#166534', marginBottom:12 }}>
                 ⚡ {oportunidadesPreview.length} oportunidade(s) — Potencial: {fmtR(oportunidadesPreview.reduce((s,o)=>s+o.potencial,0))}
               </div>
               {oportunidadesPreview.map((op,i)=>(
@@ -1136,7 +1142,7 @@ function AbaDebitos({ clienteId, onSalvo }) {
     {dados && <div>
       <div style={{ background:'#fff1f2', border:'1px solid #fecdd3', borderRadius:12, padding:'16px 20px', marginBottom:16 }}>
         <div style={{ fontSize:15, fontWeight:700, color:'#dc2626', marginBottom:12 }}>⚠️ {dados.debitos.length} débito(s) — Total: {fmtR(dados.totalDebito)}</div>
-        {dados.debitos.map((d,i)=><div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #fecdd3', fontSize:13, flexWrap: 'wrap', gap: 4 }}><span style={{ color:'#dc2626', fontWeight:600 }}>{d.tributo} — {d.situacao}</span><span style={{ fontWeight:800, color:'#dc2626' }}>{fmtR(d.valor)}</span></div>)}
+        {dados.debitos.map((d,i)=><div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #fecdd3', fontSize:13, flexWrap: 'wrap', gap: 4 }}><span style={{ color:'#dc2626', fontWeight:600 }}>{d.tributo} — {d.situacao}</span><span style={{ fontWeight:700, color:'#dc2626' }}>{fmtR(d.valor)}</span></div>)}
       </div>
       {salvo?<SalvoRaioX />:<BotoesAcao onLimpar={()=>setDados(null)} onSalvar={salvarDados} salvando={salvando} />}
     </div>}
@@ -1151,7 +1157,7 @@ function AbaUpload({ icon, titulo, sub, accept, onFile, inputRef, erro, children
       onClick={()=>inputRef.current.click()}
       style={{ background:dragOver?'#eff6ff':'#f8fafc', border:`3px dashed ${dragOver?'#3b82f6':'#e2e8f0'}`, borderRadius:16, padding:'40px 32px', textAlign:'center', cursor:'pointer', marginBottom:24, boxSizing: 'border-box' }}>
       <div style={{ fontSize:44, marginBottom:10 }}>{icon}</div>
-      <div style={{ fontSize:17, fontWeight:800, color:'#0B1F4D', marginBottom:6 }}>{titulo}</div>
+      <div style={{ fontSize:17, fontWeight:700, color:'#0B1F4D', marginBottom:6 }}>{titulo}</div>
       <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>{sub}</div>
       <div style={{ display:'inline-block', padding:'10px 24px', background:'#0B1F4D', color:'#fff', borderRadius:8, fontSize:14, fontWeight:700 }}>📂 Selecionar arquivo</div>
       <input ref={inputRef} type="file" accept={accept} style={{ display:'none' }} onChange={e=>{ if(e.target.files[0]) onFile(e.target.files[0]) }} />
@@ -1189,6 +1195,6 @@ function SalvoRaioX() {
   </div>
 }
 
-const BP = { padding:'13px 0', background:'#0B1F4D', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:800, cursor:'pointer' }
+const BP = { padding:'13px 0', background:'#0B1F4D', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }
 const BC = { padding:'13px 24px', background:'#f8fafc', color:'#64748b', border:'2px solid #e2e8f0', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer' }
 const IS = { padding:'10px 14px', border:'2px solid #e2e8f0', borderRadius:8, fontSize:14, width:'100%', boxSizing:'border-box' }
