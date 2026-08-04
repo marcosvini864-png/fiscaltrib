@@ -109,7 +109,6 @@ const MENU_SECOES = [
     titulo: 'PLANEJAMENTO',
     itens: [
       { label: 'Análise Fiscal',            module: 'analise',      tab: 0, icon: '\u{1F4C8}' }, // 📈
-      { label: 'Análise IA',                module: 'analise',      tab: 1, icon: '\u{2728}' },  // ✨
       { label: 'Teses Tributárias',         module: 'analise',      tab: 2, icon: '\u{2696}' },  // ⚖
       { label: 'Simuladores',               module: 'analise',      tab: 3, icon: '\u{1F9EE}' }, // 🧮
       { label: 'Calculadoras',              module: 'analise',      tab: 4, icon: '\u{1F522}' }, // 🔢
