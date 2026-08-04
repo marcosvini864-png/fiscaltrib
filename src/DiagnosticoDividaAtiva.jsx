@@ -866,11 +866,11 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
-      <div style={{background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)',borderRadius:16,padding:'24px 28px',color:'#fff',marginBottom:20}}>
+      <div style={{background:'#0B1F4D',borderRadius:14,padding:'18px 24px',color:'#fff',marginBottom:20,boxSizing:'border-box'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
         <div>
-          <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DIAGNÓSTICO</div>
-          <div style={{fontSize:22,fontWeight:900,marginBottom:4,color:'#fff'}}>⚖️ Diagnóstico da Dívida Ativa</div>
+          <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>FISCALTRIB — DIAGNÓSTICO</div>
+          <div style={{fontSize:18,fontWeight:700,marginBottom:4,color:'#fff'}}>Diagnóstico da Dívida Ativa</div>
           <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
         </div>
           <div style={{display:'flex',gap:10}}>
