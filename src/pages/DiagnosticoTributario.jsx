@@ -999,6 +999,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     })
 
     setEtapa('resultado')
+    setTimeout(() => salvarDiagnosticoCompleto(), 1000)
 
   } catch (e) {
     setErro(e.message)
