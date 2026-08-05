@@ -21,8 +21,10 @@ import ImportarCDA from './ImportarCDA'
 import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
+import GestaoEmpresas from './pages/GestaoEmpresas'
 import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
+
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -70,6 +72,7 @@ const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
   importacoes:  { label:'Central de Importações',  icon:'📥', tabs:[] },
+  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '\u{1F3E2}' },
   diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP'] },
@@ -819,6 +822,16 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='importacoes' && (
               <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
             )}
+            
+			{module==='gestao_empresas' && (
+            <GestaoEmpresas
+            onSelecionarCliente={(emp) => {
+            setActive(emp)
+            setActiveId(emp.id)
+            navigateTo('diagnostico', 0)
+            }}
+              />
+            )} 
 
             {module==='diagnostico' && (
               <DiagnosticoTributario
