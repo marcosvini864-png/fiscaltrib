@@ -22,6 +22,8 @@ import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
 import GestaoEmpresas from './pages/GestaoEmpresas'
+import GrupoEmpresas from './pages/GrupoEmpresas'
+import ClassificacaoItens from './pages/ClassificacaoItens'
 import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
 
@@ -73,6 +75,8 @@ const MODULES = {
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
   importacoes:  { label:'Central de Importacoes',  icon:'📥', tabs:[] },
   gestao_empresas: { label:'Gestao de Empresas', icon:'E', tabs:[] },
+  classificacao_itens: { label:'Classificacao de Itens', icon:'C', tabs:[] },
+  grupo_empresas: { label:'Grupo de Empresas', icon:'G', tabs:[] },
   diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP'] },
@@ -99,6 +103,7 @@ const MENU_SECOES = [
     itens: [
       { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F9D1}' }, // 👥
 	  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '\u{1F3E2}' },
+	  { label: 'Grupo de Empresas', module: 'grupo_empresas', tab: 0, icon: '\u{1F4C1}' },
       { label: 'Central de Importações',    module: 'importacoes', tab: 0, icon: '\u{1F4E5}' }, // 📥
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
@@ -129,6 +134,13 @@ const MENU_SECOES = [
       { label: 'Score Fiscal',              module: 'relatorios', tab: 1, icon: '\u{1F3AF}' }, // 🎯
     ],
   },
+  {
+  id: 'motor_simples',
+  titulo: 'MOTOR DO SIMPLES',
+  itens: [
+    { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  ],
+},
   {
     id: 'relacionamento',
     titulo: 'RELACIONAMENTO',
@@ -824,6 +836,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
             )}
             
+			{module==='grupo_empresas' && <GrupoEmpresas />}
 			{module==='gestao_empresas' && (
             <GestaoEmpresas
             onSelecionarCliente={(emp) => {
