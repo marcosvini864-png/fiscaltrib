@@ -157,20 +157,7 @@ export default function FunctionalPageTemplate({
 }) {
   return (
     <div style={{ maxWidth, margin: '0 auto', paddingBottom: 60 }}>
-      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: '18px 24px', marginBottom: 16, color: '#fff', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>e-FISCALTRIBE — DIAGNÓSTICO TRIBUTÁRIO</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
-          {icon && <span style={{ fontSize: 14, marginRight: 6 }}>{icon}</span>}{title}
-        </div>
-        {description && <div style={{ fontSize: 13, color: '#93c5fd' }}>{description}</div>}
-        {badges.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-            {badges.map((b, i) => (
-              <span key={i} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{b}</span>
-            ))}
-          </div>
-        )}
-      </div>
+      <PageHeader icon={icon} title={title} description={description} badges={badges} />
 
       {!hasData && emptyState ? (
         <div style={{ background: DS.white, borderRadius: 12, border: `1px solid ${DS.border}`, padding: '40px 32px', textAlign: 'center', maxWidth: 560, margin: '0 auto' }}>
@@ -189,14 +176,13 @@ export default function FunctionalPageTemplate({
                 id="fpt-file-input"
                 style={{ display: 'none' }}
                 onChange={(e) => {
-                  const files = e.target.files
-                  if (files && files.length > 0) {
-                    emptyState.onArquivoSelecionado(files)
+                  if (e.target.files && e.target.files.length > 0) {
+                    emptyState.onArquivoSelecionado(e.target.files)
                     if (emptyState.onDepoisDeSelecionar) {
-                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 100)
+                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 0)
                     }
                   }
-                  setTimeout(() => { e.target.value = '' }, 200)
+                  e.target.value = ''
                 }}
               />
               <BtnPrimario onClick={() => document.getElementById('fpt-file-input').click()} style={{ marginBottom: 10 }}>
