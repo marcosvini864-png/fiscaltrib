@@ -189,13 +189,14 @@ export default function FunctionalPageTemplate({
                 id="fpt-file-input"
                 style={{ display: 'none' }}
                 onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    emptyState.onArquivoSelecionado(e.target.files)
+                  const files = e.target.files
+                  if (files && files.length > 0) {
+                    emptyState.onArquivoSelecionado(files)
                     if (emptyState.onDepoisDeSelecionar) {
-                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 0)
+                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 100)
                     }
                   }
-                  e.target.value = ''
+                  setTimeout(() => { e.target.value = '' }, 200)
                 }}
               />
               <BtnPrimario onClick={() => document.getElementById('fpt-file-input').click()} style={{ marginBottom: 10 }}>
