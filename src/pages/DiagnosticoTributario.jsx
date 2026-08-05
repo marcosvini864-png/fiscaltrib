@@ -751,9 +751,8 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     return totais
   }
 
-  async function analisar(filesParam) {
-  const arquivosParaUsar = filesParam ? Array.from(filesParam) : arquivos
-  if (arquivosParaUsar.length === 0) return
+  async function analisar() {
+  if (arquivos.length === 0) return
   setEtapa('processando'); setErro(''); setErroPGDAS(''); setParecerIA(null); setMensagensChat([])
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -768,7 +767,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
     // ── 2. Processa XMLs ────────────────────────────────────
     const notasXML = []
-    for (const arq of arquivosParaUsar) {
+    for (const arq of arquivos) {
       if (arq.tipo === 'xml') {
         const texto = await arq.file.text()
         const xmls = texto.includes('<nfeProc')
@@ -783,7 +782,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
     // ── 3. Processa PDFs PGDAS ──────────────────────────────
     let pgdasConsolidado = null
-    const arquivosPDF = arquivosParaUsar.filter(a => a.tipo === 'pdf')
+    const arquivosPDF = arquivos.filter(a => a.tipo === 'pdf')
     if (arquivosPDF.length > 0) {
       setLoadingPGDAS(true)
       try {
@@ -1000,7 +999,6 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     })
 
     setEtapa('resultado')
-    setTimeout(() => salvarDiagnosticoCompleto(), 800)
 
   } catch (e) {
     setErro(e.message)
@@ -1131,7 +1129,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
   // ── TELAS POR TESE ──────────────────────────────────────────────────────────
   const ultimoDiagnostico = diagnosticosSalvos[0] || null
-  const resultadoUltimo = resultado || ultimoDiagnostico?.resultado_json || null
+  const resultadoUltimo = ultimoDiagnostico?.resultado_json || null
 
   const TESES_CONFIG = {
     monofasicos: {
@@ -1204,7 +1202,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     }))
     setArquivos(prev => [...prev, ...novos])
     },
-    onDepoisDeSelecionar: (files) => analisar(files),
+    onDepoisDeSelecionar: () => analisar(),
     textoAcaoPrincipal: 'Selecionar arquivos',
     onVoltar: () => onMudarTese && onMudarTese('importar'),
     }}
