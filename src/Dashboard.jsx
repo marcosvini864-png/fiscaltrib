@@ -72,7 +72,7 @@ const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
   importacoes:  { label:'Central de Importações',  icon:'📥', tabs:[] },
-  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: icon: '🏢' },
+  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '🏢' },
   diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP'] },
