@@ -98,6 +98,7 @@ const MENU_SECOES = [
     titulo: 'TRABALHO',
     itens: [
       { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F9D1}' }, // 👥
+	  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '\u{1F3E2}' },
       { label: 'Central de Importações',    module: 'importacoes', tab: 0, icon: '\u{1F4E5}' }, // 📥
       { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
