@@ -915,14 +915,44 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     const saidas       = notasXML.filter(n => n.tipo === 'saida')
 
     // Monofásicos
-    const monofasicos = modMonofasicos?.oportunidades?.[0]?.evidencias?.map(ev => ({
+const _evMonofasicos = modMonofasicos?.oportunidades?.[0]?.evidencias || []
+const _diagMonofasicos = modMonofasicos?.diagnostico || {}
+const _nfesSaida = notasXML.filter(n => !n.tpNF || n.tpNF === '1')
+
+const monofasicos = _evMonofasicos.length > 0
+  ? _evMonofasicos.map(ev => ({
       ...ev,
-      ncm:      ev.item?.ncm || ev.ncm || '',
+      ncm:       ev.item?.ncm || ev.ncm || '',
       descricao: ev.descricao || '',
       credito:   ev.valorCredito || ev.credito || 0,
       vProd:     ev.item?.vProd || 0,
       tese:      regime === 'Simples Nacional' ? 'SEGREGACAO_MONOFASICO' : 'MONOFASICO',
-    })) || []
+    }))
+  : _nfesSaida.flatMap(nfe =>
+      (nfe.itens || [])
+        .filter(item => {
+          const n = (item.ncm || '').replace(/\D/g, '')
+          return ['2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
+                  '3001','3002','3003','3004','3005','3006',
+                  '3303','3304','3305','3306','3307','3401','9603','9619',
+                  '2201','2202','2203','2204','2205','2206','2207','2208','2209','2106',
+                  '8701','8702','8703','8704','8705','8706','8711',
+                  '4011','4012','4013',
+                  '8407','8408','8409','8413','8414','8415','8421','8431','8481','8482','8483','8484',
+                  '8501','8505','8507','8511','8512','8519','8527','8536','8539','8544','8708','8714','9032','9401',
+          ].some(prefixo => n.startsWith(prefixo))
+        })
+        .map(item => ({
+          ncm:       item.ncm || '',
+          descricao: item.xProd || '',
+          credito:   0,
+          vProd:     item.vProd || 0,
+          pendentePGDAS: true,
+          tese:      'SEGREGACAO_MONOFASICO',
+          nNF:       nfe.nNF,
+          competencia: nfe.competencia,
+        }))
+    )
 
     // Exclusão ICMS
     const exclusaoICMS = modExclusao?.oportunidades?.[0]?.calculos?.porCompetencia
