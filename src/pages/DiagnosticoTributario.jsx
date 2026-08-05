@@ -1130,7 +1130,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
   // ── TELAS POR TESE ──────────────────────────────────────────────────────────
   const ultimoDiagnostico = diagnosticosSalvos[0] || null
-  const resultadoUltimo = ultimoDiagnostico?.resultado_json || null
+  const resultadoUltimo = resultado || ultimoDiagnostico?.resultado_json || null
 
   const TESES_CONFIG = {
     monofasicos: {
