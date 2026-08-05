@@ -500,7 +500,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
                 {/* Paginacao */}
                 <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.muted }}>
-                  <span>{itensFiltrados.length} itens - Pagina {pagina} de {totalPaginas}</span>
+                  <span>{itensFiltrados.length} itens - Pagina {pagina} de {totalPaginas)}</span>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     {[
                       { label: '«', onClick: () => setPagina(1),                          disabled: pagina === 1 },
