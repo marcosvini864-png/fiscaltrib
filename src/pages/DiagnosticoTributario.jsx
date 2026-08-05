@@ -751,8 +751,9 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     return totais
   }
 
-  async function analisar() {
-  if (arquivos.length === 0) return
+  async function analisar(filesParam) {
+  const arquivosParaUsar = filesParam || arquivos
+  if (arquivosParaUsar.length === 0) return
   setEtapa('processando'); setErro(''); setErroPGDAS(''); setParecerIA(null); setMensagensChat([])
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -767,7 +768,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
     // ── 2. Processa XMLs ────────────────────────────────────
     const notasXML = []
-    for (const arq of arquivos) {
+    for (const arq of arquivosParaUsar) {
       if (arq.tipo === 'xml') {
         const texto = await arq.file.text()
         const xmls = texto.includes('<nfeProc')
@@ -782,7 +783,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
 
     // ── 3. Processa PDFs PGDAS ──────────────────────────────
     let pgdasConsolidado = null
-    const arquivosPDF = arquivos.filter(a => a.tipo === 'pdf')
+    const arquivosPDF = arquivosParaUsar.filter(a => a.tipo === 'pdf')
     if (arquivosPDF.length > 0) {
       setLoadingPGDAS(true)
       try {
@@ -1203,7 +1204,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
     }))
     setArquivos(prev => [...prev, ...novos])
     },
-    onDepoisDeSelecionar: () => analisar(),
+    onDepoisDeSelecionar: (files) => analisar(files),
     textoAcaoPrincipal: 'Selecionar arquivos',
     onVoltar: () => onMudarTese && onMudarTese('importar'),
     }}
