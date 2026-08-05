@@ -752,7 +752,7 @@ export default function DiagnosticoTributario({ clienteId, cliente, onNavegar, t
   }
 
   async function analisar(filesParam) {
-  const arquivosParaUsar = filesParam || arquivos
+  const arquivosParaUsar = filesParam ? Array.from(filesParam) : arquivos
   if (arquivosParaUsar.length === 0) return
   setEtapa('processando'); setErro(''); setErroPGDAS(''); setParecerIA(null); setMensagensChat([])
   try {
