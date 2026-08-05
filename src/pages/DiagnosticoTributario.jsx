@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { parseXMLNFe, agruparPorCompetencia } from '../utils/parseXMLNFe'
 import MotorInteligenciaTributaria from '../motor/MotorInteligenciaTributaria'
 import FunctionalPageTemplate, { DS, PageHeader, KpiCard, ValorDestaque, ContentCard, ListaDocumentos, BtnPrimario, BtnSecundario } from '../FunctionalPageTemplate'
+import AbaMonofasicos from './abas/AbaMonofasicos'
 
 const NCM_MONOFASICOS = {
   '27101259': 'Gasolina', '27101921': 'Óleo Diesel', '27111290': 'GLP',
@@ -1212,7 +1213,7 @@ const monofasicos = _evMonofasicos.length > 0
   if (teseAtiva && teseAtiva !== 'importar') {
     const config = TESES_CONFIG[teseAtiva]
     if (!config) return null
-
+    if (teseAtiva === 'monofasicos') return <AbaMonofasicos cliente={cliente} regime={regime} />
     const temDados = config.dados.length > 0 || config.total > 0
 
     return (
