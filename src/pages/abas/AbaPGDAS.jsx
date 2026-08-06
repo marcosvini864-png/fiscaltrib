@@ -377,13 +377,17 @@ export default function AbaPGDAS({ cliente, regime }) {
       Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.
     </div>
     </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260 }}>
+    <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar PGDAS-D</div>
+    <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
+    Arquivos aceitos: <strong style={{ color: S.text }}>.pdf .xml .txt .zip .rar .DEC .rec .RE .DIA .prf</strong>
+    </div>
     <input ref={inputImportRef} type="file"
-      accept=".pdf,.xml,.txt,.zip,.rar,.DEC,.rec,.RE,.DIA,.prf"
-      onChange={importarArquivo} style={{ display: 'none' }} />
+    accept=".pdf,.xml,.txt,.zip,.rar,.DEC,.rec,.RE,.DIA,.prf"
+    onChange={importarArquivo} style={{ display: 'none' }} />
     <button onClick={() => inputImportRef.current?.click()} disabled={importando}
-      style={{ padding: '8px 16px', background: importando ? '#CBD5E1' : S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-      {importando ? '⏳ Extraindo...' : '📎 Importar PGDAS-D'}
+    style={{ width: '100%', padding: '8px 0', background: importando ? '#CBD5E1' : S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer' }}>
+    {importando ? '⏳ Extraindo dados...' : '⬆ Importar e Preencher Automaticamente'}
     </button>
     </div>
     </div>
