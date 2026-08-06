@@ -31,10 +31,10 @@ function isMonofasico(ncm) {
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
-  red: '#dc2626', orange: '#ea580c', muted: '#64748B',
+  red: '#dc2626', orange: '#ea580c', muted: '#334155',
   border: '#E2E8F0', bg: '#F8FAFC', white: '#FFFFFF',
-  text: '#1E293B', thBg: '#4B5563', thText: '#FFFFFF',
-  ghost: '#F1F5F9', ghostText: '#CBD5E1',
+  text: '#0F172A', thBg: '#4B5563', thText: '#FFFFFF',
+  ghost: '#F1F5F9', ghostText: '#64748B',
 }
 
 function Badge({ tipo }) {
@@ -198,7 +198,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/POR_PAGINA))
   const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*POR_PAGINA, pagina*POR_PAGINA) : LINHAS_GHOST
   const totalMono    = itens.filter(i=>i.monofasico).length
-  const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||0) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
+  const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||diagAberto?.credito_estimado||itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
   const receitaMono  = itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.vProd,0)
   const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*POR_PAGINA+i))
 
