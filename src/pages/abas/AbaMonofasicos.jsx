@@ -84,7 +84,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [historico, setHistorico] = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [diagAberto, setDiagAberto] = useState(null)
-  const POR_PAGINA = 10
+  const [porPagina, setPorPagina] = useState(10)
   const inputRef = useRef(null)
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
@@ -195,16 +195,16 @@ export default function AbaMonofasicos({ cliente, regime }) {
     if (busca) { const b=busca.toLowerCase(); return i.descricao.toLowerCase().includes(b)||i.ncm.includes(b)||i.emitente.toLowerCase().includes(b)||i.nNF.includes(b) }
     return true
   })
-  const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/POR_PAGINA))
-  const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*POR_PAGINA, pagina*POR_PAGINA) : LINHAS_GHOST
+  const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/porPagina))
+  const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
   const totalMono    = itens.filter(i=>i.monofasico).length
   const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||diagAberto?.credito_estimado||itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
   const receitaMono  = itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.vProd,0)
-  const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*POR_PAGINA+i))
+  const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*porPagina+i))
 
   function toggleTodos() {
-    if (todosSelecionados) setSelecionados(prev=>prev.filter(idx=>idx<(pagina-1)*POR_PAGINA||idx>=pagina*POR_PAGINA))
-    else { const novos=itensPagina.map((_,i)=>(pagina-1)*POR_PAGINA+i); setSelecionados(prev=>[...new Set([...prev,...novos])]) }
+    if (todosSelecionados) setSelecionados(prev=>prev.filter(idx=>idx<(pagina-1)*porPagina||idx>=pagina*porPagina))
+    else { const novos=itensPagina.map((_,i)=>(pagina-1)*porPagina+i); setSelecionados(prev=>[...new Set([...prev,...novos])]) }
   }
   function toggleItem(idx) { setSelecionados(prev=>prev.includes(idx)?prev.filter(i=>i!==idx):[...prev,idx]) }
 
@@ -364,7 +364,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
                 </thead>
                 <tbody>
                   {itensPagina.map((item,i) => {
-                    const idx=(pagina-1)*POR_PAGINA+i
+                    const idx=(pagina-1)*porPagina+i
                     const sel=selecionados.includes(idx)
                     const isGhost=item.ghost
                     return (
@@ -431,7 +431,10 @@ export default function AbaMonofasicos({ cliente, regime }) {
                     {b.label}
                   </button>
                 ))}
-                <span style={{ marginLeft:8 }}>10 por pagina</span>
+                <select value={porPagina} onChange={e=>{setPorPagina(Number(e.target.value));setPagina(1)}}
+                style={{ marginLeft:8, padding:'3px 8px', border:`1px solid ${S.border}`, borderRadius:4, fontSize:12, outline:'none', cursor:'pointer' }}>
+                {[10,25,50,100].map(n=><option key={n} value={n}>{n} por pagina</option>)}
+                </select>
               </div>
             </div>
           </div>
