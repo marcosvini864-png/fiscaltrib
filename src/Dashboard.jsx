@@ -27,7 +27,7 @@ import ClassificacaoItens from './pages/ClassificacaoItens'
 import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
 import PainelSimples from './pages/PainelSimples'
-
+import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -978,6 +978,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
 			{module==='painel_simples' && (
             <PainelSimples clienteId={activeId} cliente={active} />
+            )}
+			{module==='monofasicos' && (
+            <AbaMonofasicos clienteId={activeId} cliente={active} />
             )}
             {module==='sped' && (
             <AuditorSPED
