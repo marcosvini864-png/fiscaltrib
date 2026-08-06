@@ -970,7 +970,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 onVoltar={()=>setMostrarImportarCDA(false)}
               />
             )}
-
+            {module==='classificacao_itens' && (
+            <ClassificacaoItens clienteId={activeId} cliente={active} />
+            )}
             {module==='sped' && (
             <AuditorSPED
             cliente={active}
