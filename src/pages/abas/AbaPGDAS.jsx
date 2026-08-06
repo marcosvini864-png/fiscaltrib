@@ -5,7 +5,7 @@
  * Skeleton preview, responsivo, campos completos do PGDAS-D
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabase'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -109,8 +109,94 @@ export default function AbaPGDAS({ cliente, regime }) {
   const [diagAberto, setDiagAberto] = useState(null)
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(10)
+  const [importando, setImportando] = useState(false)
+  const inputImportRef = useRef(null)
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
+	  
+  async function importarArquivo(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  setImportando(true)
+  try {
+    let textoExtraido = ''
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const resp = await fetch('/api/consulta-ia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gemini-3.5-flash',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: `Extraia os dados do PGDAS-D e retorne JSON com os campos: periodo_apuracao (MM/AAAA), tipo_declaracao (Original ou Retificadora), num_declaracao, num_recibo, autenticacao, data_transmissao, rpa, rbt12, rba, rbaa, receita_revenda, receita_industrializacao, receita_servicos, receita_monofasica, receita_st, receita_imune, fator_r, das_total, irpj, csll, cofins, pis, inss_cpp, icms, ipi, iss, irpj_susp, csll_susp, cofins_susp, pis_susp, inss_susp, icms_susp, ipi_susp, iss_susp. Valores numericos sem R$ e sem pontos de milhar, use ponto decimal. Retorne apenas o JSON, sem texto adicional.` },
+              { type: 'image_url', image_url: { url: `data:application/pdf;base64,${base64}` } }
+            ]
+          }]
+        })
+      })
+      const data = await resp.json()
+      textoExtraido = data.choices?.[0]?.message?.content || data.content || ''
+    } else {
+      textoExtraido = await file.text()
+    }
+    const jsonMatch = textoExtraido.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      setForm(prev => ({
+        ...prev,
+        periodo_apuracao:         parsed.periodo_apuracao?.toString()          || prev.periodo_apuracao,
+        tipo_declaracao:          parsed.tipo_declaracao                        || prev.tipo_declaracao,
+        num_declaracao:           parsed.num_declaracao?.toString()             || prev.num_declaracao,
+        num_recibo:               parsed.num_recibo?.toString()                 || prev.num_recibo,
+        autenticacao:             parsed.autenticacao?.toString()               || prev.autenticacao,
+        data_transmissao:         parsed.data_transmissao?.toString()           || prev.data_transmissao,
+        rpa:                      parsed.rpa?.toString()                        || prev.rpa,
+        rbt12:                    parsed.rbt12?.toString()                      || prev.rbt12,
+        rba:                      parsed.rba?.toString()                        || prev.rba,
+        rbaa:                     parsed.rbaa?.toString()                       || prev.rbaa,
+        receita_revenda:          parsed.receita_revenda?.toString()            || prev.receita_revenda,
+        receita_industrializacao: parsed.receita_industrializacao?.toString()   || prev.receita_industrializacao,
+        receita_servicos:         parsed.receita_servicos?.toString()           || prev.receita_servicos,
+        receita_monofasica:       parsed.receita_monofasica?.toString()         || prev.receita_monofasica,
+        receita_st:               parsed.receita_st?.toString()                 || prev.receita_st,
+        receita_imune:            parsed.receita_imune?.toString()              || prev.receita_imune,
+        fator_r:                  parsed.fator_r?.toString()                    || prev.fator_r,
+        das_total:                parsed.das_total?.toString()                  || prev.das_total,
+        irpj:                     parsed.irpj?.toString()                       || prev.irpj,
+        csll:                     parsed.csll?.toString()                       || prev.csll,
+        cofins:                   parsed.cofins?.toString()                     || prev.cofins,
+        pis:                      parsed.pis?.toString()                        || prev.pis,
+        inss_cpp:                 parsed.inss_cpp?.toString()                   || prev.inss_cpp,
+        icms:                     parsed.icms?.toString()                       || prev.icms,
+        ipi:                      parsed.ipi?.toString()                        || prev.ipi,
+        iss:                      parsed.iss?.toString()                        || prev.iss,
+        irpj_susp:                parsed.irpj_susp?.toString()                  || prev.irpj_susp,
+        csll_susp:                parsed.csll_susp?.toString()                  || prev.csll_susp,
+        cofins_susp:              parsed.cofins_susp?.toString()                || prev.cofins_susp,
+        pis_susp:                 parsed.pis_susp?.toString()                   || prev.pis_susp,
+        inss_susp:                parsed.inss_susp?.toString()                  || prev.inss_susp,
+        icms_susp:                parsed.icms_susp?.toString()                  || prev.icms_susp,
+        ipi_susp:                 parsed.ipi_susp?.toString()                   || prev.ipi_susp,
+        iss_susp:                 parsed.iss_susp?.toString()                   || prev.iss_susp,
+      }))
+      alert('✅ Dados extraidos! Revise os campos antes de salvar.')
+    } else {
+      alert('Nao foi possivel extrair automaticamente. Preencha manualmente.')
+    }
+  } catch (err) {
+    alert('Erro ao importar: ' + err.message)
+  } finally {
+    setImportando(false)
+    e.target.value = ''
+  }
+}
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
@@ -337,7 +423,20 @@ export default function AbaPGDAS({ cliente, regime }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>Lancamento do PGDAS-D</div>
                 <div style={{ fontSize: 12, color: S.muted, marginTop: 2 }}>Preencha os campos conforme o documento impresso do PGDAS-D.</div>
               </div>
-              {diagAberto && <Badge tipo={diagAberto.tipo_declaracao?.toLowerCase() === 'retificadora' ? 'retificadora' : 'original'} />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {diagAberto && <Badge tipo={diagAberto.tipo_declaracao?.toLowerCase() === 'retificadora' ? 'retificadora' : 'original'} />}
+          {!diagAberto && (
+      <>
+      <input ref={inputImportRef} type="file"
+        accept=".pdf,.xml,.txt,.zip,.rar,.DEC,.rec,.RE,.DIA,.prf"
+        onChange={importarArquivo} style={{ display: 'none' }} />
+      <button onClick={() => inputImportRef.current?.click()} disabled={importando}
+        style={{ padding: '6px 14px', background: importando ? '#CBD5E1' : S.white, color: importando ? S.muted : S.navy, border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {importando ? '⏳ Extraindo...' : '📎 Importar PGDAS-D'}
+      </button>
+    </>
+  )}
+</div>
             </div>
 
             <div style={{ padding: 20 }}>
