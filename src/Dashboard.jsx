@@ -106,7 +106,6 @@ const MENU_SECOES = [
 	  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '\u{1F3E2}' },
 	  { label: 'Grupo de Empresas', module: 'grupo_empresas', tab: 0, icon: '\u{1F4C1}' },
       { label: 'Central de Importações',    module: 'importacoes', tab: 0, icon: '\u{1F4E5}' }, // 📥
-      { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
       { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
@@ -118,7 +117,8 @@ const MENU_SECOES = [
   titulo: 'MOTOR DO SIMPLES',
   itens: [
   { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
-    { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
   ],
 },
   {
