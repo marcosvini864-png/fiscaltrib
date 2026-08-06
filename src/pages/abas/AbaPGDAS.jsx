@@ -367,15 +367,26 @@ export default function AbaPGDAS({ cliente, regime }) {
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }}>
 
       {/* HEADER */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-          Motor do Simples / <strong style={{ color: S.text }}>PGDAS-D</strong>
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>PGDAS-D — Simples Nacional</div>
-        <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-          Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.
-        </div>
-      </div>
+    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+    <div>
+    <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
+      Motor do Simples / <strong style={{ color: S.text }}>PGDAS-D</strong>
+    </div>
+    <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>PGDAS-D — Simples Nacional</div>
+    <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
+      Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.
+    </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <input ref={inputImportRef} type="file"
+      accept=".pdf,.xml,.txt,.zip,.rar,.DEC,.rec,.RE,.DIA,.prf"
+      onChange={importarArquivo} style={{ display: 'none' }} />
+    <button onClick={() => inputImportRef.current?.click()} disabled={importando}
+      style={{ padding: '8px 16px', background: importando ? '#CBD5E1' : S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+      {importando ? '⏳ Extraindo...' : '📎 Importar PGDAS-D'}
+    </button>
+    </div>
+    </div>
 
       {/* ABAS */}
       <div style={{ display: 'flex', borderBottom: `2px solid ${S.border}`, marginBottom: 20, flexWrap: 'wrap' }}>
