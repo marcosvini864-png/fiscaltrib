@@ -28,6 +28,7 @@ import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
 import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
+import ApuracaoSimples from './pages/ApuracaoSimples'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -120,6 +121,7 @@ const MENU_SECOES = [
   { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
   { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
   { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Apuração do Simples', module: 'apuracao_simples', tab: 0, icon: '\u{1F4C5}' },
   ],
 },
   {
@@ -983,6 +985,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             <AbaMonofasicos clienteId={activeId} cliente={active} />
             )}
             {module==='sped' && (
+			{module==='apuracao_simples' && <ApuracaoSimples />}
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
