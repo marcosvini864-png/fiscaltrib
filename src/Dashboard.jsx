@@ -119,6 +119,7 @@ const MENU_SECOES = [
   titulo: 'MOTOR DO SIMPLES',
   itens: [
   { label: 'Monofásicos', module: 'monofasicos', tab: 0, icon: '\u{1F48A}' },
+  { label: 'PGDAS-D', module: 'pgdas', tab: 0, icon: '\u{1F4C4}' },
   { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
   { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
   { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
