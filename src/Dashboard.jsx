@@ -26,6 +26,7 @@ import GrupoEmpresas from './pages/GrupoEmpresas'
 import ClassificacaoItens from './pages/ClassificacaoItens'
 import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
+import PainelSimples from './pages/PainelSimples'
 
 
 const REGIME_DOCS = {
@@ -116,6 +117,7 @@ const MENU_SECOES = [
   id: 'motor_simples',
   titulo: 'MOTOR DO SIMPLES',
   itens: [
+  { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
     { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
   ],
 },
@@ -973,12 +975,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='classificacao_itens' && (
             <ClassificacaoItens clienteId={activeId} cliente={active} />
             )}
+			{module==='painel_simples' && (
+            <PainelSimples clienteId={activeId} cliente={active} />
+            )}
             {module==='sped' && (
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
             />
-)}
+            )}
 			{module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
