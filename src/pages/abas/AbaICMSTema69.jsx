@@ -176,7 +176,7 @@ export default function AbaICMSTema69({ cliente, regime }) {
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
       {/* HEADER */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, margin: '0 auto' }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
             Diagnostico Tributario / <strong style={{ color: S.text }}>Exclusao ICMS — STF Tema 69</strong>
@@ -214,19 +214,6 @@ export default function AbaICMSTema69({ cliente, regime }) {
       {aba === 'importar' && (
         <>
           {/* Upload */}
-          <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
-            <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ fontSize:14, fontWeight:600 }}>Central de Importacao de Arquivos</div>
-              <div style={{ fontSize:12, color:S.muted }}>Tamanho maximo: 10 MB</div>
-            </div>
-            <div style={{ padding:16 }}>
-              <div onDrop={onDrop} onDragOver={e=>e.preventDefault()} onClick={() => inputRef.current?.click()}
-                style={{ border:`2px dashed ${S.border}`, borderRadius:8, padding:'32px 24px', textAlign:'center', cursor:'pointer', background:S.bg, marginBottom:12 }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>+</div>
-                <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Clique ou arraste e solte o seu arquivo nesta area</div>
-                <div style={{ fontSize:12, color:S.muted }}>Extensoes aceitas: <strong style={{ color:S.navy }}>.xml .txt .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong></div>
-              </div>
-
               {arquivos.length > 0 && (
                 <div style={{ marginBottom:12, border:`1px solid ${S.border}`, borderRadius:8, overflow:'hidden' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
