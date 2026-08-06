@@ -28,6 +28,7 @@ import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
 import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
+import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
 
 const REGIME_DOCS = {
@@ -983,6 +984,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
 			{module==='monofasicos' && (
             <AbaMonofasicos clienteId={activeId} cliente={active} />
+            )}
+			{module==='pgdas' && (
+            <AbaPGDAS cliente={active} regime={active?.regime} />
             )}
             {module==='apuracao_simples' && (
             <ApuracaoSimples />
