@@ -128,19 +128,16 @@ export default function AbaPGDAS({ cliente, regime }) {
         reader.readAsDataURL(file)
       })
       const resp = await fetch('/api/consulta-ia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'gemini-3.5-flash',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: `Extraia os dados do PGDAS-D e retorne JSON com os campos: periodo_apuracao (MM/AAAA), tipo_declaracao (Original ou Retificadora), num_declaracao, num_recibo, autenticacao, data_transmissao, rpa, rbt12, rba, rbaa, receita_revenda, receita_industrializacao, receita_servicos, receita_monofasica, receita_st, receita_imune, fator_r, das_total, irpj, csll, cofins, pis, inss_cpp, icms, ipi, iss, irpj_susp, csll_susp, cofins_susp, pis_susp, inss_susp, icms_susp, ipi_susp, iss_susp. Valores numericos sem R$ e sem pontos de milhar, use ponto decimal. Retorne apenas o JSON, sem texto adicional.` },
-              { type: 'image_url', image_url: { url: `data:application/pdf;base64,${base64}` } }
-            ]
-          }]
-        })
-      })
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    model: 'gemini-3.5-flash',
+    messages: [{
+      role: 'user',
+      content: `Extraia os dados do PGDAS-D do seguinte PDF em base64 e retorne JSON com os campos: periodo_apuracao (MM/AAAA), tipo_declaracao, num_declaracao, num_recibo, autenticacao, data_transmissao, rpa, rbt12, rba, rbaa, receita_revenda, receita_industrializacao, receita_servicos, receita_monofasica, receita_st, receita_imune, fator_r, das_total, irpj, csll, cofins, pis, inss_cpp, icms, ipi, iss, irpj_susp, csll_susp, cofins_susp, pis_susp, inss_susp, icms_susp, ipi_susp, iss_susp. Valores numericos sem R$ sem pontos de milhar use ponto decimal. Retorne apenas o JSON. PDF: data:application/pdf;base64,${base64}`
+    }]
+  })
+})
       const data = await resp.json()
       textoExtraido = data.choices?.[0]?.message?.content || data.content || ''
     } else {
