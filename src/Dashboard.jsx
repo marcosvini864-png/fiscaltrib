@@ -985,7 +985,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             <AbaMonofasicos clienteId={activeId} cliente={active} />
             )}
             {module==='sped' && (
-			{module==='apuracao_simples' && <ApuracaoSimples />}
+			{module==='apuracao_simples' && (
+            <ApuracaoSimples />
+            )}
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
