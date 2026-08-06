@@ -113,6 +113,13 @@ const MENU_SECOES = [
     ],
   },
   {
+  id: 'motor_simples',
+  titulo: 'MOTOR DO SIMPLES',
+  itens: [
+    { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  ],
+},
+  {
     id: 'planejamento',
     titulo: 'PLANEJAMENTO',
     itens: [
@@ -134,14 +141,7 @@ const MENU_SECOES = [
       { label: 'Score Fiscal',              module: 'relatorios', tab: 1, icon: '\u{1F3AF}' }, // 🎯
     ],
   },
-  {
-  id: 'motor_simples',
-  titulo: 'MOTOR DO SIMPLES',
-  itens: [
-    { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
-  ],
-},
-  {
+    {
     id: 'relacionamento',
     titulo: 'RELACIONAMENTO',
     itens: [
