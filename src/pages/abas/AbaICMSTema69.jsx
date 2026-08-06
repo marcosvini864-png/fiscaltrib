@@ -187,14 +187,14 @@ export default function AbaICMSTema69({ cliente, regime }) {
           </div>
         </div>
         {/* CARD IMPORTAR NO HEADER */}
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260 }}>
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
             Aceita: <strong style={{ color: S.text }}>.xml .txt .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong>
           </div>
           <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
           <button onClick={() => inputRef.current?.click()}
-            style={{ width: '100%', padding: '8px 0', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ width: '40%', padding: '8px 0', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             ⬆ Selecionar Arquivos
           </button>
         </div>
