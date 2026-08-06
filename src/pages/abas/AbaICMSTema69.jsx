@@ -194,7 +194,7 @@ export default function AbaICMSTema69({ cliente, regime }) {
           </div>
           <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
           <button onClick={() => inputRef.current?.click()}
-            style={{ width: '40%', padding: '8px 0', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ width: '25%', padding: '8px 0', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             ⬆ Selecionar Arquivos
           </button>
         </div>
