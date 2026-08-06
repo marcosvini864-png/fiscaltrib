@@ -116,6 +116,7 @@ const MENU_SECOES = [
   id: 'motor_simples',
   titulo: 'MOTOR DO SIMPLES',
   itens: [
+  { label: 'Monofásicos', module: 'monofasicos', tab: 0, icon: '\u{1F48A}' },
   { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
   { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
   { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
