@@ -213,57 +213,7 @@ export default function AbaICMSTema69({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
-          {/* Upload */}
-              {arquivos.length > 0 && (
-                <div style={{ marginBottom:12, border:`1px solid ${S.border}`, borderRadius:8, overflow:'hidden' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                    <thead>
-                      <tr style={{ background:S.thBg }}>
-                        {['Arquivo','Tamanho','Progresso','Status',''].map(h => (
-                          <th key={h} style={{ padding:'7px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {arquivos.map((arq,i) => {
-                        const proc = processados.find(p => p.nome===arq.nome)
-                        const status = proc?.status || 'pendente_arq'
-                        return (
-                          <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:i%2===0?S.white:'#FAFAFA' }}>
-                            <td style={{ padding:'7px 10px', fontWeight:600 }}>{arq.nome}</td>
-                            <td style={{ padding:'7px 10px', color:S.muted }}>{arq.tamanho}</td>
-                            <td style={{ padding:'7px 10px', width:120 }}>
-                              <div style={{ height:6, background:'#E2E8F0', borderRadius:3, overflow:'hidden' }}>
-                                <div style={{ height:'100%', width:status==='concluido'?'100%':status==='erro'?'60%':'0%', background:status==='concluido'?S.green:status==='erro'?S.red:S.blue, transition:'width 0.5s', borderRadius:3 }} />
-                              </div>
-                            </td>
-                            <td style={{ padding:'7px 10px' }}><Badge tipo={status} /></td>
-                            <td style={{ padding:'7px 10px', textAlign:'center' }}>
-                              <button onClick={() => setArquivos(prev=>prev.filter((_,j)=>j!==i))}
-                                style={{ background:'#fef2f2', border:`1px solid #fecaca`, borderRadius:4, color:S.red, cursor:'pointer', padding:'2px 8px', fontSize:12 }}>Excluir</button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {erro && <div style={{ background:'#fef2f2', border:`1px solid #fecaca`, borderRadius:6, padding:'10px 14px', color:S.red, fontSize:13, marginBottom:12 }}>{erro}</div>}
-
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={processar} disabled={arquivos.length===0||processando}
-                  style={{ padding:'8px 20px', background:arquivos.length>0&&!processando?S.blue:'#CBD5E1', color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:arquivos.length>0&&!processando?'pointer':'not-allowed' }}>
-                  {processando?'Processando...':'Analisar Arquivos'}
-                </button>
-                {arquivos.length > 0 && (
-                  <button onClick={novaAnalise} style={{ padding:'8px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Limpar tudo</button>
-                )}
-              </div>
-            </div>
-          </div>
-
+          
           {/* Banner diagnostico aberto */}
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
