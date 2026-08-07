@@ -1,13 +1,14 @@
 /**
  * AbaICMSTema69.jsx - e-FiscalTribe®
  * Exclusao ICMS da Base PIS/COFINS - STF Tema 69 / RE 574.706
- * Versao 2.1 - 07/08/2026
- * Card importar no header padrao, apenas .xml
+ * Versao 2.2 - 07/08/2026
+ * AnalisadorIA plugado no topo
  */
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
+import AnalisadorIA from '../../AnalisadorIA'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -138,12 +139,12 @@ export default function AbaICMSTema69({ cliente, regime }) {
             try {
               const nfe = parseXMLNFe(xml)
               if (!nfe.competencia) continue
-              const vICMSNFe = parseFloat(nfe.vICMS || 0)
-              const vBCNFe = parseFloat(nfe.vBC || 0)
-              const vPISNFe = parseFloat(nfe.vPIS || 0)
+              const vICMSNFe   = parseFloat(nfe.vICMS || 0)
+              const vBCNFe     = parseFloat(nfe.vBC   || 0)
+              const vPISNFe    = parseFloat(nfe.vPIS  || 0)
               const vCOFINSNFe = parseFloat(nfe.vCOFINS || 0)
-              const temICMS = vICMSNFe > 0
-              const credito = temICMS ? (vPISNFe + vCOFINSNFe) * (vICMSNFe / Math.max(vBCNFe, 1)) * 0.0365 : 0
+              const temICMS    = vICMSNFe > 0
+              const credito    = temICMS ? (vPISNFe + vCOFINSNFe) * (vICMSNFe / Math.max(vBCNFe, 1)) * 0.0365 : 0
               todosItens.push({ nNF: nfe.nNF||'-', competencia: nfe.competencia, emitente: nfe.emitNome||'-', vBC: vBCNFe, vICMS: vICMSNFe, vPIS: vPISNFe, vCOFINS: vCOFINSNFe, temICMS, credito, arquivo: arq.nome })
               qtd++
             } catch {}
@@ -164,11 +165,11 @@ export default function AbaICMSTema69({ cliente, regime }) {
     if (busca) { const b = busca.toLowerCase(); return i.emitente.toLowerCase().includes(b) || i.nNF.includes(b) || i.competencia.includes(b) }
     return true
   })
-  const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / porPagina))
-  const itensPagina = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
-  const totalComICMS = itens.filter(i => i.temICMS).length
-  const creditoTotal = itens.reduce((s, i) => s + i.credito, 0)
-  const vICMSTotal = itens.reduce((s, i) => s + i.vICMS, 0)
+  const totalPaginas  = Math.max(1, Math.ceil(itensFiltrados.length / porPagina))
+  const itensPagina   = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
+  const totalComICMS  = itens.filter(i => i.temICMS).length
+  const creditoTotal  = itens.reduce((s, i) => s + i.credito, 0)
+  const vICMSTotal    = itens.reduce((s, i) => s + i.vICMS, 0)
   const todosSelecionados = itensPagina.length > 0 && !itensPagina[0]?.ghost && itensPagina.every((_, i) => selecionados.includes((pagina-1)*porPagina+i))
   function toggleTodos() {
     if (todosSelecionados) setSelecionados(prev => prev.filter(idx => idx < (pagina-1)*porPagina || idx >= pagina*porPagina))
@@ -176,10 +177,24 @@ export default function AbaICMSTema69({ cliente, regime }) {
   }
   function toggleItem(idx) { setSelecionados(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]) }
 
+  // Dados para o AnalisadorIA
+  const dadosIA = temResultado ? {
+    totalNFes: itens.length,
+    totalComICMS,
+    vICMSTotal,
+    creditoTotal,
+    regime,
+    baseLegal: 'STF RE 574.706 — Tema 69 — ICMS nao compoe base do PIS/COFINS',
+    top10: itens.filter(i => i.temICMS).slice(0, 10).map(i => ({
+      nNF: i.nNF, competencia: i.competencia,
+      vICMS: i.vICMS, credito: i.credito,
+    }))
+  } : null
+
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER — padrao AbaICMSST */}
+      {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
@@ -190,7 +205,6 @@ export default function AbaICMSTema69({ cliente, regime }) {
             Identifique o ICMS indevidamente incluido na base de calculo do PIS/COFINS. RE 574.706 — tese fixada pelo STF.
           </div>
         </div>
-        {/* CARD IMPORTAR */}
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -217,6 +231,14 @@ export default function AbaICMSTema69({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
+          {/* ANALISADOR IA */}
+          <AnalisadorIA
+            contexto="Exclusao ICMS — STF Tema 69 / RE 574.706"
+            dados={dadosIA}
+            cliente={cliente}
+            regime={regime}
+          />
+
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -373,9 +395,9 @@ export default function AbaICMSTema69({ cliente, regime }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
                 {[
-                  { label:'Diagnosticos salvos',    valor:historico.length, cor:S.navy },
-                  { label:'Credito total estimado', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)), cor:S.green },
-                  { label:'Total NF-es analisadas', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0), cor:S.orange },
+                  { label:'Diagnosticos salvos',    valor:historico.length,                                               cor:S.navy   },
+                  { label:'Credito total estimado', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),    cor:S.green  },
+                  { label:'Total NF-es analisadas', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),               cor:S.orange },
                 ].map((k,i) => (
                   <div key={i} style={{ background:S.bg, borderRadius:8, padding:'12px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                     <div style={{ fontSize:i===1?14:20, fontWeight:700, color:k.cor }}>{k.valor}</div>
