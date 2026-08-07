@@ -1,13 +1,14 @@
 /**
  * AbaICMSST.jsx - e-FiscalTribe®
  * Credito de ICMS-ST nas Entradas
- * Versao 2.1 - 07/08/2026
- * Apenas .xml aceito
+ * Versao 2.2 - 07/08/2026
+ * AnalisadorIA plugado no topo
  */
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
+import AnalisadorIA from '../../AnalisadorIA'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -28,7 +29,7 @@ function Badge({ tipo }) {
     concluido:    { label: 'Concluido',   bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
     erro:         { label: 'Erro',        bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
     ignorado:     { label: 'Ignorado',    bg: '#f1f5f9', color: '#64748B', border: '#cbd5e1' },
-    pendente_arq: { label: 'Aguardando', bg: '#f1f5f9', color: '#64748B', border: '#cbd5e1' },
+    pendente_arq: { label: 'Aguardando',  bg: '#f1f5f9', color: '#64748B', border: '#cbd5e1' },
   }
   const b = map[tipo] || map.sem_st
   return (
@@ -180,6 +181,19 @@ export default function AbaICMSST({ cliente, regime }) {
   }
   function toggleItem(idx) { setSelecionados(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]) }
 
+  // Dados para o AnalisadorIA
+  const dadosIA = temResultado ? {
+    totalItens: itens.length,
+    totalComST,
+    vSTTotal,
+    creditoTotal,
+    regime,
+    top10: itens.filter(i => i.temST).slice(0, 10).map(i => ({
+      nNF: i.nNF, descricao: i.descricao, ncm: i.ncm,
+      vST: i.vST, credito: i.credito, competencia: i.competencia,
+    }))
+  } : null
+
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
@@ -194,7 +208,6 @@ export default function AbaICMSST({ cliente, regime }) {
             Identifique ICMS-ST pago nas entradas que gera credito de PIS/COFINS no Lucro Real. IN RFB 1.911/2019.
           </div>
         </div>
-        {/* CARD IMPORTAR */}
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -221,6 +234,14 @@ export default function AbaICMSST({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
+          {/* ANALISADOR IA */}
+          <AnalisadorIA
+            contexto="Credito ICMS-ST nas Entradas"
+            dados={dadosIA}
+            cliente={cliente}
+            regime={regime}
+          />
+
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -252,9 +273,9 @@ export default function AbaICMSST({ cliente, regime }) {
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
-                  { id:'todos',  label:`Todos (${itens.length})`              },
-                  { id:'com_st', label:`Com ST (${totalComST})`               },
-                  { id:'sem_st', label:`Sem ST (${itens.length-totalComST})`  },
+                  { id:'todos',  label:`Todos (${itens.length})`             },
+                  { id:'com_st', label:`Com ST (${totalComST})`              },
+                  { id:'sem_st', label:`Sem ST (${itens.length-totalComST})` },
                 ].map(f => (
                   <button key={f.id} onClick={()=>{setFiltro(f.id);setPagina(1)}}
                     style={{ padding:'4px 12px', background:filtro===f.id?S.navy:'none', color:filtro===f.id?S.white:S.muted, border:`1px solid ${filtro===f.id?S.navy:S.border}`, borderRadius:99, fontSize:11, fontWeight:filtro===f.id?700:400, cursor:'pointer' }}>
@@ -379,9 +400,9 @@ export default function AbaICMSST({ cliente, regime }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
                 {[
-                  { label:'Diagnosticos salvos',    valor:historico.length, cor:S.navy },
-                  { label:'Credito total estimado', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)), cor:S.green },
-                  { label:'Total itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0), cor:S.orange },
+                  { label:'Diagnosticos salvos',    valor:historico.length,                                               cor:S.navy   },
+                  { label:'Credito total estimado', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),    cor:S.green  },
+                  { label:'Total itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),               cor:S.orange },
                 ].map((k,i) => (
                   <div key={i} style={{ background:S.bg, borderRadius:8, padding:'12px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                     <div style={{ fontSize:i===1?14:20, fontWeight:700, color:k.cor }}>{k.valor}</div>
