@@ -1,8 +1,8 @@
 /**
  * AbaRetencoes.jsx - e-FiscalTribe®
  * Retencoes Indevidas de PIS/COFINS/CSLL
- * Versao 2.1 - 06/08/2026
- * Card importar centralizado (padrao AbaICMSST)
+ * Versao 2.2 - 06/08/2026
+ * Card importar identico ao AbaICMSST
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -184,9 +184,9 @@ export default function AbaRetencoes({ cliente, regime }) {
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER — padrao AbaICMSST com flex:1 no titulo e card fixo sem textAlign externo */}
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
+      {/* HEADER — identico ao AbaICMSST */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
             Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
           </div>
@@ -195,29 +195,16 @@ export default function AbaRetencoes({ cliente, regime }) {
             Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
           </div>
         </div>
-
-        {/* CARD IMPORTAR — estrutura identica ao AbaICMSST */}
-        <div style={{
-          background: S.white, border: `1px solid ${S.border}`, borderRadius: 10,
-          padding: '14px 18px', width: 260, flexShrink: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: S.navy }}>&#128206; Importar NF-es</div>
-          <div style={{ fontSize: 11, color: S.muted, textAlign: 'center' }}>
+        {/* CARD IMPORTAR — identico ao AbaICMSST */}
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
             Aceita: <strong style={{ color: S.text }}>.xml .txt .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong>
           </div>
           <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={processando}
-            style={{
-              width: '100%', padding: '8px 0',
-              background: processando ? '#CBD5E1' : S.blue,
-              color: S.white, border: 'none', borderRadius: 6,
-              fontSize: 13, fontWeight: 600,
-              cursor: processando ? 'not-allowed' : 'pointer'
-            }}>
-            {processando ? '&#9203; Processando...' : '&#11014; Selecionar Arquivos'}
+          <button onClick={() => inputRef.current?.click()} disabled={processando}
+            style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
+            {processando ? '⏳ Processando...' : '⬆ Selecionar Arquivos'}
           </button>
         </div>
       </div>
@@ -245,13 +232,13 @@ export default function AbaRetencoes({ cliente, regime }) {
           {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
             {[
-              { label:'Total de NF-es',             valor: temResultado ? itens.length      : '&#8212;', cor: temResultado ? S.navy   : S.ghostText },
-              { label:'Retencoes Indevidas',         valor: temResultado ? totalIndevidas    : '&#8212;', cor: temResultado ? S.red    : S.ghostText },
-              { label:'Total Retencoes Encontradas', valor: temResultado ? fmtR(valorTotal)  : 'R$ &#8212;,&#8212;&#8212;', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Valor Recuperavel',           valor: temResultado ? fmtR(creditoTotal): 'R$ &#8212;,&#8212;&#8212;', cor: temResultado ? S.green  : S.ghostText },
+              { label:'Total de NF-es',             valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
+              { label:'Retencoes Indevidas',         valor: temResultado ? totalIndevidas    : '—', cor: temResultado ? S.red    : S.ghostText },
+              { label:'Total Retencoes Encontradas', valor: temResultado ? fmtR(valorTotal)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
+              { label:'Valor Recuperavel',           valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
             ].map((k,i) => (
               <div key={i} style={{ background:S.white, borderRadius:8, padding:'14px 16px', border:`1px solid ${S.border}`, textAlign:'center' }}>
-                <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }} dangerouslySetInnerHTML={{ __html: String(k.valor) }} />
+                <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }}>{k.valor}</div>
                 <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>{k.label}</div>
                 {!temResultado && <div style={{ fontSize:10, color:S.ghostText, marginTop:4 }}>Aguardando importacao</div>}
               </div>
@@ -303,11 +290,11 @@ export default function AbaRetencoes({ cliente, regime }) {
                         <td style={{ padding:'7px 10px', fontWeight:600, color:isGhost?S.ghostText:S.navy }}>{item.nNF}</td>
                         <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.text }}>{item.competencia}</td>
                         <td style={{ padding:'7px 10px', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.emitente}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.text }}>{isGhost?'R$ \u2014,\u2014\u2014':fmtR(item.vNF)}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetPIS>0?S.red:S.muted }}>{isGhost?'R$ \u2014,\u2014\u2014':fmtR(item.vRetPIS)}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetCOFINS>0?S.red:S.muted }}>{isGhost?'R$ \u2014,\u2014\u2014':fmtR(item.vRetCOFINS)}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetCSLL>0?S.red:S.muted }}>{isGhost?'R$ \u2014,\u2014\u2014':fmtR(item.vRetCSLL)}</td>
-                        <td style={{ padding:'7px 10px', fontWeight:700, color:isGhost?S.ghostText:item.vRetencao>0?S.red:S.muted }}>{isGhost?'R$ \u2014,\u2014\u2014':fmtR(item.vRetencao)}</td>
+                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.text }}>{isGhost?'R$ —,——':fmtR(item.vNF)}</td>
+                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetPIS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vRetPIS)}</td>
+                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetCOFINS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vRetCOFINS)}</td>
+                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vRetCSLL>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vRetCSLL)}</td>
+                        <td style={{ padding:'7px 10px', fontWeight:700, color:isGhost?S.ghostText:item.vRetencao>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vRetencao)}</td>
                         <td style={{ padding:'7px 10px' }}>
                           {isGhost
                             ? <span style={{ background:S.ghost, color:S.ghostText, border:`1px solid ${S.border}`, borderRadius:99, padding:'2px 10px', fontSize:10, fontWeight:700 }}>Classificacao</span>
@@ -344,10 +331,10 @@ export default function AbaRetencoes({ cliente, regime }) {
             )}
 
             <div style={{ padding:'10px 16px', borderTop:`1px solid ${S.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12, color:S.muted, flexWrap:'wrap', gap:8 }}>
-              <span>{temResultado ? `${itensFiltrados.length} NF-es \u2014 Pagina ${pagina} de ${totalPaginas}` : 'Aguardando importacao'}</span>
+              <span>{temResultado ? `${itensFiltrados.length} NF-es — Pagina ${pagina} de ${totalPaginas}` : 'Aguardando importacao'}</span>
               <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-                {[['&#171;',()=>setPagina(1),pagina===1||!temResultado],['&#60;',()=>setPagina(p=>Math.max(1,p-1)),pagina===1||!temResultado],['&#62;',()=>setPagina(p=>Math.min(totalPaginas,p+1)),pagina===totalPaginas||!temResultado],['&#187;',()=>setPagina(totalPaginas),pagina===totalPaginas||!temResultado]].map(([l,fn,dis],i)=>(
-                  <button key={i} onClick={fn} disabled={dis} style={{ padding:'4px 8px', border:`1px solid ${S.border}`, borderRadius:4, background:'none', cursor:dis?'not-allowed':'pointer', color:dis?'#CBD5E1':S.text }} dangerouslySetInnerHTML={{ __html: l }} />
+                {[['«',()=>setPagina(1),pagina===1||!temResultado],['<',()=>setPagina(p=>Math.max(1,p-1)),pagina===1||!temResultado],['>',()=>setPagina(p=>Math.min(totalPaginas,p+1)),pagina===totalPaginas||!temResultado],['»',()=>setPagina(totalPaginas),pagina===totalPaginas||!temResultado]].map(([l,fn,dis],i)=>(
+                  <button key={i} onClick={fn} disabled={dis} style={{ padding:'4px 8px', border:`1px solid ${S.border}`, borderRadius:4, background:'none', cursor:dis?'not-allowed':'pointer', color:dis?'#CBD5E1':S.text }}>{l}</button>
                 ))}
                 <select value={porPagina} onChange={e=>{setPorPagina(Number(e.target.value));setPagina(1)}}
                   style={{ marginLeft:8, padding:'3px 8px', border:`1px solid ${S.border}`, borderRadius:4, fontSize:12, outline:'none', cursor:'pointer' }}>
@@ -382,7 +369,7 @@ export default function AbaRetencoes({ cliente, regime }) {
             <div style={{ padding:40, textAlign:'center', color:S.muted }}>Carregando...</div>
           ) : historico.length === 0 ? (
             <div style={{ padding:40, textAlign:'center' }}>
-              <div style={{ fontSize:36, marginBottom:12 }}>&#128203;</div>
+              <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
               <div style={{ fontSize:14, fontWeight:600, marginBottom:8 }}>Nenhum diagnostico salvo</div>
               <div style={{ fontSize:13, color:S.muted, marginBottom:16 }}>Importe arquivos, analise e salve para aparecer aqui</div>
               <button onClick={()=>setAba('importar')} style={{ padding:'8px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>Novo Diagnostico</button>
@@ -414,7 +401,7 @@ export default function AbaRetencoes({ cliente, regime }) {
                     {historico.map((diag,i) => (
                       <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:i%2===0?S.white:'#FAFAFA' }}>
                         <td style={{ padding:'7px 10px', whiteSpace:'nowrap' }}>{fmtData(diag.created_at)}</td>
-                        <td style={{ padding:'7px 10px' }}>{diag.periodo_inicio}{diag.periodo_fim&&diag.periodo_fim!==diag.periodo_inicio?` \u2192 ${diag.periodo_fim}`:''}</td>
+                        <td style={{ padding:'7px 10px' }}>{diag.periodo_inicio}{diag.periodo_fim&&diag.periodo_fim!==diag.periodo_inicio?` -> ${diag.periodo_fim}`:''}</td>
                         <td style={{ padding:'7px 10px' }}>{diag.total_nfes}</td>
                         <td style={{ padding:'7px 10px', color:S.red, fontWeight:700 }}>{diag.total_indevidas}</td>
                         <td style={{ padding:'7px 10px' }}>{fmtR(diag.valor_retencoes)}</td>
