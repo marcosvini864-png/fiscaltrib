@@ -185,7 +185,7 @@ export default function AbaRetencoes({ cliente, regime }) {
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
       {/* HEADER */}
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
             Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
@@ -196,7 +196,7 @@ export default function AbaRetencoes({ cliente, regime }) {
           </div>
         </div>
         {/* CARD IMPORTAR NO HEADER */}
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center', marginLeft: 'auto' }}>
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
             Aceita: <strong style={{ color: S.text }}>.xml .txt .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong>
