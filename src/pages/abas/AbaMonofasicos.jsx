@@ -1,12 +1,13 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 6.0 - 07/08/2026
- * Card importar no header, onDrop automatico, apenas .xml
+ * Versao 7.0 - 07/08/2026
+ * AnalisadorIA plugado no topo
  */
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
+import AnalisadorIA from '../../AnalisadorIA'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -217,10 +218,23 @@ export default function AbaMonofasicos({ cliente, regime }) {
   }
   function toggleItem(idx) { setSelecionados(prev=>prev.includes(idx)?prev.filter(i=>i!==idx):[...prev,idx]) }
 
+  // Dados para o AnalisadorIA
+  const dadosIA = temResultado ? {
+    totalItens: itens.length,
+    totalMonofasicos: totalMono,
+    receitaMonofasica: receitaMono,
+    creditoEstimado: creditoTotal,
+    regime,
+    pgdas: pgdasResult || null,
+    top10: itens.filter(i=>i.monofasico).slice(0,10).map(i=>({
+      ncm: i.ncm, descricao: i.descricao, vProd: i.vProd, competencia: i.competencia
+    }))
+  } : null
+
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER — padrao AbaICMSST */}
+      {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
@@ -231,7 +245,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
             Identifique produtos sujeitos a tributacao monofasica e calcule o credito recuperavel de PIS/COFINS.
           </div>
         </div>
-        {/* CARD IMPORTAR */}
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -258,6 +271,14 @@ export default function AbaMonofasicos({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
+          {/* ANALISADOR IA — sempre visível no topo */}
+          <AnalisadorIA
+            contexto="Monofasicos PIS/COFINS"
+            dados={dadosIA}
+            cliente={cliente}
+            regime={regime}
+          />
+
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -284,10 +305,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
           {/* TABELA */}
           <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, emitente..."
-                  style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:220 }} />
-              </div>
+              <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, emitente..."
+                style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:220 }} />
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
@@ -382,7 +401,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
             </div>
           </div>
 
-          {/* PGDAS-D — so Simples Nacional */}
+          {/* PGDAS-D */}
           {regime === 'Simples Nacional' && (
             <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
               <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, background:'#fff7ed' }}>
@@ -480,9 +499,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
                 {[
-                  { label:'Diagnosticos salvos',       valor:historico.length,                                               cor:S.navy   },
-                  { label:'Potencial total',            valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),    cor:S.green  },
-                  { label:'Total de itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),                cor:S.orange },
+                  { label:'Diagnosticos salvos',      valor:historico.length,                                            cor:S.navy   },
+                  { label:'Potencial total',           valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)), cor:S.green  },
+                  { label:'Total de itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),            cor:S.orange },
                 ].map((k,i) => (
                   <div key={i} style={{ background:S.bg, borderRadius:8, padding:'12px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                     <div style={{ fontSize:i===1?14:20, fontWeight:700, color:k.cor }}>{k.valor}</div>
