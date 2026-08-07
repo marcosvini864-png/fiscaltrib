@@ -184,7 +184,7 @@ export default function AbaICMSST({ cliente, regime }) {
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
       {/* HEADER */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
             Diagnostico Tributario / <strong style={{ color: S.text }}>Credito ICMS-ST</strong>
