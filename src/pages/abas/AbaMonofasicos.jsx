@@ -1,7 +1,7 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 5.0 - 06/08/2026
- * Skeleton preview — KPIs e tabela sempre visiveis
+ * Versao 6.0 - 07/08/2026
+ * Card importar no header, onDrop automatico, apenas .xml
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -10,7 +10,7 @@ import { parseXMLNFe } from '../../utils/parseXMLNFe'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
-const FORMATOS = '.xml,.txt,.zip,.rar,.pdf,.DEC,.rec,.RE,.DIA,.prf'
+const FORMATOS = '.xml'
 
 const NCM_PREFIXOS = [
   '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
@@ -55,14 +55,11 @@ function Badge({ tipo }) {
   )
 }
 
-// Linhas fantasma para skeleton
-const LINHAS_GHOST = [
-  { nNF: 'NF-0001', competencia: 'MM/AAAA', emitente: 'Nome do Emitente', descricao: 'Descricao do Produto', ncm: '0000.00.00', vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true },
-  { nNF: 'NF-0002', competencia: 'MM/AAAA', emitente: 'Nome do Emitente', descricao: 'Descricao do Produto', ncm: '0000.00.00', vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true },
-  { nNF: 'NF-0003', competencia: 'MM/AAAA', emitente: 'Nome do Emitente', descricao: 'Descricao do Produto', ncm: '0000.00.00', vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true },
-  { nNF: 'NF-0004', competencia: 'MM/AAAA', emitente: 'Nome do Emitente', descricao: 'Descricao do Produto', ncm: '0000.00.00', vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true },
-  { nNF: 'NF-0005', competencia: 'MM/AAAA', emitente: 'Nome do Emitente', descricao: 'Descricao do Produto', ncm: '0000.00.00', vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true },
-]
+const LINHAS_GHOST = Array(5).fill(null).map((_, i) => ({
+  nNF: `NF-000${i+1}`, competencia: 'MM/AAAA', emitente: 'Nome do Emitente',
+  descricao: 'Descricao do Produto', ncm: '0000.00.00',
+  vProd: 0, vItemPIS: 0, vItemCOFINS: 0, monofasico: false, credito: 0, ghost: true,
+}))
 
 export default function AbaMonofasicos({ cliente, regime }) {
   const [aba, setAba] = useState('importar')
@@ -140,17 +137,21 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setDiagAberto(null); setSelecionados([]); setErro('')
   }
 
-  function onDrop(e) {
+  async function onDrop(e) {
     e.preventDefault()
     const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
-    setArquivos(prev => [...prev, ...files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))])
+    if (files.length === 0) return
+    const novos = files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))
+    const atualizados = [...arquivos, ...novos]
+    setArquivos(atualizados)
+    await processarArquivos(atualizados)
   }
 
-  async function processar() {
-    if (arquivos.length === 0) return
+  async function processarArquivos(listaArquivos) {
+    if (!listaArquivos || listaArquivos.length === 0) return
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
-    for (const arq of arquivos) {
+    for (const arq of listaArquivos) {
       try {
         if (arq.nome.toLowerCase().endsWith('.xml')) {
           const texto = await arq.file.text()
@@ -162,7 +163,15 @@ export default function AbaMonofasicos({ cliente, regime }) {
               if (!nfe.competencia) continue
               ;(nfe.itens || []).forEach(item => {
                 const mono = isMonofasico(item.ncm)
-                todosItens.push({ nNF: nfe.nNF||'-', competencia: nfe.competencia, emitente: nfe.emitNome||'-', ncm: item.ncm||'-', descricao: item.xProd||'-', vProd: item.vProd||0, vItemPIS: item.vItemPIS||0, vItemCOFINS: item.vItemCOFINS||0, monofasico: mono, credito: mono && regime!=='Simples Nacional'?(item.vItemPIS||0)+(item.vItemCOFINS||0):0, pendentePGDAS: mono && regime==='Simples Nacional', arquivo: arq.nome })
+                todosItens.push({
+                  nNF: nfe.nNF||'-', competencia: nfe.competencia, emitente: nfe.emitNome||'-',
+                  ncm: item.ncm||'-', descricao: item.xProd||'-', vProd: item.vProd||0,
+                  vItemPIS: item.vItemPIS||0, vItemCOFINS: item.vItemCOFINS||0,
+                  monofasico: mono,
+                  credito: mono && regime !== 'Simples Nacional' ? (item.vItemPIS||0)+(item.vItemCOFINS||0) : 0,
+                  pendentePGDAS: mono && regime === 'Simples Nacional',
+                  arquivo: arq.nome,
+                })
                 qtd++
               })
             } catch {}
@@ -174,8 +183,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
       } catch { novosProcessados.push({ ...arq, status: 'erro', qtdItens: 0 }) }
     }
     if (regime === 'Simples Nacional') {
-      const recMono = todosItens.filter(i => i.monofasico).reduce((s,i)=>s+i.vProd,0)
-      const recTotal = todosItens.reduce((s,i)=>s+i.vProd,0)
+      const recMono = todosItens.filter(i => i.monofasico).reduce((s,i)=>s+i.vProd, 0)
+      const recTotal = todosItens.reduce((s,i)=>s+i.vProd, 0)
       setPgdasForm(prev => ({ ...prev, receita_bruta_total: recTotal.toFixed(2), receita_monofasica: recMono.toFixed(2) }))
     }
     setProcessados(novosProcessados); setItens(todosItens); setPgdasResult(null); setProcessando(false); setPagina(1)
@@ -211,14 +220,28 @@ export default function AbaMonofasicos({ cliente, regime }) {
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-          Motor do Simples / <strong style={{ color: S.text }}>Monofasicos PIS/COFINS</strong>
+      {/* HEADER — padrao AbaICMSST */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
+            Motor do Simples / <strong style={{ color: S.text }}>Monofasicos PIS/COFINS</strong>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>Monofasicos PIS/COFINS</div>
+          <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
+            Identifique produtos sujeitos a tributacao monofasica e calcule o credito recuperavel de PIS/COFINS.
+          </div>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>Monofasicos PIS/COFINS</div>
-        <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-          Identifique produtos sujeitos a tributacao monofasica e calcule o credito recuperavel de PIS/COFINS.
+        {/* CARD IMPORTAR */}
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
+            Aceita: <strong style={{ color: S.text }}>.xml (NF-e)</strong>
+          </div>
+          <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
+          <button onClick={() => inputRef.current?.click()} disabled={processando}
+            style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
+            {processando ? '⏳ Processando...' : '⬆ Selecionar Arquivos'}
+          </button>
         </div>
       </div>
 
@@ -235,74 +258,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
-          {/* Upload */}
-          <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
-            <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ fontSize:14, fontWeight:600 }}>Central de Importacao de Arquivos</div>
-              <div style={{ fontSize:12, color:S.muted }}>Tamanho maximo suportado: 10 MB</div>
-            </div>
-            <div style={{ padding:16 }}>
-              <div onDrop={onDrop} onDragOver={e=>e.preventDefault()} onClick={() => inputRef.current?.click()}
-                style={{ border:`2px dashed ${S.border}`, borderRadius:8, padding:'32px 24px', textAlign:'center', cursor:'pointer', background:S.bg, marginBottom:12 }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>+</div>
-                <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Clique ou arraste e solte o seu arquivo nesta area para fazer o upload</div>
-                <div style={{ fontSize:12, color:S.muted, marginBottom:8 }}>E permitido fazer o upload de no maximo dez arquivos por vez.</div>
-                <div style={{ fontSize:11, color:S.muted }}>Extensoes aceitas: <strong style={{ color:S.navy }}>.txt .xml .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong></div>
-                <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display:'none' }} />
-              </div>
-
-              {arquivos.length > 0 && (
-                <div style={{ marginBottom:12, border:`1px solid ${S.border}`, borderRadius:8, overflow:'hidden' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                    <thead>
-                      <tr style={{ background:S.thBg }}>
-                        {['Arquivo','Tamanho','Data de Upload','Importado por','Progresso','Status',''].map(h => (
-                          <th key={h} style={{ padding:'7px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {arquivos.map((arq,i) => {
-                        const proc=processados.find(p=>p.nome===arq.nome), status=proc?.status||'pendente_arq'
-                        return (
-                          <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:i%2===0?S.white:'#FAFAFA' }}>
-                            <td style={{ padding:'7px 10px', fontWeight:600 }}>{arq.nome}</td>
-                            <td style={{ padding:'7px 10px', color:S.muted }}>{arq.tamanho}</td>
-                            <td style={{ padding:'7px 10px', color:S.muted }}>{new Date().toLocaleString('pt-BR')}</td>
-                            <td style={{ padding:'7px 10px', color:S.muted }}>{cliente?.razao_social||'-'}</td>
-                            <td style={{ padding:'7px 10px', width:120 }}>
-                              <div style={{ height:6, background:'#E2E8F0', borderRadius:3, overflow:'hidden' }}>
-                                <div style={{ height:'100%', width:status==='concluido'?'100%':status==='erro'?'60%':'0%', background:status==='concluido'?S.green:status==='erro'?S.red:S.blue, transition:'width 0.5s', borderRadius:3 }} />
-                              </div>
-                            </td>
-                            <td style={{ padding:'7px 10px' }}><Badge tipo={status} /></td>
-                            <td style={{ padding:'7px 10px', textAlign:'center' }}>
-                              <button onClick={() => setArquivos(prev=>prev.filter((_,j)=>j!==i))}
-                                style={{ background:'#fef2f2', border:`1px solid #fecaca`, borderRadius:4, color:S.red, cursor:'pointer', padding:'2px 8px', fontSize:12 }}>Excluir</button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {erro && <div style={{ background:'#fef2f2', border:`1px solid #fecaca`, borderRadius:6, padding:'10px 14px', color:S.red, fontSize:13, marginBottom:12 }}>{erro}</div>}
-
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={processar} disabled={arquivos.length===0||processando}
-                  style={{ padding:'8px 20px', background:arquivos.length>0&&!processando?S.blue:'#CBD5E1', color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:arquivos.length>0&&!processando?'pointer':'not-allowed' }}>
-                  {processando?'Processando...':'Analisar Arquivos'}
-                </button>
-                {arquivos.length > 0 && (
-                  <button onClick={novaAnalise} style={{ padding:'8px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Limpar tudo</button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Banner diagnostico aberto */}
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -310,13 +265,13 @@ export default function AbaMonofasicos({ cliente, regime }) {
             </div>
           )}
 
-          {/* KPIs — SEMPRE VISIVEIS */}
+          {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
             {[
-              { label:'Total de itens',          valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
-              { label:'Itens monofasicos',        valor: temResultado ? totalMono         : '—', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Receita monofasica',       valor: temResultado ? fmtR(receitaMono) : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Potencial de recuperacao', valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
+              { label:'Total de itens',          valor: temResultado ? itens.length       : '—',        cor: temResultado ? S.navy   : S.ghostText },
+              { label:'Itens monofasicos',        valor: temResultado ? totalMono          : '—',        cor: temResultado ? S.orange : S.ghostText },
+              { label:'Receita monofasica',       valor: temResultado ? fmtR(receitaMono)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
+              { label:'Potencial de recuperacao', valor: temResultado ? fmtR(creditoTotal) : 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
             ].map((k,i) => (
               <div key={i} style={{ background:S.white, borderRadius:8, padding:'14px 16px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                 <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }}>{k.valor}</div>
@@ -326,21 +281,19 @@ export default function AbaMonofasicos({ cliente, regime }) {
             ))}
           </div>
 
-          {/* TABELA — SEMPRE VISIVEL */}
+          {/* TABELA */}
           <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
-            {/* Toolbar */}
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, emitente..."
                   style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:220 }} />
-                <button style={{ padding:'6px 12px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:12, cursor:'pointer', color:S.muted }}>Busca Avancada</button>
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <span style={{ fontSize:12, color:S.muted }}>Visualizado por:</span>
+                <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
-                  { id:'todos',          label:`Todos (${itens.length})`                        },
-                  { id:'monofasico',     label:`Monofasicos (${totalMono})`                     },
-                  { id:'nao_monofasico', label:`Nao monofasicos (${itens.length-totalMono})`    },
+                  { id:'todos',          label:`Todos (${itens.length})`                     },
+                  { id:'monofasico',     label:`Monofasicos (${totalMono})`                  },
+                  { id:'nao_monofasico', label:`Nao monofasicos (${itens.length-totalMono})` },
                 ].map(f => (
                   <button key={f.id} onClick={()=>{setFiltro(f.id);setPagina(1)}}
                     style={{ padding:'4px 12px', background:filtro===f.id?S.navy:'none', color:filtro===f.id?S.white:S.muted, border:`1px solid ${filtro===f.id?S.navy:S.border}`, borderRadius:99, fontSize:11, fontWeight:filtro===f.id?700:400, cursor:'pointer' }}>
@@ -409,37 +362,27 @@ export default function AbaMonofasicos({ cliente, regime }) {
               </table>
             </div>
 
-            {/* Mensagem vazia */}
             {!temResultado && (
               <div style={{ padding:'16px 20px', borderTop:`1px solid ${S.border}`, textAlign:'center', fontSize:12, color:S.ghostText }}>
                 Importe arquivos XML de NF-e para visualizar os itens e identificar monofasicos
               </div>
             )}
 
-            {/* Paginacao */}
             <div style={{ padding:'10px 16px', borderTop:`1px solid ${S.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12, color:S.muted, flexWrap:'wrap', gap:8 }}>
               <span>{temResultado ? `${itensFiltrados.length} itens — Pagina ${pagina} de ${totalPaginas}` : 'Aguardando importacao de arquivos'}</span>
               <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-                {[
-                  { label:'«', onClick:()=>setPagina(1),                             disabled:pagina===1||!temResultado },
-                  { label:'<', onClick:()=>setPagina(p=>Math.max(1,p-1)),            disabled:pagina===1||!temResultado },
-                  { label:'>', onClick:()=>setPagina(p=>Math.min(totalPaginas,p+1)), disabled:pagina===totalPaginas||!temResultado },
-                  { label:'»', onClick:()=>setPagina(totalPaginas),                  disabled:pagina===totalPaginas||!temResultado },
-                ].map((b,i) => (
-                  <button key={i} onClick={b.onClick} disabled={b.disabled}
-                    style={{ padding:'4px 8px', border:`1px solid ${S.border}`, borderRadius:4, background:'none', cursor:b.disabled?'not-allowed':'pointer', color:b.disabled?'#CBD5E1':S.text }}>
-                    {b.label}
-                  </button>
+                {[['«',()=>setPagina(1),pagina===1||!temResultado],['<',()=>setPagina(p=>Math.max(1,p-1)),pagina===1||!temResultado],['>',()=>setPagina(p=>Math.min(totalPaginas,p+1)),pagina===totalPaginas||!temResultado],['»',()=>setPagina(totalPaginas),pagina===totalPaginas||!temResultado]].map(([l,fn,dis],i)=>(
+                  <button key={i} onClick={fn} disabled={dis} style={{ padding:'4px 8px', border:`1px solid ${S.border}`, borderRadius:4, background:'none', cursor:dis?'not-allowed':'pointer', color:dis?'#CBD5E1':S.text }}>{l}</button>
                 ))}
                 <select value={porPagina} onChange={e=>{setPorPagina(Number(e.target.value));setPagina(1)}}
-                style={{ marginLeft:8, padding:'3px 8px', border:`1px solid ${S.border}`, borderRadius:4, fontSize:12, outline:'none', cursor:'pointer' }}>
-                {[10,25,50,100].map(n=><option key={n} value={n}>{n} por pagina</option>)}
+                  style={{ marginLeft:8, padding:'3px 8px', border:`1px solid ${S.border}`, borderRadius:4, fontSize:12, outline:'none', cursor:'pointer' }}>
+                  {[10,25,50,100].map(n=><option key={n} value={n}>{n} por pagina</option>)}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* PGDAS-D - so Simples Nacional */}
+          {/* PGDAS-D — so Simples Nacional */}
           {regime === 'Simples Nacional' && (
             <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
               <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, background:'#fff7ed' }}>
@@ -472,7 +415,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
                   style={{ padding:'8px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   Calcular Credito
                 </button>
-
                 {pgdasResult && (
                   <div style={{ marginTop:16, background:pgdasResult.diferenca>0?'#f0fdf4':S.bg, border:`1px solid ${pgdasResult.diferenca>0?'#86efac':S.border}`, borderRadius:8, padding:14 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:pgdasResult.diferenca>0?S.green:S.muted, marginBottom:10 }}>
@@ -504,7 +446,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
             </div>
           )}
 
-          {/* Botoes de acao */}
           {temResultado && (
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
               {!diagAberto && (
@@ -513,10 +454,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
                   {salvando?'Salvando...':'Salvar Diagnostico'}
                 </button>
               )}
-              <button onClick={novaAnalise}
-                style={{ padding:'9px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>
-                Nova analise
-              </button>
+              <button onClick={novaAnalise} style={{ padding:'9px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Nova analise</button>
             </div>
           )}
         </>
@@ -542,9 +480,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
                 {[
-                  { label:'Diagnosticos salvos',       valor:historico.length,                                                        cor:S.navy   },
-                  { label:'Potencial total',            valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),              cor:S.green  },
-                  { label:'Total de itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),                         cor:S.orange },
+                  { label:'Diagnosticos salvos',       valor:historico.length,                                               cor:S.navy   },
+                  { label:'Potencial total',            valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),    cor:S.green  },
+                  { label:'Total de itens analisados', valor:historico.reduce((s,d)=>s+(d.total_itens||0),0),                cor:S.orange },
                 ].map((k,i) => (
                   <div key={i} style={{ background:S.bg, borderRadius:8, padding:'12px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                     <div style={{ fontSize:i===1?14:20, fontWeight:700, color:k.cor }}>{k.valor}</div>
