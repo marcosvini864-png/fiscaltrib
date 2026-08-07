@@ -1,8 +1,8 @@
 /**
  * AbaICMSTema69.jsx - e-FiscalTribe®
  * Exclusao ICMS da Base PIS/COFINS - STF Tema 69 / RE 574.706
- * Versao 2.0 - 06/08/2026
- * Skeleton preview, responsivo, botao importar no header
+ * Versao 2.1 - 07/08/2026
+ * Card importar no header padrao, apenas .xml
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -11,7 +11,7 @@ import { parseXMLNFe } from '../../utils/parseXMLNFe'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
-const FORMATOS = '.xml,.txt,.zip,.rar,.pdf,.DEC,.rec,.RE,.DIA,.prf'
+const FORMATOS = '.xml'
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
@@ -115,20 +115,20 @@ export default function AbaICMSTema69({ cliente, regime }) {
   }
 
   async function onDrop(e) {
-  e.preventDefault()
-  const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
-  if (files.length === 0) return
-  const novos = files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))
-  const atualizados = [...arquivos, ...novos]
-  setArquivos(atualizados)
-  await processarArquivos(atualizados)
-}
+    e.preventDefault()
+    const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
+    if (files.length === 0) return
+    const novos = files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))
+    const atualizados = [...arquivos, ...novos]
+    setArquivos(atualizados)
+    await processarArquivos(atualizados)
+  }
 
-  async function processar() {
-    if (arquivos.length === 0) return
+  async function processarArquivos(listaArquivos) {
+    if (!listaArquivos || listaArquivos.length === 0) return
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
-    for (const arq of arquivos) {
+    for (const arq of listaArquivos) {
       try {
         if (arq.nome.toLowerCase().endsWith('.xml')) {
           const texto = await arq.file.text()
@@ -179,8 +179,8 @@ export default function AbaICMSTema69({ cliente, regime }) {
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER */}
-      <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, margin: '0 auto' }}>
+      {/* HEADER — padrao AbaICMSST */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
             Diagnostico Tributario / <strong style={{ color: S.text }}>Exclusao ICMS — STF Tema 69</strong>
@@ -190,16 +190,16 @@ export default function AbaICMSTema69({ cliente, regime }) {
             Identifique o ICMS indevidamente incluido na base de calculo do PIS/COFINS. RE 574.706 — tese fixada pelo STF.
           </div>
         </div>
-        {/* CARD IMPORTAR NO HEADER */}
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
+        {/* CARD IMPORTAR */}
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
-            Aceita: <strong style={{ color: S.text }}>.xml .txt .zip .rar .DEC .rec .RE .DIA .prf .pdf</strong>
+            Aceita: <strong style={{ color: S.text }}>.xml (NF-e)</strong>
           </div>
           <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
-          <button onClick={() => inputRef.current?.click()}
-            style={{ width: '25%', padding: '8px 0', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            ⬆ Selecionar Arquivos
+          <button onClick={() => inputRef.current?.click()} disabled={processando}
+            style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
+            {processando ? '⏳ Processando...' : '⬆ Selecionar Arquivos'}
           </button>
         </div>
       </div>
@@ -217,8 +217,6 @@ export default function AbaICMSTema69({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
-          
-          {/* Banner diagnostico aberto */}
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -226,13 +224,13 @@ export default function AbaICMSTema69({ cliente, regime }) {
             </div>
           )}
 
-          {/* KPIs — SEMPRE VISIVEIS */}
+          {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
             {[
-              { label:'Total de NF-es',              valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
-              { label:'NF-es com ICMS',              valor: temResultado ? totalComICMS      : '—', cor: temResultado ? S.red    : S.ghostText },
-              { label:'ICMS Total Identificado',     valor: temResultado ? fmtR(vICMSTotal)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Credito Estimado PIS/COFINS', valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
+              { label:'Total de NF-es',              valor: temResultado ? itens.length       : '—',        cor: temResultado ? S.navy   : S.ghostText },
+              { label:'NF-es com ICMS',              valor: temResultado ? totalComICMS       : '—',        cor: temResultado ? S.red    : S.ghostText },
+              { label:'ICMS Total Identificado',     valor: temResultado ? fmtR(vICMSTotal)   : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
+              { label:'Credito Estimado PIS/COFINS', valor: temResultado ? fmtR(creditoTotal) : 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
             ].map((k,i) => (
               <div key={i} style={{ background:S.white, borderRadius:8, padding:'14px 16px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                 <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }}>{k.valor}</div>
@@ -242,7 +240,7 @@ export default function AbaICMSTema69({ cliente, regime }) {
             ))}
           </div>
 
-          {/* TABELA — SEMPRE VISIVEL */}
+          {/* TABELA */}
           <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
               <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar NF, emitente, competencia..."
@@ -250,9 +248,9 @@ export default function AbaICMSTema69({ cliente, regime }) {
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
-                  { id:'todos',    label:`Todos (${itens.length})`                        },
-                  { id:'com_icms', label:`Com ICMS (${totalComICMS})`                     },
-                  { id:'sem_icms', label:`Sem ICMS (${itens.length - totalComICMS})`      },
+                  { id:'todos',    label:`Todos (${itens.length})`                   },
+                  { id:'com_icms', label:`Com ICMS (${totalComICMS})`                },
+                  { id:'sem_icms', label:`Sem ICMS (${itens.length - totalComICMS})` },
                 ].map(f => (
                   <button key={f.id} onClick={()=>{setFiltro(f.id);setPagina(1)}}
                     style={{ padding:'4px 12px', background:filtro===f.id?S.navy:'none', color:filtro===f.id?S.white:S.muted, border:`1px solid ${filtro===f.id?S.navy:S.border}`, borderRadius:99, fontSize:11, fontWeight:filtro===f.id?700:400, cursor:'pointer' }}>
