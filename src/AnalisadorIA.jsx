@@ -1,8 +1,8 @@
 /**
  * AnalisadorIA.jsx - e-FiscalTribe®
  * Componente reutilizavel de Inteligencia Tributaria
- * Aparece no topo de toda tela que produz resultado
- * Versao 1.0 - 07/08/2026
+ * Versao 1.2 - 07/08/2026
+ * Card branco, botao maior
  */
 
 import { useState } from 'react'
@@ -11,7 +11,7 @@ import { supabase } from './supabase'
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
   border: '#E2E8F0', white: '#FFFFFF', muted: '#334155',
-  text: '#0F172A', ghostText: '#64748B',
+  text: '#0F172A', bg: '#F8FAFC', ghostText: '#64748B',
 }
 
 function renderMarkdown(texto) {
@@ -32,11 +32,8 @@ function renderMarkdown(texto) {
 function montarPrompt(contexto, dados, cliente, regime) {
   const nomeCliente = cliente?.razao_social || 'Cliente'
   const cnpj = cliente?.cnpj || ''
-
   const resumoDados = dados
-    ? typeof dados === 'string'
-      ? dados
-      : JSON.stringify(dados, null, 2).slice(0, 3000)
+    ? typeof dados === 'string' ? dados : JSON.stringify(dados, null, 2).slice(0, 3000)
     : 'Sem dados disponíveis'
 
   return `Você é um especialista em direito tributário brasileiro com profundo conhecimento em recuperação de créditos, Simples Nacional, Lucro Presumido e Lucro Real.
@@ -65,31 +62,22 @@ Seja direto, técnico e objetivo. Não repita os dados brutos — interprete-os.
 }
 
 export default function AnalisadorIA({ contexto, dados, cliente, regime }) {
-  const [parecer, setParecer]   = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [erro, setErro]         = useState('')
-  const [aberto, setAberto]     = useState(true)
+  const [parecer, setParecer] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [erro, setErro]       = useState('')
+  const [aberto, setAberto]   = useState(true)
 
   async function analisar() {
     setLoading(true); setErro(''); setParecer('')
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Sessão expirada. Faça login novamente.')
-
       const prompt = montarPrompt(contexto, dados, cliente, regime)
-
       const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          model: 'gemini-3.5-flash',
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ model: 'gemini-3.5-flash', messages: [{ role: 'user', content: prompt }] }),
       })
-
       const result = await resp.json()
       if (!resp.ok) throw new Error(result?.error || `Erro HTTP ${resp.status}`)
       const resposta = result?.resposta ?? result?.resultado ?? result?.content ?? ''
@@ -104,25 +92,33 @@ export default function AnalisadorIA({ contexto, dados, cliente, regime }) {
 
   return (
     <div style={{
-      background: S.navy, borderRadius: 12,
-      marginBottom: 20, overflow: 'hidden',
-      border: `1px solid #1E3A6E`,
+      background: S.white,
+      border: `1px solid ${S.border}`,
+      borderRadius: 10,
+      marginBottom: 16,
+      overflow: 'hidden',
     }}>
       {/* HEADER */}
       <div style={{
-        padding: '14px 20px',
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', gap: 12,
+        padding: '14px 18px',
+        borderBottom: parecer && aberto ? `1px solid ${S.border}` : 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
         flexWrap: 'wrap',
+        background: S.bg,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22 }}>&#129504;</span>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>
               Inteligencia Tributaria
             </div>
-            <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 1 }}>
-              {contexto} — {cliente?.razao_social || 'Cliente'} — {regime || ''}
+            <div style={{ fontSize: 12, color: S.ghostText, marginTop: 2 }}>
+              {contexto}
+              {cliente?.razao_social ? ` — ${cliente.razao_social}` : ''}
+              {regime ? ` — ${regime}` : ''}
             </div>
           </div>
         </div>
@@ -132,9 +128,14 @@ export default function AnalisadorIA({ contexto, dados, cliente, regime }) {
             <button
               onClick={() => setAberto(v => !v)}
               style={{
-                padding: '6px 14px', background: 'rgba(255,255,255,0.1)',
-                color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                padding: '10px 20px',
+                background: 'none',
+                color: S.muted,
+                border: `1px solid ${S.border}`,
+                borderRadius: 8,
+                fontSize: 13,
+                cursor: 'pointer',
+                fontWeight: 500,
               }}>
               {aberto ? 'Minimizar' : 'Ver parecer'}
             </button>
@@ -143,47 +144,43 @@ export default function AnalisadorIA({ contexto, dados, cliente, regime }) {
             onClick={analisar}
             disabled={loading}
             style={{
-              padding: '8px 20px',
-              background: loading ? 'rgba(255,255,255,0.15)' : '#FFFFFF',
-              color: loading ? '#93c5fd' : S.navy,
-              border: 'none', borderRadius: 8,
-              fontSize: 13, fontWeight: 700,
+              padding: '12px 28px',
+              background: loading ? '#CBD5E1' : S.blue,
+              color: S.white,
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 700,
               cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.8 : 1,
-              transition: 'all 0.15s',
+              letterSpacing: 0.3,
             }}>
-            {loading ? 'Analisando...' : parecer ? 'Reanalisar' : 'Analisar com IA'}
+            {loading ? '⏳ Analisando...' : parecer ? '🔄 Reanalisar' : '🧠 Analisar com IA'}
           </button>
         </div>
       </div>
 
       {/* LOADING */}
       {loading && (
-        <div style={{
-          padding: '16px 20px',
-          borderTop: '1px solid rgba(255,255,255,0.1)',
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {['Lendo dados', 'Aplicando legislacao', 'Elaborando parecer'].map((t, i) => (
-              <span key={i} style={{
-                background: 'rgba(255,255,255,0.1)',
-                padding: '3px 10px', borderRadius: 99,
-                fontSize: 11, color: '#93c5fd',
-              }}>{t}</span>
-            ))}
-          </div>
+        <div style={{ padding: '12px 18px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['Lendo dados', 'Aplicando legislacao', 'Elaborando parecer'].map((t, i) => (
+            <span key={i} style={{
+              background: '#eff6ff', color: S.blue,
+              padding: '4px 12px', borderRadius: 99, fontSize: 12,
+            }}>{t}</span>
+          ))}
         </div>
       )}
 
       {/* ERRO */}
       {erro && (
         <div style={{
-          margin: '0 20px 16px',
-          background: 'rgba(220,38,38,0.2)',
-          border: '1px solid rgba(220,38,38,0.4)',
-          borderRadius: 8, padding: '10px 14px',
-          color: '#fca5a5', fontSize: 12,
+          margin: '12px 18px',
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: 8,
+          padding: '10px 14px',
+          color: '#dc2626',
+          fontSize: 13,
         }}>
           {erro}
         </div>
@@ -191,23 +188,14 @@ export default function AnalisadorIA({ contexto, dados, cliente, regime }) {
 
       {/* PARECER */}
       {parecer && aberto && (
-        <div style={{
-          margin: '0 16px 16px',
-          background: '#FFFFFF',
-          borderRadius: 10, padding: '20px 24px',
-          border: '1px solid rgba(255,255,255,0.15)',
-        }}>
+        <div style={{ padding: '18px 20px' }}>
           {renderMarkdown(parecer)}
         </div>
       )}
 
       {/* ESTADO VAZIO */}
       {!parecer && !loading && !erro && (
-        <div style={{
-          padding: '12px 20px 16px',
-          borderTop: '1px solid rgba(255,255,255,0.1)',
-          fontSize: 12, color: '#93c5fd',
-        }}>
+        <div style={{ padding: '10px 18px', fontSize: 12, color: S.ghostText }}>
           Clique em "Analisar com IA" para obter um parecer tributario baseado nos dados desta tela.
         </div>
       )}
