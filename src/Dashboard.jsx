@@ -63,13 +63,11 @@ const C = {
 }
 
 const TESES_DIAGNOSTICO = [
-  { id: 'importar',    label: 'Importar' },
   { id: 'monofasicos', label: 'Monofasicos PIS/COFINS' },
   { id: 'icms_tema69', label: 'ICMS Tema 69' },
   { id: 'icms_st',     label: 'ICMS-ST' },
   { id: 'retencoes',   label: 'Retencoes Indevidas' },
-  { id: 'pgdas',       label: 'PGDAS-D' },
-]
+  ]
 
 // ── MODULES: Clientes agora tem 3 abas (Clientes / Novo cliente / Checklist
 // de Documentos). Importações virou módulo próprio, isolado, sem TabBar. ───
@@ -422,7 +420,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [sidebarAtiva, setSidebarAtiva] = useState('painel:0')
-  const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
+  const [teseDiagnostico, setTeseDiagnostico] = useState('monofasicos')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
   const [checklist, setChecklist] = useState({})
@@ -541,7 +539,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setModule(key); setActiveTab(tab)
     setSidebarAtiva(key + ':' + tab)
     if(key==='clientes') { setNovoCliente(null); setModoNovoCliente(null) }
-    if(key==='diagnostico') setTeseDiagnostico('importar')
+    if(key==='diagnostico') setTeseDiagnostico('monofasicos')
   }
   function handleTab(i) {
     setActiveTab(i)
