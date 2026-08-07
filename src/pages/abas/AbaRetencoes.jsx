@@ -188,11 +188,11 @@ export default function AbaRetencoes({ cliente, regime }) {
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
     <div style={{ flex: 1 }}>
     <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-      Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
+    Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
     </div>
     <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>Retencoes Indevidas de PIS/COFINS/CSLL</div>
     <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-      Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
+    Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
     </div>
     </div>
         {/* CARD IMPORTAR NO HEADER */}
