@@ -186,15 +186,15 @@ export default function AbaRetencoes({ cliente, regime }) {
 
       {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-    <div style={{ flex: 1 }}>
-    <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-    Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
-    </div>
-    <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>Retencoes Indevidas de PIS/COFINS/CSLL</div>
-    <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-    Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
-    </div>
-    {/* CARD IMPORTAR NO HEADER */}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
+            Diagnostico Tributario / <strong style={{ color: S.text }}>Retencoes Indevidas</strong>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>Retencoes Indevidas de PIS/COFINS/CSLL</div>
+          <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
+            Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
+          </div>
+        </div>
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -228,13 +228,13 @@ export default function AbaRetencoes({ cliente, regime }) {
             </div>
           )}
 
-          {/* KPIs — SEMPRE VISIVEIS */}
+          {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
             {[
-              { label:'Total de NF-es',              valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
-              { label:'Retencoes Indevidas',          valor: temResultado ? totalIndevidas    : '—', cor: temResultado ? S.red    : S.ghostText },
-              { label:'Total Retencoes Encontradas',  valor: temResultado ? fmtR(valorTotal)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Valor Recuperavel',            valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
+              { label:'Total de NF-es',             valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
+              { label:'Retencoes Indevidas',         valor: temResultado ? totalIndevidas    : '—', cor: temResultado ? S.red    : S.ghostText },
+              { label:'Total Retencoes Encontradas', valor: temResultado ? fmtR(valorTotal)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
+              { label:'Valor Recuperavel',           valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
             ].map((k,i) => (
               <div key={i} style={{ background:S.white, borderRadius:8, padding:'14px 16px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                 <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }}>{k.valor}</div>
@@ -244,7 +244,7 @@ export default function AbaRetencoes({ cliente, regime }) {
             ))}
           </div>
 
-          {/* TABELA — SEMPRE VISIVEL */}
+          {/* TABELA */}
           <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
               <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar NF, emitente, competencia..."
@@ -252,8 +252,8 @@ export default function AbaRetencoes({ cliente, regime }) {
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
-                  { id:'todos',        label:`Todos (${itens.length})`                                          },
-                  { id:'indevida',     label:`Indevidas (${totalIndevidas})`                                    },
+                  { id:'todos',        label:`Todos (${itens.length})`                                               },
+                  { id:'indevida',     label:`Indevidas (${totalIndevidas})`                                         },
                   { id:'sem_retencao', label:`Sem Retencao (${itens.length - itens.filter(i=>i.temRetencao).length})` },
                 ].map(f => (
                   <button key={f.id} onClick={()=>{setFiltro(f.id);setPagina(1)}}
