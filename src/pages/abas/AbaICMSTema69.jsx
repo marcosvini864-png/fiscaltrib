@@ -114,11 +114,15 @@ export default function AbaICMSTema69({ cliente, regime }) {
     setDiagAberto(null); setSelecionados([]); setErro('')
   }
 
-  function onDrop(e) {
-    e.preventDefault()
-    const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
-    setArquivos(prev => [...prev, ...files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))])
-  }
+  async function onDrop(e) {
+  e.preventDefault()
+  const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
+  if (files.length === 0) return
+  const novos = files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))
+  const atualizados = [...arquivos, ...novos]
+  setArquivos(atualizados)
+  await processarArquivos(atualizados)
+}
 
   async function processar() {
     if (arquivos.length === 0) return
