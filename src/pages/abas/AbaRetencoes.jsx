@@ -194,8 +194,7 @@ export default function AbaRetencoes({ cliente, regime }) {
     <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
     Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
     </div>
-    </div>
-        {/* CARD IMPORTAR NO HEADER */}
+    {/* CARD IMPORTAR NO HEADER */}
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
