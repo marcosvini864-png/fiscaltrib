@@ -4,7 +4,7 @@
 // Output: crédito por competência, espelho PGDAS-D, planilha exportável
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../../supabaseClient';
 import AnalisadorIA from './AnalisadorIA';
 
 const S = {
