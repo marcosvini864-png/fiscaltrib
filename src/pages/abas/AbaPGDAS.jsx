@@ -213,7 +213,13 @@ export default function AbaPGDAS({ cliente, regime }) {
   const baseCorreta     = rpa - receita_mono - receita_st - receita_imu
   const pctMono         = rpa > 0 ? (receita_mono / rpa * 100) : 0
   const aliquotaEfetiva = rpa > 0 ? (das_total / rpa * 100) : 0
-  const diferencaRecuperavel = Math.max(0, das_total - (baseCorreta * (aliquotaEfetiva / 100)))
+  const aliquotaPIS      = rpa > 0 ? (pis    / rpa * 100) : 0
+  const aliquotaCOFINS   = rpa > 0 ? (cofins / rpa * 100) : 0
+  const pisDevido        = baseCorreta > 0 ? baseCorreta * (aliquotaPIS    / 100) : 0
+  const cofinsDevido     = baseCorreta > 0 ? baseCorreta * (aliquotaCOFINS / 100) : 0
+  const creditoPIS       = Math.max(0, pis    - pisDevido)
+  const creditoCOFINS    = Math.max(0, cofins - cofinsDevido)
+  const diferencaRecuperavel = creditoPIS + creditoCOFINS
 
   async function salvar() {
     if (!form.periodo_apuracao) return alert('Informe o periodo de apuracao')
@@ -522,6 +528,25 @@ export default function AbaPGDAS({ cliente, regime }) {
                       <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
                     </div>
                   )}
+				  {totalTributos > 0 && (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                 <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                 <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
+                 <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
+                 </div>
+                {(pis > 0 || cofins > 0) && (
+                <div style={{ background: '#FEF2F2', borderRadius: 6, padding: '10px 14px', border: `2px solid ${S.red}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                 <div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: S.red }}>PIS + COFINS recolhidos</span>
+                <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>
+                PIS: {fmtR(pis)} &nbsp;|&nbsp; COFINS: {fmtR(cofins)}
+                </div>
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 700, color: S.red }}>{fmtR(pis + cofins)}</span>
+                </div>
+                )}
+                </div>
+)}
                   <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Total do Debito com Exigibilidade Suspensa (R$)</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
                     {[
