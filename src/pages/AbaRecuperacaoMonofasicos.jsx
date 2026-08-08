@@ -26,6 +26,27 @@ function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function SkeletonRow({ cols }) {
+  return (
+    <tr>
+      {Array(cols).fill(null).map((_, i) => (
+        <td key={i} style={{ padding: '10px 12px' }}>
+          <div style={{ height: 14, borderRadius: 4, background: 'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function SkeletonKPI() {
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px' }}>
+      <div style={{ height: 11, width: 80, borderRadius: 4, background: '#E2E8F0', marginBottom: 10 }} />
+      <div style={{ height: 22, width: 120, borderRadius: 4, background: '#E2E8F0' }} />
+    </div>
+  );
+}
+
 export default function AbaRecuperacaoMonofasicos() {
   const [clientes, setClientes] = useState([]);
   const [clienteSelecionado, setClienteSelecionado] = useState('');
@@ -34,7 +55,6 @@ export default function AbaRecuperacaoMonofasicos() {
   const [anoFim, setAnoFim] = useState('2024');
   const [mesFim, setMesFim] = useState('12');
   const [diagnosticos, setDiagnosticos] = useState([]);
-  const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [divergencias, setDivergencias] = useState([]);
@@ -43,6 +63,13 @@ export default function AbaRecuperacaoMonofasicos() {
   const [resultados, setResultados] = useState(null);
   const [aba, setAba] = useState('credito');
   const [apurando, setApurando] = useState(false);
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
 
   useEffect(() => {
     supabase.from('clientes').select('id, razao_social, cnpj')
@@ -59,21 +86,18 @@ export default function AbaRecuperacaoMonofasicos() {
     setResolucoes({});
     const compInicio = `${anoInicio}-${mesInicio}`;
     const compFim = `${anoFim}-${mesFim}`;
-    const [{ data: diags, error: e1 }, { data: itensData, error: e2 }] = await Promise.all([
-      supabase.from('diagnosticos_monofasicos').select('*')
-        .eq('cliente_id', clienteSelecionado)
-        .gte('competencia', compInicio)
-        .lte('competencia', compFim)
-        .order('competencia'),
-      supabase.from('itens_fiscais').select('*').eq('cliente_id', clienteSelecionado),
-    ]);
-    if (e1 || e2) { setErro('Erro ao buscar dados.'); setCarregando(false); return; }
+    const { data: diags, error: e1 } = await supabase
+      .from('diagnosticos_monofasicos').select('*')
+      .eq('cliente_id', clienteSelecionado)
+      .gte('competencia', compInicio)
+      .lte('competencia', compFim)
+      .order('competencia');
+    if (e1) { setErro('Erro ao buscar dados.'); setCarregando(false); return; }
     if (!diags || diags.length === 0) {
-      setErro('Nenhum diagnóstico encontrado. Importe XMLs no Diagnóstico Tributário primeiro.');
+      setErro('Nenhum diagnóstico encontrado. Importe os XMLs no Diagnóstico Tributário primeiro.');
       setCarregando(false); return;
     }
     setDiagnosticos(diags);
-    setItens(itensData || []);
     setCarregando(false);
   }, [clienteSelecionado, anoInicio, mesInicio, anoFim, mesFim]);
 
@@ -174,124 +198,145 @@ export default function AbaRecuperacaoMonofasicos() {
   const clienteObj = clientes.find(c => c.id === clienteSelecionado);
 
   return (
-    <div style={{ background: S.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ background: S.bg, minHeight: '100vh', padding: '16px', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' }}>
 
-      <div style={{ background: S.navy, borderRadius: 10, padding: '14px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 22 }}>💰</span>
-        <div>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Recuperação PIS/COFINS Monofásico</div>
-          <div style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>Motor do Simples Nacional · Apuração de créditos por competência</div>
+      {/* Banner */}
+      <div style={{ background: S.navy, borderRadius: 10, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 20, flexShrink: 0 }}>💰</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Recuperação PIS/COFINS Monofásico</div>
+          <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Motor do Simples Nacional · Apuração por competência</div>
         </div>
       </div>
 
-      <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 20 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, color: S.navy, marginBottom: 14 }}>Selecionar Cliente e Período</div>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ flex: 2, minWidth: 220 }}>
+      {/* Seleção */}
+      <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: S.navy, marginBottom: 12 }}>Selecionar Cliente e Período</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
             <label style={{ fontSize: 12, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>Cliente</label>
             <select value={clienteSelecionado} onChange={e => setClienteSelecionado(e.target.value)}
-              style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 10px', fontSize: 13, color: S.text, background: '#fff' }}>
+              style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 10px', fontSize: 13, color: S.text, background: '#fff', boxSizing: 'border-box' }}>
               <option value=''>Selecione um cliente...</option>
               {clientes.map(c => <option key={c.id} value={c.id}>{c.razao_social} — {c.cnpj}</option>)}
             </select>
           </div>
-          {[['De', anoInicio, setAnoInicio, mesInicio, setMesInicio], ['Até', anoFim, setAnoFim, mesFim, setMesFim]].map(([label, ano, setAno, mes, setMes]) => (
-            <div key={label} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <div>
-                <label style={{ fontSize: 12, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>{label} — Mês</label>
-                <select value={mes} onChange={e => setMes(e.target.value)} style={{ border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 10px', fontSize: 13, color: S.text }}>
-                  {MESES.map((m, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
-                </select>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            {[['De', anoInicio, setAnoInicio, mesInicio, setMesInicio], ['Até', anoFim, setAnoFim, mesFim, setMesFim]].map(([label, ano, setAno, mes, setMes]) => (
+              <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flex: 1, minWidth: 180 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>{label} — Mês</label>
+                  <select value={mes} onChange={e => setMes(e.target.value)} style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 8px', fontSize: 12, color: S.text, boxSizing: 'border-box' }}>
+                    {MESES.map((m, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>Ano</label>
+                  <select value={ano} onChange={e => setAno(e.target.value)} style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 8px', fontSize: 12, color: S.text, boxSizing: 'border-box' }}>
+                    {[2019,2020,2021,2022,2023,2024,2025].map(y => <option key={y} value={String(y)}>{y}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>Ano</label>
-                <select value={ano} onChange={e => setAno(e.target.value)} style={{ border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 10px', fontSize: 13, color: S.text }}>
-                  {[2019,2020,2021,2022,2023,2024,2025].map(y => <option key={y} value={String(y)}>{y}</option>)}
-                </select>
-              </div>
-            </div>
-          ))}
-          <button onClick={buscarDados} disabled={!clienteSelecionado || carregando}
-            style={{ background: S.blue, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {carregando ? 'Buscando...' : 'Buscar Dados'}
-          </button>
+            ))}
+            <button onClick={buscarDados} disabled={!clienteSelecionado || carregando}
+              style={{ background: S.blue, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: !clienteSelecionado ? 0.5 : 1 }}>
+              {carregando ? 'Buscando...' : 'Buscar Dados'}
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Erro */}
       {erro && (
-        <div style={{ background: '#FEF2F2', border: `1px solid #FECACA`, borderRadius: 8, padding: '12px 16px', color: S.red, fontSize: 13, marginBottom: 20 }}>
+        <div style={{ background: '#FEF2F2', border: `1px solid #FECACA`, borderRadius: 8, padding: '12px 16px', color: S.red, fontSize: 13, marginBottom: 16 }}>
           ⚠️ {erro}
         </div>
       )}
 
-      {diagnosticos.length > 0 && !resultados && (
-        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      {/* Skeleton enquanto carrega */}
+      {carregando && (
+        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
+            {Array(4).fill(null).map((_, i) => <SkeletonKPI key={i} />)}
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>{Array(5).fill(null).map((_, i) => <SkeletonRow key={i} cols={4} />)}</tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Preview competências */}
+      {diagnosticos.length > 0 && !resultados && !carregando && (
+        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: S.text }}>{clienteObj?.razao_social}</div>
               <div style={{ fontSize: 12, color: S.ghost, marginTop: 2 }}>{diagnosticos.length} competência(s) encontrada(s)</div>
             </div>
             <button onClick={apurar} disabled={apurando}
-              style={{ background: S.green, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ background: S.green, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               {apurando ? 'Apurando...' : '⚡ Apurar Créditos'}
             </button>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: S.tableHeader }}>
-                {['Competência','Receita XML','Receita PGDAS-D','Status'].map(h => (
-                  <th key={h} style={{ color: '#fff', padding: '8px 12px', textAlign: 'left', fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {diagnosticos.map((d, i) => {
-                const rj = d.resultado_json || {};
-                const rX = rj.receita_bruta_xml || 0;
-                const rP = rj.receita_bruta_pgdas || d.receita_bruta_declarada || 0;
-                const diverg = Math.abs(rX - rP) > 0.01 && rP > 0;
-                return (
-                  <tr key={d.id} style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                    <td style={{ padding: '8px 12px', color: S.text, fontWeight: 600 }}>{d.competencia}</td>
-                    <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(rX)}</td>
-                    <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(rP)}</td>
-                    <td style={{ padding: '8px 12px' }}>
-                      {diverg
-                        ? <span style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>⚠️ Divergência</span>
-                        : <span style={{ background: '#DCFCE7', color: '#166534', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>✓ OK</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: S.tableHeader }}>
+                  {['Competência','Receita XML','Receita PGDAS-D','Status'].map(h => (
+                    <th key={h} style={{ color: '#fff', padding: '8px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {diagnosticos.map((d, i) => {
+                  const rj = d.resultado_json || {};
+                  const rX = rj.receita_bruta_xml || 0;
+                  const rP = rj.receita_bruta_pgdas || d.receita_bruta_declarada || 0;
+                  const diverg = Math.abs(rX - rP) > 0.01 && rP > 0;
+                  return (
+                    <tr key={d.id} style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                      <td style={{ padding: '8px 12px', color: S.text, fontWeight: 600 }}>{d.competencia}</td>
+                      <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(rX)}</td>
+                      <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(rP)}</td>
+                      <td style={{ padding: '8px 12px' }}>
+                        {diverg
+                          ? <span style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>⚠️ Divergência</span>
+                          : <span style={{ background: '#DCFCE7', color: '#166534', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>✓ OK</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      {/* Modal Divergência */}
       {modalDivergencia && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, maxWidth: 520, width: '90%' }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: S.navy, marginBottom: 6 }}>⚠️ Divergência de Receita Bruta</div>
-            <div style={{ fontSize: 13, color: S.muted, marginBottom: 16 }}>Competência <strong>{modalDivergencia.competencia}</strong></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 500, width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: S.navy, marginBottom: 6 }}>⚠️ Divergência de Receita Bruta</div>
+            <div style={{ fontSize: 13, color: S.muted, marginBottom: 14 }}>Competência <strong>{modalDivergencia.competencia}</strong></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               {[['Receita XMLs', modalDivergencia.receitaXML], ['Receita PGDAS-D', modalDivergencia.receitaPGDAS]].map(([label, valor]) => (
-                <div key={label} style={{ background: S.bg, borderRadius: 8, padding: '10px 14px' }}>
+                <div key={label} style={{ background: S.bg, borderRadius: 8, padding: '10px 12px' }}>
                   <div style={{ fontSize: 11, color: S.ghost, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: S.text }}>{formatBRL(valor)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: S.text }}>{formatBRL(valor)}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: S.muted, marginBottom: 16, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, lineHeight: 1.5 }}>
               Retificar o PGDAS-D alterando a receita bruta pode impactar a alíquota dos 12 meses anteriores e gerar DAS complementar ou exclusão do Simples.
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { key: 'interromper', label: '❌ Interromper esta competência', desc: 'Remove do cálculo.', color: S.red },
                 { key: 'manter', label: '📄 Manter divergência — só planilha', desc: 'Gera detalhamento sem apurar crédito.', color: S.orange },
                 { key: 'conservador', label: '✅ Usar receita declarada (conservador)', desc: 'Adota receita do PGDAS-D. Opção mais segura.', color: S.green },
               ].map(op => (
                 <button key={op.key} onClick={() => resolverDivergencia(modalDivergencia.competencia, op.key)}
-                  style={{ background: '#F8FAFC', border: `2px solid ${op.color}`, borderRadius: 8, padding: '10px 14px', textAlign: 'left', cursor: 'pointer' }}>
+                  style={{ background: '#F8FAFC', border: `2px solid ${op.color}`, borderRadius: 8, padding: '10px 12px', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: op.color }}>{op.label}</div>
                   <div style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>{op.desc}</div>
                 </button>
@@ -301,68 +346,68 @@ export default function AbaRecuperacaoMonofasicos() {
         </div>
       )}
 
+      {/* Resultados */}
       {resultados && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 20 }}>
+          {/* KPIs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
             {[
               { label: 'Crédito Total', valor: resultados.totalCredito, color: S.green },
               { label: 'Crédito PIS', valor: resultados.totalPIS, color: S.blue },
               { label: 'Crédito COFINS', valor: resultados.totalCOFINS, color: S.navy },
               { label: 'Competências', valor: resultados.linhasCredito.length, int: true, color: S.muted },
             ].map(k => (
-              <div key={k.label} style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px' }}>
+              <div key={k.label} style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 11, color: S.ghost, marginBottom: 6 }}>{k.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: k.color }}>{k.int ? k.valor : formatBRL(k.valor)}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: k.color }}>{k.int ? k.valor : formatBRL(k.valor)}</div>
               </div>
             ))}
           </div>
 
+          {/* Tabs */}
           <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}` }}>
-              {[{ key: 'credito', label: '📊 Crédito por Competência' }, { key: 'espelho', label: '📋 Espelho PGDAS-D' }, { key: 'detalhada', label: '📄 Planilha Detalhada' }].map(t => (
+            <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, overflowX: 'auto' }}>
+              {[{ key: 'credito', label: '📊 Crédito' }, { key: 'espelho', label: '📋 Espelho PGDAS-D' }, { key: 'detalhada', label: '📄 Planilha' }].map(t => (
                 <button key={t.key} onClick={() => setAba(t.key)}
-                  style={{ padding: '12px 18px', fontSize: 13, fontWeight: aba === t.key ? 700 : 400,
+                  style={{ padding: '11px 16px', fontSize: 12, fontWeight: aba === t.key ? 700 : 400,
                     color: aba === t.key ? S.blue : S.muted, background: 'none', border: 'none',
-                    borderBottom: aba === t.key ? `2px solid ${S.blue}` : '2px solid transparent', cursor: 'pointer' }}>
+                    borderBottom: aba === t.key ? `2px solid ${S.blue}` : '2px solid transparent',
+                    cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {t.label}
                 </button>
               ))}
               <div style={{ flex: 1 }} />
-              <button onClick={exportarCSV} style={{ margin: '8px 16px', background: S.green, color: '#fff', border: 'none', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                ⬇ Exportar CSV
+              <button onClick={exportarCSV} style={{ margin: '6px 12px', background: S.green, color: '#fff', border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ⬇ CSV
               </button>
             </div>
 
             {aba === 'credito' && (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
                     <tr style={{ background: S.tableHeader }}>
                       {['Competência','Rec. Total','Rec. Mono','Rec. Normal','PIS Pago','PIS Devido','Créd. PIS','COFINS Pago','COFINS Devido','Créd. COFINS','Total'].map(h => (
-                        <th key={h} style={{ color: '#fff', padding: '10px 12px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} style={{ color: '#fff', padding: '10px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {resultados.linhasCredito.length === 0
-                      ? Array(5).fill(null).map((_, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? '#F1F5F9' : '#fff' }}>
-                            {Array(11).fill(null).map((_, j) => <td key={j} style={{ padding: '10px 12px', color: S.ghost, textAlign: 'right' }}>—</td>)}
-                          </tr>
-                        ))
+                      ? Array(5).fill(null).map((_, i) => <SkeletonRow key={i} cols={11} />)
                       : resultados.linhasCredito.map((l, i) => (
                           <tr key={l.competencia} style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                            <td style={{ padding: '10px 12px', fontWeight: 600, color: S.text }}>{l.competencia}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaTotal)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.blue }}>{formatBRL(l.receitaMono)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaNormal)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisPago)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisDevido)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoPIS)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsPago)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsDevido)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoCOFINS)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: S.green, fontWeight: 700 }}>{formatBRL(l.creditoTotal)}</td>
+                            <td style={{ padding: '9px 10px', fontWeight: 600, color: S.text, whiteSpace: 'nowrap' }}>{l.competencia}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaTotal)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue }}>{formatBRL(l.receitaMono)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaNormal)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisPago)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisDevido)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoPIS)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsPago)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsDevido)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoCOFINS)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 700 }}>{formatBRL(l.creditoTotal)}</td>
                           </tr>
                         ))
                     }
@@ -370,12 +415,12 @@ export default function AbaRecuperacaoMonofasicos() {
                   {resultados.linhasCredito.length > 0 && (
                     <tfoot>
                       <tr style={{ background: S.navy }}>
-                        <td style={{ padding: '10px 12px', color: '#fff', fontWeight: 700 }}>TOTAL</td>
+                        <td style={{ padding: '9px 10px', color: '#fff', fontWeight: 700 }}>TOTAL</td>
                         {Array(5).fill(null).map((_, i) => <td key={i} />)}
-                        <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(resultados.totalPIS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(resultados.totalPIS)}</td>
                         {Array(2).fill(null).map((_, i) => <td key={i} />)}
-                        <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(resultados.totalCOFINS)}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700, fontSize: 14 }}>{formatBRL(resultados.totalCredito)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(resultados.totalCOFINS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(resultados.totalCredito)}</td>
                       </tr>
                     </tfoot>
                   )}
@@ -384,32 +429,32 @@ export default function AbaRecuperacaoMonofasicos() {
             )}
 
             {aba === 'espelho' && (
-              <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 13, color: S.muted, marginBottom: 16, background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '12px 16px' }}>
-                  📋 Use estes valores para retificar o PGDAS-D. A coluna <strong>RB Nova</strong> substitui a receita bruta declarada.
+              <div style={{ padding: 16 }}>
+                <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '10px 14px', lineHeight: 1.5 }}>
+                  📋 Use estes valores para retificar o PGDAS-D. <strong>RB Nova</strong> substitui a receita bruta declarada de cada competência.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
                     <thead>
                       <tr style={{ background: S.tableHeader }}>
                         {['Competência','RB Declarada','RB Nova','Rec. Mono','PIS Pago','PIS Apurado','COFINS Pago','COFINS Apurado','Créd. PIS','Créd. COFINS'].map(h => (
-                          <th key={h} style={{ color: '#fff', padding: '10px 12px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {resultados.linhasEspelho.map((l, i) => (
                         <tr key={l.competencia} style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                          <td style={{ padding: '10px 12px', fontWeight: 600, color: S.text }}>{l.competencia}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.receitaBrutaDeclarada)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.receitaBrutaNova)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaMonofasica)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.pisPago)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.pisApurado)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.cofinsPago)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.cofinsApurado)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoPIS)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoCOFINS)}</td>
+                          <td style={{ padding: '9px 10px', fontWeight: 600, color: S.text, whiteSpace: 'nowrap' }}>{l.competencia}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.receitaBrutaDeclarada)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.receitaBrutaNova)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaMonofasica)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.pisPago)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.pisApurado)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.ghost, textDecoration: 'line-through' }}>{formatBRL(l.cofinsPago)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue, fontWeight: 600 }}>{formatBRL(l.cofinsApurado)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoPIS)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(l.creditoCOFINS)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -419,34 +464,34 @@ export default function AbaRecuperacaoMonofasicos() {
             )}
 
             {aba === 'detalhada' && (
-              <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 13, color: S.muted, marginBottom: 16, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ padding: 16 }}>
+                <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 14px' }}>
                   📄 Guarde esta planilha para eventual questionamento da fiscalização.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 750 }}>
                     <thead>
                       <tr style={{ background: S.tableHeader }}>
                         {['Competência','Rec. XML','Rec. PGDAS','Rec. Mono','Rec. Normal','PIS Pago','COFINS Pago','PIS Devido','COFINS Devido','Créd. PIS','Créd. COFINS','Total'].map(h => (
-                          <th key={h} style={{ color: '#fff', padding: '10px 12px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {resultados.linhasDetalhadas.map((l, i) => (
                         <tr key={l.competencia} style={{ background: l.divergencia ? '#FFF7ED' : i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                          <td style={{ padding: '10px 12px', fontWeight: 600, color: S.text }}>{l.competencia}{l.divergencia && <span style={{ marginLeft: 6, fontSize: 10, color: S.orange }}>⚠️</span>}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaXML)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaPGDAS)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.blue }}>{formatBRL(l.receitaMono)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaNormal)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisPago)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsPago)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisDevido)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsDevido)}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: l.creditoPIS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoPIS != null ? formatBRL(l.creditoPIS) : '—'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: l.creditoCOFINS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoCOFINS != null ? formatBRL(l.creditoCOFINS) : '—'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: l.creditoTotal != null ? S.green : S.ghost, fontWeight: 700 }}>{l.creditoTotal != null ? formatBRL(l.creditoTotal) : '—'}</td>
+                          <td style={{ padding: '9px 10px', fontWeight: 600, color: S.text, whiteSpace: 'nowrap' }}>{l.competencia}{l.divergencia && <span style={{ marginLeft: 5, fontSize: 10, color: S.orange }}>⚠️</span>}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaXML)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaPGDAS)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue }}>{formatBRL(l.receitaMono)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaNormal)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisPago)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsPago)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisDevido)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsDevido)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoPIS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoPIS != null ? formatBRL(l.creditoPIS) : '—'}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoCOFINS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoCOFINS != null ? formatBRL(l.creditoCOFINS) : '—'}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoTotal != null ? S.green : S.ghost, fontWeight: 700 }}>{l.creditoTotal != null ? formatBRL(l.creditoTotal) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -457,7 +502,7 @@ export default function AbaRecuperacaoMonofasicos() {
           </div>
 
           {clienteObj && (
-            <div style={{ marginTop: 24 }}>
+            <div style={{ marginTop: 20 }}>
               <AnalisadorIA modulo="MONOFASICOS" dadosContexto={{
                 cliente: clienteObj.razao_social, cnpj: clienteObj.cnpj,
                 periodo: `${mesInicio}/${anoInicio} a ${mesFim}/${anoFim}`,
