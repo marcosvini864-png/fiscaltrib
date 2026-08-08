@@ -3,7 +3,7 @@
 // src/pages/AbaRecuperacaoMonofasicos.jsx
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../supabase';
+import { supabase } from '../supabase';
 import AnalisadorIA from '../AnalisadorIA';
 
 const S = {
