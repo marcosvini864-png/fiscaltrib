@@ -993,7 +993,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='apuracao_simples' && (
             <ApuracaoSimples />
             )}
-			git add src/Dashboard.jsx            {module==='sped' && (
+			{module==='recuperacao_monofasico' && (
+            <AbaRecuperacaoMonofasicos />
+            )}
+            {module==='sped' && (
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
