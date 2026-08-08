@@ -1,13 +1,14 @@
 /**
  * AbaRetencoes.jsx - e-FiscalTribe®
  * Retencoes Indevidas de PIS/COFINS/CSLL
- * Versao 2.2 - 06/08/2026
- * Card importar identico ao AbaICMSST
+ * Versao 2.4 - 07/08/2026
+ * AnalisadorIA plugado no topo
  */
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
+import AnalisadorIA from '../../AnalisadorIA'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -181,10 +182,24 @@ export default function AbaRetencoes({ cliente, regime }) {
   }
   function toggleItem(idx) { setSelecionados(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]) }
 
+  // Dados para o AnalisadorIA
+  const dadosIA = temResultado ? {
+    totalNFes: itens.length,
+    totalIndevidas,
+    valorTotalRetencoes: valorTotal,
+    creditoRecuperavel: creditoTotal,
+    regime,
+    baseLegal: 'LC 123/2006 art. 3 §4 — Simples Nacional imune a retencoes de PIS/COFINS/CSLL na fonte',
+    top10: itens.filter(i => i.indevida).slice(0, 10).map(i => ({
+      nNF: i.nNF, competencia: i.competencia, emitente: i.emitente,
+      vRetPIS: i.vRetPIS, vRetCOFINS: i.vRetCOFINS, vRetCSLL: i.vRetCSLL, vRetencao: i.vRetencao,
+    }))
+  } : null
+
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* HEADER — identico ao AbaICMSST */}
+      {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
@@ -195,7 +210,6 @@ export default function AbaRetencoes({ cliente, regime }) {
             Empresas do Simples Nacional sao imunes a retencoes de PIS/COFINS/CSLL na fonte. LC 123/2006 art. 3 §4.
           </div>
         </div>
-        {/* CARD IMPORTAR — identico ao AbaICMSST */}
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, alignSelf: 'center', textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar NF-es</div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -203,7 +217,7 @@ export default function AbaRetencoes({ cliente, regime }) {
           </div>
           <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
           <button onClick={() => inputRef.current?.click()} disabled={processando}
-            style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
+            style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
             {processando ? '⏳ Processando...' : '⬆ Selecionar Arquivos'}
           </button>
         </div>
@@ -222,6 +236,14 @@ export default function AbaRetencoes({ cliente, regime }) {
       {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
+          {/* ANALISADOR IA */}
+          <AnalisadorIA
+            contexto="Retencoes Indevidas de PIS/COFINS/CSLL"
+            dados={dadosIA}
+            cliente={cliente}
+            regime={regime}
+          />
+
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
@@ -232,8 +254,8 @@ export default function AbaRetencoes({ cliente, regime }) {
           {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
             {[
-              { label:'Total de NF-es',             valor: temResultado ? itens.length      : '—', cor: temResultado ? S.navy   : S.ghostText },
-              { label:'Retencoes Indevidas',         valor: temResultado ? totalIndevidas    : '—', cor: temResultado ? S.red    : S.ghostText },
+              { label:'Total de NF-es',             valor: temResultado ? itens.length      : '—',        cor: temResultado ? S.navy   : S.ghostText },
+              { label:'Retencoes Indevidas',         valor: temResultado ? totalIndevidas    : '—',        cor: temResultado ? S.red    : S.ghostText },
               { label:'Total Retencoes Encontradas', valor: temResultado ? fmtR(valorTotal)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
               { label:'Valor Recuperavel',           valor: temResultado ? fmtR(creditoTotal): 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
             ].map((k,i) => (
@@ -378,9 +400,9 @@ export default function AbaRetencoes({ cliente, regime }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
                 {[
-                  { label:'Diagnosticos salvos',    valor:historico.length, cor:S.navy },
-                  { label:'Valor total recuperavel', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)), cor:S.green },
-                  { label:'Total NF-es analisadas',  valor:historico.reduce((s,d)=>s+(d.total_nfes||0),0), cor:S.orange },
+                  { label:'Diagnosticos salvos',    valor:historico.length,                                               cor:S.navy   },
+                  { label:'Valor total recuperavel', valor:fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)),    cor:S.green  },
+                  { label:'Total NF-es analisadas',  valor:historico.reduce((s,d)=>s+(d.total_nfes||0),0),               cor:S.orange },
                 ].map((k,i) => (
                   <div key={i} style={{ background:S.bg, borderRadius:8, padding:'12px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
                     <div style={{ fontSize:i===1?14:20, fontWeight:700, color:k.cor }}>{k.valor}</div>
