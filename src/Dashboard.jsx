@@ -30,6 +30,7 @@ import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
+import AbaRecuperacaoMonofasicos from './AbaRecuperacaoMonofasicos';
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -89,6 +90,7 @@ const MODULES = {
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
   dados_complementares: { label:'Dados Complementares', icon:'📋', tabs:[] },
+  recuperacao_monofasico: { label: 'Recupera\u00e7\u00e3o PIS/COFINS', icon:'\u{1F4B0}', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -122,6 +124,7 @@ const MENU_SECOES = [
   { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
   { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
   { label: 'Apuração do Simples', module: 'apuracao_simples', tab: 0, icon: '\u{1F4C5}' },
+  { label: 'Recupera\u00e7\u00e3o PIS/COFINS', module: 'recuperacao_monofasico', tab: 0, icon: '\u{1F4B0}' },
   ],
 },
   {
@@ -990,7 +993,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='apuracao_simples' && (
             <ApuracaoSimples />
             )}
-            {module==='sped' && (
+			}}
+git add src/Dashboard.jsx            {module==='sped' && (
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
