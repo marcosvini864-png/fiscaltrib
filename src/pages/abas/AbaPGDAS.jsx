@@ -414,9 +414,9 @@ export default function AbaPGDAS({ cliente, regime }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
             {kpisForm.map((k, i) => (
               <div key={i} style={{ background: S.white, borderRadius: 8, padding: '14px 16px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: k.cor }}>{k.valor}</div>
-                <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>{k.label}</div>
-                {k.valor === '—' && <div style={{ fontSize: 10, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
+                <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.valor}</div>
+             <div style={{ fontSize: 12, color: S.muted, marginTop: 5 }}>{k.label}</div>
+             {k.valor === '—' && <div style={{ fontSize: 11, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
               </div>
             ))}
           </div>
