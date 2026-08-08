@@ -994,7 +994,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             <ApuracaoSimples />
             )}
 			}}
-git add src/Dashboard.jsx            {module==='sped' && (
+            git add src/Dashboard.jsx            {module==='sped' && (
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
