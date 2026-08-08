@@ -522,13 +522,7 @@ export default function AbaPGDAS({ cliente, regime }) {
                       <InputMoeda key={key} label={label} value={form[key]} onChange={v => setF(key, v)} disabled={!!diagAberto} />
                     ))}
                   </div>
-                  {totalTributos > 0 && (
-                    <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
-                    </div>
-                  )}
-				  {totalTributos > 0 && (
+                 {totalTributos > 0 && (
                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                  <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                  <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
