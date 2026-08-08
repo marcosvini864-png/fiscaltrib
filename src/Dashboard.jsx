@@ -30,7 +30,7 @@ import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
-import AbaRecuperacaoMonofasicos from './AbaRecuperacaoMonofasicos';
+import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos';
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
