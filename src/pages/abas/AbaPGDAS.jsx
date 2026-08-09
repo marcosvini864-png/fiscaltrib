@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabase'
 import AnalisadorIA from '../../AnalisadorIA'
+import RelatorioRecuperacaoPGDAS from './RelatorioRecuperacaoPGDAS'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -101,6 +102,7 @@ export default function AbaPGDAS({ cliente, regime }) {
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(10)
   const [importando, setImportando] = useState(false)
+  const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
   const inputImportRef = useRef(null)
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
@@ -572,6 +574,12 @@ export default function AbaPGDAS({ cliente, regime }) {
                     style={{ padding: '9px 24px', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
                     {salvando ? 'Salvando...' : 'Salvar PGDAS-D'}
                   </button>
+				  {historico.length > 0 && (
+                  <button onClick={() => setMostrarRelatorio(true)}
+                  style={{ padding: '9px 20px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  📄 Gerar Relatório
+                  </button>
+                  )}
                   <button onClick={() => setForm(FORM_VAZIO)}
                     style={{ padding: '9px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: S.muted }}>
                     Limpar
@@ -679,5 +687,12 @@ export default function AbaPGDAS({ cliente, regime }) {
         </div>
       )}
     </div>
+	{mostrarRelatorio && (
+        <RelatorioRecuperacaoPGDAS
+          historico={historico}
+          cliente={cliente}
+          onFechar={() => setMostrarRelatorio(false)}
+        />
+      )}
   )
 }
