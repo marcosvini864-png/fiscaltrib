@@ -1,8 +1,7 @@
 /**
  * AbaPGDAS.jsx - e-FiscalTribe®
  * Segregacao no PGDAS-D — Motor do Simples Nacional
- * Versao 2.1 - 07/08/2026
- * AnalisadorIA plugado no topo + botao grafite
+ * Versao 3.0 - 08/08/2026
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -53,13 +52,8 @@ const FORM_VAZIO = {
 }
 
 const LINHAS_GHOST = Array(3).fill(null).map((_, i) => ({
-  id: `ghost-${i}`,
-  periodo_apuracao: 'MM/AAAA',
-  tipo_declaracao: 'Original',
-  rpa: 0, rbt12: 0, das_total: 0,
-  receita_monofasica: 0,
-  status: 'pendente',
-  ghost: true,
+  id: `ghost-${i}`, periodo_apuracao: 'MM/AAAA', tipo_declaracao: 'Original',
+  rpa: 0, rbt12: 0, das_total: 0, receita_monofasica: 0, status: 'pendente', ghost: true,
 }))
 
 function InputMoeda({ label, value, onChange, placeholder = 'R$ 0,00', disabled }) {
@@ -69,8 +63,7 @@ function InputMoeda({ label, value, onChange, placeholder = 'R$ 0,00', disabled 
       <input
         value={value ? parseFloat(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
         onChange={e => { const raw = e.target.value.replace(/\D/g, ''); onChange((parseInt(raw || '0') / 100).toFixed(2)) }}
-        placeholder={placeholder}
-        disabled={disabled}
+        placeholder={placeholder} disabled={disabled}
         style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text, background: disabled ? S.bg : S.white }}
       />
     </div>
@@ -82,10 +75,8 @@ function InputTexto({ label, value, onChange, placeholder, disabled }) {
     <div>
       <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{label}</div>
       <input
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
+        value={value || ''} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} disabled={disabled}
         style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text, background: disabled ? S.bg : S.white }}
       />
     </div>
@@ -211,15 +202,15 @@ export default function AbaPGDAS({ cliente, regime }) {
   const icms         = parseFloat(form.icms || 0)
   const ipi          = parseFloat(form.ipi || 0)
   const iss          = parseFloat(form.iss || 0)
-  const totalTributos   = irpj + csll + cofins + pis + inss + icms + ipi + iss
-  const baseCorreta     = rpa - receita_mono - receita_st - receita_imu
-  const pctMono         = rpa > 0 ? (receita_mono / rpa * 100) : 0
-  const aliquotaEfetiva = rpa > 0 ? (das_total / rpa * 100) : 0
-  const aliquotaPIS      = rpa > 0 ? (pis    / rpa * 100) : 0
+  const totalTributos    = irpj + csll + cofins + pis + inss + icms + ipi + iss
+  const baseCorreta      = rpa - receita_mono - receita_st - receita_imu
+  const pctMono          = rpa > 0 ? (receita_mono / rpa * 100) : 0
+  const aliquotaEfetiva  = rpa > 0 ? (das_total / rpa * 100) : 0
+  const aliquotaPIS      = rpa > 0 ? (pis / rpa * 100) : 0
   const aliquotaCOFINS   = rpa > 0 ? (cofins / rpa * 100) : 0
-  const pisDevido        = baseCorreta > 0 ? baseCorreta * (aliquotaPIS    / 100) : 0
+  const pisDevido        = baseCorreta > 0 ? baseCorreta * (aliquotaPIS / 100) : 0
   const cofinsDevido     = baseCorreta > 0 ? baseCorreta * (aliquotaCOFINS / 100) : 0
-  const creditoPIS       = Math.max(0, pis    - pisDevido)
+  const creditoPIS       = Math.max(0, pis - pisDevido)
   const creditoCOFINS    = Math.max(0, cofins - cofinsDevido)
   const diferencaRecuperavel = creditoPIS + creditoCOFINS
 
@@ -308,37 +299,26 @@ export default function AbaPGDAS({ cliente, regime }) {
   const temHistorico = historico.length > 0
 
   const kpisForm = [
-    { label: 'Receita do Periodo (RPA)',  valor: rpa > 0 ? fmtR(rpa) : '—',                                                 cor: rpa > 0 ? S.navy : S.ghostText },
-    { label: 'Receita Monofasica',         valor: receita_mono > 0 ? fmtR(receita_mono) : '—',                               cor: receita_mono > 0 ? S.orange : S.ghostText },
-    { label: 'DAS Total Declarado',        valor: das_total > 0 ? fmtR(das_total) : '—',                                     cor: das_total > 0 ? S.red : S.ghostText },
-    { label: 'Aliquota Efetiva',           valor: aliquotaEfetiva > 0 ? aliquotaEfetiva.toFixed(2).replace('.', ',')+'%':'—', cor: aliquotaEfetiva > 0 ? S.blue : S.ghostText },
-    { label: '% Receita Monofasica',       valor: pctMono > 0 ? pctMono.toFixed(2).replace('.', ',')+'%' : '—',              cor: pctMono > 0 ? S.orange : S.ghostText },
-    { label: 'Diferenca Recuperavel',      valor: diferencaRecuperavel > 0 ? fmtR(diferencaRecuperavel) : '—',               cor: diferencaRecuperavel > 0 ? S.green : S.ghostText },
+    { label: 'Receita do Periodo (RPA)',  valor: rpa > 0 ? fmtR(rpa) : '—',                                                  cor: rpa > 0 ? S.navy : S.ghostText },
+    { label: 'Receita Monofasica',        valor: receita_mono > 0 ? fmtR(receita_mono) : '—',                                cor: receita_mono > 0 ? S.orange : S.ghostText },
+    { label: 'DAS Total Declarado',       valor: das_total > 0 ? fmtR(das_total) : '—',                                      cor: das_total > 0 ? S.red : S.ghostText },
+    { label: 'Aliquota Efetiva',          valor: aliquotaEfetiva > 0 ? aliquotaEfetiva.toFixed(2).replace('.', ',')+'%':'—', cor: aliquotaEfetiva > 0 ? S.blue : S.ghostText },
+    { label: '% Receita Monofasica',      valor: pctMono > 0 ? pctMono.toFixed(2).replace('.', ',')+'%' : '—',               cor: pctMono > 0 ? S.orange : S.ghostText },
+    { label: 'Diferenca Recuperavel',     valor: diferencaRecuperavel > 0 ? fmtR(diferencaRecuperavel) : '—',                cor: diferencaRecuperavel > 0 ? S.green : S.ghostText },
   ]
 
-  // Dados para AnalisadorIA
   const dadosIA = rpa > 0 ? {
-    periodo: form.periodo_apuracao,
-    receitaBrutaPeriodo: rpa,
-    receitaMonofasica: receita_mono,
-    receitaST: receita_st,
-    receitaImune: receita_imu,
-    baseCorreta,
-    dasDeclarado: das_total,
-    dasCorreto: baseCorreta * (aliquotaEfetiva / 100),
-    diferencaRecuperavel,
-    aliquotaEfetiva,
-    pctMonofasica: pctMono,
-    fatorR: form.fator_r,
-    tributos: { irpj, csll, cofins, pis, inss, icms, ipi, iss },
-    regime,
+    periodo: form.periodo_apuracao, receitaBrutaPeriodo: rpa,
+    receitaMonofasica: receita_mono, receitaST: receita_st, receitaImune: receita_imu,
+    baseCorreta, dasDeclarado: das_total, dasCorreto: baseCorreta * (aliquotaEfetiva / 100),
+    diferencaRecuperavel, aliquotaEfetiva, pctMonofasica: pctMono,
+    fatorR: form.fator_r, tributos: { irpj, csll, cofins, pis, inss, icms, ipi, iss }, regime,
     baseLegal: 'LC 123/2006 art. 18 §4 — Segregacao de receitas monofasicas no PGDAS-D',
   } : historico.length > 0 ? {
     totalDeclaracoes: historico.length,
     totalDAS: historico.reduce((s,d)=>s+(d.das_recolhido||0),0),
     totalMonofasico: historico.reduce((s,d)=>s+(d.receita_monofasica||0),0),
-    creditoTotal: historico.reduce((s,d)=>s+(d.credito_estimado||0),0),
-    regime,
+    creditoTotal: historico.reduce((s,d)=>s+(d.credito_estimado||0),0), regime,
   } : null
 
   const secao = (titulo, conteudo) => (
@@ -356,20 +336,14 @@ export default function AbaPGDAS({ cliente, regime }) {
       {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-            Motor do Simples / <strong style={{ color: S.text }}>PGDAS-D</strong>
-          </div>
+          <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>Motor do Simples / <strong style={{ color: S.text }}>PGDAS-D</strong></div>
           <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>PGDAS-D — Simples Nacional</div>
-          <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-            Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.
-          </div>
+          <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.</div>
         </div>
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar PGDAS-D</div>
-          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
-            Aceita: <strong style={{ color: S.text }}>.pdf .xml .txt</strong>
-          </div>
-          <input ref={inputImportRef} type="file" accept=".pdf,.xml,.txt,.zip,.rar,.DEC,.rec,.RE,.DIA,.prf" onChange={importarArquivo} style={{ display: 'none' }} />
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.pdf .xml .txt</strong></div>
+          <input ref={inputImportRef} type="file" accept=".pdf,.xml,.txt" onChange={importarArquivo} style={{ display: 'none' }} />
           <button onClick={() => inputImportRef.current?.click()} disabled={importando}
             style={{ width: '100%', padding: '8px 0', background: importando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer' }}>
             {importando ? '⏳ Extraindo dados...' : '⬆ Importar e Preencher'}
@@ -379,10 +353,7 @@ export default function AbaPGDAS({ cliente, regime }) {
 
       {/* ABAS */}
       <div style={{ display: 'flex', borderBottom: `2px solid ${S.border}`, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[
-          { id: 'lancamento', label: 'Lancamento' },
-          { id: 'historico',  label: `Historico (${historico.length})` },
-        ].map(a => (
+        {[{ id: 'lancamento', label: 'Lancamento' }, { id: 'historico', label: `Historico (${historico.length})` }].map(a => (
           <button key={a.id} onClick={() => setAba(a.id)}
             style={{ padding: '10px 20px', fontSize: 13, fontWeight: aba===a.id?700:400, color: aba===a.id?S.navy:S.muted, background: 'none', border: 'none', borderBottom: `2px solid ${aba===a.id?S.navy:'transparent'}`, marginBottom: -2, cursor: 'pointer' }}>
             {a.label}
@@ -393,22 +364,12 @@ export default function AbaPGDAS({ cliente, regime }) {
       {/* ABA LANCAMENTO */}
       {aba === 'lancamento' && (
         <>
-          {/* ANALISADOR IA */}
-          <AnalisadorIA
-            contexto="PGDAS-D — Segregacao de Receitas Simples Nacional"
-            dados={dadosIA}
-            cliente={cliente}
-            regime={regime}
-          />
+          <AnalisadorIA contexto="PGDAS-D — Segregacao de Receitas Simples Nacional" dados={dadosIA} cliente={cliente} regime={regime} />
 
           {diagAberto && (
             <div style={{ background: '#eff6ff', border: `1px solid #bfdbfe`, borderRadius: 8, padding: '10px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, color: '#2563eb' }}>
-                Visualizando PGDAS-D salvo em <strong>{fmtData(diagAberto.created_at)}</strong> — Competencia: <strong>{diagAberto.competencia}</strong>
-              </div>
-              <button onClick={novoLancamento} style={{ background: 'none', border: `1px solid #bfdbfe`, borderRadius: 6, color: '#2563eb', cursor: 'pointer', fontSize: 12, padding: '4px 10px' }}>
-                Novo Lancamento
-              </button>
+              <div style={{ fontSize: 13, color: '#2563eb' }}>Visualizando PGDAS-D salvo — Competencia: <strong>{diagAberto.competencia}</strong></div>
+              <button onClick={novoLancamento} style={{ background: 'none', border: `1px solid #bfdbfe`, borderRadius: 6, color: '#2563eb', cursor: 'pointer', fontSize: 12, padding: '4px 10px' }}>Novo Lancamento</button>
             </div>
           )}
 
@@ -417,8 +378,8 @@ export default function AbaPGDAS({ cliente, regime }) {
             {kpisForm.map((k, i) => (
               <div key={i} style={{ background: S.white, borderRadius: 8, padding: '14px 16px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.valor}</div>
-             <div style={{ fontSize: 12, color: S.muted, marginTop: 5 }}>{k.label}</div>
-             {k.valor === '—' && <div style={{ fontSize: 11, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
+                <div style={{ fontSize: 12, color: S.muted, marginTop: 5 }}>{k.label}</div>
+                {k.valor === '—' && <div style={{ fontSize: 11, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
               </div>
             ))}
           </div>
@@ -430,13 +391,9 @@ export default function AbaPGDAS({ cliente, regime }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>Lancamento do PGDAS-D</div>
                 <div style={{ fontSize: 12, color: S.muted, marginTop: 2 }}>Preencha os campos conforme o documento impresso do PGDAS-D.</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {diagAberto && <Badge tipo={diagAberto.tipo_declaracao?.toLowerCase() === 'retificadora' ? 'retificadora' : 'original'} />}
-              </div>
             </div>
 
             <div style={{ padding: 20 }}>
-
               {secao('1. Identificacao da Declaracao', (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                   <InputTexto label="Periodo de Apuracao *" value={form.periodo_apuracao} onChange={v => setF('periodo_apuracao', v)} placeholder="MM/AAAA" disabled={!!diagAberto} />
@@ -444,8 +401,7 @@ export default function AbaPGDAS({ cliente, regime }) {
                     <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Tipo de Declaracao</div>
                     <select value={form.tipo_declaracao} onChange={e => setF('tipo_declaracao', e.target.value)} disabled={!!diagAberto}
                       style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text }}>
-                      <option>Original</option>
-                      <option>Retificadora</option>
+                      <option>Original</option><option>Retificadora</option>
                     </select>
                   </div>
                   <InputTexto label="No. da Declaracao" value={form.num_declaracao} onChange={v => setF('num_declaracao', v)} placeholder="01562151202605001" disabled={!!diagAberto} />
@@ -485,9 +441,9 @@ export default function AbaPGDAS({ cliente, regime }) {
                   {rpa > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 12 }}>
                       {[
-                        { label: 'Base Tributavel Correta',  valor: fmtR(baseCorreta),                                    cor: S.navy  },
-                        { label: '% Receita Monofasica',     valor: pctMono.toFixed(2).replace('.', ',')+'%',             cor: S.orange },
-                        { label: 'Reducao de Base Possivel', valor: fmtR(receita_mono + receita_st + receita_imu),        cor: S.green },
+                        { label: 'Base Tributavel Correta',  valor: fmtR(baseCorreta),                             cor: S.navy },
+                        { label: '% Receita Monofasica',     valor: pctMono.toFixed(2).replace('.', ',')+'%',      cor: S.orange },
+                        { label: 'Reducao de Base Possivel', valor: fmtR(receita_mono + receita_st + receita_imu), cor: S.green },
                       ].map((k, i) => (
                         <div key={i} style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: k.cor }}>{k.valor}</div>
@@ -524,25 +480,25 @@ export default function AbaPGDAS({ cliente, regime }) {
                       <InputMoeda key={key} label={label} value={form[key]} onChange={v => setF(key, v)} disabled={!!diagAberto} />
                     ))}
                   </div>
-                 {totalTributos > 0 && (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                 <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                 <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
-                 <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
-                 </div>
-                {(pis > 0 || cofins > 0) && (
-                <div style={{ background: '#FEF2F2', borderRadius: 6, padding: '10px 14px', border: `2px solid ${S.red}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                 <div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: S.red }}>PIS + COFINS recolhidos</span>
-                <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>
-                PIS: {fmtR(pis)} &nbsp;|&nbsp; COFINS: {fmtR(cofins)}
-                </div>
-                </div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: S.red }}>{fmtR(pis + cofins)}</span>
-                </div>
-                )}
-                </div>
-)}
+
+                  {totalTributos > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                      <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
+                      </div>
+                      {(pis > 0 || cofins > 0) && (
+                        <div style={{ background: '#FEF2F2', borderRadius: 6, padding: '10px 14px', border: `2px solid ${S.red}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                          <div>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: S.red }}>PIS + COFINS recolhidos</span>
+                            <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>PIS: {fmtR(pis)} &nbsp;|&nbsp; COFINS: {fmtR(cofins)}</div>
+                          </div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: S.red }}>{fmtR(pis + cofins)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Total do Debito com Exigibilidade Suspensa (R$)</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
                     {[
@@ -561,9 +517,7 @@ export default function AbaPGDAS({ cliente, regime }) {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Observacoes</div>
                   <textarea value={form.observacoes || ''} onChange={e => setF('observacoes', e.target.value)}
-                    disabled={!!diagAberto}
-                    placeholder="Anotacoes sobre esta declaracao, pendencias, etc."
-                    rows={3}
+                    disabled={!!diagAberto} placeholder="Anotacoes sobre esta declaracao, pendencias, etc." rows={3}
                     style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'vertical', color: S.text, background: diagAberto ? S.bg : S.white }} />
                 </div>
               ))}
@@ -574,11 +528,11 @@ export default function AbaPGDAS({ cliente, regime }) {
                     style={{ padding: '9px 24px', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
                     {salvando ? 'Salvando...' : 'Salvar PGDAS-D'}
                   </button>
-				  {historico.length > 0 && (
-                  <button onClick={() => setMostrarRelatorio(true)}
-                  style={{ padding: '9px 20px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  📄 Gerar Relatório
-                  </button>
+                  {historico.length > 0 && (
+                    <button onClick={() => setMostrarRelatorio(true)}
+                      style={{ padding: '9px 20px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      📄 Gerar Relatório
+                    </button>
                   )}
                   <button onClick={() => setForm(FORM_VAZIO)}
                     style={{ padding: '9px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: S.muted }}>
@@ -598,6 +552,12 @@ export default function AbaPGDAS({ cliente, regime }) {
             <div style={{ fontSize: 14, fontWeight: 600, color: S.text }}>Historico de PGDAS-D Lancados</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={carregarHistorico} style={{ padding: '6px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>Atualizar</button>
+              {historico.length > 0 && (
+                <button onClick={() => setMostrarRelatorio(true)}
+                  style={{ padding: '6px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  📄 Gerar Relatório
+                </button>
+              )}
               <button onClick={() => { setAba('lancamento'); novoLancamento() }}
                 style={{ padding: '6px 14px', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 + Novo Lancamento
@@ -686,13 +646,16 @@ export default function AbaPGDAS({ cliente, regime }) {
           </div>
         </div>
       )}
-    </div>
-	{mostrarRelatorio && (
+
+      {/* MODAL RELATORIO */}
+      {mostrarRelatorio && (
         <RelatorioRecuperacaoPGDAS
           historico={historico}
           cliente={cliente}
           onFechar={() => setMostrarRelatorio(false)}
         />
       )}
+
+    </div>
   )
 }
