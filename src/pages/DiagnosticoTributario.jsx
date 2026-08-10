@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../supabase';
 import { parseXMLNFe, agruparPorCompetencia } from '../utils/parseXMLNFe'
 import MotorInteligenciaTributaria from '../motor/MotorInteligenciaTributaria'
 import FunctionalPageTemplate, { DS, PageHeader, KpiCard, ValorDestaque, ContentCard, ListaDocumentos, BtnPrimario, BtnSecundario } from '../FunctionalPageTemplate'
