@@ -30,8 +30,6 @@ import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
-import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos';
-import ExclusaoICMS from './pages/ExclusaoICMS';
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -65,11 +63,13 @@ const C = {
 }
 
 const TESES_DIAGNOSTICO = [
+  { id: 'importar',    label: 'Importar' },
   { id: 'monofasicos', label: 'Monofasicos PIS/COFINS' },
   { id: 'icms_tema69', label: 'ICMS Tema 69' },
   { id: 'icms_st',     label: 'ICMS-ST' },
   { id: 'retencoes',   label: 'Retencoes Indevidas' },
-  ]
+  { id: 'pgdas',       label: 'PGDAS-D' },
+]
 
 // ── MODULES: Clientes agora tem 3 abas (Clientes / Novo cliente / Checklist
 // de Documentos). Importações virou módulo próprio, isolado, sem TabBar. ───
@@ -91,9 +91,6 @@ const MODULES = {
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
   dados_complementares: { label:'Dados Complementares', icon:'📋', tabs:[] },
-  recuperacao_monofasico: { label: 'Monofásicos — PIS/COFINS',    icon:'\u{1F4B0}', tabs:[] },
-  exclusao_icms:          { label: 'Exclusão ICMS — PIS/COFINS',  icon:'\u{1F9FE}', tabs:[] },
-  icms_st_rec:            { label: 'ICMS-ST',                     icon:'\u{1F4C4}', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -121,21 +118,12 @@ const MENU_SECOES = [
   id: 'motor_simples',
   titulo: 'MOTOR DO SIMPLES',
   itens: [
-    { label: 'Monofásicos',           module: 'monofasicos',         tab: 0, icon: '\u{1F48A}' },
-    { label: 'PGDAS-D',               module: 'pgdas',               tab: 0, icon: '\u{1F4C4}' },
-    { label: 'Painel de Controle',    module: 'painel_simples',      tab: 0, icon: '\u{1F4CA}' },
-    { label: 'Dados Complementares',  module: 'dados_complementares',tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Classificação de Itens',module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Apuração do Simples',   module: 'apuracao_simples',    tab: 0, icon: '\u{1F4C5}' },
-  ],
-},
-{
-  id: 'recuperacao_creditos',
-  titulo: 'RECUPERAÇÃO DE CRÉDITOS',
-  itens: [
-    { label: 'Exclusão ICMS — PIS/COFINS', module: 'exclusao_icms',          tab: 0, icon: '\u{1F9FE}' },
-    { label: 'Monofásicos — PIS/COFINS',   module: 'recuperacao_monofasico', tab: 0, icon: '\u{1F4B0}' },
-    { label: 'ICMS-ST',                    module: 'icms_st_rec',            tab: 0, icon: '\u{1F4C4}' },
+  { label: 'Monofásicos', module: 'monofasicos', tab: 0, icon: '\u{1F48A}' },
+  { label: 'PGDAS-D', module: 'pgdas', tab: 0, icon: '\u{1F4C4}' },
+  { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
+  { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Apuração do Simples', module: 'apuracao_simples', tab: 0, icon: '\u{1F4C5}' },
   ],
 },
   {
@@ -434,7 +422,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [sidebarAtiva, setSidebarAtiva] = useState('painel:0')
-  const [teseDiagnostico, setTeseDiagnostico] = useState('monofasicos')
+  const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
   const [checklist, setChecklist] = useState({})
@@ -553,7 +541,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setModule(key); setActiveTab(tab)
     setSidebarAtiva(key + ':' + tab)
     if(key==='clientes') { setNovoCliente(null); setModoNovoCliente(null) }
-    if(key==='diagnostico') setTeseDiagnostico('monofasicos')
+    if(key==='diagnostico') setTeseDiagnostico('importar')
   }
   function handleTab(i) {
     setActiveTab(i)
@@ -1003,17 +991,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
             {module==='apuracao_simples' && (
             <ApuracaoSimples />
-            )}
-			{module==='recuperacao_monofasico' && (
-            <AbaRecuperacaoMonofasicos />
-            )}
-			{module==='exclusao_icms' && (
-            <ExclusaoICMS cliente={active} />
-            )}
-            {module==='icms_st_rec' && (
-            <div style={{padding:40,textAlign:'center',color:'#64748B',fontSize:14}}>
-            ⚙️ Módulo ICMS-ST em construção.
-            </div>
             )}
             {module==='sped' && (
             <AuditorSPED

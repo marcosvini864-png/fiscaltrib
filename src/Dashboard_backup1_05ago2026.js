@@ -21,17 +21,8 @@ import ImportarCDA from './ImportarCDA'
 import Prospeccao from './Prospeccao'
 import MensagensRapidas from './MensagensRapidas'
 import DiagnosticoTributario from './pages/DiagnosticoTributario'
-import GestaoEmpresas from './pages/GestaoEmpresas'
-import GrupoEmpresas from './pages/GrupoEmpresas'
-import ClassificacaoItens from './pages/ClassificacaoItens'
 import AuditorSPED from './pages/AuditorSPED'
 import DadosComplementares from './pages/DadosComplementares'
-import PainelSimples from './pages/PainelSimples'
-import AbaMonofasicos from './pages/abas/AbaMonofasicos'
-import AbaPGDAS from './pages/abas/AbaPGDAS'
-import ApuracaoSimples from './pages/ApuracaoSimples'
-import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos';
-import ExclusaoICMS from './pages/ExclusaoICMS';
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -65,21 +56,20 @@ const C = {
 }
 
 const TESES_DIAGNOSTICO = [
+  { id: 'importar',    label: 'Importar' },
   { id: 'monofasicos', label: 'Monofasicos PIS/COFINS' },
   { id: 'icms_tema69', label: 'ICMS Tema 69' },
   { id: 'icms_st',     label: 'ICMS-ST' },
   { id: 'retencoes',   label: 'Retencoes Indevidas' },
-  ]
+  { id: 'pgdas',       label: 'PGDAS-D' },
+]
 
 // ── MODULES: Clientes agora tem 3 abas (Clientes / Novo cliente / Checklist
 // de Documentos). Importações virou módulo próprio, isolado, sem TabBar. ───
 const MODULES = {
   painel:       { label:'Painel',                  icon:'📊', tabs:[] },
   clientes:     { label:'Clientes',                icon:'👥', tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
-  importacoes:  { label:'Central de Importacoes',  icon:'📥', tabs:[] },
-  gestao_empresas: { label:'Gestao de Empresas', icon:'E', tabs:[] },
-  classificacao_itens: { label:'Classificacao de Itens', icon:'C', tabs:[] },
-  grupo_empresas: { label:'Grupo de Empresas', icon:'G', tabs:[] },
+  importacoes:  { label:'Central de Importações',  icon:'📥', tabs:[] },
   diagnostico:  { label:'Dinheiro Recuperavel',    icon:'💰', tabs:[] },
   analise:      { label:'Analise Fiscal',          icon:'📈', tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
   recuperacao:  { label:'Recuperacao',             icon:'💰', tabs:['Gestao','PER/DCOMP'] },
@@ -91,9 +81,6 @@ const MODULES = {
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
   dados_complementares: { label:'Dados Complementares', icon:'📋', tabs:[] },
-  recuperacao_monofasico: { label: 'Monofásicos — PIS/COFINS',    icon:'\u{1F4B0}', tabs:[] },
-  exclusao_icms:          { label: 'Exclusão ICMS — PIS/COFINS',  icon:'\u{1F9FE}', tabs:[] },
-  icms_st_rec:            { label: 'ICMS-ST',                     icon:'\u{1F4C4}', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -108,36 +95,14 @@ const MENU_SECOES = [
     titulo: 'TRABALHO',
     itens: [
       { label: 'Clientes',                  module: 'clientes',    tab: 0, icon: '\u{1F9D1}' }, // 👥
-	  { label: 'Gestao de Empresas', module: 'gestao_empresas', tab: 0, icon: '\u{1F3E2}' },
-	  { label: 'Grupo de Empresas', module: 'grupo_empresas', tab: 0, icon: '\u{1F4C1}' },
       { label: 'Central de Importações',    module: 'importacoes', tab: 0, icon: '\u{1F4E5}' }, // 📥
+      { label: 'Dados Complementares',      module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' }, // 📋
       { label: 'Diagnóstico Tributário',    module: 'diagnostico', tab: 0, icon: '\u{1F4B0}' }, // 💰
       { label: 'Auditor de SPED',           module: 'sped',        tab: 0, icon: '\u{1F50E}' }, // 🔎
       { label: 'PER/DCOMP',                 module: 'recuperacao', tab: 1, icon: '\u{1F9FE}' }, // 🧾
       { label: 'Dívida Ativa',              module: 'divida',      tab: 0, icon: '\u{26A0}' },  // ⚠
     ],
   },
-  {
-  id: 'motor_simples',
-  titulo: 'MOTOR DO SIMPLES',
-  itens: [
-    { label: 'Monofásicos',           module: 'monofasicos',         tab: 0, icon: '\u{1F48A}' },
-    { label: 'PGDAS-D',               module: 'pgdas',               tab: 0, icon: '\u{1F4C4}' },
-    { label: 'Painel de Controle',    module: 'painel_simples',      tab: 0, icon: '\u{1F4CA}' },
-    { label: 'Dados Complementares',  module: 'dados_complementares',tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Classificação de Itens',module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Apuração do Simples',   module: 'apuracao_simples',    tab: 0, icon: '\u{1F4C5}' },
-  ],
-},
-{
-  id: 'recuperacao_creditos',
-  titulo: 'RECUPERAÇÃO DE CRÉDITOS',
-  itens: [
-    { label: 'Exclusão ICMS — PIS/COFINS', module: 'exclusao_icms',          tab: 0, icon: '\u{1F9FE}' },
-    { label: 'Monofásicos — PIS/COFINS',   module: 'recuperacao_monofasico', tab: 0, icon: '\u{1F4B0}' },
-    { label: 'ICMS-ST',                    module: 'icms_st_rec',            tab: 0, icon: '\u{1F4C4}' },
-  ],
-},
   {
     id: 'planejamento',
     titulo: 'PLANEJAMENTO',
@@ -160,7 +125,7 @@ const MENU_SECOES = [
       { label: 'Score Fiscal',              module: 'relatorios', tab: 1, icon: '\u{1F3AF}' }, // 🎯
     ],
   },
-    {
+  {
     id: 'relacionamento',
     titulo: 'RELACIONAMENTO',
     itens: [
@@ -434,7 +399,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [sidebarAtiva, setSidebarAtiva] = useState('painel:0')
-  const [teseDiagnostico, setTeseDiagnostico] = useState('monofasicos')
+  const [teseDiagnostico, setTeseDiagnostico] = useState('importar')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
   const [checklist, setChecklist] = useState({})
@@ -553,7 +518,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setModule(key); setActiveTab(tab)
     setSidebarAtiva(key + ':' + tab)
     if(key==='clientes') { setNovoCliente(null); setModoNovoCliente(null) }
-    if(key==='diagnostico') setTeseDiagnostico('monofasicos')
+    if(key==='diagnostico') setTeseDiagnostico('importar')
   }
   function handleTab(i) {
     setActiveTab(i)
@@ -854,17 +819,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='importacoes' && (
               <CentralImportacoes abaInicial="nfe" onDiagnostico={()=>navigateTo('analise',0)} onRelatorio={()=>navigateTo('relatorios',0)} onRecuperacao={()=>navigateTo('recuperacao',0)} />
             )}
-            
-			{module==='grupo_empresas' && <GrupoEmpresas />}
-			{module==='gestao_empresas' && (
-            <GestaoEmpresas
-            onSelecionarCliente={(emp) => {
-            setActive(emp)
-            setActiveId(emp.id)
-            navigateTo('diagnostico', 0)
-            }}
-              />
-            )} 
 
             {module==='diagnostico' && (
               <DiagnosticoTributario
@@ -989,38 +943,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 onVoltar={()=>setMostrarImportarCDA(false)}
               />
             )}
-            {module==='classificacao_itens' && (
-            <ClassificacaoItens clienteId={activeId} cliente={active} />
-            )}
-			{module==='painel_simples' && (
-            <PainelSimples clienteId={activeId} cliente={active} />
-            )}
-			{module==='monofasicos' && (
-            <AbaMonofasicos clienteId={activeId} cliente={active} />
-            )}
-			{module==='pgdas' && (
-            <AbaPGDAS cliente={active} regime={active?.regime} />
-            )}
-            {module==='apuracao_simples' && (
-            <ApuracaoSimples />
-            )}
-			{module==='recuperacao_monofasico' && (
-            <AbaRecuperacaoMonofasicos />
-            )}
-			{module==='exclusao_icms' && (
-            <ExclusaoICMS cliente={active} />
-            )}
-            {module==='icms_st_rec' && (
-            <div style={{padding:40,textAlign:'center',color:'#64748B',fontSize:14}}>
-            ⚙️ Módulo ICMS-ST em construção.
-            </div>
-            )}
+
             {module==='sped' && (
             <AuditorSPED
             cliente={active}
             onVoltar={() => navigateTo('painel')}
             />
-            )}
+)}
 			{module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
             {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}

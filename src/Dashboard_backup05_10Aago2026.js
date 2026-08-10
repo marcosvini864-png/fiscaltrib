@@ -31,7 +31,6 @@ import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
 import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos';
-import ExclusaoICMS from './pages/ExclusaoICMS';
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -91,9 +90,7 @@ const MODULES = {
   prospeccao:   { label:'Prospeccao',              icon:'🎯', tabs:[] },
   mensagens:    { label:'Mensagens Rapidas',       icon:'⚡', tabs:[] },
   dados_complementares: { label:'Dados Complementares', icon:'📋', tabs:[] },
-  recuperacao_monofasico: { label: 'Monofásicos — PIS/COFINS',    icon:'\u{1F4B0}', tabs:[] },
-  exclusao_icms:          { label: 'Exclusão ICMS — PIS/COFINS',  icon:'\u{1F9FE}', tabs:[] },
-  icms_st_rec:            { label: 'ICMS-ST',                     icon:'\u{1F4C4}', tabs:[] },
+  recuperacao_monofasico: { label: 'Recupera\u00e7\u00e3o PIS/COFINS', icon:'\u{1F4B0}', tabs:[] },
 }
 
 const RESTRICTED = {
@@ -121,21 +118,13 @@ const MENU_SECOES = [
   id: 'motor_simples',
   titulo: 'MOTOR DO SIMPLES',
   itens: [
-    { label: 'Monofásicos',           module: 'monofasicos',         tab: 0, icon: '\u{1F48A}' },
-    { label: 'PGDAS-D',               module: 'pgdas',               tab: 0, icon: '\u{1F4C4}' },
-    { label: 'Painel de Controle',    module: 'painel_simples',      tab: 0, icon: '\u{1F4CA}' },
-    { label: 'Dados Complementares',  module: 'dados_complementares',tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Classificação de Itens',module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
-    { label: 'Apuração do Simples',   module: 'apuracao_simples',    tab: 0, icon: '\u{1F4C5}' },
-  ],
-},
-{
-  id: 'recuperacao_creditos',
-  titulo: 'RECUPERAÇÃO DE CRÉDITOS',
-  itens: [
-    { label: 'Exclusão ICMS — PIS/COFINS', module: 'exclusao_icms',          tab: 0, icon: '\u{1F9FE}' },
-    { label: 'Monofásicos — PIS/COFINS',   module: 'recuperacao_monofasico', tab: 0, icon: '\u{1F4B0}' },
-    { label: 'ICMS-ST',                    module: 'icms_st_rec',            tab: 0, icon: '\u{1F4C4}' },
+  { label: 'Monofásicos', module: 'monofasicos', tab: 0, icon: '\u{1F48A}' },
+  { label: 'PGDAS-D', module: 'pgdas', tab: 0, icon: '\u{1F4C4}' },
+  { label: 'Painel de Controle', module: 'painel_simples', tab: 0, icon: '\u{1F4CA}' },
+  { label: 'Dados Complementares', module: 'dados_complementares', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Classificacao de Itens', module: 'classificacao_itens', tab: 0, icon: '\u{1F4CB}' },
+  { label: 'Apuração do Simples', module: 'apuracao_simples', tab: 0, icon: '\u{1F4C5}' },
+  { label: 'Recupera\u00e7\u00e3o PIS/COFINS', module: 'recuperacao_monofasico', tab: 0, icon: '\u{1F4B0}' },
   ],
 },
   {
@@ -1006,14 +995,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
 			{module==='recuperacao_monofasico' && (
             <AbaRecuperacaoMonofasicos />
-            )}
-			{module==='exclusao_icms' && (
-            <ExclusaoICMS cliente={active} />
-            )}
-            {module==='icms_st_rec' && (
-            <div style={{padding:40,textAlign:'center',color:'#64748B',fontSize:14}}>
-            ⚙️ Módulo ICMS-ST em construção.
-            </div>
             )}
             {module==='sped' && (
             <AuditorSPED

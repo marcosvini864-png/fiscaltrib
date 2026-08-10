@@ -176,10 +176,11 @@ export default function FunctionalPageTemplate({
                 id="fpt-file-input"
                 style={{ display: 'none' }}
                 onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    emptyState.onArquivoSelecionado(e.target.files)
+                  const files = e.target.files
+                  if (files && files.length > 0) {
+                    emptyState.onArquivoSelecionado(files)
                     if (emptyState.onDepoisDeSelecionar) {
-                      setTimeout(() => emptyState.onDepoisDeSelecionar(), 0)
+                      emptyState.onDepoisDeSelecionar(files)
                     }
                   }
                   e.target.value = ''
