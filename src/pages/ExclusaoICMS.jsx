@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '../supabase';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
@@ -8,7 +10,6 @@ const S = {
   border: '#E2E8F0', tableHeader: '#4B5563', white: '#FFFFFF',
 };
 
-// ── helpers ────────────────────────────────────────────────────────────────
 function formatBRL(v) {
   if (v == null || isNaN(v)) return 'R$ —';
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -19,18 +20,12 @@ function formatPct(v) {
 }
 function hoje() { return new Date().toLocaleDateString('pt-BR'); }
 
-// ── skeleton ───────────────────────────────────────────────────────────────
 const GHOST_WIDTHS = [80, 65, 90, 55, 70, 85, 60, 75];
 
 function GhostCell({ w = 70, right = false }) {
   return (
     <td style={{ padding: '10px 12px' }}>
-      <div style={{
-        height: 13, borderRadius: 4,
-        background: '#E2E8F0',
-        width: w + '%',
-        marginLeft: right ? 'auto' : 0,
-      }} />
+      <div style={{ height: 13, borderRadius: 4, background: '#E2E8F0', width: w + '%', marginLeft: right ? 'auto' : 0 }} />
     </td>
   );
 }
@@ -71,7 +66,6 @@ function SkeletonTabela({ colunas, linhas = 5 }) {
   );
 }
 
-// ── parser XML ─────────────────────────────────────────────────────────────
 function parsearXMLNFe(xmlText) {
   try {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -131,19 +125,56 @@ function agruparPorCompetencia(notas) {
   return Object.values(map).sort((a, b) => a.competencia.localeCompare(b.competencia));
 }
 
-// ── Memória de cálculo expandida ───────────────────────────────────────────
+// ── Função exportar PDF de um elemento ────────────────────────────────────
+async function exportarPDF(elementId, nomeArquivo) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = (canvas.height * pdfW) / canvas.width;
+  let posY = 0;
+  const pageH = pdf.internal.pageSize.getHeight();
+  while (posY < pdfH) {
+    pdf.addImage(imgData, 'PNG', 0, -posY, pdfW, pdfH);
+    posY += pageH;
+    if (posY < pdfH) pdf.addPage();
+  }
+  pdf.save(nomeArquivo + '.pdf');
+}
+
+function imprimirElemento(elementId, titulo) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const conteudo = el.innerHTML;
+  const janela = window.open('', '_blank');
+  janela.document.write(`
+    <html><head><title>${titulo}</title>
+    <style>
+      body { font-family: Inter, sans-serif; padding: 20px; color: #0F172A; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th { background: #4B5563; color: #fff; padding: 8px 10px; text-align: left; }
+      td { padding: 7px 10px; border-bottom: 1px solid #E2E8F0; }
+      tr:nth-child(even) { background: #F8FAFC; }
+      @media print { body { padding: 0; } }
+    </style>
+    </head><body>${conteudo}</body></html>
+  `);
+  janela.document.close();
+  janela.focus();
+  setTimeout(() => { janela.print(); }, 500);
+}
+
+// ── Memória de Cálculo ─────────────────────────────────────────────────────
 function MemoriaCalculo({ n }) {
   return (
     <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#F0FDF4)', borderLeft: `4px solid ${S.blue}`, padding: '20px 24px' }}>
       <div style={{ fontWeight: 800, color: S.navy, fontSize: 14, marginBottom: 16 }}>
         📐 Memória de Cálculo
-        <span style={{ fontSize: 11, fontWeight: 400, color: S.ghost, marginLeft: 10 }}>
-          NF {n.nNF} · {n.nomeEmit} · {n.dataEmissao}
-        </span>
+        <span style={{ fontSize: 11, fontWeight: 400, color: S.ghost, marginLeft: 10 }}>NF {n.nNF} · {n.nomeEmit} · {n.dataEmissao}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 14 }}>
-
-        {/* BASE */}
         <div style={{ background: S.white, borderRadius: 10, padding: '14px 16px', border: `1px solid ${S.border}` }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: S.navy, letterSpacing: 1, marginBottom: 10 }}>APURAÇÃO DA BASE</div>
           {[
@@ -160,8 +191,6 @@ function MemoriaCalculo({ n }) {
             <span style={{ fontWeight: 800, color: S.blue, fontSize: 14, whiteSpace: 'nowrap' }}>{formatBRL(n.baseSemICMS)}</span>
           </div>
         </div>
-
-        {/* PIS */}
         <div style={{ background: S.white, borderRadius: 10, padding: '14px 16px', border: '1px solid #bfdbfe' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: S.blue, letterSpacing: 1, marginBottom: 10 }}>APURAÇÃO DO PIS</div>
           {[
@@ -179,8 +208,6 @@ function MemoriaCalculo({ n }) {
             <span style={{ fontWeight: 800, color: S.green, fontSize: 14, whiteSpace: 'nowrap' }}>{formatBRL(n.creditoPIS)}</span>
           </div>
         </div>
-
-        {/* COFINS */}
         <div style={{ background: S.white, borderRadius: 10, padding: '14px 16px', border: '1px solid #a5b4fc' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: S.navy, letterSpacing: 1, marginBottom: 10 }}>APURAÇÃO DA COFINS</div>
           {[
@@ -199,8 +226,6 @@ function MemoriaCalculo({ n }) {
           </div>
         </div>
       </div>
-
-      {/* TOTAL */}
       <div style={{ background: S.navy, borderRadius: 10, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 10, color: '#93c5fd', fontWeight: 700, letterSpacing: 1 }}>⑫ TOTAL RECUPERÁVEL DESTA NF (⑦+⑪)</div>
@@ -225,49 +250,45 @@ function RelatorioProfissional({ notas, cliente, perfil }) {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', color: S.text }}>
 
-      {/* CAPA */}
-      <div style={{ background: S.navy, borderRadius: 14, padding: '28px 24px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(37,99,235,0.2)' }} />
-        <div style={{ position: 'absolute', bottom: -50, right: 50, width: 130, height: 130, borderRadius: '50%', background: 'rgba(22,163,74,0.15)' }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 14 }}>
+      {/* CABEÇALHO CLEAN — sem banner navy */}
+      <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 12, padding: '24px 28px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
           <div>
             {perfil?.logo_url
-              ? <img src={perfil.logo_url} alt="Logo" style={{ height: 50, objectFit: 'contain', borderRadius: 8 }} />
-              : <div style={{ height: 50, width: 140, background: 'rgba(255,255,255,0.1)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>Logo do Escritório</span>
+              ? <img src={perfil.logo_url} alt="Logo" style={{ height: 56, objectFit: 'contain', borderRadius: 8, marginBottom: 8 }} />
+              : <div style={{ height: 56, width: 160, background: S.bg, borderRadius: 8, border: `2px dashed ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                  <span style={{ color: S.ghost, fontSize: 11 }}>Logo do Escritório</span>
                 </div>
             }
-            {perfil?.nome_escritorio && <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginTop: 6 }}>{perfil.nome_escritorio}</div>}
-            {perfil?.crc && <div style={{ color: '#93c5fd', fontSize: 11, marginTop: 2 }}>{perfil.crc}</div>}
+            {perfil?.nome_escritorio && <div style={{ fontWeight: 700, fontSize: 16, color: S.navy }}>{perfil.nome_escritorio}</div>}
+            {perfil?.crc            && <div style={{ fontSize: 12, color: S.ghost, marginTop: 2 }}>{perfil.crc}</div>}
+            {perfil?.responsavel    && <div style={{ fontSize: 12, color: S.muted, marginTop: 2 }}>{perfil.responsavel}</div>}
           </div>
-          <div style={{ textAlign: 'right', fontSize: 11 }}>
-            {perfil?.endereco && <div style={{ color: '#93c5fd', marginBottom: 2 }}>📍 {perfil.endereco}</div>}
-            {perfil?.telefone && <div style={{ color: '#93c5fd', marginBottom: 2 }}>📞 {perfil.telefone}</div>}
-            {perfil?.whatsapp && <div style={{ color: '#93c5fd', marginBottom: 2 }}>💬 {perfil.whatsapp}</div>}
-            {perfil?.email    && <div style={{ color: '#93c5fd', marginBottom: 2 }}>✉️ {perfil.email}</div>}
-            {perfil?.site     && <div style={{ color: '#93c5fd' }}>🌐 {perfil.site}</div>}
+          <div style={{ textAlign: 'right', fontSize: 12 }}>
+            {perfil?.endereco && <div style={{ color: S.muted, marginBottom: 3 }}>📍 {perfil.endereco}</div>}
+            {perfil?.telefone && <div style={{ color: S.muted, marginBottom: 3 }}>📞 {perfil.telefone}</div>}
+            {perfil?.whatsapp && <div style={{ color: S.muted, marginBottom: 3 }}>💬 {perfil.whatsapp}</div>}
+            {perfil?.email    && <div style={{ color: S.muted, marginBottom: 3 }}>✉️ {perfil.email}</div>}
+            {perfil?.site     && <div style={{ color: S.muted }}>🌐 {perfil.site}</div>}
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 18 }}>
-          <div style={{ color: '#6EE7B7', fontSize: 10, fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>PARECER TÉCNICO TRIBUTÁRIO</div>
-          <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 4, lineHeight: 1.2 }}>
-            Exclusão do ICMS da Base de Cálculo<br />do PIS e da COFINS
-          </div>
-          <div style={{ color: '#93c5fd', fontSize: 12, marginBottom: 18 }}>RE 574.706 · STF Tema 69 · A Tese do Século</div>
+        <div style={{ borderTop: `2px solid ${S.navy}`, paddingTop: 16 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: S.navy, letterSpacing: 2, marginBottom: 6 }}>PARECER TÉCNICO TRIBUTÁRIO</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: S.navy, marginBottom: 4 }}>Exclusão do ICMS da Base de Cálculo do PIS e da COFINS</div>
+          <div style={{ fontSize: 13, color: S.ghost, marginBottom: 20 }}>RE 574.706 · STF Tema 69 · A Tese do Século</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
             {[
-              { label: 'CONTRIBUINTE',     value: cliente?.razao_social || '—' },
-              { label: 'CNPJ',             value: cliente?.cnpj || '—' },
-              { label: 'REGIME',           value: cliente?.regime || '—' },
-              { label: 'PERÍODO',          value: competencias.length > 0 ? `${competencias[0].competencia} a ${competencias[competencias.length-1].competencia}` : '—' },
-              { label: 'NF-e ANALISADAS',  value: notas.length },
-              { label: 'DATA DO PARECER',  value: hoje() },
+              { label: 'CONTRIBUINTE',    value: cliente?.razao_social || '—' },
+              { label: 'CNPJ',            value: cliente?.cnpj || '—' },
+              { label: 'REGIME',          value: cliente?.regime || '—' },
+              { label: 'PERÍODO',         value: competencias.length > 0 ? `${competencias[0].competencia} a ${competencias[competencias.length-1].competencia}` : '—' },
+              { label: 'NF-e ANALISADAS', value: notas.length },
+              { label: 'DATA DO PARECER', value: hoje() },
             ].map(item => (
-              <div key={item.label} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ color: '#93c5fd', fontSize: 9, fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>{item.label}</div>
-                <div style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{item.value}</div>
+              <div key={item.label} style={{ background: S.bg, borderRadius: 8, padding: '10px 12px', border: `1px solid ${S.border}` }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: S.ghost, letterSpacing: 1.5, marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: S.text }}>{item.value}</div>
               </div>
             ))}
           </div>
@@ -294,8 +315,8 @@ function RelatorioProfissional({ notas, cliente, perfil }) {
           ))}
         </div>
         <div style={{ fontSize: 13, color: S.muted, lineHeight: 1.9, background: S.bg, borderRadius: 8, padding: '12px 16px' }}>
-          A análise de <strong style={{ color: S.text }}>{notas.length} notas fiscais de saída</strong> identificou que o ICMS
-          de <strong style={{ color: S.orange }}>{formatBRL(totalICMS)}</strong> foi indevidamente incluído na base do PIS/COFINS,
+          A análise de <strong style={{ color: S.text }}>{notas.length} notas fiscais de saída</strong> identificou que o ICMS de{' '}
+          <strong style={{ color: S.orange }}>{formatBRL(totalICMS)}</strong> foi indevidamente incluído na base do PIS/COFINS,
           contrariando o RE 574.706 (Tema 69) do STF. O crédito recuperável totaliza{' '}
           <strong style={{ color: S.green }}>{formatBRL(totalCredito)}</strong> — sendo{' '}
           <strong>{formatBRL(totalPIS)}</strong> de PIS e <strong>{formatBRL(totalCOFINS)}</strong> de COFINS —
@@ -512,6 +533,7 @@ export default function ExclusaoICMS({ cliente }) {
   const [carregandoHistorico, setCarregandoHistorico] = useState(true);
   const [salvando, setSalvando]       = useState(false);
   const [abaHistorico, setAbaHistorico] = useState(false);
+  const [gerandoPDF, setGerandoPDF]   = useState(false);
   const inputRef = useRef();
   const logoRef  = useRef();
 
@@ -558,7 +580,7 @@ export default function ExclusaoICMS({ cliente }) {
     setSalvando(true);
     const { data: { user } } = await supabase.auth.getUser();
     const comps = agruparPorCompetencia(notas);
-    await supabase.from('diagnosticos_exclusao_icms').insert([{
+    const { error } = await supabase.from('diagnosticos_exclusao_icms').insert([{
       usuario_id:     user.id,
       cliente_id:     cliente?.id?.toString() || null,
       nome_cliente:   cliente?.razao_social || '',
@@ -573,9 +595,9 @@ export default function ExclusaoICMS({ cliente }) {
       total_credito:  notas.reduce((s, n) => s + n.creditoTotal, 0),
       resultado_json: { notas, competencias: comps },
     }]);
-    await carregarHistorico();
+    if (error) { alert('Erro ao salvar: ' + error.message); }
+    else { alert('Diagnóstico salvo com sucesso!'); await carregarHistorico(); }
     setSalvando(false);
-    alert('Diagnóstico salvo com sucesso!');
   }
 
   async function excluirDiagnostico(id) {
@@ -588,6 +610,12 @@ export default function ExclusaoICMS({ cliente }) {
     setNotas(diag.resultado_json?.notas || []);
     setAbaHistorico(false);
     setAba('competencia');
+  }
+
+  async function handleExportarPDF(elementId, nome) {
+    setGerandoPDF(true);
+    try { await exportarPDF(elementId, nome); }
+    finally { setGerandoPDF(false); }
   }
 
   const processarArquivos = useCallback(async (files) => {
@@ -615,6 +643,17 @@ export default function ExclusaoICMS({ cliente }) {
     setNotas(resultados); setErros(falhas); setProcessando(false);
   }, [tamLote]);
 
+  const exportarCSV = () => {
+    const csv = [
+      ['NF','Data','Competência','Emitente','Valor NF','ICMS','Base s/ ICMS','Alíq PIS','PIS Pago','PIS Correto','Créd PIS','Alíq COFINS','COFINS Pago','COFINS Correto','Créd COFINS','Total'],
+      ...notas.map(n => [n.nNF, n.dataEmissao, n.competencia, n.nomeEmit, n.vNF.toFixed(2), n.vICMS.toFixed(2), n.baseSemICMS.toFixed(2), (n.aliqPIS*100).toFixed(4), n.vPIS.toFixed(2), n.pisCorreto.toFixed(2), n.creditoPIS.toFixed(2), (n.aliqCOFINS*100).toFixed(4), n.vCOFINS.toFixed(2), n.cofinsCorreto.toFixed(2), n.creditoCOFINS.toFixed(2), n.creditoTotal.toFixed(2)])
+    ].map(r => r.join(';')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `exclusao_icms_${cliente?.cnpj || 'cliente'}.csv`;
+    a.click();
+  };
+
   const competencias   = agruparPorCompetencia(notas);
   const totalCredito   = notas.reduce((s, n) => s + n.creditoTotal,  0);
   const totalPIS       = notas.reduce((s, n) => s + n.creditoPIS,    0);
@@ -627,7 +666,23 @@ export default function ExclusaoICMS({ cliente }) {
   const totalPaginas   = Math.ceil(notasFiltradas.length / porPagina);
   const notasPagina    = notasFiltradas.slice((pagina - 1) * porPagina, pagina * porPagina);
 
-  // ── TELA PERFIL ────────────────────────────────────────────────────────
+  // botões de ação por aba
+  function BotoesAba({ elementId, nomeArquivo }) {
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <button onClick={() => imprimirElemento(elementId, nomeArquivo)}
+          style={{ padding: '5px 11px', background: S.white, border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 11, color: S.muted, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          🖨️ Imprimir
+        </button>
+        <button onClick={() => handleExportarPDF(elementId, nomeArquivo)} disabled={gerandoPDF}
+          style={{ padding: '5px 11px', background: S.navy, color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: gerandoPDF ? 0.6 : 1 }}>
+          {gerandoPDF ? '⏳ PDF...' : '📄 PDF'}
+        </button>
+      </div>
+    );
+  }
+
+  // ── TELA PERFIL ──────────────────────────────────────────────────────────
   if (editandoPerfil) return (
     <div style={{ background: S.bg, minHeight: '100%', padding: 16, fontFamily: 'Inter, sans-serif' }}>
       <button onClick={() => setEditandoPerfil(false)}
@@ -692,16 +747,14 @@ export default function ExclusaoICMS({ cliente }) {
     </div>
   );
 
-  // ── TELA PRINCIPAL ─────────────────────────────────────────────────────
+  // ── TELA PRINCIPAL ───────────────────────────────────────────────────────
   return (
     <div style={{ background: S.bg, minHeight: '100%', padding: 16, fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' }}>
 
       {/* CABEÇALHO */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: S.text, margin: 0, marginBottom: 4 }}>
-            Exclusão ICMS — Base PIS/COFINS
-          </h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: S.text, margin: 0, marginBottom: 4 }}>Exclusão ICMS — Base PIS/COFINS</h1>
           <div style={{ fontSize: 12, color: S.ghost }}>
             RE 574.706 · STF Tema 69 · A Tese do Século
             {cliente && <span style={{ marginLeft: 8, color: S.blue, fontWeight: 600 }}>· {cliente.razao_social}</span>}
@@ -733,6 +786,34 @@ export default function ExclusaoICMS({ cliente }) {
           </label>
         </div>
       </div>
+
+      {/* CONFIGURAÇÃO DE LOTE — colada logo abaixo do botão Importar */}
+      {!temDados && (
+        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 12, color: S.navy, marginBottom: 10 }}>⚙️ Configuração de Processamento</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {[
+              { valor: 50,  label: '50 NFs',  rec: 'até 4 GB RAM' },
+              { valor: 100, label: '100 NFs', rec: '8 GB RAM' },
+              { valor: 200, label: '200 NFs', rec: '16 GB RAM' },
+              { valor: 500, label: '500 NFs', rec: 'Workstation' },
+            ].map(op => (
+              <button key={op.valor} onClick={() => setTamLote(op.valor)}
+                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: tamLote === op.valor ? 700 : 400, cursor: 'pointer',
+                  border: `2px solid ${tamLote === op.valor ? S.blue : S.border}`,
+                  background: tamLote === op.valor ? '#EFF6FF' : S.white,
+                  color: tamLote === op.valor ? S.blue : S.ghost }}>
+                {op.label}
+                <span style={{ fontSize: 10, display: 'block', fontWeight: 400 }}>{op.rec}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: S.ghost, lineHeight: 1.7, background: S.bg, borderRadius: 7, padding: '8px 12px' }}>
+            🟢 <strong>50</strong> — PCs até 4GB · 🔵 <strong>100</strong> — Padrão (8GB) · 🟡 <strong>200</strong> — 16GB · 🔴 <strong>500</strong> — Workstation apenas<br />
+            <span style={{ color: S.orange }}>⚠️ Se travar, clique em Limpar, reduza o lote e tente novamente.</span>
+          </div>
+        </div>
+      )}
 
       {/* HISTÓRICO */}
       {abaHistorico && (
@@ -780,34 +861,6 @@ export default function ExclusaoICMS({ cliente }) {
         </div>
       )}
 
-      {/* CONFIGURAÇÃO DE LOTE */}
-      {!temDados && (
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, fontSize: 12, color: S.navy, marginBottom: 10 }}>⚙️ Configuração de Processamento</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            {[
-              { valor: 50,  label: '50 NFs',  rec: 'até 4 GB RAM' },
-              { valor: 100, label: '100 NFs', rec: '8 GB RAM' },
-              { valor: 200, label: '200 NFs', rec: '16 GB RAM' },
-              { valor: 500, label: '500 NFs', rec: 'Workstation' },
-            ].map(op => (
-              <button key={op.valor} onClick={() => setTamLote(op.valor)}
-                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: tamLote === op.valor ? 700 : 400, cursor: 'pointer',
-                  border: `2px solid ${tamLote === op.valor ? S.blue : S.border}`,
-                  background: tamLote === op.valor ? '#EFF6FF' : S.white,
-                  color: tamLote === op.valor ? S.blue : S.ghost }}>
-                {op.label}
-                <span style={{ fontSize: 10, display: 'block', fontWeight: 400 }}>{op.rec}</span>
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: S.ghost, lineHeight: 1.7, background: S.bg, borderRadius: 7, padding: '8px 12px' }}>
-            🟢 <strong>50</strong> — PCs até 4GB · 🔵 <strong>100</strong> — Padrão (8GB) · 🟡 <strong>200</strong> — 16GB · 🔴 <strong>500</strong> — Workstation apenas<br />
-            <span style={{ color: S.orange }}>⚠️ Se travar, clique em Limpar, reduza o lote e tente novamente.</span>
-          </div>
-        </div>
-      )}
-
       {/* DROP ZONE */}
       {!temDados && !processando && (
         <div onDrop={e => { e.preventDefault(); processarArquivos(e.dataTransfer.files); }}
@@ -820,20 +873,17 @@ export default function ExclusaoICMS({ cliente }) {
         </div>
       )}
 
-      {/* SKELETON PREVIEW — só quando não tem dados e não está processando */}
+      {/* SKELETON PREVIEW */}
       {!temDados && !processando && (
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden' }}>
-          {/* KPIs ghost */}
           <div style={{ padding: 16, borderBottom: `1px solid ${S.border}` }}>
             <SkeletonKPIs labels={['Crédito Total','Crédito PIS','Crédito COFINS','ICMS Excluído','NF-e Analisadas','Competências']} />
           </div>
-          {/* Tabs ghost */}
           <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, padding: '0 16px', overflowX: 'auto' }}>
             {['📅 Por Competência','📄 Por Nota Fiscal','📐 Memória de Cálculo','📋 Relatório Profissional'].map((t, i) => (
               <div key={t} style={{ padding: '11px 16px', fontSize: 12, color: i === 0 ? S.blue : S.ghost, borderBottom: i === 0 ? `2px solid ${S.blue}` : '2px solid transparent', fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap' }}>{t}</div>
             ))}
           </div>
-          {/* Tabela ghost */}
           <div style={{ overflowX: 'auto' }}>
             <SkeletonTabela colunas={['Competência','NF-es','Valor Total','ICMS Excluído','Base s/ ICMS','Créd. PIS','Créd. COFINS','Total']} linhas={5} />
           </div>
@@ -863,7 +913,7 @@ export default function ExclusaoICMS({ cliente }) {
         </div>
       )}
 
-      {/* KPIs COM DADOS */}
+      {/* KPIs */}
       {temDados && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
           {[
@@ -883,7 +933,7 @@ export default function ExclusaoICMS({ cliente }) {
         </div>
       )}
 
-      {/* ABAS COM DADOS */}
+      {/* ABAS */}
       {temDados && (
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden' }}>
 
@@ -904,63 +954,61 @@ export default function ExclusaoICMS({ cliente }) {
               </button>
             ))}
             <div style={{ flex: 1 }} />
-            <button onClick={() => {
-              const csv = [
-                ['NF','Data','Competência','Emitente','Valor NF','ICMS','Base s/ ICMS','Alíq PIS','PIS Pago','PIS Correto','Créd PIS','Alíq COFINS','COFINS Pago','COFINS Correto','Créd COFINS','Total'],
-                ...notas.map(n => [n.nNF, n.dataEmissao, n.competencia, n.nomeEmit, n.vNF.toFixed(2), n.vICMS.toFixed(2), n.baseSemICMS.toFixed(2), (n.aliqPIS*100).toFixed(4), n.vPIS.toFixed(2), n.pisCorreto.toFixed(2), n.creditoPIS.toFixed(2), (n.aliqCOFINS*100).toFixed(4), n.vCOFINS.toFixed(2), n.cofinsCorreto.toFixed(2), n.creditoCOFINS.toFixed(2), n.creditoTotal.toFixed(2)])
-              ].map(r => r.join(';')).join('\n');
-              const a = document.createElement('a');
-              a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }));
-              a.download = `exclusao_icms_${cliente?.cnpj || 'cliente'}.csv`; a.click();
-            }} style={{ margin: '6px 12px', background: S.green, color: '#fff', border: 'none', borderRadius: 7, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <button onClick={exportarCSV}
+              style={{ margin: '6px 6px', background: S.green, color: '#fff', border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               ⬇ CSV
             </button>
           </div>
 
           {/* ABA — Por Competência */}
           {aba === 'competencia' && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
-                <thead>
-                  <tr style={{ background: S.tableHeader }}>
-                    {['Competência','NF-es','Valor Total','ICMS Excluído','Base s/ ICMS','PIS Pago','PIS Correto','Créd. PIS','COFINS Pago','COFINS Correto','Créd. COFINS','Total'].map(h => (
-                      <th key={h} style={{ color: '#fff', padding: '10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {competencias.map((c, i) => (
-                    <tr key={c.competencia} onClick={() => { setAba('notas'); setBusca(c.competencia); setPagina(1); }}
-                      style={{ background: i % 2 === 0 ? S.bg : S.white, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
-                      <td style={{ padding: '9px 10px', fontWeight: 700, color: S.blue }}>{c.competencia}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{c.qtdNF}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vNF)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.orange, fontWeight: 600 }}>{formatBRL(c.vICMS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.baseSemICMS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vPIS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.pisCorreto)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(c.creditoPIS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vCOFINS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.cofinsCorreto)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(c.creditoCOFINS)}</td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 700 }}>{formatBRL(c.creditoTotal)}</td>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.border}` }}>
+                <BotoesAba elementId="print-competencia" nomeArquivo={`competencia_${cliente?.cnpj || 'cliente'}`} />
+              </div>
+              <div id="print-competencia" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+                  <thead>
+                    <tr style={{ background: S.tableHeader }}>
+                      {['Competência','NF-es','Valor Total','ICMS Excluído','Base s/ ICMS','PIS Pago','PIS Correto','Créd. PIS','COFINS Pago','COFINS Correto','Créd. COFINS','Total'].map(h => (
+                        <th key={h} style={{ color: '#fff', padding: '10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 11 }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: S.navy }}>
-                    <td style={{ padding: '10px', color: '#fff', fontWeight: 700 }}>TOTAL</td>
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#CBD5E1' }}>{notas.length}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#CBD5E1' }}>{formatBRL(totalNF)}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#FED7AA', fontWeight: 700 }}>{formatBRL(totalICMS)}</td>
-                    <td /><td /><td />
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalPIS)}</td>
-                    <td /><td />
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalCOFINS)}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalCredito)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody>
+                    {competencias.map((c, i) => (
+                      <tr key={c.competencia} onClick={() => { setAba('notas'); setBusca(c.competencia); setPagina(1); }}
+                        style={{ background: i % 2 === 0 ? S.bg : S.white, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
+                        <td style={{ padding: '9px 10px', fontWeight: 700, color: S.blue }}>{c.competencia}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{c.qtdNF}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vNF)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.orange, fontWeight: 600 }}>{formatBRL(c.vICMS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.baseSemICMS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vPIS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.pisCorreto)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(c.creditoPIS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.vCOFINS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(c.cofinsCorreto)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 600 }}>{formatBRL(c.creditoCOFINS)}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', color: S.green, fontWeight: 700 }}>{formatBRL(c.creditoTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: S.navy }}>
+                      <td style={{ padding: '10px', color: '#fff', fontWeight: 700 }}>TOTAL</td>
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#CBD5E1' }}>{notas.length}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#CBD5E1' }}>{formatBRL(totalNF)}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#FED7AA', fontWeight: 700 }}>{formatBRL(totalICMS)}</td>
+                      <td /><td /><td />
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalPIS)}</td>
+                      <td /><td />
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalCOFINS)}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', color: '#6EE7B7', fontWeight: 700 }}>{formatBRL(totalCredito)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           )}
 
@@ -976,8 +1024,9 @@ export default function ExclusaoICMS({ cliente }) {
                   {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n} por página</option>)}
                 </select>
                 <span style={{ fontSize: 11, color: S.ghost }}>{notasFiltradas.length} NF-es</span>
+                <BotoesAba elementId="print-notas" nomeArquivo={`notas_${cliente?.cnpj || 'cliente'}`} />
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div id="print-notas" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
                     <tr style={{ background: S.tableHeader }}>
@@ -1038,10 +1087,13 @@ export default function ExclusaoICMS({ cliente }) {
           {/* ABA — Memória de Cálculo */}
           {aba === 'memoria' && (
             <div style={{ padding: '12px 16px' }}>
-              <div style={{ background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: S.navy, fontWeight: 600 }}>
-                📐 Memória de Cálculo completa — clique em qualquer NF para expandir o detalhamento passo a passo
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: S.navy, fontWeight: 600 }}>
+                  📐 Clique em qualquer NF para expandir o detalhamento
+                </div>
+                <BotoesAba elementId="print-memoria" nomeArquivo={`memoria_calculo_${cliente?.cnpj || 'cliente'}`} />
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div id="print-memoria" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
                     <tr style={{ background: S.tableHeader }}>
@@ -1107,7 +1159,12 @@ export default function ExclusaoICMS({ cliente }) {
           {/* ABA — Relatório Profissional */}
           {aba === 'relatorio' && (
             <div style={{ padding: 20 }}>
-              <RelatorioProfissional notas={notas} cliente={cliente} perfil={perfil} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 8 }}>
+                <BotoesAba elementId="print-relatorio" nomeArquivo={`relatorio_${cliente?.cnpj || 'cliente'}`} />
+              </div>
+              <div id="print-relatorio">
+                <RelatorioProfissional notas={notas} cliente={cliente} perfil={perfil} />
+              </div>
             </div>
           )}
 
