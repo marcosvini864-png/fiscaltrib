@@ -10,39 +10,39 @@ const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f59e0
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
 const MODULOS_EXT = [
-  { id: 'dashboard',  label: '📊 Dashboard' },
-  { id: 'kanban',     label: '🗂️ Kanban' },
-  { id: 'chatbot',    label: '🎧 Chat Bot' },
-  { id: 'campanhas',  label: '📣 Campanhas' },
-  { id: 'importar',   label: '🔀 Importar' },
-  { id: 'link_qr',    label: '🔗 Link/QR' },
-  { id: 'lembretes',  label: '⏰ Lembretes' },
-  { id: 'webhooks',   label: '⚙️ Webhooks' },
+  { id: 'dashboard', label: '📊 Dashboard' },
+  { id: 'kanban',    label: '🗂️ Kanban' },
+  { id: 'chatbot',   label: '🎧 Chat Bot' },
+  { id: 'campanhas', label: '📣 Campanhas' },
+  { id: 'importar',  label: '🔀 Importar' },
+  { id: 'link_qr',   label: '🔗 Link/QR' },
+  { id: 'lembretes', label: '⏰ Lembretes' },
+  { id: 'webhooks',  label: '⚙️ Webhooks' },
 ]
 
 const MODULOS_SITE = [
-  { id: 'clientes',              label: '👤 Clientes' },
-  { id: 'gestao_empresas',       label: '🏢 Gestão de Empresas' },
-  { id: 'grupo_empresas',        label: '📁 Grupo de Empresas' },
-  { id: 'scanner',               label: '🔍 Scanner Tributário' },
-  { id: 'exclusao_icms',         label: '🧾 Tema 69 — Exclusão ICMS' },
-  { id: 'recuperacao_monofasico',label: '💊 Monofásicos PIS/COFINS' },
-  { id: 'icms_st_rec',           label: '📄 ICMS-ST Pago a Maior' },
-  { id: 'divida',                label: '⚠️ Dívida Ativa' },
-  { id: 'monofasicos',           label: '💊 Monofásicos' },
-  { id: 'pgdas',                 label: '📄 PGDAS-D' },
-  { id: 'painel_simples',        label: '📊 Painel de Controle' },
-  { id: 'dados_complementares',  label: '📋 Dados Complementares' },
-  { id: 'classificacao_itens',   label: '📋 Classificação de Itens' },
-  { id: 'apuracao_simples',      label: '📅 Apuração do Simples' },
-  { id: 'recuperacao',           label: '🧾 PER/DCOMP' },
-  { id: 'sped',                  label: '🔎 Auditor de SPED' },
-  { id: 'analise',               label: '📈 Análise Fiscal' },
-  { id: 'prazos',                label: '⏳ Prazos' },
-  { id: 'relatorios',            label: '📄 Relatórios' },
-  { id: 'inteligencia',          label: '🧠 Inteligência Tributária' },
-  { id: 'prospeccao',            label: '🤝 CRM Comercial' },
-  { id: 'mensagens',             label: '💬 Comunicação' },
+  { id: 'clientes',               label: '👤 Clientes' },
+  { id: 'gestao_empresas',        label: '🏢 Gestão de Empresas' },
+  { id: 'grupo_empresas',         label: '📁 Grupo de Empresas' },
+  { id: 'scanner',                label: '🔍 Scanner Tributário' },
+  { id: 'exclusao_icms',          label: '🧾 Tema 69 — Exclusão ICMS' },
+  { id: 'recuperacao_monofasico', label: '💊 Monofásicos PIS/COFINS' },
+  { id: 'icms_st_rec',            label: '📄 ICMS-ST Pago a Maior' },
+  { id: 'divida',                 label: '⚠️ Dívida Ativa' },
+  { id: 'monofasicos',            label: '💊 Monofásicos' },
+  { id: 'pgdas',                  label: '📄 PGDAS-D' },
+  { id: 'painel_simples',         label: '📊 Painel de Controle' },
+  { id: 'dados_complementares',   label: '📋 Dados Complementares' },
+  { id: 'classificacao_itens',    label: '📋 Classificação de Itens' },
+  { id: 'apuracao_simples',       label: '📅 Apuração do Simples' },
+  { id: 'recuperacao',            label: '🧾 PER/DCOMP' },
+  { id: 'sped',                   label: '🔎 Auditor de SPED' },
+  { id: 'analise',                label: '📈 Análise Fiscal' },
+  { id: 'prazos',                 label: '⏳ Prazos' },
+  { id: 'relatorios',             label: '📄 Relatórios' },
+  { id: 'inteligencia',           label: '🧠 Inteligência Tributária' },
+  { id: 'prospeccao',             label: '🤝 CRM Comercial' },
+  { id: 'mensagens',              label: '💬 Comunicação' },
 ]
 
 const C = {
@@ -77,24 +77,20 @@ export default function Admin({ onVoltar }) {
   const [enviandoBkp,  setEnviandoBkp]  = useState(false)
   const [msgBkp,       setMsgBkp]       = useState('')
   const [abaAtiva,     setAbaAtiva]     = useState('usuarios')
-
-  const [bonEmail,   setBonEmail]   = useState('')
-  const [bonPlano,   setBonPlano]   = useState('avancado')
-  const [bonTipo,    setBonTipo]    = useState('prazo')
-  const [bonDias,    setBonDias]    = useState('90')
-  const [bonLoading, setBonLoading] = useState(false)
-  const [bonMsg,     setBonMsg]     = useState('')
-
-  const [sessoes,     setSessoes]     = useState([])
-  const [loadSessoes, setLoadSessoes] = useState(false)
-  const [abaDesenv,   setAbaDesenv]   = useState('laboratorio')
+  const [bonEmail,     setBonEmail]     = useState('')
+  const [bonPlano,     setBonPlano]     = useState('avancado')
+  const [bonTipo,      setBonTipo]      = useState('prazo')
+  const [bonDias,      setBonDias]      = useState('90')
+  const [bonLoading,   setBonLoading]   = useState(false)
+  const [bonMsg,       setBonMsg]       = useState('')
+  const [sessoes,      setSessoes]      = useState([])
+  const [loadSessoes,  setLoadSessoes]  = useState(false)
+  const [abaDesenv,    setAbaDesenv]    = useState('laboratorio')
   const monitorRef = useRef(null)
-
-  const [permissoes,    setPermissoes]    = useState({})
-  const [loadPerm,      setLoadPerm]      = useState(true)
-  const [buscaPerm,     setBuscaPerm]     = useState('')
-  const [salvandoPerm,  setSalvandoPerm]  = useState(null)
-
+  const [permissoes,       setPermissoes]       = useState({})
+  const [loadPerm,         setLoadPerm]         = useState(true)
+  const [buscaPerm,        setBuscaPerm]        = useState('')
+  const [salvandoPerm,     setSalvandoPerm]     = useState(null)
   const [permissoesSite,   setPermissoesSite]   = useState({})
   const [loadPermSite,     setLoadPermSite]     = useState(true)
   const [buscaPermSite,    setBuscaPermSite]    = useState('')
@@ -161,15 +157,16 @@ export default function Admin({ onVoltar }) {
     return linha[campo] !== false
   }
 
-  const atual = permissoesSite[usuarioId] || {
-  clientes: true, gestao_empresas: true, grupo_empresas: true,
-  scanner: true, exclusao_icms: true, recuperacao_monofasico: true,
-  icms_st_rec: true, divida: true, monofasicos: true, pgdas: true,
-  painel_simples: true, dados_complementares: true, classificacao_itens: true,
-  apuracao_simples: true, recuperacao: true, sped: true, analise: true,
-  prazos: true, relatorios: true, inteligencia: true,
-  prospeccao: true, mensagens: true,
-}
+  async function togglePermissaoSite(usuarioId, campo) {
+    const atual = permissoesSite[usuarioId] || {
+      clientes: true, gestao_empresas: true, grupo_empresas: true,
+      scanner: true, exclusao_icms: true, recuperacao_monofasico: true,
+      icms_st_rec: true, divida: true, monofasicos: true, pgdas: true,
+      painel_simples: true, dados_complementares: true, classificacao_itens: true,
+      apuracao_simples: true, recuperacao: true, sped: true, analise: true,
+      prazos: true, relatorios: true, inteligencia: true,
+      prospeccao: true, mensagens: true,
+    }
     const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
     setSalvandoPermSite(usuarioId + campo)
     setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
@@ -276,10 +273,9 @@ export default function Admin({ onVoltar }) {
   return (
     <div style={{minHeight:'100vh',background:C.bg,padding:'24px',fontFamily:'Inter, system-ui, sans-serif',boxSizing:'border-box'}}>
 
-      {/* HEADER */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,background:C.white,borderRadius:12,padding:'16px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',flexWrap:'wrap',gap:12}}>
         <div>
-          <h1 style={{color:C.navy,fontSize:20,fontWeight:700,margin:0}}>⚙️ Painel Admin — FiscalTrib</h1>
+          <h1 style={{color:C.navy,fontSize:20,fontWeight:700,margin:0}}>⚙️ Painel Admin — e-FiscalTribe®</h1>
           <p style={{color:C.muted,fontSize:13,margin:'4px 0 0'}}>Área exclusiva do administrador</p>
         </div>
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -300,16 +296,15 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* CARDS */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))',gap:12,marginBottom:24}}>
         {[
-          {label:'Total de Usuários',valor:total,          cor:'#64748b'},
-          {label:'Ativos',           valor:ativos,         cor:'#22c55e'},
-          {label:'Bloqueados',       valor:bloqueados,     cor:'#ef4444'},
-          {label:'Essencial',        valor:essencial,      cor:'#3b82f6'},
-          {label:'Avançado',         valor:avancado,       cor:'#8b5cf6'},
-          {label:'Premium',          valor:premium,        cor:'#f59e0b'},
-          {label:'Online agora',     valor:sessoes.length, cor:'#10b981'},
+          {label:'Total de Usuários', valor:total,          cor:'#64748b'},
+          {label:'Ativos',            valor:ativos,         cor:'#22c55e'},
+          {label:'Bloqueados',        valor:bloqueados,     cor:'#ef4444'},
+          {label:'Essencial',         valor:essencial,      cor:'#3b82f6'},
+          {label:'Avançado',          valor:avancado,       cor:'#8b5cf6'},
+          {label:'Premium',           valor:premium,        cor:'#f59e0b'},
+          {label:'Online agora',      valor:sessoes.length, cor:'#10b981'},
         ].map((c,i)=>(
           <div key={i} style={{background:C.white,borderRadius:10,padding:16,display:'flex',flexDirection:'column',gap:4,borderTop:`3px solid ${c.cor}`,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)',minWidth:0,boxSizing:'border-box'}}>
             <span style={{fontSize:26,fontWeight:700,color:c.cor}}>{c.valor}</span>
@@ -318,15 +313,14 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
-      {/* ABAS PRINCIPAIS */}
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[
-          {key:'usuarios',    label:'👥 Usuários'},
-          {key:'bonificacao', label:'🎁 Liberar Acesso Bonificado'},
+          {key:'usuarios',       label:'👥 Usuários'},
+          {key:'bonificacao',    label:'🎁 Liberar Acesso Bonificado'},
           {key:'permissoessite', label:'🖥️ Permissões do Sistema'},
-          {key:'permissoes',  label:'🧩 Permissões da Extensão'},
-          {key:'monitor',     label:'👁️ Monitoramento em Tempo Real'},
-          {key:'desenvolvimento', label:'🔬 Centro de Desenvolvimento'},
+          {key:'permissoes',     label:'🧩 Permissões da Extensão'},
+          {key:'monitor',        label:'👁️ Monitoramento em Tempo Real'},
+          {key:'desenvolvimento',label:'🔬 Centro de Desenvolvimento'},
         ].map(a=>(
           <button key={a.key} onClick={()=>setAbaAtiva(a.key)}
             style={{padding:'7px 16px',borderRadius:20,border:`1px solid ${abaAtiva===a.key?C.navy:C.border}`,background:abaAtiva===a.key?C.navy:'transparent',color:abaAtiva===a.key?C.white:C.muted,cursor:'pointer',fontSize:13,fontWeight:abaAtiva===a.key?600:400}}>
@@ -335,17 +329,15 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
-      {/* ── ABA PERMISSÕES DO SISTEMA (SITE) ── */}
       {abaAtiva === 'permissoessite' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🖥️ Permissões do Sistema (fiscaltrib.com.br)</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
-            Controle quais módulos do site cada cliente enxerga. Ex: deixe só "Prospecção" ligado para vender apenas o CRM/Kanban, sem nenhum módulo tributário. Todos os módulos vêm habilitados por padrão.
+            Controle quais módulos do site cada cliente enxerga. Todos os módulos vêm habilitados por padrão.
           </div>
           <input
             style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
             placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPermSite} onChange={e=>setBuscaPermSite(e.target.value)} />
-
           {(load || loadPermSite) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPermSite.length === 0 ? (
@@ -386,7 +378,6 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ── ABA PERMISSÕES DA EXTENSÃO ── */}
       {abaAtiva === 'permissoes' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🧩 Permissões da Extensão do WhatsApp</div>
@@ -396,7 +387,6 @@ export default function Admin({ onVoltar }) {
           <input
             style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
             placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPerm} onChange={e=>setBuscaPerm(e.target.value)} />
-
           {(load || loadPerm) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPerm.length === 0 ? (
@@ -437,7 +427,6 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ── ABA MONITORAMENTO ── */}
       {abaAtiva === 'monitor' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
@@ -485,12 +474,11 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ── ABA BONIFICAÇÃO ── */}
       {abaAtiva === 'bonificacao' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🎁 Liberar Acesso Bonificado</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:20}}>
-            Dê acesso gratuito ao FiscalTrib para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
+            Dê acesso gratuito ao e-FiscalTribe® para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:16,marginBottom:16}}>
             <div>
@@ -543,7 +531,6 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
-      {/* ── ABA USUÁRIOS ── */}
       {abaAtiva === 'usuarios' && <>
         <div style={{marginBottom:16}}>
           <input
@@ -613,20 +600,16 @@ export default function Admin({ onVoltar }) {
         )}
       </>}
 
-      {/* ── ABA CENTRO DE DESENVOLVIMENTO ── */}
       {abaAtiva === 'desenvolvimento' && (
         <div>
-          {/* Header do Centro */}
           <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff',boxSizing:'border-box'}}>
-            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — USO INTERNO</div>
-            <h2 style={{fontSize:20,fontWeight:900,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
+            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>e-FISCALTRIBE® — USO INTERNO</div>
+            <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
             <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Ferramentas internas de teste, homologação e desenvolvimento. Não visível aos usuários do sistema.</p>
           </div>
-
-          {/* Sub-abas do Centro */}
           <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
             {[
-              {key:'laboratorio', label:'🧪 Laboratório FiscalTrib'},
+              {key:'laboratorio', label:'🧪 Laboratório'},
               {key:'cenarios',    label:'📚 Base de Cenários'},
               {key:'logs',        label:'📝 Logs de Homologação'},
               {key:'ferramentas', label:'🔧 Ferramentas'},
@@ -637,26 +620,22 @@ export default function Admin({ onVoltar }) {
               </button>
             ))}
           </div>
-
-          {/* Laboratório */}
           {abaDesenv === 'laboratorio' && <Laboratorio />}
-
-          {/* Base de Cenários */}
           {abaDesenv === 'cenarios' && (
             <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center',boxSizing:'border-box'}}>
               <div style={{fontSize:40,marginBottom:12}}>📚</div>
               <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D',marginBottom:8}}>Base de Cenários de Homologação</div>
               <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
-                Biblioteca de empresas fictícias completas para teste do FiscalTrib.<br/>
+                Biblioteca de empresas fictícias completas para teste do e-FiscalTribe®.<br/>
                 Importe pelo Laboratório e os cenários ficam registrados aqui.
               </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:12,maxWidth:600,margin:'0 auto'}}>
                 {[
-                  {codigo:'FT-001',nome:'Comércio Varejista',regime:'Simples Nacional',status:'Em breve'},
-                  {codigo:'FT-002',nome:'Prestadora de Serviços',regime:'Simples Nacional',status:'Em breve'},
-                  {codigo:'FT-003',nome:'Indústria',regime:'Lucro Presumido',status:'Em breve'},
-                  {codigo:'FT-004',nome:'Lucro Real',regime:'Lucro Real',status:'Em breve'},
-                  {codigo:'FT-005',nome:'Casos com Erros',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-001',nome:'Comércio Varejista',      regime:'Simples Nacional', status:'Em breve'},
+                  {codigo:'FT-002',nome:'Prestadora de Serviços',   regime:'Simples Nacional', status:'Em breve'},
+                  {codigo:'FT-003',nome:'Indústria',                regime:'Lucro Presumido',  status:'Em breve'},
+                  {codigo:'FT-004',nome:'Lucro Real',               regime:'Lucro Real',       status:'Em breve'},
+                  {codigo:'FT-005',nome:'Casos com Erros',          regime:'Simples Nacional', status:'Em breve'},
                 ].map((c,i)=>(
                   <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left',minWidth:0,boxSizing:'border-box'}}>
                     <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,marginBottom:4}}>{c.codigo}</div>
@@ -668,18 +647,14 @@ export default function Admin({ onVoltar }) {
               </div>
             </div>
           )}
-
-          {/* Logs */}
           {abaDesenv === 'logs' && <LogsHomologacao />}
-
-          {/* Ferramentas */}
           {abaDesenv === 'ferramentas' && (
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))',gap:14}}>
               {[
-                {icon:'🗑️',titulo:'Limpar banco de testes',desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.',cor:'#dc2626',btn:'Limpar',disabled:false},
-                {icon:'📊',titulo:'Relatório de cobertura',desc:'Verifica quais módulos do FiscalTrib foram testados nos cenários importados.',cor:'#2563eb',btn:'Gerar',disabled:true},
-                {icon:'🔄',titulo:'Sincronizar layouts CSV',desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',cor:'#7c3aed',btn:'Sincronizar',disabled:true},
-                {icon:'📤',titulo:'Exportar todos os cenários',desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',cor:'#d97706',btn:'Exportar',disabled:true},
+                {icon:'🗑️',titulo:'Limpar banco de testes',     desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.', cor:'#dc2626',btn:'Limpar',    disabled:false},
+                {icon:'📊',titulo:'Relatório de cobertura',      desc:'Verifica quais módulos foram testados nos cenários importados.',               cor:'#2563eb',btn:'Gerar',     disabled:true},
+                {icon:'🔄',titulo:'Sincronizar layouts CSV',     desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',   cor:'#7c3aed',btn:'Sincronizar',disabled:true},
+                {icon:'📤',titulo:'Exportar todos os cenários',  desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',     cor:'#d97706',btn:'Exportar',  disabled:true},
               ].map((f,i)=>(
                 <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px',minWidth:0,boxSizing:'border-box'}}>
                   <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
@@ -699,7 +674,6 @@ export default function Admin({ onVoltar }) {
   )
 }
 
-// ── Logs de Homologação ──────────────────────────────────────────────
 function LogsHomologacao() {
   const [logs, setLogs] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -731,9 +705,9 @@ function LogsHomologacao() {
     <div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12,marginBottom:16}}>
         {[
-          {label:'Total de logs',    valor:logs.length,                        cor:'#0B1F4D'},
-          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'), cor:'#16a34a'},
-          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'), cor:'#dc2626'},
+          {label:'Total de logs',    valor:logs.length,                                   cor:'#0B1F4D'},
+          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'),       cor:'#16a34a'},
+          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'),       cor:'#dc2626'},
           {label:'Último import',    valor:logs[0]?new Date(logs[0].created_at).toLocaleDateString('pt-BR'):'—', cor:'#7c3aed'},
         ].map((c,i)=>(
           <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px',minWidth:0,boxSizing:'border-box'}}>
