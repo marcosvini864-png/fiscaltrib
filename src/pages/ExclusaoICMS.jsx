@@ -22,22 +22,16 @@ function hoje() { return new Date().toLocaleDateString('pt-BR'); }
 
 const GHOST_WIDTHS = [80, 65, 90, 55, 70, 85, 60, 75];
 
-function GhostCell({ w = 70, right = false }) {
-  return (
-    <td style={{ padding: '12px 12px' }}>
-      <div style={{ height: 14, borderRadius: 4, background: '#CBD5E1', width: w + '%', marginLeft: right ? 'auto' : 0, minWidth: 40 }} />
-    </td>
-  );
-}
-
 function SkeletonKPIs({ labels }) {
+  const valores = ['R$ 12.543,90', 'R$ 4.218,30', 'R$ 8.325,60', 'R$ 45.230,00', '127', '8'];
+  const descs   = ['PIS + COFINS pagos a maior', 'PIS pago sobre base inflada', 'COFINS pago sobre base inflada', 'Retirado da base', 'Notas processadas', 'Períodos cobertos'];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
-      {labels.map(k => (
+      {labels.map((k, idx) => (
         <div key={k} style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 11, color: S.ghost, marginBottom: 6 }}>{k}</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#CBD5E1', marginBottom: 6 }}>—</div>
-          <div style={{ height: 10, width: '55%', borderRadius: 4, background: '#F1F5F9' }} />
+          <div style={{ fontSize: 11, color: '#CBD5E1', marginBottom: 5 }}>{k}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#CBD5E1', marginBottom: 3 }}>{valores[idx] || '—'}</div>
+          <div style={{ fontSize: 10, color: '#E2E8F0' }}>{descs[idx] || ''}</div>
         </div>
       ))}
     </div>
@@ -45,6 +39,13 @@ function SkeletonKPIs({ labels }) {
 }
 
 function SkeletonTabela({ colunas, linhas = 5 }) {
+  const dadosFicticios = [
+    ['2024-01', '12', 'R$ 45.230,00', 'R$ 5.427,60', 'R$ 39.802,40', 'R$ 148,96', 'R$ 685,54', 'R$ 834,50'],
+    ['2024-02', '8',  'R$ 31.180,00', 'R$ 3.741,60', 'R$ 27.438,40', 'R$ 102,84', 'R$ 473,14', 'R$ 575,98'],
+    ['2024-03', '15', 'R$ 58.900,00', 'R$ 7.068,00', 'R$ 51.832,00', 'R$ 194,37', 'R$ 894,06', 'R$ 1.088,43'],
+    ['2024-04', '10', 'R$ 42.750,00', 'R$ 5.130,00', 'R$ 37.620,00', 'R$ 141,07', 'R$ 648,82', 'R$ 789,89'],
+    ['2024-05', '6',  'R$ 24.600,00', 'R$ 2.952,00', 'R$ 21.648,00', 'R$ 81,17',  'R$ 373,39', 'R$ 454,56'],
+  ];
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
@@ -57,8 +58,11 @@ function SkeletonTabela({ colunas, linhas = 5 }) {
       <tbody>
         {Array(linhas).fill(null).map((_, i) => (
           <tr key={i} style={{ background: i % 2 === 0 ? S.bg : S.white, borderBottom: `1px solid ${S.border}` }}>
-            <GhostCell w={55} />
-            {colunas.slice(1).map((_, j) => <GhostCell key={j} w={GHOST_WIDTHS[j % GHOST_WIDTHS.length]} right />)}
+            {colunas.map((_, j) => (
+              <td key={j} style={{ padding: '10px 12px', textAlign: j === 0 ? 'left' : 'right', color: '#CBD5E1', fontWeight: j === 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                {dadosFicticios[i]?.[j] || '—'}
+              </td>
+            ))}
           </tr>
         ))}
       </tbody>
