@@ -977,13 +977,19 @@ export default function ExclusaoICMS({ cliente }) {
               </div>
           }
           <div>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: S.blue, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              📁 Selecionar PNG
-              <input ref={logoRef} type="file" accept=".png,.jpg,.jpeg" style={{ display: 'none' }}
-                onChange={e => { if (e.target.files[0]) uploadLogo(e.target.files[0]); }} />
-            </label>
-            <div style={{ fontSize: 11, color: S.ghost, marginTop: 6 }}>PNG, JPG — fundo transparente recomendado</div>
-          </div>
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: S.blue, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+    📁 Selecionar PNG
+    <input ref={logoRef} type="file" accept=".png,.jpg,.jpeg" style={{ display: 'none' }}
+      onChange={e => { if (e.target.files[0]) uploadLogo(e.target.files[0]); }} />
+    </label>
+    {(perfilForm.logo_url || perfil?.logo_url) && (
+    <button onClick={() => { setPerfilForm(p => ({ ...p, logo_url: '' })); setPerfil(p => ({ ...p, logo_url: '' })); }}
+      style={{ marginLeft: 10, padding: '8px 14px', background: '#FEF2F2', color: S.red, border: `1px solid #FECACA`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+      🗑 Remover Logo
+      </button>
+      )}
+      <div style={{ fontSize: 11, color: S.ghost, marginTop: 6 }}>PNG, JPG — fundo transparente recomendado</div>
+       </div>
         </div>
       </div>
 
