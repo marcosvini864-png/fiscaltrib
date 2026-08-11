@@ -1023,15 +1023,23 @@ export default function ExclusaoICMS({ cliente }) {
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={salvarPerfil} disabled={salvandoPerfil}
-          style={{ padding: '9px 20px', background: S.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {salvandoPerfil ? 'Salvando...' : '💾 Salvar Perfil'}
-        </button>
-        <button onClick={() => setEditandoPerfil(false)}
-          style={{ padding: '9px 16px', background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, color: S.ghost, cursor: 'pointer' }}>
-          Cancelar
-        </button>
-      </div>
+    <button onClick={salvarPerfil} disabled={salvandoPerfil}
+    style={{ padding: '9px 20px', background: S.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+    {salvandoPerfil ? 'Salvando...' : '💾 Salvar Perfil'}
+    </button>
+    <button onClick={() => {
+    if (window.confirm('Limpar todos os dados do escritório?')) {
+      setPerfilForm({ logo_url: '', nome_escritorio: '', responsavel: '', crc: '', endereco: '', telefone: '', whatsapp: '', email: '', site: '' });
+    }
+    }}
+    style={{ padding: '9px 16px', background: '#FEF2F2', color: S.red, border: `1px solid #FECACA`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+    🗑 Limpar Dados
+   </button>
+   <button onClick={() => setEditandoPerfil(false)}
+    style={{ padding: '9px 16px', background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, color: S.ghost, cursor: 'pointer' }}>
+    Cancelar
+    </button>
+    </div>
     </div>
   );
 
