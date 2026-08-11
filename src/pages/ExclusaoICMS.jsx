@@ -24,8 +24,8 @@ const GHOST_WIDTHS = [80, 65, 90, 55, 70, 85, 60, 75];
 
 function GhostCell({ w = 70, right = false }) {
   return (
-    <td style={{ padding: '10px 12px' }}>
-      <div style={{ height: 13, borderRadius: 4, background: '#E2E8F0', width: w + '%', marginLeft: right ? 'auto' : 0 }} />
+    <td style={{ padding: '12px 12px' }}>
+      <div style={{ height: 14, borderRadius: 4, background: '#CBD5E1', width: w + '%', marginLeft: right ? 'auto' : 0, minWidth: 40 }} />
     </td>
   );
 }
