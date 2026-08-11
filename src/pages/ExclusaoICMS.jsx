@@ -844,10 +844,10 @@ export default function ExclusaoICMS({ cliente }) {
           <div style={{ fontSize: 12, color: S.ghost }}>Suporta centenas de arquivos em lote · Apenas NF-e de saída são processadas</div>
 		  <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
          {[
-          { valor: 50,  label: '50 NFs',  rec: 'até 4 GB' },
-          { valor: 100, label: '100 NFs', rec: '8 GB' },
-          { valor: 200, label: '200 NFs', rec: '16 GB' },
-          { valor: 500, label: '500 NFs', rec: 'Workstation' },
+          { valor: 50,  label: '50 NFs',  rec: 'PCs lentos' },
+          { valor: 100, label: '100 NFs', rec: 'Recomendado' },
+          { valor: 200, label: '200 NFs', rec: 'PCs modernos' },
+          { valor: 500, label: '500 NFs', rec: 'PCs rápidos' },
           ].map(op => (
           <button key={op.valor} onClick={() => setTamLote(op.valor)}
          style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: tamLote === op.valor ? 700 : 400, cursor: 'pointer',
