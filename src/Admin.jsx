@@ -203,18 +203,17 @@ async function togglePermissaoSite(usuarioId, campo) {
 
   async function excluirUsuario(u) {
     if (!window.confirm(`Excluir ${u.nome_completo || u.email}? Esta ação não pode ser desfeita.`)) return
-    await supabase.from('assinaturas').delete().eq('usuario_id', u.id)
-    await supabase.from('entradas').delete().eq('usuario_id', u.id)
-    await supabase.from('recuperacoes').delete().eq('usuario_id', u.id)
-    await supabase.from('acompanhamentos').delete().eq('usuario_id', u.id)
-    await supabase.from('prazos_fiscais').delete().eq('usuario_id', u.id)
-    await supabase.from('clientes').delete().eq('usuario_id', u.id)
-    await supabase.from('sessoes_ativas').delete().eq('usuario_id', u.id)
-    await supabase.from('extensao_permissoes').delete().eq('usuario_id', u.id)
-    await supabase.from('modulos_permissoes').delete().eq('usuario_id', u.id)
-    await supabase.from('usuarios').delete().eq('id', u.id)
-    await supabase.rpc('deletar_usuario', { uid: u.id })
-    setUsuarios(prev => prev.filter(x => x.id !== u.id))
+    try {
+      const { data, error } = await supabase.functions.invoke('deletar-usuario', {
+        body: { usuario_id: u.id, email: u.email }
+      })
+      if (error) throw error
+      if (!data?.success) throw new Error(data?.error || 'Erro ao excluir')
+      setUsuarios(prev => prev.filter(x => x.id !== u.id))
+      alert('✅ Usuário excluído com sucesso!')
+    } catch (e) {
+      alert('❌ Erro ao excluir usuário: ' + e.message)
+    }
   }
 
   async function enviarBackup() {
