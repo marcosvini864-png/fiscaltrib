@@ -991,21 +991,24 @@ export default function ExclusaoICMS({ cliente }) {
         <div style={{ fontWeight: 600, fontSize: 13, color: S.navy, marginBottom: 14 }}>Dados do Escritório</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           {[
-            ['nome_escritorio', 'Nome do Escritório / Empresa'],
-            ['responsavel',     'Nome do Responsável'],
-            ['crc',             'CRC / OAB'],
-            ['endereco',        'Endereço Completo'],
-            ['telefone',        'Telefone'],
-            ['whatsapp',        'WhatsApp'],
-            ['email',           'E-mail'],
-            ['site',            'Site'],
-          ].map(([key, label]) => (
-            <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: S.muted }}>{label}</label>
-              <input value={perfilForm[key] || ''} onChange={e => setPerfilForm(p => ({ ...p, [key]: e.target.value }))}
-                style={{ padding: '8px 12px', border: `1px solid ${S.border}`, borderRadius: 7, fontSize: 13, color: S.text, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-            </div>
-          ))}
+       ['nome_escritorio', 'Nome do Escritório / Empresa',  'Ex: Zenthor Consultoria & BPO'],
+       ['responsavel',     'Nome do Responsável',            'Ex: Dr. João Silva'],
+       ['crc',             'CRC / OAB',                     'Ex: CRC-SP 123456/O-1'],
+       ['endereco',        'Endereço Completo',              'Ex: Rua das Flores, 123 — São Paulo/SP'],
+       ['telefone',        'Telefone',                      'Ex: (11) 99999-9999'],
+       ['whatsapp',        'WhatsApp',                      'Ex: (11) 99999-9999'],
+       ['email',           'E-mail',                        'Ex: contato@escritorio.com.br'],
+       ['site',            'Site',                          'Ex: www.escritorio.com.br'],
+       ].map(([key, label, placeholder]) => (
+       <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+       <label style={{ fontSize: 11, fontWeight: 600, color: S.muted }}>{label}</label>
+       <input
+      value={perfilForm[key] || ''}
+      onChange={e => setPerfilForm(p => ({ ...p, [key]: e.target.value }))}
+      placeholder={placeholder}
+      style={{ padding: '8px 12px', border: `1px solid ${S.border}`, borderRadius: 7, fontSize: 13, color: S.text, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+      </div>
+      ))}
         </div>
       </div>
 
