@@ -395,7 +395,7 @@ async function exportarPDF(elementId, nomeArquivo, notasParaPDF = null, perfilPa
 
     // ── DISCLAIMER ──
     checarPagina(16);
-    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(148, 163, 184);
+    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(220, 38, 38);
     const disclaimer = 'Aviso Legal: Este parecer tem caráter diagnóstico e informativo. Não substitui análise de contador (CRC) ou advogado tributarista (OAB). A decisão de aproveitamento de créditos é de exclusiva responsabilidade do profissional responsável pelo contribuinte. e-FiscalTribe® — Zenthor Consultoria & BPO · ' + new Date().toLocaleDateString('pt-BR');
     const linhasDisclaimer = doc.splitTextToSize(disclaimer, W - margem * 2);
     doc.text(linhasDisclaimer, margem, y);
@@ -780,7 +780,7 @@ function RelatorioProfissional({ notas, cliente, perfil }) {
       <div style={{ background: S.bg, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ fontSize: 18, flexShrink: 0 }}>⚖️</div>
         <div style={{ fontSize: 11, color: S.ghost, lineHeight: 1.8 }}>
-          <strong style={{ color: S.muted }}>Aviso Legal:</strong> Parecer de caráter diagnóstico e informativo. Não substitui análise
+          <strong style={{ color: S.red }}>Aviso Legal:</strong> Parecer de caráter diagnóstico e informativo. Não substitui análise
           de contador (CRC) ou advogado tributarista (OAB). Aproveitamento de créditos e retificação de obrigações são de
           exclusiva responsabilidade do profissional responsável.{' '}
           {perfil?.nome_escritorio && `${perfil.nome_escritorio} · `}
