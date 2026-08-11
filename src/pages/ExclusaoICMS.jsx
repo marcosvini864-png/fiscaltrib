@@ -379,8 +379,6 @@ async function exportarPDF(elementId, nomeArquivo, notasParaPDF = null, perfilPa
 	  
 	  await new Promise(r => setTimeout(r, 0));
      }
-    });
-
     // ── TOTAL GERAL ──
     checarPagina(20);
     doc.setFillColor(11, 31, 77);
