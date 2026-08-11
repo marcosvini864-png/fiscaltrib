@@ -532,7 +532,7 @@ export default function ExclusaoICMS({ cliente }) {
   const [historico, setHistorico]     = useState([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [salvando, setSalvando]       = useState(false);
-  const [abaHistorico, setAbaHistorico] = useState(true);
+  const [abaHistorico, setAbaHistorico] = useState(false);
   const [gerandoPDF, setGerandoPDF]   = useState(false);
   const inputRef = useRef();
   const logoRef  = useRef();
@@ -547,6 +547,7 @@ export default function ExclusaoICMS({ cliente }) {
   }
 
   async function carregarHistorico() {
+	await new Promise(r => setTimeout(r, 800));
     setCarregandoHistorico(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setCarregandoHistorico(false); return; }
