@@ -291,7 +291,8 @@ async function exportarPDF(elementId, nomeArquivo, notasParaPDF = null, perfilPa
     separador();
 
     // ── NOTA POR NOTA ──
-    notasParaPDF.forEach((n, idx) => {
+    for (let idx = 0; idx < notasParaPDF.length; idx++) {
+    const n = notasParaPDF[idx];
       checarPagina(70);
 
       // Cabeçalho da NF
@@ -375,6 +376,9 @@ async function exportarPDF(elementId, nomeArquivo, notasParaPDF = null, perfilPa
         doc.line(margem, y, W - margem, y);
         y += 6;
       }
+	  
+	  await new Promise(r => setTimeout(r, 0));
+     }
     });
 
     // ── TOTAL GERAL ──
