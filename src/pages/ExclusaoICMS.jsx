@@ -530,7 +530,7 @@ export default function ExclusaoICMS({ cliente }) {
   const [perfilForm, setPerfilForm]   = useState({});
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [historico, setHistorico]     = useState([]);
-  const [carregandoHistorico, setCarregandoHistorico] = useState(true);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [salvando, setSalvando]       = useState(false);
   const [abaHistorico, setAbaHistorico] = useState(true);
   const [gerandoPDF, setGerandoPDF]   = useState(false);
