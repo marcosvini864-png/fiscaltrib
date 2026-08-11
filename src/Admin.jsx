@@ -21,16 +21,28 @@ const MODULOS_EXT = [
 ]
 
 const MODULOS_SITE = [
-  { id: 'painel',       label: '📊 Painel' },
-  { id: 'clientes',     label: '👥 Clientes' },
-  { id: 'analise',      label: '🔍 Análise Fiscal' },
-  { id: 'recuperacao',  label: '💰 Recuperação' },
-  { id: 'prazos',       label: '📅 Prazos' },
-  { id: 'relatorios',   label: '📄 Relatórios' },
-  { id: 'inteligencia', label: '🧠 Inteligência Tributária' },
-  { id: 'divida',       label: '⚖️ Dívida Ativa' },
-  { id: 'prospeccao',   label: '🎯 Prospecção' },
-  { id: 'mensagens',    label: '⚡ Mensagens Rápidas' },
+  { id: 'clientes',              label: '👤 Clientes' },
+  { id: 'gestao_empresas',       label: '🏢 Gestão de Empresas' },
+  { id: 'grupo_empresas',        label: '📁 Grupo de Empresas' },
+  { id: 'scanner',               label: '🔍 Scanner Tributário' },
+  { id: 'exclusao_icms',         label: '🧾 Tema 69 — Exclusão ICMS' },
+  { id: 'recuperacao_monofasico',label: '💊 Monofásicos PIS/COFINS' },
+  { id: 'icms_st_rec',           label: '📄 ICMS-ST Pago a Maior' },
+  { id: 'divida',                label: '⚠️ Dívida Ativa' },
+  { id: 'monofasicos',           label: '💊 Monofásicos' },
+  { id: 'pgdas',                 label: '📄 PGDAS-D' },
+  { id: 'painel_simples',        label: '📊 Painel de Controle' },
+  { id: 'dados_complementares',  label: '📋 Dados Complementares' },
+  { id: 'classificacao_itens',   label: '📋 Classificação de Itens' },
+  { id: 'apuracao_simples',      label: '📅 Apuração do Simples' },
+  { id: 'recuperacao',           label: '🧾 PER/DCOMP' },
+  { id: 'sped',                  label: '🔎 Auditor de SPED' },
+  { id: 'analise',               label: '📈 Análise Fiscal' },
+  { id: 'prazos',                label: '⏳ Prazos' },
+  { id: 'relatorios',            label: '📄 Relatórios' },
+  { id: 'inteligencia',          label: '🧠 Inteligência Tributária' },
+  { id: 'prospeccao',            label: '🤝 CRM Comercial' },
+  { id: 'mensagens',             label: '💬 Comunicação' },
 ]
 
 const C = {
@@ -149,11 +161,15 @@ export default function Admin({ onVoltar }) {
     return linha[campo] !== false
   }
 
-  async function togglePermissaoSite(usuarioId, campo) {
-    const atual = permissoesSite[usuarioId] || {
-      painel: true, clientes: true, analise: true, recuperacao: true, prazos: true,
-      relatorios: true, inteligencia: true, divida: true, prospeccao: true, mensagens: true,
-    }
+  const atual = permissoesSite[usuarioId] || {
+  clientes: true, gestao_empresas: true, grupo_empresas: true,
+  scanner: true, exclusao_icms: true, recuperacao_monofasico: true,
+  icms_st_rec: true, divida: true, monofasicos: true, pgdas: true,
+  painel_simples: true, dados_complementares: true, classificacao_itens: true,
+  apuracao_simples: true, recuperacao: true, sped: true, analise: true,
+  prazos: true, relatorios: true, inteligencia: true,
+  prospeccao: true, mensagens: true,
+}
     const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
     setSalvandoPermSite(usuarioId + campo)
     setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
