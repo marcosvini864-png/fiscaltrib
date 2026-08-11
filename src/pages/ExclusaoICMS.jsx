@@ -532,7 +532,7 @@ export default function ExclusaoICMS({ cliente }) {
   const [historico, setHistorico]     = useState([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(true);
   const [salvando, setSalvando]       = useState(false);
-  const [abaHistorico, setAbaHistorico] = useState(false);
+  const [abaHistorico, setAbaHistorico] = useState(true);
   const [gerandoPDF, setGerandoPDF]   = useState(false);
   const inputRef = useRef();
   const logoRef  = useRef();
@@ -787,34 +787,6 @@ export default function ExclusaoICMS({ cliente }) {
         </div>
       </div>
 
-      {/* CONFIGURAÇÃO DE LOTE — colada logo abaixo do botão Importar */}
-      {!temDados && (
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, fontSize: 12, color: S.navy, marginBottom: 10 }}>⚙️ Configuração de Processamento</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            {[
-              { valor: 50,  label: '50 NFs',  rec: 'até 4 GB RAM' },
-              { valor: 100, label: '100 NFs', rec: '8 GB RAM' },
-              { valor: 200, label: '200 NFs', rec: '16 GB RAM' },
-              { valor: 500, label: '500 NFs', rec: 'Workstation' },
-            ].map(op => (
-              <button key={op.valor} onClick={() => setTamLote(op.valor)}
-                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: tamLote === op.valor ? 700 : 400, cursor: 'pointer',
-                  border: `2px solid ${tamLote === op.valor ? S.blue : S.border}`,
-                  background: tamLote === op.valor ? '#EFF6FF' : S.white,
-                  color: tamLote === op.valor ? S.blue : S.ghost }}>
-                {op.label}
-                <span style={{ fontSize: 10, display: 'block', fontWeight: 400 }}>{op.rec}</span>
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: S.ghost, lineHeight: 1.7, background: S.bg, borderRadius: 7, padding: '8px 12px' }}>
-            🟢 <strong>50</strong> — PCs até 4GB · 🔵 <strong>100</strong> — Padrão (8GB) · 🟡 <strong>200</strong> — 16GB · 🔴 <strong>500</strong> — Workstation apenas<br />
-            <span style={{ color: S.orange }}>⚠️ Se travar, clique em Limpar, reduza o lote e tente novamente.</span>
-          </div>
-        </div>
-      )}
-
       {/* HISTÓRICO */}
       {abaHistorico && (
         <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
@@ -870,6 +842,23 @@ export default function ExclusaoICMS({ cliente }) {
           <div style={{ fontSize: 36, marginBottom: 12 }}>📂</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: S.text, marginBottom: 6 }}>Arraste os XMLs aqui ou clique para selecionar</div>
           <div style={{ fontSize: 12, color: S.ghost }}>Suporta centenas de arquivos em lote · Apenas NF-e de saída são processadas</div>
+		  <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+         {[
+          { valor: 50,  label: '50 NFs',  rec: 'até 4 GB' },
+          { valor: 100, label: '100 NFs', rec: '8 GB' },
+          { valor: 200, label: '200 NFs', rec: '16 GB' },
+          { valor: 500, label: '500 NFs', rec: 'Workstation' },
+          ].map(op => (
+          <button key={op.valor} onClick={() => setTamLote(op.valor)}
+         style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: tamLote === op.valor ? 700 : 400, cursor: 'pointer',
+        border: `2px solid ${tamLote === op.valor ? S.blue : S.border}`,
+        background: tamLote === op.valor ? '#EFF6FF' : S.white,
+        color: tamLote === op.valor ? S.blue : S.ghost }}>
+       {op.label}
+       <span style={{ fontSize: 9, display: 'block', fontWeight: 400 }}>{op.rec}</span>
+       </button>
+       ))}
+       </div>
         </div>
       )}
 
