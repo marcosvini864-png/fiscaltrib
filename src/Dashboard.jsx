@@ -185,7 +185,7 @@ function TabBar({ tabs, activeTab, onTab }) {
   )
 }
 
-function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto }) {
+function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente, isAdmin, isMobile, menuAberto, setMenuAberto, moduloPermitido = () => true }) {
   const [expandido, setExpandido] = useState(false)
   const [travada, setTravada] = useState(() => localStorage.getItem('fiscaltrib_sidebar_travada') === '1')
   useEffect(() => { localStorage.setItem('fiscaltrib_sidebar_travada', travada ? '1' : '0') }, [travada])
@@ -271,7 +271,7 @@ function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente
                 </div>
               )}
               {!aberta && <div style={{height:1, background:'#1E293B', margin:'6px 10px'}} />}
-              {secao.itens.map((item, idx) => {
+              {secao.itens.filter(item => moduloPermitido(item.module)).map((item, idx) => {
                 const ativo = isItemAtivo(item)
                 return (
                   <button key={idx} onClick={() => handleItem(item)}
@@ -598,6 +598,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           isMobile={isMobile}
           menuAberto={menuAberto}
           setMenuAberto={setMenuAberto}
+          moduloPermitido={moduloPermitido}
         />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
