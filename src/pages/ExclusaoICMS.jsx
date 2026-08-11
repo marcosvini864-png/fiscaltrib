@@ -1156,18 +1156,39 @@ export default function ExclusaoICMS({ cliente }) {
       )}
 
       {/* PROGRESSO */}
-      {processando && (
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '20px 24px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: S.navy }}>Processando lote {progresso.loteAtual} de {progresso.totalLotes}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: S.blue }}>{pct}%</span>
-          </div>
-          <div style={{ background: S.border, borderRadius: 99, height: 10, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ background: S.blue, height: 10, borderRadius: 99, width: pct + '%', transition: 'width 0.3s' }} />
-          </div>
-          <div style={{ fontSize: 11, color: S.ghost }}>{progresso.atual} de {progresso.total} arquivos — lote de {tamLote} NFs</div>
-        </div>
-      )}
+      {(processando || gerandoPDF) && (
+  <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '20px 24px', marginBottom: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: S.navy }}>
+        {gerandoPDF
+          ? `📄 Gerando PDF — nota ${progressoPDF} de ${totalNotasPDF}`
+          : `📥 Importando XMLs — lote ${progresso.loteAtual} de ${progresso.totalLotes}`}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: S.blue }}>
+        {gerandoPDF
+          ? `${totalNotasPDF > 0 ? Math.round((progressoPDF / totalNotasPDF) * 100) : 0}%`
+          : `${pct}%`}
+      </span>
+    </div>
+    <div style={{ background: S.border, borderRadius: 99, height: 10, overflow: 'hidden', marginBottom: 8 }}>
+      <div style={{
+        background: gerandoPDF
+          ? `linear-gradient(90deg, ${S.blue}, ${S.green})`
+          : S.blue,
+        height: 10, borderRadius: 99,
+        width: gerandoPDF
+          ? `${totalNotasPDF > 0 ? (progressoPDF / totalNotasPDF) * 100 : 0}%`
+          : `${pct}%`,
+        transition: 'width 0.3s'
+      }} />
+    </div>
+    <div style={{ fontSize: 11, color: S.ghost }}>
+      {gerandoPDF
+        ? `Processando memória de cálculo nota por nota...`
+        : `${progresso.atual} de ${progresso.total} arquivos — lote de ${tamLote} NFs`}
+    </div>
+  </div>
+)}
 
       {erros.length > 0 && (
         <div style={{ background: '#FFF7ED', border: `1px solid #FED7AA`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: S.orange }}>
