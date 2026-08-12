@@ -160,16 +160,17 @@ export default function Admin({ onVoltar }) {
   }
 
   async function togglePermissaoSite(usuarioId, campo) {
-    const linhaAtual = permissoesSite[usuarioId] || {}
-    const valorAtual = linhaAtual[campo]
-    const estaAtivo = (valorAtual === null || valorAtual === undefined) ? true : valorAtual === true
-    const novo = { ...linhaAtual, usuario_id: usuarioId, [campo]: !estaAtivo }
-    setSalvandoPermSite(usuarioId + campo)
-    setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
-    const { error } = await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
-    if (error) console.error('Erro ao salvar permissao:', error)
-    setSalvandoPermSite(null)
-  }
+  const linhaAtual = permissoesSite[usuarioId] || {}
+  const valorAtual = linhaAtual[campo]
+  const estaAtivo = (valorAtual === null || valorAtual === undefined) ? true : valorAtual === true
+  const { id, ...linhasSemId } = linhaAtual
+  const novo = { ...linhasSemId, usuario_id: usuarioId, [campo]: !estaAtivo }
+  setSalvandoPermSite(usuarioId + campo)
+  setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
+  const { error } = await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
+  if (error) console.error('Erro ao salvar permissao:', error)
+  setSalvandoPermSite(null)
+}
 
   async function carregarSessoes() {
     setLoadSessoes(true)
