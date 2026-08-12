@@ -263,13 +263,40 @@ function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente
         </button>
 
         <nav style={{flex:1, padding:'8px 0'}}>
-          {MENU_SECOES.map(secao => (
-            <div key={secao.id} style={{marginBottom:10}}>
-              {aberta && (
-                <div style={{fontSize:12,fontWeight:700,color:'#FFFFFF',letterSpacing:1,padding:'6px 16px 4px',whiteSpace:'nowrap'}}>
-                  {secao.titulo}
-                </div>
-              )}
+          {MENU_SECOES.map(secao => {
+  const itensVisiveis = secao.itens.filter(item => moduloPermitido(item.module))
+  if (itensVisiveis.length === 0) return null
+  return (
+  <div key={secao.id} style={{marginBottom:10}}>
+    {aberta && (
+      <div style={{fontSize:12,fontWeight:700,color:'#FFFFFF',letterSpacing:1,padding:'6px 16px 4px',whiteSpace:'nowrap'}}>
+        {secao.titulo}
+      </div>
+    )}
+    {!aberta && <div style={{height:1, background:'#1E293B', margin:'6px 10px'}} />}
+    {itensVisiveis.map((item, idx) => {
+      const ativo = isItemAtivo(item)
+      return (
+        <button key={idx} onClick={() => handleItem(item)}
+          title={!aberta ? item.label : undefined}
+          style={{
+            width:'100%', display:'flex', alignItems:'center', gap:12,
+            padding: aberta ? '9px 16px' : '9px 0',
+            justifyContent: aberta ? 'flex-start' : 'center',
+            background: ativo ? '#1E293B' : 'none',
+            border:'none', borderLeft: ativo ? `3px solid ${C.blue}` : '3px solid transparent',
+            cursor:'pointer', textAlign:'left',
+            color: ativo ? C.sidebarActiveText : C.sidebarText,
+            fontSize:13, fontWeight: ativo ? 600 : 400, transition:'all 0.1s',
+          }}>
+          <span style={{fontSize:16, flexShrink:0, opacity: ativo ? 1 : 0.85}}>{item.icon}</span>
+          {aberta && <span style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{item.label}</span>}
+        </button>
+      )
+    })}
+  </div>
+  )
+})}
               {!aberta && <div style={{height:1, background:'#1E293B', margin:'6px 10px'}} />}
               {secao.itens.filter(item => moduloPermitido(item.module)).map((item, idx) => {
                 const ativo = isItemAtivo(item)
