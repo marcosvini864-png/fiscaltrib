@@ -407,78 +407,105 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       )}
 
       {/* ── ABA COMPETENCIAS (independente de resultados) ── */}
-      {clienteSelecionado && (
-        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: S.navy }}>📅 Controle de Competências</div>
-            <button onClick={carregarCompetencias}
-              style={{ padding: '5px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-              ↺ Atualizar
-            </button>
-          </div>
+{clienteSelecionado && (
+  <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+    <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: S.navy }}>&#128197; Controle de Competencias</div>
+      <button onClick={carregarCompetencias}
+        style={{ padding: '5px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
+        &#8634; Atualizar
+      </button>
+    </div>
 
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+        <thead>
+          <tr style={{ background: S.tableHeader }}>
+            {['Competencia', 'PGDAS-D', 'XMLs', 'NF-es', 'PIS/COFINS Pago', 'Credito Apurado', 'Processado em', 'Status', 'Acoes'].map(h => (
+              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
           {loadingComp ? (
-            <div style={{ padding: 24, textAlign: 'center', color: S.muted }}>Carregando...</div>
+            Array(5).fill(null).map((_, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 60, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 30, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 70, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 18, width: 60, borderRadius: 99, background: '#E2E8F0' }} /></td>
+                <td style={{ padding: '10px 12px' }}><div style={{ height: 24, width: 80, borderRadius: 6, background: '#E2E8F0' }} /></td>
+              </tr>
+            ))
           ) : competencias.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: S.text, marginBottom: 4 }}>Nenhuma competência registrada</div>
-              <div style={{ fontSize: 12, color: S.ghost }}>As competências aparecem automaticamente após importar XMLs e PGDAS-D</div>
-            </div>
+            Array(5).fill(null).map((_, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>
+                  {['01/2024','02/2024','03/2024','04/2024','05/2024'][i]}
+                </td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ &#8212;,&#8212;&#8212;</td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ &#8212;,&#8212;&#8212;</td>
+                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
+                <td style={{ padding: '10px 12px' }}>
+                  <span style={{ background: '#F1F5F9', color: '#CBD5E1', border: '1px solid #E2E8F0', borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>
+                    Aguardando
+                  </span>
+                </td>
+                <td style={{ padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ height: 24, width: 40, borderRadius: 4, background: '#F1F5F9' }} />
+                    <div style={{ height: 24, width: 24, borderRadius: 4, background: '#F1F5F9' }} />
+                  </div>
+                </td>
+              </tr>
+            ))
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: S.tableHeader }}>
-                    {['Competência', 'PGDAS-D', 'XMLs', 'NF-es', 'PIS/COFINS Pago', 'Crédito Apurado', 'Processado em', 'Status', 'Ações'].map(h => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {competencias.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                      <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
-                      <td style={{ padding: '9px 12px' }}>
-                        {c.pgdas_carregado
-                          ? <span style={{ color: S.green, fontWeight: 700 }}>✓</span>
-                          : <span style={{ color: S.ghost }}>—</span>}
-                      </td>
-                      <td style={{ padding: '9px 12px' }}>
-                        {c.xmls_carregados
-                          ? <span style={{ color: S.green, fontWeight: 700 }}>✓</span>
-                          : <span style={{ color: S.ghost }}>—</span>}
-                      </td>
-                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_nfs || '—'}</td>
-                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_pis_cofins_pago > 0 ? formatBRL(c.total_pis_cofins_pago) : '—'}</td>
-                      <td style={{ padding: '9px 12px', color: c.credito_apurado > 0 ? S.green : S.ghost, fontWeight: c.credito_apurado > 0 ? 700 : 400 }}>
-                        {c.credito_apurado > 0 ? formatBRL(c.credito_apurado) : '—'}
-                      </td>
-                      <td style={{ padding: '9px 12px', color: S.ghost, fontSize: 11 }}>{fmtData(c.processado_em)}</td>
-                      <td style={{ padding: '9px 12px' }}><StatusCompBadge status={c.status} /></td>
-                      <td style={{ padding: '9px 12px' }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button
-                            style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                            👁 Ver
-                          </button>
-                          <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
-                            style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
-                            {excluindoComp === c.id ? '...' : '🗑'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, fontSize: 12, color: S.ghost }}>
-                {competencias.length} competência(s) registrada(s)
-              </div>
-            </div>
+            competencias.map((c, i) => (
+              <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
+                <td style={{ padding: '9px 12px' }}>
+                  {c.pgdas_carregado ? <span style={{ color: S.green, fontWeight: 700 }}>&#10003;</span> : <span style={{ color: S.ghost }}>&#8212;</span>}
+                </td>
+                <td style={{ padding: '9px 12px' }}>
+                  {c.xmls_carregados ? <span style={{ color: S.green, fontWeight: 700 }}>&#10003;</span> : <span style={{ color: S.ghost }}>&#8212;</span>}
+                </td>
+                <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_nfs || '&#8212;'}</td>
+                <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_pis_cofins_pago > 0 ? formatBRL(c.total_pis_cofins_pago) : '&#8212;'}</td>
+                <td style={{ padding: '9px 12px', color: c.credito_apurado > 0 ? S.green : S.ghost, fontWeight: c.credito_apurado > 0 ? 700 : 400 }}>
+                  {c.credito_apurado > 0 ? formatBRL(c.credito_apurado) : '&#8212;'}
+                </td>
+                <td style={{ padding: '9px 12px', color: S.ghost, fontSize: 11 }}>{fmtData(c.processado_em)}</td>
+                <td style={{ padding: '9px 12px' }}><StatusCompBadge status={c.status} /></td>
+                <td style={{ padding: '9px 12px' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                      &#128065; Ver
+                    </button>
+                    <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
+                      style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                      {excluindoComp === c.id ? '...' : '&#128465;'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
           )}
-        </div>
-      )}
+        </tbody>
+      </table>
+    </div>
+
+    <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, fontSize: 12, color: S.ghost }}>
+      {loadingComp ? 'Carregando competencias...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) registrada(s)`}
+    </div>
+  </div>
+)}
 
       {/* Resultados */}
       {resultados && (
