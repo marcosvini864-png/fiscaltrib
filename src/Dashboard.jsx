@@ -28,6 +28,7 @@ import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
 import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos'
 import ExclusaoICMS from './pages/ExclusaoICMS'
+import PainelRecuperacao from './pages/PainelRecuperacao'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -814,7 +815,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               <DiagnosticoTributario clienteId={activeId} cliente={active} onNavegar={navigateTo} />
             )}
             {module==='exclusao_icms' && <ExclusaoICMS cliente={active} />}
-            {module==='recuperacao_monofasico' && <AbaRecuperacaoMonofasicos />}
+            {module==='recuperacao_monofasico' && <PainelRecuperacao />}
             {module==='icms_st_rec' && (
               <div style={{padding:40,textAlign:'center',color:'#64748B',fontSize:14}}>
                 ⚙️ Módulo ICMS-ST Pago a Maior em construção.
@@ -922,7 +923,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
-            {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
+git add src/pages/AbaMonofasicos.jsx            {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
             {module==='dev' && <Laboratorio onVoltar={()=>navigateTo('painel')} />}
 

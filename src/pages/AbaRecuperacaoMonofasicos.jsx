@@ -47,9 +47,9 @@ function SkeletonKPI() {
   );
 }
 
-export default function AbaRecuperacaoMonofasicos() {
+export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [clientes, setClientes] = useState([]);
-  const [clienteSelecionado, setClienteSelecionado] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState(clientePre?.id || '');
   const [anoInicio, setAnoInicio] = useState('2022');
   const [mesInicio, setMesInicio] = useState('01');
   const [anoFim, setAnoFim] = useState('2024');
@@ -76,6 +76,12 @@ export default function AbaRecuperacaoMonofasicos() {
       .order('razao_social')
       .then(({ data }) => setClientes(data || []));
   }, []);
+
+useEffect(() => {
+  if (clientePre?.id) {
+    setClienteSelecionado(clientePre.id)
+  }
+ }, [clientePre?.id])
 
   const buscarDados = useCallback(async () => {
     if (!clienteSelecionado) return;
