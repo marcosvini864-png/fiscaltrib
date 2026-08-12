@@ -258,7 +258,8 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   };
 
   const clienteObj = clientes.find(c => c.id === clienteSelecionado);
-
+  const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp))
+  const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp)
   return (
     <div style={{ background: S.bg, minHeight: '100vh', padding: '16px', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' }}>
 
@@ -469,8 +470,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               </tr>
             ))
           ) : (
-		  const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp))
-          const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp)
+		  
             competenciasPagina.map((c, i) => (
               <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                 <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
