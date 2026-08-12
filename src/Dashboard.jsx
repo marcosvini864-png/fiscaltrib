@@ -99,7 +99,6 @@ const MENU_SECOES = [
     itens: [
       { label:'Scanner Tributário',       module:'scanner',                  tab:0, icon:'🔍' },
       { label:'Tema 69 — Exclusão ICMS',  module:'exclusao_icms',            tab:0, icon:'🧾' },
-      { label:'Monofásicos PIS/COFINS',   module:'recuperacao_monofasico',   tab:0, icon:'💊' },
       { label:'ICMS-ST Pago a Maior',     module:'icms_st_rec',              tab:0, icon:'📄' },
       { label:'Dívida Ativa',             module:'divida',                   tab:0, icon:'⚠️' },
     ],
@@ -120,6 +119,7 @@ const MENU_SECOES = [
     id: 'recuperacao_creditos',
     titulo: 'RECUPERAÇÃO DE CRÉDITOS',
     itens: [
+	  { label:'Monofásicos PIS/COFINS', module:'recuperacao_monofasico', tab:0, icon:'💰' },
       { label:'PER/DCOMP', module:'recuperacao', tab:1, icon:'🧾' },
     ],
   },
