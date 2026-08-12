@@ -163,25 +163,15 @@ export default function Admin({ onVoltar }) {
   const linha = permissoesSite[usuarioId]
   if (!linha) return true
   const val = linha[campo]
-  if (val === null || val === undefined) return true
+  if (val === null || val === undefined) return false
   return val === true
 }
 
 async function togglePermissaoSite(usuarioId, campo) {
   const linha = permissoesSite[usuarioId] || {}
   const valorAtual = linha[campo]
-  const estaAtivo = (valorAtual === null || valorAtual === undefined) ? true : valorAtual === true
-  const atual = {
-    clientes: true, gestao_empresas: true, grupo_empresas: true,
-    scanner: true, exclusao_icms: true, recuperacao_monofasico: true,
-    icms_st_rec: true, divida: true, monofasicos: true, pgdas: true,
-    painel_simples: true, dados_complementares: true, classificacao_itens: true,
-    apuracao_simples: true, recuperacao: true, sped: true, analise: true,
-    prazos: true, relatorios: true, inteligencia: true,
-    prospeccao: true, mensagens: true,
-    ...linha,
-  }
-  const novo = { ...atual, usuario_id: usuarioId, [campo]: !estaAtivo }
+  const estaAtivo = (valorAtual === null || valorAtual === undefined) ? false : valorAtual === true
+  const novo = { ...linha, usuario_id: usuarioId, [campo]: !estaAtivo }
   setSalvandoPermSite(usuarioId + campo)
   setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
   await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
