@@ -10,14 +10,14 @@ const planoColor = { essencial: '#3b82f6', avancado: '#8b5cf6', premium: '#f59e0
 const planoLabel = { essencial: 'Essencial', avancado: 'Avançado', premium: 'Premium' }
 
 const MODULOS_EXT = [
-  { id: 'dashboard', label: '📊 Dashboard' },
-  { id: 'kanban',    label: '🗂️ Kanban' },
-  { id: 'chatbot',   label: '🎧 Chat Bot' },
-  { id: 'campanhas', label: '📣 Campanhas' },
-  { id: 'importar',  label: '🔀 Importar' },
-  { id: 'link_qr',   label: '🔗 Link/QR' },
-  { id: 'lembretes', label: '⏰ Lembretes' },
-  { id: 'webhooks',  label: '⚙️ Webhooks' },
+  { id: 'dashboard',  label: '📊 Dashboard' },
+  { id: 'kanban',     label: '🗂️ Kanban' },
+  { id: 'chatbot',    label: '🎧 Chat Bot' },
+  { id: 'campanhas',  label: '📣 Campanhas' },
+  { id: 'importar',   label: '🔀 Importar' },
+  { id: 'link_qr',    label: '🔗 Link/QR' },
+  { id: 'lembretes',  label: '⏰ Lembretes' },
+  { id: 'webhooks',   label: '⚙️ Webhooks' },
 ]
 
 const MODULOS_SITE = [
@@ -119,26 +119,25 @@ export default function Admin({ onVoltar }) {
     setLoadPerm(true)
     const { data } = await supabase.from('extensao_permissoes').select('*')
     const mapa = {}
-    ;(data || []).forEach(p => { mapa[String(p.usuario_id)] = p })
+    ;(data || []).forEach(p => { mapa[p.usuario_id] = p })
     setPermissoes(mapa)
     setLoadPerm(false)
   }
 
   function permissaoDe(usuarioId, campo) {
-    const linha = permissoes[String(usuarioId)]
+    const linha = permissoes[usuarioId]
     if (!linha) return true
     return linha[campo] !== false
   }
 
   async function togglePermissao(usuarioId, campo) {
-    const uid = String(usuarioId)
-    const atual = permissoes[uid] || {
+    const atual = permissoes[usuarioId] || {
       dashboard: true, kanban: true, chatbot: true, campanhas: true,
       importar: true, link_qr: true, lembretes: true, webhooks: true,
     }
-    const novo = { ...atual, usuario_id: uid, [campo]: !(atual[campo] !== false) }
-    setSalvandoPerm(uid + campo)
-    setPermissoes(prev => ({ ...prev, [uid]: novo }))
+    const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
+    setSalvandoPerm(usuarioId + campo)
+    setPermissoes(prev => ({ ...prev, [usuarioId]: novo }))
     await supabase.from('extensao_permissoes').upsert(novo, { onConflict: 'usuario_id' })
     setSalvandoPerm(null)
   }
@@ -147,36 +146,28 @@ export default function Admin({ onVoltar }) {
     setLoadPermSite(true)
     const { data } = await supabase.from('modulos_permissoes').select('*')
     const mapa = {}
-    ;(data || []).forEach(p => {
-      const linha = { ...p }
-      Object.keys(linha).forEach(k => {
-        if (k !== 'id' && k !== 'usuario_id' && (linha[k] === null || linha[k] === undefined)) {
-          linha[k] = false
-        }
-      })
-      mapa[String(p.usuario_id)] = linha
-    })
+    ;(data || []).forEach(p => { mapa[p.usuario_id] = p })
     setPermissoesSite(mapa)
     setLoadPermSite(false)
   }
 
   function permissaoSiteDe(usuarioId, campo) {
-    const linha = permissoesSite[String(usuarioId)]
+    const linha = permissoesSite[usuarioId]
     if (!linha) return true
     const val = linha[campo]
-    if (val === null || val === undefined) return false
+    if (val === null || val === undefined) return true
     return val === true
   }
 
   async function togglePermissaoSite(usuarioId, campo) {
-    const uid = String(usuarioId)
-    const linha = permissoesSite[uid] || {}
-    const valorAtual = linha[campo]
-    const estaAtivo = (valorAtual === null || valorAtual === undefined) ? false : valorAtual === true
-    const novo = { ...linha, usuario_id: uid, [campo]: !estaAtivo }
-    setSalvandoPermSite(uid + campo)
-    setPermissoesSite(prev => ({ ...prev, [uid]: novo }))
-    await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
+    const linhaAtual = permissoesSite[usuarioId] || {}
+    const valorAtual = linhaAtual[campo]
+    const estaAtivo = (valorAtual === null || valorAtual === undefined) ? true : valorAtual === true
+    const novo = { ...linhaAtual, usuario_id: usuarioId, [campo]: !estaAtivo }
+    setSalvandoPermSite(usuarioId + campo)
+    setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
+    const { error } = await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
+    if (error) console.error('Erro ao salvar permissao:', error)
     setSalvandoPermSite(null)
   }
 
@@ -303,13 +294,13 @@ export default function Admin({ onVoltar }) {
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))',gap:12,marginBottom:24}}>
         {[
-          {label:'Total de Usuários', valor:total,          cor:'#64748b'},
-          {label:'Ativos',            valor:ativos,         cor:'#22c55e'},
-          {label:'Bloqueados',        valor:bloqueados,     cor:'#ef4444'},
-          {label:'Essencial',         valor:essencial,      cor:'#3b82f6'},
-          {label:'Avançado',          valor:avancado,       cor:'#8b5cf6'},
-          {label:'Premium',           valor:premium,        cor:'#f59e0b'},
-          {label:'Online agora',      valor:sessoes.length, cor:'#10b981'},
+          {label:'Total de Usuários',valor:total,          cor:'#64748b'},
+          {label:'Ativos',           valor:ativos,         cor:'#22c55e'},
+          {label:'Bloqueados',       valor:bloqueados,     cor:'#ef4444'},
+          {label:'Essencial',        valor:essencial,      cor:'#3b82f6'},
+          {label:'Avançado',         valor:avancado,       cor:'#8b5cf6'},
+          {label:'Premium',          valor:premium,        cor:'#f59e0b'},
+          {label:'Online agora',     valor:sessoes.length, cor:'#10b981'},
         ].map((c,i)=>(
           <div key={i} style={{background:C.white,borderRadius:10,padding:16,display:'flex',flexDirection:'column',gap:4,borderTop:`3px solid ${c.cor}`,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)',minWidth:0,boxSizing:'border-box'}}>
             <span style={{fontSize:26,fontWeight:700,color:c.cor}}>{c.valor}</span>
@@ -369,7 +360,7 @@ export default function Admin({ onVoltar }) {
                         <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
                           <Toggle
                             ativo={permissaoSiteDe(u.id, m.id)}
-                            desabilitado={salvandoPermSite === String(u.id) + m.id}
+                            desabilitado={salvandoPermSite === u.id + m.id}
                             onClick={() => togglePermissaoSite(u.id, m.id)}
                           />
                         </td>
@@ -418,7 +409,7 @@ export default function Admin({ onVoltar }) {
                         <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
                           <Toggle
                             ativo={permissaoDe(u.id, m.id)}
-                            desabilitado={salvandoPerm === String(u.id) + m.id}
+                            desabilitado={salvandoPerm === u.id + m.id}
                             onClick={() => togglePermissao(u.id, m.id)}
                           />
                         </td>
@@ -614,7 +605,7 @@ export default function Admin({ onVoltar }) {
           </div>
           <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
             {[
-              {key:'laboratorio', label:'🧪 Laboratório'},
+              {key:'laboratorio', label:'🧪 Laboratório FiscalTrib'},
               {key:'cenarios',    label:'📚 Base de Cenários'},
               {key:'logs',        label:'📝 Logs de Homologação'},
               {key:'ferramentas', label:'🔧 Ferramentas'},
