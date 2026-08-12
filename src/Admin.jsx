@@ -21,28 +21,16 @@ const MODULOS_EXT = [
 ]
 
 const MODULOS_SITE = [
-  { id: 'clientes',               label: '👤 Clientes' },
-  { id: 'gestao_empresas',        label: '🏢 Gestão de Empresas' },
-  { id: 'grupo_empresas',         label: '📁 Grupo de Empresas' },
-  { id: 'scanner',                label: '🔍 Scanner Tributário' },
-  { id: 'exclusao_icms',          label: '🧾 Tema 69 — Exclusão ICMS' },
-  { id: 'recuperacao_monofasico', label: '💊 Monofásicos PIS/COFINS' },
-  { id: 'icms_st_rec',            label: '📄 ICMS-ST Pago a Maior' },
-  { id: 'divida',                 label: '⚠️ Dívida Ativa' },
-  { id: 'monofasicos',            label: '💊 Monofásicos' },
-  { id: 'pgdas',                  label: '📄 PGDAS-D' },
-  { id: 'painel_simples',         label: '📊 Painel de Controle' },
-  { id: 'dados_complementares',   label: '📋 Dados Complementares' },
-  { id: 'classificacao_itens',    label: '📋 Classificação de Itens' },
-  { id: 'apuracao_simples',       label: '📅 Apuração do Simples' },
-  { id: 'recuperacao',            label: '🧾 PER/DCOMP' },
-  { id: 'sped',                   label: '🔎 Auditor de SPED' },
-  { id: 'analise',                label: '📈 Análise Fiscal' },
-  { id: 'prazos',                 label: '⏳ Prazos' },
-  { id: 'relatorios',             label: '📄 Relatórios' },
-  { id: 'inteligencia',           label: '🧠 Inteligência Tributária' },
-  { id: 'prospeccao',             label: '🤝 CRM Comercial' },
-  { id: 'mensagens',              label: '💬 Comunicação' },
+  { id: 'painel',       label: '📊 Painel' },
+  { id: 'clientes',     label: '👥 Clientes' },
+  { id: 'analise',      label: '🔍 Análise Fiscal' },
+  { id: 'recuperacao',  label: '💰 Recuperação' },
+  { id: 'prazos',       label: '📅 Prazos' },
+  { id: 'relatorios',   label: '📄 Relatórios' },
+  { id: 'inteligencia', label: '🧠 Inteligência Tributária' },
+  { id: 'divida',       label: '⚖️ Dívida Ativa' },
+  { id: 'prospeccao',   label: '🎯 Prospecção' },
+  { id: 'mensagens',    label: '⚡ Mensagens Rápidas' },
 ]
 
 const C = {
@@ -77,20 +65,24 @@ export default function Admin({ onVoltar }) {
   const [enviandoBkp,  setEnviandoBkp]  = useState(false)
   const [msgBkp,       setMsgBkp]       = useState('')
   const [abaAtiva,     setAbaAtiva]     = useState('usuarios')
-  const [bonEmail,     setBonEmail]     = useState('')
-  const [bonPlano,     setBonPlano]     = useState('avancado')
-  const [bonTipo,      setBonTipo]      = useState('prazo')
-  const [bonDias,      setBonDias]      = useState('90')
-  const [bonLoading,   setBonLoading]   = useState(false)
-  const [bonMsg,       setBonMsg]       = useState('')
-  const [sessoes,      setSessoes]      = useState([])
-  const [loadSessoes,  setLoadSessoes]  = useState(false)
-  const [abaDesenv,    setAbaDesenv]    = useState('laboratorio')
+
+  const [bonEmail,   setBonEmail]   = useState('')
+  const [bonPlano,   setBonPlano]   = useState('avancado')
+  const [bonTipo,    setBonTipo]    = useState('prazo')
+  const [bonDias,    setBonDias]    = useState('90')
+  const [bonLoading, setBonLoading] = useState(false)
+  const [bonMsg,     setBonMsg]     = useState('')
+
+  const [sessoes,     setSessoes]     = useState([])
+  const [loadSessoes, setLoadSessoes] = useState(false)
+  const [abaDesenv,   setAbaDesenv]   = useState('laboratorio')
   const monitorRef = useRef(null)
-  const [permissoes,       setPermissoes]       = useState({})
-  const [loadPerm,         setLoadPerm]         = useState(true)
-  const [buscaPerm,        setBuscaPerm]        = useState('')
-  const [salvandoPerm,     setSalvandoPerm]     = useState(null)
+
+  const [permissoes,    setPermissoes]    = useState({})
+  const [loadPerm,      setLoadPerm]      = useState(true)
+  const [buscaPerm,     setBuscaPerm]     = useState('')
+  const [salvandoPerm,  setSalvandoPerm]  = useState(null)
+
   const [permissoesSite,   setPermissoesSite]   = useState({})
   const [loadPermSite,     setLoadPermSite]     = useState(true)
   const [buscaPermSite,    setBuscaPermSite]    = useState('')
@@ -154,20 +146,18 @@ export default function Admin({ onVoltar }) {
   function permissaoSiteDe(usuarioId, campo) {
     const linha = permissoesSite[usuarioId]
     if (!linha) return true
-    const val = linha[campo]
-    if (val === null || val === undefined) return true
-    return val === true
+    return linha[campo] !== false
   }
 
   async function togglePermissaoSite(usuarioId, campo) {
-    const linhaAtual = permissoesSite[usuarioId] || {}
-    const valorAtual = linhaAtual[campo]
-    const estaAtivo = (valorAtual === null || valorAtual === undefined) ? true : valorAtual === true
-    const novo = { ...linhaAtual, usuario_id: usuarioId, [campo]: !estaAtivo }
+    const atual = permissoesSite[usuarioId] || {
+      painel: true, clientes: true, analise: true, recuperacao: true, prazos: true,
+      relatorios: true, inteligencia: true, divida: true, prospeccao: true, mensagens: true,
+    }
+    const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
     setSalvandoPermSite(usuarioId + campo)
     setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
-    const { error } = await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
-    if (error) console.error('Erro ao salvar permissao:', error)
+    await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
     setSalvandoPermSite(null)
   }
 
@@ -194,17 +184,18 @@ export default function Admin({ onVoltar }) {
 
   async function excluirUsuario(u) {
     if (!window.confirm(`Excluir ${u.nome_completo || u.email}? Esta ação não pode ser desfeita.`)) return
-    try {
-      const { data, error } = await supabase.functions.invoke('deletar-usuario', {
-        body: { usuario_id: u.id, email: u.email }
-      })
-      if (error) throw error
-      if (!data?.success) throw new Error(data?.error || 'Erro ao excluir')
-      setUsuarios(prev => prev.filter(x => x.id !== u.id))
-      alert('✅ Usuário excluído com sucesso!')
-    } catch (e) {
-      alert('❌ Erro ao excluir usuário: ' + e.message)
-    }
+    await supabase.from('assinaturas').delete().eq('usuario_id', u.id)
+    await supabase.from('entradas').delete().eq('usuario_id', u.id)
+    await supabase.from('recuperacoes').delete().eq('usuario_id', u.id)
+    await supabase.from('acompanhamentos').delete().eq('usuario_id', u.id)
+    await supabase.from('prazos_fiscais').delete().eq('usuario_id', u.id)
+    await supabase.from('clientes').delete().eq('usuario_id', u.id)
+    await supabase.from('sessoes_ativas').delete().eq('usuario_id', u.id)
+    await supabase.from('extensao_permissoes').delete().eq('usuario_id', u.id)
+    await supabase.from('modulos_permissoes').delete().eq('usuario_id', u.id)
+    await supabase.from('usuarios').delete().eq('id', u.id)
+    await supabase.rpc('deletar_usuario', { uid: u.id })
+    setUsuarios(prev => prev.filter(x => x.id !== u.id))
   }
 
   async function enviarBackup() {
@@ -269,9 +260,10 @@ export default function Admin({ onVoltar }) {
   return (
     <div style={{minHeight:'100vh',background:C.bg,padding:'24px',fontFamily:'Inter, system-ui, sans-serif',boxSizing:'border-box'}}>
 
+      {/* HEADER */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,background:C.white,borderRadius:12,padding:'16px 24px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',flexWrap:'wrap',gap:12}}>
         <div>
-          <h1 style={{color:C.navy,fontSize:20,fontWeight:700,margin:0}}>⚙️ Painel Admin — e-FiscalTribe®</h1>
+          <h1 style={{color:C.navy,fontSize:20,fontWeight:700,margin:0}}>⚙️ Painel Admin — FiscalTrib</h1>
           <p style={{color:C.muted,fontSize:13,margin:'4px 0 0'}}>Área exclusiva do administrador</p>
         </div>
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -292,6 +284,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
+      {/* CARDS */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))',gap:12,marginBottom:24}}>
         {[
           {label:'Total de Usuários',valor:total,          cor:'#64748b'},
@@ -309,14 +302,15 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
+      {/* ABAS PRINCIPAIS */}
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[
-          {key:'usuarios',       label:'👥 Usuários'},
-          {key:'bonificacao',    label:'🎁 Liberar Acesso Bonificado'},
+          {key:'usuarios',    label:'👥 Usuários'},
+          {key:'bonificacao', label:'🎁 Liberar Acesso Bonificado'},
           {key:'permissoessite', label:'🖥️ Permissões do Sistema'},
-          {key:'permissoes',     label:'🧩 Permissões da Extensão'},
-          {key:'monitor',        label:'👁️ Monitoramento em Tempo Real'},
-          {key:'desenvolvimento',label:'🔬 Centro de Desenvolvimento'},
+          {key:'permissoes',  label:'🧩 Permissões da Extensão'},
+          {key:'monitor',     label:'👁️ Monitoramento em Tempo Real'},
+          {key:'desenvolvimento', label:'🔬 Centro de Desenvolvimento'},
         ].map(a=>(
           <button key={a.key} onClick={()=>setAbaAtiva(a.key)}
             style={{padding:'7px 16px',borderRadius:20,border:`1px solid ${abaAtiva===a.key?C.navy:C.border}`,background:abaAtiva===a.key?C.navy:'transparent',color:abaAtiva===a.key?C.white:C.muted,cursor:'pointer',fontSize:13,fontWeight:abaAtiva===a.key?600:400}}>
@@ -325,15 +319,17 @@ export default function Admin({ onVoltar }) {
         ))}
       </div>
 
+      {/* ── ABA PERMISSÕES DO SISTEMA (SITE) ── */}
       {abaAtiva === 'permissoessite' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🖥️ Permissões do Sistema (fiscaltrib.com.br)</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
-            Controle quais módulos do site cada cliente enxerga. Todos os módulos vêm habilitados por padrão.
+            Controle quais módulos do site cada cliente enxerga. Ex: deixe só "Prospecção" ligado para vender apenas o CRM/Kanban, sem nenhum módulo tributário. Todos os módulos vêm habilitados por padrão.
           </div>
           <input
             style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
             placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPermSite} onChange={e=>setBuscaPermSite(e.target.value)} />
+
           {(load || loadPermSite) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPermSite.length === 0 ? (
@@ -374,6 +370,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
+      {/* ── ABA PERMISSÕES DA EXTENSÃO ── */}
       {abaAtiva === 'permissoes' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🧩 Permissões da Extensão do WhatsApp</div>
@@ -383,6 +380,7 @@ export default function Admin({ onVoltar }) {
           <input
             style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
             placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPerm} onChange={e=>setBuscaPerm(e.target.value)} />
+
           {(load || loadPerm) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPerm.length === 0 ? (
@@ -423,6 +421,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
+      {/* ── ABA MONITORAMENTO ── */}
       {abaAtiva === 'monitor' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
@@ -470,11 +469,12 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
+      {/* ── ABA BONIFICAÇÃO ── */}
       {abaAtiva === 'bonificacao' && (
         <div style={{background:C.white,borderRadius:12,padding:24,marginBottom:24,border:`1px solid ${C.border}`,boxSizing:'border-box'}}>
           <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:6}}>🎁 Liberar Acesso Bonificado</div>
           <div style={{fontSize:13,color:C.muted,marginBottom:20}}>
-            Dê acesso gratuito ao e-FiscalTribe® para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
+            Dê acesso gratuito ao FiscalTrib para clientes de consultoria ou parceiros. O cliente deve criar a conta primeiro em fiscaltrib.com.br.
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:16,marginBottom:16}}>
             <div>
@@ -527,6 +527,7 @@ export default function Admin({ onVoltar }) {
         </div>
       )}
 
+      {/* ── ABA USUÁRIOS ── */}
       {abaAtiva === 'usuarios' && <>
         <div style={{marginBottom:16}}>
           <input
@@ -596,13 +597,17 @@ export default function Admin({ onVoltar }) {
         )}
       </>}
 
+      {/* ── ABA CENTRO DE DESENVOLVIMENTO ── */}
       {abaAtiva === 'desenvolvimento' && (
         <div>
+          {/* Header do Centro */}
           <div style={{background:'linear-gradient(135deg,#0B1F4D,#163B8C)',borderRadius:14,padding:'24px 28px',marginBottom:20,color:'#fff',boxSizing:'border-box'}}>
-            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>e-FISCALTRIBE® — USO INTERNO</div>
-            <h2 style={{fontSize:20,fontWeight:700,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
+            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — USO INTERNO</div>
+            <h2 style={{fontSize:20,fontWeight:900,marginBottom:4,color:'#fff'}}>🔬 Centro de Desenvolvimento</h2>
             <p style={{fontSize:13,color:'#93c5fd',margin:0}}>Ferramentas internas de teste, homologação e desenvolvimento. Não visível aos usuários do sistema.</p>
           </div>
+
+          {/* Sub-abas do Centro */}
           <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
             {[
               {key:'laboratorio', label:'🧪 Laboratório FiscalTrib'},
@@ -616,22 +621,26 @@ export default function Admin({ onVoltar }) {
               </button>
             ))}
           </div>
+
+          {/* Laboratório */}
           {abaDesenv === 'laboratorio' && <Laboratorio />}
+
+          {/* Base de Cenários */}
           {abaDesenv === 'cenarios' && (
             <div style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'28px',textAlign:'center',boxSizing:'border-box'}}>
               <div style={{fontSize:40,marginBottom:12}}>📚</div>
               <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D',marginBottom:8}}>Base de Cenários de Homologação</div>
               <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
-                Biblioteca de empresas fictícias completas para teste do e-FiscalTribe®.<br/>
+                Biblioteca de empresas fictícias completas para teste do FiscalTrib.<br/>
                 Importe pelo Laboratório e os cenários ficam registrados aqui.
               </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:12,maxWidth:600,margin:'0 auto'}}>
                 {[
-                  {codigo:'FT-001',nome:'Comércio Varejista',      regime:'Simples Nacional', status:'Em breve'},
-                  {codigo:'FT-002',nome:'Prestadora de Serviços',   regime:'Simples Nacional', status:'Em breve'},
-                  {codigo:'FT-003',nome:'Indústria',                regime:'Lucro Presumido',  status:'Em breve'},
-                  {codigo:'FT-004',nome:'Lucro Real',               regime:'Lucro Real',       status:'Em breve'},
-                  {codigo:'FT-005',nome:'Casos com Erros',          regime:'Simples Nacional', status:'Em breve'},
+                  {codigo:'FT-001',nome:'Comércio Varejista',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-002',nome:'Prestadora de Serviços',regime:'Simples Nacional',status:'Em breve'},
+                  {codigo:'FT-003',nome:'Indústria',regime:'Lucro Presumido',status:'Em breve'},
+                  {codigo:'FT-004',nome:'Lucro Real',regime:'Lucro Real',status:'Em breve'},
+                  {codigo:'FT-005',nome:'Casos com Erros',regime:'Simples Nacional',status:'Em breve'},
                 ].map((c,i)=>(
                   <div key={i} style={{background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0',padding:'16px',textAlign:'left',minWidth:0,boxSizing:'border-box'}}>
                     <div style={{fontSize:11,color:'#94a3b8',fontWeight:700,marginBottom:4}}>{c.codigo}</div>
@@ -643,14 +652,18 @@ export default function Admin({ onVoltar }) {
               </div>
             </div>
           )}
+
+          {/* Logs */}
           {abaDesenv === 'logs' && <LogsHomologacao />}
+
+          {/* Ferramentas */}
           {abaDesenv === 'ferramentas' && (
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))',gap:14}}>
               {[
-                {icon:'🗑️',titulo:'Limpar banco de testes',     desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.', cor:'#dc2626',btn:'Limpar',    disabled:false},
-                {icon:'📊',titulo:'Relatório de cobertura',      desc:'Verifica quais módulos foram testados nos cenários importados.',               cor:'#2563eb',btn:'Gerar',     disabled:true},
-                {icon:'🔄',titulo:'Sincronizar layouts CSV',     desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',   cor:'#7c3aed',btn:'Sincronizar',disabled:true},
-                {icon:'📤',titulo:'Exportar todos os cenários',  desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',     cor:'#d97706',btn:'Exportar',  disabled:true},
+                {icon:'🗑️',titulo:'Limpar banco de testes',desc:'Remove todos os dados importados pelo Laboratório sem afetar usuários reais.',cor:'#dc2626',btn:'Limpar',disabled:false},
+                {icon:'📊',titulo:'Relatório de cobertura',desc:'Verifica quais módulos do FiscalTrib foram testados nos cenários importados.',cor:'#2563eb',btn:'Gerar',disabled:true},
+                {icon:'🔄',titulo:'Sincronizar layouts CSV',desc:'Atualiza os layouts oficiais dos CSVs sem necessidade de alterar o código.',cor:'#7c3aed',btn:'Sincronizar',disabled:true},
+                {icon:'📤',titulo:'Exportar todos os cenários',desc:'Exporta todos os cenários da base em formato ZIP com os CSVs separados.',cor:'#d97706',btn:'Exportar',disabled:true},
               ].map((f,i)=>(
                 <div key={i} style={{background:'#fff',borderRadius:12,border:'2px solid #e2e8f0',padding:'20px 24px',minWidth:0,boxSizing:'border-box'}}>
                   <div style={{fontSize:28,marginBottom:10}}>{f.icon}</div>
@@ -670,6 +683,7 @@ export default function Admin({ onVoltar }) {
   )
 }
 
+// ── Logs de Homologação ──────────────────────────────────────────────
 function LogsHomologacao() {
   const [logs, setLogs] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -701,9 +715,9 @@ function LogsHomologacao() {
     <div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12,marginBottom:16}}>
         {[
-          {label:'Total de logs',    valor:logs.length,                                   cor:'#0B1F4D'},
-          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'),       cor:'#16a34a'},
-          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'),       cor:'#dc2626'},
+          {label:'Total de logs',    valor:logs.length,                        cor:'#0B1F4D'},
+          {label:'Total importados', valor:totalImportados.toLocaleString('pt-BR'), cor:'#16a34a'},
+          {label:'Total rejeitados', valor:totalRejeitados.toLocaleString('pt-BR'), cor:'#dc2626'},
           {label:'Último import',    valor:logs[0]?new Date(logs[0].created_at).toLocaleDateString('pt-BR'):'—', cor:'#7c3aed'},
         ].map((c,i)=>(
           <div key={i} style={{background:'#fff',borderRadius:10,border:'2px solid #e2e8f0',padding:'14px 16px',minWidth:0,boxSizing:'border-box'}}>
