@@ -1,3 +1,9 @@
+/**
+ * AbaRecuperacaoMonofasicos.jsx - e-FiscalTribe®
+ * Versao 2.0 - 12/08/2026
+ * + Sprint 3B: aba Competencias com controle mes a mes
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import AnalisadorIA from '../AnalisadorIA';
@@ -26,6 +32,11 @@ function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function fmtData(v) {
+  if (!v) return '—';
+  return new Date(v).toLocaleDateString('pt-BR');
+}
+
 function SkeletonRow({ cols }) {
   return (
     <tr>
@@ -47,6 +58,21 @@ function SkeletonKPI() {
   );
 }
 
+function StatusCompBadge({ status }) {
+  const map = {
+    auditado:    { bg: '#f0fdf4', color: '#16a34a', border: '#86efac', label: 'Auditado' },
+    pendente:    { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa', label: 'Pendente' },
+    divergencia: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Divergência' },
+    processando: { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', label: 'Processando' },
+  }
+  const b = map[status] || map.pendente
+  return (
+    <span style={{ background: b.bg, color: b.color, border: `1px solid ${b.border}`, borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>
+      {b.label}
+    </span>
+  )
+}
+
 export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [clientes, setClientes] = useState([]);
   const [clienteSelecionado, setClienteSelecionado] = useState(clientePre?.id || '');
@@ -63,6 +89,10 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [resultados, setResultados] = useState(null);
   const [aba, setAba] = useState('credito');
   const [apurando, setApurando] = useState(false);
+  // Sprint 3B
+  const [competencias, setCompetencias] = useState([]);
+  const [loadingComp, setLoadingComp] = useState(false);
+  const [excluindoComp, setExcluindoComp] = useState(null);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -77,11 +107,35 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       .then(({ data }) => setClientes(data || []));
   }, []);
 
-useEffect(() => {
-  if (clientePre?.id) {
-    setClienteSelecionado(clientePre.id)
+  useEffect(() => {
+    if (clientePre?.id) {
+      setClienteSelecionado(clientePre.id)
+    }
+  }, [clientePre?.id])
+
+  // Carrega competencias quando cliente muda
+  useEffect(() => {
+    if (clienteSelecionado) carregarCompetencias()
+  }, [clienteSelecionado])
+
+  async function carregarCompetencias() {
+    setLoadingComp(true)
+    const { data } = await supabase
+      .from('empresa_competencias')
+      .select('*')
+      .eq('cliente_id', clienteSelecionado)
+      .order('competencia', { ascending: false })
+    setCompetencias(data || [])
+    setLoadingComp(false)
   }
- }, [clientePre?.id])
+
+  async function excluirCompetencia(id) {
+    if (!window.confirm('Excluir esta competência?')) return
+    setExcluindoComp(id)
+    await supabase.from('empresa_competencias').delete().eq('id', id)
+    await carregarCompetencias()
+    setExcluindoComp(null)
+  }
 
   const buscarDados = useCallback(async () => {
     if (!clienteSelecionado) return;
@@ -107,9 +161,9 @@ useEffect(() => {
     setCarregando(false);
   }, [clienteSelecionado, anoInicio, mesInicio, anoFim, mesFim]);
 
-  const calcular = useCallback((competencias, resolsAtual) => {
+  const calcular = useCallback((comps, resolsAtual) => {
     const linhasCredito = [], linhasEspelho = [], linhasDetalhadas = [];
-    competencias.forEach(({ competencia, receitaXML, receitaPGDAS, rj }) => {
+    comps.forEach(({ competencia, receitaXML, receitaPGDAS, rj }) => {
       const ano = parseInt(competencia.split('-')[0]);
       const aliq = ALIQUOTAS[ano] || ALIQUOTAS[2024];
       const resolucao = resolsAtual[competencia] || 'conservador';
@@ -154,7 +208,7 @@ useEffect(() => {
     setApurando(true);
     setErro('');
     const novasDiverg = [];
-    const competencias = diagnosticos.map(diag => {
+    const comps = diagnosticos.map(diag => {
       const rj = diag.resultado_json || {};
       const receitaXML = rj.receita_bruta_xml || 0;
       const receitaPGDAS = rj.receita_bruta_pgdas || diag.receita_bruta_declarada || 0;
@@ -165,7 +219,7 @@ useEffect(() => {
     setDivergencias(novasDiverg);
     const primeira = novasDiverg.find(d => !resolucoes[d.competencia]);
     if (primeira) { setModalDivergencia(primeira); setApurando(false); return; }
-    calcular(competencias, resolucoes);
+    calcular(comps, resolucoes);
   }, [diagnosticos, resolucoes, calcular]);
 
   const resolverDivergencia = (competencia, opcao) => {
@@ -174,12 +228,12 @@ useEffect(() => {
     const proxima = divergencias.find(d => d.competencia !== competencia && !novas[d.competencia]);
     if (proxima) { setModalDivergencia(proxima); return; }
     setModalDivergencia(null);
-    const competencias = diagnosticos.map(diag => {
+    const comps = diagnosticos.map(diag => {
       const rj = diag.resultado_json || {};
       return { competencia: diag.competencia, receitaXML: rj.receita_bruta_xml||0,
         receitaPGDAS: rj.receita_bruta_pgdas||diag.receita_bruta_declarada||0, rj };
     });
-    calcular(competencias, novas);
+    calcular(comps, novas);
   };
 
   const exportarCSV = () => {
@@ -259,7 +313,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Skeleton enquanto carrega */}
+      {/* Skeleton */}
       {carregando && (
         <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
@@ -349,6 +403,80 @@ useEffect(() => {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── ABA COMPETENCIAS (independente de resultados) ── */}
+      {clienteSelecionado && (
+        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: S.navy }}>📅 Controle de Competências</div>
+            <button onClick={carregarCompetencias}
+              style={{ padding: '5px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
+              ↺ Atualizar
+            </button>
+          </div>
+
+          {loadingComp ? (
+            <div style={{ padding: 24, textAlign: 'center', color: S.muted }}>Carregando...</div>
+          ) : competencias.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: S.text, marginBottom: 4 }}>Nenhuma competência registrada</div>
+              <div style={{ fontSize: 12, color: S.ghost }}>As competências aparecem automaticamente após importar XMLs e PGDAS-D</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: S.tableHeader }}>
+                    {['Competência', 'PGDAS-D', 'XMLs', 'NF-es', 'PIS/COFINS Pago', 'Crédito Apurado', 'Processado em', 'Status', 'Ações'].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {competencias.map((c, i) => (
+                    <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                      <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
+                      <td style={{ padding: '9px 12px' }}>
+                        {c.pgdas_carregado
+                          ? <span style={{ color: S.green, fontWeight: 700 }}>✓</span>
+                          : <span style={{ color: S.ghost }}>—</span>}
+                      </td>
+                      <td style={{ padding: '9px 12px' }}>
+                        {c.xmls_carregados
+                          ? <span style={{ color: S.green, fontWeight: 700 }}>✓</span>
+                          : <span style={{ color: S.ghost }}>—</span>}
+                      </td>
+                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_nfs || '—'}</td>
+                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_pis_cofins_pago > 0 ? formatBRL(c.total_pis_cofins_pago) : '—'}</td>
+                      <td style={{ padding: '9px 12px', color: c.credito_apurado > 0 ? S.green : S.ghost, fontWeight: c.credito_apurado > 0 ? 700 : 400 }}>
+                        {c.credito_apurado > 0 ? formatBRL(c.credito_apurado) : '—'}
+                      </td>
+                      <td style={{ padding: '9px 12px', color: S.ghost, fontSize: 11 }}>{fmtData(c.processado_em)}</td>
+                      <td style={{ padding: '9px 12px' }}><StatusCompBadge status={c.status} /></td>
+                      <td style={{ padding: '9px 12px' }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                            👁 Ver
+                          </button>
+                          <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
+                            style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                            {excluindoComp === c.id ? '...' : '🗑'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, fontSize: 12, color: S.ghost }}>
+                {competencias.length} competência(s) registrada(s)
+              </div>
+            </div>
+          )}
         </div>
       )}
 
