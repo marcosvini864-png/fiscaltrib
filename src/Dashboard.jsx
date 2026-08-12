@@ -923,7 +923,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='inteligencia' && activeTab===0 && <CentralTributaria onVoltar={()=>navigateTo('painel')} />}
             {module==='inteligencia' && activeTab===1 && <PaginaReforma />}
             {module==='prospeccao' && <Prospeccao onVoltar={()=>navigateTo('painel')} />}
-git add src/pages/AbaMonofasicos.jsx            {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
+            {module==='mensagens' && <MensagensRapidas onVoltar={()=>navigateTo('painel')} />}
             {module==='admin' && <Admin onVoltar={()=>navigateTo('painel')} />}
             {module==='dev' && <Laboratorio onVoltar={()=>navigateTo('painel')} />}
 
