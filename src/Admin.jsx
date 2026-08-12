@@ -143,13 +143,21 @@ export default function Admin({ onVoltar }) {
   }
 
   async function carregarPermissoesSite() {
-    setLoadPermSite(true)
-    const { data } = await supabase.from('modulos_permissoes').select('*')
-    const mapa = {}
-    ;(data || []).forEach(p => { mapa[p.usuario_id] = p })
-    setPermissoesSite(mapa)
-    setLoadPermSite(false)
-  }
+  setLoadPermSite(true)
+  const { data } = await supabase.from('modulos_permissoes').select('*')
+  const mapa = {}
+  ;(data || []).forEach(p => {
+    const linha = { ...p }
+    Object.keys(linha).forEach(k => {
+      if (k !== 'id' && k !== 'usuario_id' && linha[k] === null) {
+        linha[k] = false
+      }
+    })
+    mapa[p.usuario_id] = linha
+  })
+  setPermissoesSite(mapa)
+  setLoadPermSite(false)
+}
 
   function permissaoSiteDe(usuarioId, campo) {
   const linha = permissoesSite[usuarioId]
