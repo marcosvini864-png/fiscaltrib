@@ -119,64 +119,66 @@ export default function Admin({ onVoltar }) {
     setLoadPerm(true)
     const { data } = await supabase.from('extensao_permissoes').select('*')
     const mapa = {}
-    ;(data || []).forEach(p => { mapa[p.usuario_id] = p })
+    ;(data || []).forEach(p => { mapa[String(p.usuario_id)] = p })
     setPermissoes(mapa)
     setLoadPerm(false)
   }
 
   function permissaoDe(usuarioId, campo) {
-    const linha = permissoes[usuarioId]
+    const linha = permissoes[String(usuarioId)]
     if (!linha) return true
     return linha[campo] !== false
   }
 
   async function togglePermissao(usuarioId, campo) {
-    const atual = permissoes[usuarioId] || {
+    const uid = String(usuarioId)
+    const atual = permissoes[uid] || {
       dashboard: true, kanban: true, chatbot: true, campanhas: true,
       importar: true, link_qr: true, lembretes: true, webhooks: true,
     }
-    const novo = { ...atual, usuario_id: usuarioId, [campo]: !(atual[campo] !== false) }
-    setSalvandoPerm(usuarioId + campo)
-    setPermissoes(prev => ({ ...prev, [usuarioId]: novo }))
+    const novo = { ...atual, usuario_id: uid, [campo]: !(atual[campo] !== false) }
+    setSalvandoPerm(uid + campo)
+    setPermissoes(prev => ({ ...prev, [uid]: novo }))
     await supabase.from('extensao_permissoes').upsert(novo, { onConflict: 'usuario_id' })
     setSalvandoPerm(null)
   }
 
   async function carregarPermissoesSite() {
-  setLoadPermSite(true)
-  const { data } = await supabase.from('modulos_permissoes').select('*')
-  const mapa = {}
-  ;(data || []).forEach(p => {
-    const linha = { ...p }
-    Object.keys(linha).forEach(k => {
-      if (k !== 'id' && k !== 'usuario_id' && linha[k] === null) {
-        linha[k] = false
-      }
+    setLoadPermSite(true)
+    const { data } = await supabase.from('modulos_permissoes').select('*')
+    const mapa = {}
+    ;(data || []).forEach(p => {
+      const linha = { ...p }
+      Object.keys(linha).forEach(k => {
+        if (k !== 'id' && k !== 'usuario_id' && (linha[k] === null || linha[k] === undefined)) {
+          linha[k] = false
+        }
+      })
+      mapa[String(p.usuario_id)] = linha
     })
-    mapa[p.usuario_id] = linha
-  })
-  setPermissoesSite(mapa)
-  setLoadPermSite(false)
-}
+    setPermissoesSite(mapa)
+    setLoadPermSite(false)
+  }
 
   function permissaoSiteDe(usuarioId, campo) {
-  const linha = permissoesSite[usuarioId]
-  if (!linha) return true
-  const val = linha[campo]
-  if (val === null || val === undefined) return false
-  return val === true
-}
+    const linha = permissoesSite[String(usuarioId)]
+    if (!linha) return true
+    const val = linha[campo]
+    if (val === null || val === undefined) return false
+    return val === true
+  }
 
-async function togglePermissaoSite(usuarioId, campo) {
-  const linha = permissoesSite[usuarioId] || {}
-  const valorAtual = linha[campo]
-  const estaAtivo = (valorAtual === null || valorAtual === undefined) ? false : valorAtual === true
-  const novo = { ...linha, usuario_id: usuarioId, [campo]: !estaAtivo }
-  setSalvandoPermSite(usuarioId + campo)
-  setPermissoesSite(prev => ({ ...prev, [usuarioId]: novo }))
-  await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
-  setSalvandoPermSite(null)
-}
+  async function togglePermissaoSite(usuarioId, campo) {
+    const uid = String(usuarioId)
+    const linha = permissoesSite[uid] || {}
+    const valorAtual = linha[campo]
+    const estaAtivo = (valorAtual === null || valorAtual === undefined) ? false : valorAtual === true
+    const novo = { ...linha, usuario_id: uid, [campo]: !estaAtivo }
+    setSalvandoPermSite(uid + campo)
+    setPermissoesSite(prev => ({ ...prev, [uid]: novo }))
+    await supabase.from('modulos_permissoes').upsert(novo, { onConflict: 'usuario_id' })
+    setSalvandoPermSite(null)
+  }
 
   async function carregarSessoes() {
     setLoadSessoes(true)
@@ -367,7 +369,7 @@ async function togglePermissaoSite(usuarioId, campo) {
                         <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
                           <Toggle
                             ativo={permissaoSiteDe(u.id, m.id)}
-                            desabilitado={salvandoPermSite === u.id + m.id}
+                            desabilitado={salvandoPermSite === String(u.id) + m.id}
                             onClick={() => togglePermissaoSite(u.id, m.id)}
                           />
                         </td>
@@ -416,7 +418,7 @@ async function togglePermissaoSite(usuarioId, campo) {
                         <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
                           <Toggle
                             ativo={permissaoDe(u.id, m.id)}
-                            desabilitado={salvandoPerm === u.id + m.id}
+                            desabilitado={salvandoPerm === String(u.id) + m.id}
                             onClick={() => togglePermissao(u.id, m.id)}
                           />
                         </td>
