@@ -93,6 +93,8 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [competencias, setCompetencias] = useState([]);
   const [loadingComp, setLoadingComp] = useState(false);
   const [excluindoComp, setExcluindoComp] = useState(null);
+  const [paginaComp, setPaginaComp] = useState(1)
+  const [porPaginaComp, setPorPaginaComp] = useState(10)
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -467,7 +469,9 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               </tr>
             ))
           ) : (
-            competencias.map((c, i) => (
+		  const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp))
+          const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp)
+            competenciasPagina.map((c, i) => (
               <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                 <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
                 <td style={{ padding: '9px 12px' }}>
@@ -501,11 +505,31 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       </table>
     </div>
 
-    <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, fontSize: 12, color: S.ghost }}>
-      {loadingComp ? 'Carregando competencias...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) registrada(s)`}
+    <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.ghost, flexWrap: 'wrap', gap: 8 }}>
+  <span>
+    {loadingComp ? 'Carregando...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) — Pagina ${paginaComp} de ${totalPaginasComp}`}
+  </span>
+  {competencias.length > 0 && (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      {[['«', () => setPaginaComp(1), paginaComp === 1],
+        ['<', () => setPaginaComp(p => Math.max(1, p - 1)), paginaComp === 1],
+        ['>', () => setPaginaComp(p => Math.min(totalPaginasComp, p + 1)), paginaComp === totalPaginasComp],
+        ['»', () => setPaginaComp(totalPaginasComp), paginaComp === totalPaginasComp]
+      ].map(([l, fn, dis], i) => (
+        <button key={i} onClick={fn} disabled={dis}
+          style={{ padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text, fontSize: 12 }}>
+          {l}
+        </button>
+      ))}
+      <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1) }}
+        style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
+        {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
+      </select>
     </div>
+    )}
+   </div>
   </div>
-)}
+   )}
 
       {/* Resultados */}
       {resultados && (
