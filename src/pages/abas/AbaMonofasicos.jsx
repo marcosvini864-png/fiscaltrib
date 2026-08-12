@@ -1,7 +1,7 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.0 - 08/08/2026
- * Relatorio PDF + CSV adicionados
+ * Versao 8.1 - 12/08/2026
+ * + Upsert automatico em itens_fiscais ao importar XMLs
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -83,6 +83,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [diagAberto, setDiagAberto] = useState(null)
   const [porPagina, setPorPagina] = useState(10)
+  const [upsertInfo, setUpsertInfo] = useState(null) // { novos, atualizados }
   const inputRef = useRef(null)
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
@@ -319,7 +320,57 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   function novaAnalise() {
     setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null)
-    setDiagAberto(null); setSelecionados([]); setErro('')
+    setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
+  }
+
+  // ── UPSERT ITENS_FISCAIS ─────────────────────────────────────────────────
+  // Estrategia: extrai produtos unicos por (cliente_id, codigo)
+  // ON CONFLICT DO NOTHING — primeiro cadastro vence, nao sobrescreve edicoes manuais
+  async function upsertItensFiscais(todosItens, userId) {
+    if (!cliente?.id || !userId || !todosItens.length) return
+
+    // Deduplica por codigo do produto (cProd) — pega o primeiro encontrado
+    const mapaUnicos = new Map()
+    for (const item of todosItens) {
+      const codigo = item.codigo || item.nNF // fallback
+      if (!codigo || mapaUnicos.has(codigo)) continue
+      mapaUnicos.set(codigo, item)
+    }
+
+    const registros = Array.from(mapaUnicos.values()).map(item => ({
+      usuario_id: userId,
+      cliente_id: cliente.id,
+      codigo: item.codigo || '',
+      descricao: item.descricao || '',
+      gtin: item.gtin || null,
+      ncm: item.ncm || null,
+      ex: item.ex || null,
+      cest: item.cest || null,
+      class_pis_cofins_econsulta: item.monofasico ? 'monofasico' : 'tributado',
+      // class_pis_cofins_considerado fica NULL — usuario confirma manualmente
+      status_ncm: item.ncm ? 'encontrada' : 'nao_encontrada',
+      considerar_receita: true,
+      duplicado: false,
+    }))
+
+    if (!registros.length) return
+
+    // Lotes de 100 para nao estourar limite do Supabase
+    let novosTotal = 0
+    const LOTE = 100
+    for (let i = 0; i < registros.length; i += LOTE) {
+      const lote = registros.slice(i, i + LOTE)
+      const { data, error } = await supabase
+        .from('itens_fiscais')
+        .upsert(lote, {
+          onConflict: 'cliente_id,codigo',
+          ignoreDuplicates: true, // ON CONFLICT DO NOTHING
+        })
+        .select('id')
+      if (!error && data) novosTotal += data.length
+    }
+
+    setUpsertInfo({ novos: novosTotal, total: registros.length })
   }
 
   async function onDrop(e) {
@@ -336,6 +387,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     if (!listaArquivos || listaArquivos.length === 0) return
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
+
     for (const arq of listaArquivos) {
       try {
         if (arq.nome.toLowerCase().endsWith('.xml')) {
@@ -349,6 +401,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
               ;(nfe.itens || []).forEach(item => {
                 const mono = isMonofasico(item.ncm)
                 todosItens.push({
+                  // campos para exibicao na tabela
                   nNF: nfe.nNF||'-', competencia: nfe.competencia, emitente: nfe.emitNome||'-',
                   ncm: item.ncm||'-', descricao: item.xProd||'-', vProd: item.vProd||0,
                   vItemPIS: item.vItemPIS||0, vItemCOFINS: item.vItemCOFINS||0,
@@ -356,6 +409,11 @@ export default function AbaMonofasicos({ cliente, regime }) {
                   credito: mono && regime !== 'Simples Nacional' ? (item.vItemPIS||0)+(item.vItemCOFINS||0) : 0,
                   pendentePGDAS: mono && regime === 'Simples Nacional',
                   arquivo: arq.nome,
+                  // campos extras para upsert em itens_fiscais
+                  codigo: item.cProd || '',
+                  gtin: item.cEAN || null,
+                  ex: item.EXTIPI || null,
+                  cest: item.CEST || null,
                 })
                 qtd++
               })
@@ -367,12 +425,28 @@ export default function AbaMonofasicos({ cliente, regime }) {
         }
       } catch { novosProcessados.push({ ...arq, status: 'erro', qtdItens: 0 }) }
     }
+
     if (regime === 'Simples Nacional') {
       const recMono = todosItens.filter(i => i.monofasico).reduce((s,i)=>s+i.vProd, 0)
       const recTotal = todosItens.reduce((s,i)=>s+i.vProd, 0)
       setPgdasForm(prev => ({ ...prev, receita_bruta_total: recTotal.toFixed(2), receita_monofasica: recMono.toFixed(2) }))
     }
-    setProcessados(novosProcessados); setItens(todosItens); setPgdasResult(null); setProcessando(false); setPagina(1)
+
+    setProcessados(novosProcessados)
+    setItens(todosItens)
+    setPgdasResult(null)
+    setProcessando(false)
+    setPagina(1)
+
+    // ── Upsert silencioso em itens_fiscais ───────────────────────────────
+    // Roda apos atualizar a tela para nao bloquear a UX
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await upsertItensFiscais(todosItens, user?.id)
+    } catch (e) {
+      console.warn('upsert itens_fiscais falhou silenciosamente:', e.message)
+      // Nao bloqueia o usuario — o diagnostico continua funcionando normalmente
+    }
   }
 
   function calcularPGDAS() {
@@ -449,6 +523,18 @@ export default function AbaMonofasicos({ cliente, regime }) {
           </div>
         </div>
       </div>
+
+      {/* BANNER UPSERT — aparece apos importacao bem-sucedida */}
+      {upsertInfo && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 13, color: '#166534' }}>
+            ✅ <strong>{upsertInfo.total} produtos</strong> cadastrados no Cadastro de Itens.
+            {upsertInfo.novos > 0 && <span> <strong>{upsertInfo.novos} novos</strong> adicionados.</span>}
+            {' '}Acesse <strong>Classificação de Itens</strong> para revisar e confirmar.
+          </div>
+          <button onClick={() => setUpsertInfo(null)} style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: 13 }}>✕</button>
+        </div>
+      )}
 
       {/* ABAS */}
       <div style={{ display: 'flex', borderBottom: `2px solid ${S.border}`, marginBottom: 20 }}>
