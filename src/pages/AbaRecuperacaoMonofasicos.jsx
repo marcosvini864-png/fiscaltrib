@@ -441,7 +441,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                     </tr>
                   ))
                 ) : competencias.length === 0 ? (
-                  Array(Math.min(porPaginaComp, 10)).fill(null).map((_, i) => (
+                  Array(porPaginaComp).fill(null).map((_, i) => (
                     <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>{`${String((i % 12) + 1).padStart(2,'0')}/2024`}</td>
                       <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
