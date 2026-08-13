@@ -585,9 +585,9 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
-
-    </div>
-  );
-}
+	  @keyframes spin { to { transform: rotate(360deg); } }
+	  `}</style>
+	  
+        </div>
+      );
+    }
