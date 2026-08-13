@@ -506,7 +506,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                           </button>
                           <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
                             style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
-                            {excluindoComp === c.id ? '...' : 'X'}
+                            {excluindoComp === c.id ? '...' : '🗑️'}
                           </button>
                         </div>
                       </td>
@@ -699,12 +699,20 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
 
           {clienteObj && (
             <div style={{ marginTop: 20 }}>
-              <AnalisadorIA modulo="MONOFASICOS" dadosContexto={{
-                cliente: clienteObj.razao_social, cnpj: clienteObj.cnpj,
+              <AnalisadorIA
+                contexto="MONOFASICOS PIS/COFINS"
+                dados={{
+                cliente: clienteObj.razao_social,
+                cnpj: clienteObj.cnpj,
                 periodo: `${mesInicio}/${anoInicio} a ${mesFim}/${anoFim}`,
-                totalCredito: resultados.totalCredito, totalPIS: resultados.totalPIS,
-                totalCOFINS: resultados.totalCOFINS, competencias: resultados.linhasCredito.length,
-              }} />
+                totalCredito: resultados.totalCredito,
+                totalPIS: resultados.totalPIS,
+                totalCOFINS: resultados.totalCOFINS,
+                competencias: resultados.linhasCredito.length,
+            }}
+         cliente={clienteObj}
+          regime="Simples Nacional"
+                 />
             </div>
           )}
         </>
