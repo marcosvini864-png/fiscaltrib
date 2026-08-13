@@ -515,7 +515,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                   ))}
                 </>
               )}
-              <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1); }}
+              <select value={porPaginaComp} onChange={e => { const n = Number(e.target.value); setPorPaginaComp(n); setPaginaComp(1); }}
                 style={{ marginLeft: 4, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
                 {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
               </select>
