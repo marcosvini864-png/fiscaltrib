@@ -196,11 +196,15 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       const receitaMono = rj.receita_monofasica || 0;
       let receitaMonoFinal = receitaMono;
       let receitaNormalFinal = (receitaXML || receitaPGDAS) - receitaMono;
-      if (resolucao === 'conservador' && receitaPGDAS > 0) {
-        const diff = receitaPGDAS - receitaXML;
-        if (diff > 0) receitaNormalFinal += diff;
-        else receitaMonoFinal = Math.max(0, receitaMonoFinal + diff);
-      }
+      if (resolucao === 'declarada') {
+      receitaNormalFinal = receitaPGDAS - receitaMono;
+}     else if (resolucao === 'apurada') {
+      receitaNormalFinal = receitaXML - receitaMono;
+}     else if (resolucao === 'conservador' && receitaPGDAS > 0) {
+      const diff = receitaPGDAS - receitaXML;
+      if (diff > 0) receitaNormalFinal += diff;
+      else receitaMonoFinal = Math.max(0, receitaMonoFinal + diff);
+	   }
       if (resolucao === 'manter') {
         linhasDetalhadas.push({ periodo, receitaXML, receitaPGDAS, receitaMono: receitaMonoFinal,
           receitaNormal: receitaNormalFinal, pisPago: rj.pis_recolhido||0, cofinsPago: rj.cofins_recolhido||0,
@@ -248,7 +252,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
     calcular(comps, resolucoes);
   }, [diagnosticos, resolucoes, calcular]);
 
-  const resolverDivergencia = (periodo, opcao) => {
+  const resolverDivergencia = (periodo, opcao, receitaFinal = null) => {
     const novas = { ...resolucoes, [periodo]: opcao };
     setResolucoes(novas);
     setModalDivergencia(null);
@@ -299,7 +303,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         cfopsXML={competenciaAtiva.cfopsXML || []}
         onInterromper={() => resolverDivergencia(competenciaAtiva.competencia, 'interromper')}
         onManter={() => resolverDivergencia(competenciaAtiva.competencia, 'manter')}
-        onProsseguir={() => resolverDivergencia(competenciaAtiva.competencia, 'conservador')}
+        onProsseguir={(receitaFinal) => resolverDivergencia(competenciaAtiva.competencia, receitaFinal >= competenciaAtiva.receitaDeclarada ? 'declarada' : 'apurada', receitaFinal)}
         onFechar={() => setCompetenciaAtiva(null)}
       />
     );
