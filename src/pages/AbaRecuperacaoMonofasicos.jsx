@@ -427,7 +427,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               </thead>
               <tbody>
                 {loadingComp ? (
-                  Array(5).fill(null).map((_, i) => (
+                  Array(porPaginaComp).fill(null).map((_, i) => (
                     <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                       <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 60, borderRadius: 4, background: '#E2E8F0' }} /></td>
                       <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
@@ -441,7 +441,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                     </tr>
                   ))
                 ) : competencias.length === 0 ? (
-                  Array(5).fill(null).map((_, i) => (
+                  Array(Math.min(porPaginaComp, 5)).fill(null).map((_, i) => (
                     <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>{['01/2024','02/2024','03/2024','04/2024','05/2024'][i]}</td>
                       <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
