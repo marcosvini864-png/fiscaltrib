@@ -1,7 +1,7 @@
 /**
  * AbaRecuperacaoMonofasicos.jsx - e-FiscalTribe®
- * Versao 2.0 - 12/08/2026
- * + Sprint 3B: aba Competencias com controle mes a mes
+ * Versao 2.1 - 12/08/2026
+ * Sprint 3B corrigido — estrutura JSX do Controle de Competencias
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -62,7 +62,7 @@ function StatusCompBadge({ status }) {
   const map = {
     auditado:    { bg: '#f0fdf4', color: '#16a34a', border: '#86efac', label: 'Auditado' },
     pendente:    { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa', label: 'Pendente' },
-    divergencia: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Divergência' },
+    divergencia: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Divergencia' },
     processando: { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', label: 'Processando' },
   }
   const b = map[status] || map.pendente
@@ -89,12 +89,11 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [resultados, setResultados] = useState(null);
   const [aba, setAba] = useState('credito');
   const [apurando, setApurando] = useState(false);
-  // Sprint 3B
   const [competencias, setCompetencias] = useState([]);
   const [loadingComp, setLoadingComp] = useState(false);
   const [excluindoComp, setExcluindoComp] = useState(null);
-  const [paginaComp, setPaginaComp] = useState(1)
-  const [porPaginaComp, setPorPaginaComp] = useState(10)
+  const [paginaComp, setPaginaComp] = useState(1);
+  const [porPaginaComp, setPorPaginaComp] = useState(10);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -110,33 +109,30 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   }, []);
 
   useEffect(() => {
-    if (clientePre?.id) {
-      setClienteSelecionado(clientePre.id)
-    }
-  }, [clientePre?.id])
+    if (clientePre?.id) setClienteSelecionado(clientePre.id);
+  }, [clientePre?.id]);
 
-  // Carrega competencias quando cliente muda
   useEffect(() => {
-    if (clienteSelecionado) carregarCompetencias()
-  }, [clienteSelecionado])
+    if (clienteSelecionado) carregarCompetencias();
+  }, [clienteSelecionado]);
 
   async function carregarCompetencias() {
-    setLoadingComp(true)
+    setLoadingComp(true);
     const { data } = await supabase
       .from('empresa_competencias')
       .select('*')
       .eq('cliente_id', clienteSelecionado)
-      .order('competencia', { ascending: false })
-    setCompetencias(data || [])
-    setLoadingComp(false)
+      .order('competencia', { ascending: false });
+    setCompetencias(data || []);
+    setLoadingComp(false);
   }
 
   async function excluirCompetencia(id) {
-    if (!window.confirm('Excluir esta competência?')) return
-    setExcluindoComp(id)
-    await supabase.from('empresa_competencias').delete().eq('id', id)
-    await carregarCompetencias()
-    setExcluindoComp(null)
+    if (!window.confirm('Excluir esta competencia?')) return;
+    setExcluindoComp(id);
+    await supabase.from('empresa_competencias').delete().eq('id', id);
+    await carregarCompetencias();
+    setExcluindoComp(null);
   }
 
   const buscarDados = useCallback(async () => {
@@ -156,7 +152,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       .order('competencia');
     if (e1) { setErro('Erro ao buscar dados.'); setCarregando(false); return; }
     if (!diags || diags.length === 0) {
-      setErro('Nenhum diagnóstico encontrado. Importe os XMLs no Diagnóstico Tributário primeiro.');
+      setErro('Nenhum diagnostico encontrado. Importe os XMLs no Diagnostico Tributario primeiro.');
       setCarregando(false); return;
     }
     setDiagnosticos(diags);
@@ -240,13 +236,13 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
 
   const exportarCSV = () => {
     if (!resultados) return;
-    const headers = ['Competência','Rec. Total','Rec. Mono','Rec. Normal','PIS Pago','COFINS Pago','PIS Devido','COFINS Devido','Créd. PIS','Créd. COFINS','Total'];
+    const headers = ['Competencia','Rec. Total','Rec. Mono','Rec. Normal','PIS Pago','COFINS Pago','PIS Devido','COFINS Devido','Cred. PIS','Cred. COFINS','Total'];
     const rows = resultados.linhasDetalhadas.map(l => [
       l.competencia, l.receitaPGDAS?.toFixed(2), l.receitaMono?.toFixed(2), l.receitaNormal?.toFixed(2),
       l.pisPago?.toFixed(2), l.cofinsPago?.toFixed(2), l.pisDevido?.toFixed(2), l.cofinsDevido?.toFixed(2),
-      l.creditoPIS != null ? l.creditoPIS.toFixed(2) : 'divergência',
-      l.creditoCOFINS != null ? l.creditoCOFINS.toFixed(2) : 'divergência',
-      l.creditoTotal != null ? l.creditoTotal.toFixed(2) : 'divergência',
+      l.creditoPIS != null ? l.creditoPIS.toFixed(2) : 'divergencia',
+      l.creditoCOFINS != null ? l.creditoCOFINS.toFixed(2) : 'divergencia',
+      l.creditoTotal != null ? l.creditoTotal.toFixed(2) : 'divergencia',
     ]);
     const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -258,37 +254,38 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   };
 
   const clienteObj = clientes.find(c => c.id === clienteSelecionado);
-  const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp))
-  const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp)
+  const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp));
+  const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp);
+
   return (
     <div style={{ background: S.bg, minHeight: '100vh', padding: '16px', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' }}>
 
       {/* Banner */}
       <div style={{ background: S.navy, borderRadius: 10, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 20, flexShrink: 0 }}>💰</span>
+        <span style={{ fontSize: 20, flexShrink: 0 }}>&#128176;</span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Recuperação PIS/COFINS Monofásico</div>
-          <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Motor do Simples Nacional · Apuração por competência</div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Recuperacao PIS/COFINS Monofasico</div>
+          <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Motor do Simples Nacional - Apuracao por competencia</div>
         </div>
       </div>
 
-      {/* Seleção */}
+      {/* Selecao */}
       <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '16px', marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, color: S.navy, marginBottom: 12 }}>Selecionar Cliente e Período</div>
+        <div style={{ fontWeight: 600, fontSize: 13, color: S.navy, marginBottom: 12 }}>Selecionar Cliente e Periodo</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <label style={{ fontSize: 12, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>Cliente</label>
             <select value={clienteSelecionado} onChange={e => setClienteSelecionado(e.target.value)}
               style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 10px', fontSize: 13, color: S.text, background: '#fff', boxSizing: 'border-box' }}>
               <option value=''>Selecione um cliente...</option>
-              {clientes.map(c => <option key={c.id} value={c.id}>{c.razao_social} — {c.cnpj}</option>)}
+              {clientes.map(c => <option key={c.id} value={c.id}>{c.razao_social} - {c.cnpj}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            {[['De', anoInicio, setAnoInicio, mesInicio, setMesInicio], ['Até', anoFim, setAnoFim, mesFim, setMesFim]].map(([label, ano, setAno, mes, setMes]) => (
+            {[['De', anoInicio, setAnoInicio, mesInicio, setMesInicio], ['Ate', anoFim, setAnoFim, mesFim, setMesFim]].map(([label, ano, setAno, mes, setMes]) => (
               <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flex: 1, minWidth: 180 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>{label} — Mês</label>
+                  <label style={{ fontSize: 11, color: S.muted, fontWeight: 500, display: 'block', marginBottom: 4 }}>{label} - Mes</label>
                   <select value={mes} onChange={e => setMes(e.target.value)} style={{ width: '100%', border: `1px solid ${S.border}`, borderRadius: 7, padding: '7px 8px', fontSize: 12, color: S.text, boxSizing: 'border-box' }}>
                     {MESES.map((m, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
                   </select>
@@ -312,7 +309,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       {/* Erro */}
       {erro && (
         <div style={{ background: '#FEF2F2', border: `1px solid #FECACA`, borderRadius: 8, padding: '12px 16px', color: S.red, fontSize: 13, marginBottom: 16 }}>
-          ⚠️ {erro}
+          {erro}
         </div>
       )}
 
@@ -328,24 +325,24 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         </div>
       )}
 
-      {/* Preview competências */}
+      {/* Preview competencias */}
       {diagnosticos.length > 0 && !resultados && !carregando && (
         <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: S.text }}>{clienteObj?.razao_social}</div>
-              <div style={{ fontSize: 12, color: S.ghost, marginTop: 2 }}>{diagnosticos.length} competência(s) encontrada(s)</div>
+              <div style={{ fontSize: 12, color: S.ghost, marginTop: 2 }}>{diagnosticos.length} competencia(s) encontrada(s)</div>
             </div>
             <button onClick={apurar} disabled={apurando}
               style={{ background: S.green, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              {apurando ? 'Apurando...' : '⚡ Apurar Créditos'}
+              {apurando ? 'Apurando...' : 'Apurar Creditos'}
             </button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: S.tableHeader }}>
-                  {['Competência','Receita XML','Receita PGDAS-D','Status'].map(h => (
+                  {['Competencia','Receita XML','Receita PGDAS-D','Status'].map(h => (
                     <th key={h} style={{ color: '#fff', padding: '8px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -363,8 +360,8 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                       <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(rP)}</td>
                       <td style={{ padding: '8px 12px' }}>
                         {diverg
-                          ? <span style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>⚠️ Divergência</span>
-                          : <span style={{ background: '#DCFCE7', color: '#166534', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>✓ OK</span>}
+                          ? <span style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>Divergencia</span>
+                          : <span style={{ background: '#DCFCE7', color: '#166534', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>OK</span>}
                       </td>
                     </tr>
                   );
@@ -375,12 +372,12 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         </div>
       )}
 
-      {/* Modal Divergência */}
+      {/* Modal Divergencia */}
       {modalDivergencia && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 500, width: '100%', boxSizing: 'border-box' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: S.navy, marginBottom: 6 }}>⚠️ Divergência de Receita Bruta</div>
-            <div style={{ fontSize: 13, color: S.muted, marginBottom: 14 }}>Competência <strong>{modalDivergencia.competencia}</strong></div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: S.navy, marginBottom: 6 }}>Divergencia de Receita Bruta</div>
+            <div style={{ fontSize: 13, color: S.muted, marginBottom: 14 }}>Competencia <strong>{modalDivergencia.competencia}</strong></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               {[['Receita XMLs', modalDivergencia.receitaXML], ['Receita PGDAS-D', modalDivergencia.receitaPGDAS]].map(([label, valor]) => (
                 <div key={label} style={{ background: S.bg, borderRadius: 8, padding: '10px 12px' }}>
@@ -390,13 +387,13 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               ))}
             </div>
             <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              Retificar o PGDAS-D alterando a receita bruta pode impactar a alíquota dos 12 meses anteriores e gerar DAS complementar ou exclusão do Simples.
+              Retificar o PGDAS-D alterando a receita bruta pode impactar a aliquota dos 12 meses anteriores e gerar DAS complementar ou exclusao do Simples.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                { key: 'interromper', label: '❌ Interromper esta competência', desc: 'Remove do cálculo.', color: S.red },
-                { key: 'manter', label: '📄 Manter divergência — só planilha', desc: 'Gera detalhamento sem apurar crédito.', color: S.orange },
-                { key: 'conservador', label: '✅ Usar receita declarada (conservador)', desc: 'Adota receita do PGDAS-D. Opção mais segura.', color: S.green },
+                { key: 'interromper', label: 'Interromper esta competencia', desc: 'Remove do calculo.', color: S.red },
+                { key: 'manter', label: 'Manter divergencia - so planilha', desc: 'Gera detalhamento sem apurar credito.', color: S.orange },
+                { key: 'conservador', label: 'Usar receita declarada (conservador)', desc: 'Adota receita do PGDAS-D. Opcao mais segura.', color: S.green },
               ].map(op => (
                 <button key={op.key} onClick={() => resolverDivergencia(modalDivergencia.competencia, op.key)}
                   style={{ background: '#F8FAFC', border: `2px solid ${op.color}`, borderRadius: 8, padding: '10px 12px', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
@@ -409,141 +406,132 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         </div>
       )}
 
-      {/* ── ABA COMPETENCIAS (independente de resultados) ── */}
-{clienteSelecionado && (
-  <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-    <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: S.navy }}>&#128197; Controle de Competencias</div>
-      <button onClick={carregarCompetencias}
-        style={{ padding: '5px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-        &#8634; Atualizar
-      </button>
-    </div>
-
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
-        <thead>
-          <tr style={{ background: S.tableHeader }}>
-            {['Competencia', 'PGDAS-D', 'XMLs', 'NF-es', 'PIS/COFINS Pago', 'Credito Apurado', 'Processado em', 'Status', 'Acoes'].map(h => (
-              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {loadingComp ? (
-            Array(5).fill(null).map((_, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 60, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 30, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 70, borderRadius: 4, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 18, width: 60, borderRadius: 99, background: '#E2E8F0' }} /></td>
-                <td style={{ padding: '10px 12px' }}><div style={{ height: 24, width: 80, borderRadius: 6, background: '#E2E8F0' }} /></td>
-              </tr>
-            ))
-          ) : competencias.length === 0 ? (
-            Array(5).fill(null).map((_, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>
-                  {['01/2024','02/2024','03/2024','04/2024','05/2024'][i]}
-                </td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ &#8212;,&#8212;&#8212;</td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ &#8212;,&#8212;&#8212;</td>
-                <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>&#8212;</td>
-                <td style={{ padding: '10px 12px' }}>
-                  <span style={{ background: '#F1F5F9', color: '#CBD5E1', border: '1px solid #E2E8F0', borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>
-                    Aguardando
-                  </span>
-                </td>
-                <td style={{ padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <div style={{ height: 24, width: 40, borderRadius: 4, background: '#F1F5F9' }} />
-                    <div style={{ height: 24, width: 24, borderRadius: 4, background: '#F1F5F9' }} />
-                  </div>
-                </td>
-              </tr>
-            ))
-          ) : (
-		  
-            competenciasPagina.map((c, i) => (
-              <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
-                <td style={{ padding: '9px 12px' }}>
-                  {c.pgdas_carregado ? <span style={{ color: S.green, fontWeight: 700 }}>&#10003;</span> : <span style={{ color: S.ghost }}>&#8212;</span>}
-                </td>
-                <td style={{ padding: '9px 12px' }}>
-                  {c.xmls_carregados ? <span style={{ color: S.green, fontWeight: 700 }}>&#10003;</span> : <span style={{ color: S.ghost }}>&#8212;</span>}
-                </td>
-                <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_nfs || '&#8212;'}</td>
-                <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_pis_cofins_pago > 0 ? formatBRL(c.total_pis_cofins_pago) : '&#8212;'}</td>
-                <td style={{ padding: '9px 12px', color: c.credito_apurado > 0 ? S.green : S.ghost, fontWeight: c.credito_apurado > 0 ? 700 : 400 }}>
-                  {c.credito_apurado > 0 ? formatBRL(c.credito_apurado) : '&#8212;'}
-                </td>
-                <td style={{ padding: '9px 12px', color: S.ghost, fontSize: 11 }}>{fmtData(c.processado_em)}</td>
-                <td style={{ padding: '9px 12px' }}><StatusCompBadge status={c.status} /></td>
-                <td style={{ padding: '9px 12px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                      &#128065; Ver
+      {/* CONTROLE DE COMPETENCIAS */}
+      {clienteSelecionado && (
+        <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: S.navy }}>Controle de Competencias</div>
+            <button onClick={carregarCompetencias}
+              style={{ padding: '5px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
+              Atualizar
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+              <thead>
+                <tr style={{ background: S.tableHeader }}>
+                  {['Competencia','PGDAS-D','XMLs','NF-es','PIS/COFINS Pago','Credito Apurado','Processado em','Status','Acoes'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loadingComp ? (
+                  Array(5).fill(null).map((_, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 60, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 20, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 30, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 80, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 13, width: 70, borderRadius: 4, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 18, width: 60, borderRadius: 99, background: '#E2E8F0' }} /></td>
+                      <td style={{ padding: '10px 12px' }}><div style={{ height: 24, width: 80, borderRadius: 6, background: '#E2E8F0' }} /></td>
+                    </tr>
+                  ))
+                ) : competencias.length === 0 ? (
+                  Array(5).fill(null).map((_, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>{['01/2024','02/2024','03/2024','04/2024','05/2024'][i]}</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ -</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>R$ -</td>
+                      <td style={{ padding: '10px 12px', color: '#CBD5E1' }}>-</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span style={{ background: '#F1F5F9', color: '#CBD5E1', border: '1px solid #E2E8F0', borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>Aguardando</span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <div style={{ height: 24, width: 40, borderRadius: 4, background: '#F1F5F9' }} />
+                          <div style={{ height: 24, width: 24, borderRadius: 4, background: '#F1F5F9' }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  competenciasPagina.map((c, i) => (
+                    <tr key={c.id} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                      <td style={{ padding: '9px 12px', fontWeight: 700, color: S.navy }}>{c.competencia}</td>
+                      <td style={{ padding: '9px 12px' }}>
+                        {c.pgdas_carregado ? <span style={{ color: S.green, fontWeight: 700 }}>V</span> : <span style={{ color: S.ghost }}>-</span>}
+                      </td>
+                      <td style={{ padding: '9px 12px' }}>
+                        {c.xmls_carregados ? <span style={{ color: S.green, fontWeight: 700 }}>V</span> : <span style={{ color: S.ghost }}>-</span>}
+                      </td>
+                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_nfs || '-'}</td>
+                      <td style={{ padding: '9px 12px', color: S.muted }}>{c.total_pis_cofins_pago > 0 ? formatBRL(c.total_pis_cofins_pago) : '-'}</td>
+                      <td style={{ padding: '9px 12px', color: c.credito_apurado > 0 ? S.green : S.ghost, fontWeight: c.credito_apurado > 0 ? 700 : 400 }}>
+                        {c.credito_apurado > 0 ? formatBRL(c.credito_apurado) : '-'}
+                      </td>
+                      <td style={{ padding: '9px 12px', color: S.ghost, fontSize: 11 }}>{fmtData(c.processado_em)}</td>
+                      <td style={{ padding: '9px 12px' }}><StatusCompBadge status={c.status} /></td>
+                      <td style={{ padding: '9px 12px' }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                            Ver
+                          </button>
+                          <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
+                            style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                            {excluindoComp === c.id ? '...' : 'X'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.ghost, flexWrap: 'wrap', gap: 8 }}>
+            <span>
+              {loadingComp ? 'Carregando...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) - Pagina ${paginaComp} de ${totalPaginasComp}`}
+            </span>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {competencias.length > 0 && (
+                <>
+                  {[['«', () => setPaginaComp(1), paginaComp === 1],
+                    ['<', () => setPaginaComp(p => Math.max(1, p - 1)), paginaComp === 1],
+                    ['>', () => setPaginaComp(p => Math.min(totalPaginasComp, p + 1)), paginaComp === totalPaginasComp],
+                    ['»', () => setPaginaComp(totalPaginasComp), paginaComp === totalPaginasComp]
+                  ].map(([l, fn, dis], i) => (
+                    <button key={i} onClick={fn} disabled={dis}
+                      style={{ padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text, fontSize: 12 }}>
+                      {l}
                     </button>
-                    <button onClick={() => excluirCompetencia(c.id)} disabled={excluindoComp === c.id}
-                      style={{ padding: '3px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
-                      {excluindoComp === c.id ? '...' : '&#128465;'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-
-    <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.ghost, flexWrap: 'wrap', gap: 8 }}>
-          <span>
-            {loadingComp ? 'Carregando...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) — Pagina ${paginaComp} de ${totalPaginasComp}`}
-          </span>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            {competencias.length > 0 && (
-              <>
-                {[['«', () => setPaginaComp(1), paginaComp === 1],
-                  ['<', () => setPaginaComp(p => Math.max(1, p - 1)), paginaComp === 1],
-                  ['>', () => setPaginaComp(p => Math.min(totalPaginasComp, p + 1)), paginaComp === totalPaginasComp],
-                  ['»', () => setPaginaComp(totalPaginasComp), paginaComp === totalPaginasComp]
-                ].map(([l, fn, dis], i) => (
-                  <button key={i} onClick={fn} disabled={dis}
-                    style={{ padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text, fontSize: 12 }}>
-                    {l}
-                  </button>
-                ))}
-              </>
-            )}
-            <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1) }}
-              style={{ marginLeft: 4, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
-              {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
-            </select>
+                  ))}
+                </>
+              )}
+              <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1); }}
+                style={{ marginLeft: 4, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
+                {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  )}
+      )}
 
       {/* Resultados */}
       {resultados && (
         <>
-          {/* KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
             {[
-              { label: 'Crédito Total', valor: resultados.totalCredito, color: S.green },
-              { label: 'Crédito PIS', valor: resultados.totalPIS, color: S.blue },
-              { label: 'Crédito COFINS', valor: resultados.totalCOFINS, color: S.navy },
-              { label: 'Competências', valor: resultados.linhasCredito.length, int: true, color: S.muted },
+              { label: 'Credito Total', valor: resultados.totalCredito, color: S.green },
+              { label: 'Credito PIS', valor: resultados.totalPIS, color: S.blue },
+              { label: 'Credito COFINS', valor: resultados.totalCOFINS, color: S.navy },
+              { label: 'Competencias', valor: resultados.linhasCredito.length, int: true, color: S.muted },
             ].map(k => (
               <div key={k.label} style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 11, color: S.ghost, marginBottom: 6 }}>{k.label}</div>
@@ -552,10 +540,9 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
             ))}
           </div>
 
-          {/* Tabs */}
           <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, overflowX: 'auto' }}>
-              {[{ key: 'credito', label: '📊 Crédito' }, { key: 'espelho', label: '📋 Espelho PGDAS-D' }, { key: 'detalhada', label: '📄 Planilha' }].map(t => (
+              {[{ key: 'credito', label: 'Credito' }, { key: 'espelho', label: 'Espelho PGDAS-D' }, { key: 'detalhada', label: 'Planilha' }].map(t => (
                 <button key={t.key} onClick={() => setAba(t.key)}
                   style={{ padding: '11px 16px', fontSize: 12, fontWeight: aba === t.key ? 700 : 400,
                     color: aba === t.key ? S.blue : S.muted, background: 'none', border: 'none',
@@ -566,7 +553,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               ))}
               <div style={{ flex: 1 }} />
               <button onClick={exportarCSV} style={{ margin: '6px 12px', background: S.green, color: '#fff', border: 'none', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                ⬇ CSV
+                CSV
               </button>
             </div>
 
@@ -575,8 +562,8 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
                     <tr style={{ background: S.tableHeader }}>
-                      {['Competência','Rec. Total','Rec. Mono','Rec. Normal','PIS Pago','PIS Devido','Créd. PIS','COFINS Pago','COFINS Devido','Créd. COFINS','Total'].map(h => (
-                        <th key={h} style={{ color: '#fff', padding: '10px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                      {['Competencia','Rec. Total','Rec. Mono','Rec. Normal','PIS Pago','PIS Devido','Cred. PIS','COFINS Pago','COFINS Devido','Cred. COFINS','Total'].map(h => (
+                        <th key={h} style={{ color: '#fff', padding: '10px 10px', textAlign: h === 'Competencia' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -619,14 +606,14 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
             {aba === 'espelho' && (
               <div style={{ padding: 16 }}>
                 <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '10px 14px', lineHeight: 1.5 }}>
-                  📋 Use estes valores para retificar o PGDAS-D. <strong>RB Nova</strong> substitui a receita bruta declarada de cada competência.
+                  Use estes valores para retificar o PGDAS-D. RB Nova substitui a receita bruta declarada de cada competencia.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
                     <thead>
                       <tr style={{ background: S.tableHeader }}>
-                        {['Competência','RB Declarada','RB Nova','Rec. Mono','PIS Pago','PIS Apurado','COFINS Pago','COFINS Apurado','Créd. PIS','Créd. COFINS'].map(h => (
-                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                        {['Competencia','RB Declarada','RB Nova','Rec. Mono','PIS Pago','PIS Apurado','COFINS Pago','COFINS Apurado','Cred. PIS','Cred. COFINS'].map(h => (
+                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competencia' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -654,21 +641,21 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
             {aba === 'detalhada' && (
               <div style={{ padding: 16 }}>
                 <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 14px' }}>
-                  📄 Guarde esta planilha para eventual questionamento da fiscalização.
+                  Guarde esta planilha para eventual questionamento da fiscalizacao.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 750 }}>
                     <thead>
                       <tr style={{ background: S.tableHeader }}>
-                        {['Competência','Rec. XML','Rec. PGDAS','Rec. Mono','Rec. Normal','PIS Pago','COFINS Pago','PIS Devido','COFINS Devido','Créd. PIS','Créd. COFINS','Total'].map(h => (
-                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competência' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                        {['Competencia','Rec. XML','Rec. PGDAS','Rec. Mono','Rec. Normal','PIS Pago','COFINS Pago','PIS Devido','COFINS Devido','Cred. PIS','Cred. COFINS','Total'].map(h => (
+                          <th key={h} style={{ color: '#fff', padding: '9px 10px', textAlign: h === 'Competencia' ? 'left' : 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {resultados.linhasDetalhadas.map((l, i) => (
                         <tr key={l.competencia} style={{ background: l.divergencia ? '#FFF7ED' : i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                          <td style={{ padding: '9px 10px', fontWeight: 600, color: S.text, whiteSpace: 'nowrap' }}>{l.competencia}{l.divergencia && <span style={{ marginLeft: 5, fontSize: 10, color: S.orange }}>⚠️</span>}</td>
+                          <td style={{ padding: '9px 10px', fontWeight: 600, color: S.text, whiteSpace: 'nowrap' }}>{l.competencia}</td>
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaXML)}</td>
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.receitaPGDAS)}</td>
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.blue }}>{formatBRL(l.receitaMono)}</td>
@@ -677,9 +664,9 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsPago)}</td>
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.pisDevido)}</td>
                           <td style={{ padding: '9px 10px', textAlign: 'right', color: S.muted }}>{formatBRL(l.cofinsDevido)}</td>
-                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoPIS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoPIS != null ? formatBRL(l.creditoPIS) : '—'}</td>
-                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoCOFINS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoCOFINS != null ? formatBRL(l.creditoCOFINS) : '—'}</td>
-                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoTotal != null ? S.green : S.ghost, fontWeight: 700 }}>{l.creditoTotal != null ? formatBRL(l.creditoTotal) : '—'}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoPIS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoPIS != null ? formatBRL(l.creditoPIS) : '-'}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoCOFINS != null ? S.green : S.ghost, fontWeight: 600 }}>{l.creditoCOFINS != null ? formatBRL(l.creditoCOFINS) : '-'}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', color: l.creditoTotal != null ? S.green : S.ghost, fontWeight: 700 }}>{l.creditoTotal != null ? formatBRL(l.creditoTotal) : '-'}</td>
                         </tr>
                       ))}
                     </tbody>
