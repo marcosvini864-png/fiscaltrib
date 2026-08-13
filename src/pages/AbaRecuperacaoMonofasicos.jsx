@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import AnalisadorIA from '../AnalisadorIA';
 import ConciliacaoCFOP from './ConciliacaoCFOP';
+import ApuracaoCredito from './ApuracaoCredito';
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
@@ -98,6 +99,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [paginaComp, setPaginaComp] = useState(1);
   const [porPaginaComp, setPorPaginaComp] = useState(10);
   const [competenciaAtiva, setCompetenciaAtiva] = useState(null); // { competencia, receitaDeclarada, receitaApurada }
+  const [apuracaoAtiva, setApuracaoAtiva] = useState(null);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -139,23 +141,16 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
     setExcluindoComp(null);
   }
 
-  function abrirConciliacao(comp) {
-    // comp = registro de empresa_competencias
-    // Busca o diagnostico correspondente para pegar receitas
-    const periodoInicio = `${comp.competencia}-01`;
-    const periodoFim = `${comp.competencia}-28`; // suficiente para filtrar o mes
-
-    // Monta dados de divergencia com o que temos
-    const receitaDeclarada = comp.resultado_json?.receita_bruta_pgdas || 79500;
-    const receitaApurada = comp.resultado_json?.receita_bruta_total || 85000;
-
-    setCompetenciaAtiva({
-      competencia: comp.competencia,
-      receitaDeclarada,
-      receitaApurada,
-      cfopsXML: comp.resultado_json?.cfops || [],
-    });
-  }
+  if (apuracaoAtiva) {
+  return (
+    <ApuracaoCredito
+      competencia={apuracaoAtiva.competencia}
+      clienteId={apuracaoAtiva.clienteId}
+      clienteNome={apuracaoAtiva.clienteNome}
+      onVoltar={() => setApuracaoAtiva(null)}
+    />
+  );
+}
 
   const buscarDados = useCallback(async () => {
     if (!clienteSelecionado) return;
@@ -504,7 +499,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                       <td style={{ padding: '9px 12px' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button
-                            onClick={() => abrirConciliacao(c)}
+                            onClick={() => abrirCompetencia(c)}
                             style={{ padding: '3px 10px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                             Ver
                           </button>
