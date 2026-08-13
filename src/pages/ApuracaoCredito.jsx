@@ -1,8 +1,7 @@
 /**
  * ApuracaoCredito.jsx - e-FiscalTribe®
- * Sprint 4 — Tela de Apuracao do Credito por Competencia
- * Versao 1.1 - 13/08/2026
- * Barra de evolucao + barra verde chapada + blocos de atividade
+ * Sprint 4 + Selic automatica via API Banco Central
+ * Versao 1.2 - 13/08/2026
  */
 
 import { useState, useEffect } from 'react';
@@ -16,11 +15,11 @@ const S = {
 };
 
 const ETAPAS = [
-  { key: 'documentos',     label: 'Documentos',   icon: '📄' },
-  { key: 'classificacao',  label: 'Classificação', icon: '🏷️' },
-  { key: 'conciliacao',    label: 'Conciliação',   icon: '⚖️' },
-  { key: 'apuracao',       label: 'Apuração',      icon: '🧮' },
-  { key: 'resultado',      label: 'Resultado',     icon: '✅' },
+  { key: 'documentos',    label: 'Documentos',    icon: '📄' },
+  { key: 'classificacao', label: 'Classificação',  icon: '🏷️' },
+  { key: 'conciliacao',   label: 'Conciliação',    icon: '⚖️' },
+  { key: 'apuracao',      label: 'Apuração',       icon: '🧮' },
+  { key: 'resultado',     label: 'Resultado',      icon: '✅' },
 ];
 
 function BarraEvolucao({ etapaAtual }) {
@@ -31,19 +30,15 @@ function BarraEvolucao({ etapaAtual }) {
         Progresso do Processo
       </div>
       <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-        {/* Linha de fundo */}
         <div style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 3, background: S.border, zIndex: 0 }} />
-        {/* Linha de progresso */}
         <div style={{
           position: 'absolute', top: 16, left: 16,
           width: idx === 0 ? 0 : `calc(${(idx / (ETAPAS.length - 1)) * 100}% - 32px)`,
-          height: 3, background: S.green, zIndex: 1,
-          transition: 'width 0.5s ease',
+          height: 3, background: S.green, zIndex: 1, transition: 'width 0.5s ease',
         }} />
         {ETAPAS.map((e, i) => {
           const concluido = i < idx;
           const atual = i === idx;
-          const pendente = i > idx;
           return (
             <div key={e.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
               <div style={{
@@ -82,6 +77,11 @@ function fmtBRL(v) {
 function fmtData(v) {
   if (!v) return '—';
   return new Date(v).toLocaleDateString('pt-BR');
+}
+
+function fmtPct(v) {
+  if (v == null || isNaN(v)) return '—';
+  return `${(v * 100).toFixed(4)}%`;
 }
 
 function TributoRow({ nome, valor, destaque, tag }) {
@@ -146,11 +146,38 @@ function BlocoAtividade({ titulo, subtitulo, valorTotal, parcela, monoTributos, 
   );
 }
 
+// Busca taxas Selic mensais da API do Banco Central
+async function buscarSelic(dataInicio, dataFim) {
+  try {
+    const ini = dataInicio.split('-').reverse().join('/'); // YYYY-MM-DD -> DD/MM/YYYY
+    const fim = dataFim.split('-').reverse().join('/');
+    const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.4390/dados?formato=json&dataInicial=${ini}&dataFinal=${fim}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Erro API BCB');
+    const data = await resp.json();
+    return data; // [{ data: "01/01/2020", valor: "0.36" }, ...]
+  } catch (e) {
+    console.error('Erro ao buscar Selic:', e);
+    return [];
+  }
+}
+
+// Calcula fator Selic acumulado
+function calcularFatorSelic(taxas) {
+  if (!taxas || taxas.length === 0) return 1;
+  return taxas.reduce((fator, t) => {
+    const taxa = parseFloat(t.valor) / 100;
+    return fator * (1 + taxa);
+  }, 1);
+}
+
 export default function ApuracaoCredito({ competencia, clienteId, clienteNome, onVoltar }) {
   const [dados, setDados] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [abaAtiva, setAbaAtiva] = useState('apuracao');
+  const [selic, setSelic] = useState(null); // { fator, valorCorrecao, totalCorrigido, meses, taxas }
+  const [loadingSelic, setLoadingSelic] = useState(false);
 
   useEffect(() => {
     if (clienteId && competencia) carregarDados();
@@ -191,7 +218,7 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
     const creditoPIS = Math.max(0, pisPago - pisDevido);
     const creditoCOFINS = Math.max(0, cofinsPago - cofinsDevido);
 
-    setDados({
+    const dadosCarregados = {
       receitaTotal, receitaMono, receitaNormal,
       pisPago, cofinsPago, pisDevido, cofinsDevido,
       creditoPIS, creditoCOFINS,
@@ -200,8 +227,52 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
       processadoEm: comp?.processado_em,
       totalNfs: comp?.total_nfs || 20,
       itens: diag?.itens_json || [],
-    });
+    };
+
+    setDados(dadosCarregados);
     setLoading(false);
+
+    // Busca Selic automaticamente após carregar dados
+    calcularSelic(dadosCarregados.creditoTotal);
+  }
+
+  async function calcularSelic(creditoTotal) {
+    setLoadingSelic(true);
+    try {
+      // Data inicio: primeiro dia da competencia
+      const [ano, mes] = competencia.split('-');
+      const dataInicio = `${ano}-${mes}-01`;
+
+      // Data fim: hoje
+      const hoje = new Date();
+      const dataFim = hoje.toISOString().split('T')[0];
+
+      const taxas = await buscarSelic(dataInicio, dataFim);
+
+      if (!taxas || taxas.length === 0) {
+        setSelic({ erro: 'Não foi possível obter as taxas Selic. Verifique sua conexão.' });
+        setLoadingSelic(false);
+        return;
+      }
+
+      const fator = calcularFatorSelic(taxas);
+      const totalCorrigido = creditoTotal * fator;
+      const valorCorrecao = totalCorrigido - creditoTotal;
+
+      setSelic({
+        fator,
+        valorCorrecao,
+        totalCorrigido,
+        meses: taxas.length,
+        taxaAcumulada: (fator - 1) * 100,
+        dataInicio,
+        dataFim,
+        taxas,
+      });
+    } catch (e) {
+      setSelic({ erro: 'Erro ao calcular Selic: ' + e.message });
+    }
+    setLoadingSelic(false);
   }
 
   if (loading) return (
@@ -344,6 +415,76 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
               ]}
             />
 
+            {/* SELIC */}
+            <div style={{ border: `1px solid ${S.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+              <div style={{ background: '#F1F5F9', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: S.navy }}>Bloco 5 — Correção Monetária pela Selic</div>
+                  <div style={{ fontSize: 11, color: S.ghost, marginTop: 2 }}>Taxa Selic acumulada via API Banco Central do Brasil</div>
+                </div>
+                {loadingSelic && <span style={{ fontSize: 11, color: S.blue }}>Buscando Selic...</span>}
+                {selic && !loadingSelic && !selic.erro && (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: S.green }}>{fmtBRL(selic.valorCorrecao)}</span>
+                )}
+              </div>
+              <div style={{ padding: '12px 16px' }}>
+                {loadingSelic && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ width: 16, height: 16, border: `2px solid ${S.blue}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span style={{ fontSize: 12, color: S.ghost }}>Consultando API do Banco Central...</span>
+                  </div>
+                )}
+                {selic?.erro && (
+                  <div style={{ fontSize: 12, color: S.red, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '8px 12px' }}>
+                    {selic.erro}
+                    <button onClick={() => calcularSelic(dados.creditoTotal)}
+                      style={{ marginLeft: 12, background: 'none', border: 'none', color: S.blue, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+                {selic && !selic.erro && !loadingSelic && (
+                  <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
+                      {[
+                        { label: 'Período', valor: `${selic.dataInicio?.split('-').reverse().join('/')} a ${selic.dataFim?.split('-').reverse().join('/')}` },
+                        { label: 'Meses corrigidos', valor: `${selic.meses} meses` },
+                        { label: 'Selic acumulada', valor: `${selic.taxaAcumulada?.toFixed(4)}%` },
+                        { label: 'Fator', valor: selic.fator?.toFixed(6) },
+                      ].map(k => (
+                        <div key={k.label} style={{ background: S.bg, borderRadius: 7, padding: '8px 12px', border: `1px solid ${S.border}` }}>
+                          <div style={{ fontSize: 10, color: S.ghost, marginBottom: 4 }}>{k.label}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: S.text }}>{k.valor}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: S.tableHeader }}>
+                          <th style={{ padding: '7px 12px', textAlign: 'left', color: S.white, fontSize: 11, fontWeight: 600 }}>Tributo</th>
+                          <th style={{ padding: '7px 12px', textAlign: 'right', color: S.white, fontSize: 11, fontWeight: 600 }}>Valor (R$)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: `1px solid ${S.border}` }}>
+                          <td style={{ padding: '8px 12px', color: S.text }}>Crédito original (PIS + COFINS)</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: S.muted }}>{fmtBRL(dados.creditoTotal)}</td>
+                        </tr>
+                        <tr style={{ borderBottom: `1px solid ${S.border}` }}>
+                          <td style={{ padding: '8px 12px', color: S.text }}>Correção pela Selic ({selic.taxaAcumulada?.toFixed(4)}%)</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: S.orange, fontWeight: 600 }}>{fmtBRL(selic.valorCorrecao)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '8px 12px', color: S.text, fontWeight: 700 }}>Total corrigido</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: S.green, fontWeight: 700 }}>{fmtBRL(selic.totalCorrigido)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* BARRA VERDE CHAPADA 100% */}
             <div style={{
               background: '#16a34a',
@@ -363,17 +504,28 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
                   Total de crédito a recuperar de PIS/COFINS
                 </div>
                 <div style={{ color: S.white, fontSize: 32, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
-                  {fmtBRL(dados.creditoTotal)}
+                  {fmtBRL(selic?.totalCorrigido || dados.creditoTotal)}
                 </div>
                 <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 8 }}>
-                  PIS: {fmtBRL(dados.creditoPIS)} &nbsp;+&nbsp; COFINS: {fmtBRL(dados.creditoCOFINS)}
+                  Crédito original: {fmtBRL(dados.creditoTotal)}
+                  {selic && !selic.erro && (
+                    <span style={{ marginLeft: 8 }}>
+                      + Selic ({selic.taxaAcumulada?.toFixed(2)}%): {fmtBRL(selic.valorCorrecao)}
+                    </span>
+                  )}
                 </div>
+                {loadingSelic && (
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 6 }}>
+                    ⏳ Calculando correção Selic...
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {[
                   { label: 'Competência', valor: competencia },
-                  { label: 'Alíquota Efetiva', valor: `${((dados.aliquota) * 100).toFixed(2)}%` },
+                  { label: 'Alíquota Efetiva', valor: `${(dados.aliquota * 100).toFixed(2)}%` },
                   { label: 'NF-es', valor: dados.totalNfs },
+                  ...(selic && !selic.erro ? [{ label: 'Selic Acum.', valor: `${selic.taxaAcumulada?.toFixed(2)}%` }] : []),
                 ].map(k => (
                   <div key={k.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '10px 16px', textAlign: 'center', minWidth: 80 }}>
                     <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>{k.label}</div>
@@ -427,6 +579,10 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
 
     </div>
   );
