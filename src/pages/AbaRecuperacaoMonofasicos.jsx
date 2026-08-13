@@ -1,7 +1,7 @@
 /**
  * AbaRecuperacaoMonofasicos.jsx - e-FiscalTribe®
- * Versao 2.2 - 13/08/2026
- * Fix: botao Ver funcional + busca por periodo_inicio/periodo_fim
+ * Versao 2.3 - 13/08/2026
+ * Fix: funcao abrirCompetencia declarada + bloco apuracaoAtiva unico
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -98,7 +98,6 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const [excluindoComp, setExcluindoComp] = useState(null);
   const [paginaComp, setPaginaComp] = useState(1);
   const [porPaginaComp, setPorPaginaComp] = useState(10);
-  const [competenciaAtiva, setCompetenciaAtiva] = useState(null); // { competencia, receitaDeclarada, receitaApurada }
   const [apuracaoAtiva, setApuracaoAtiva] = useState(null);
 
   useEffect(() => {
@@ -141,16 +140,13 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
     setExcluindoComp(null);
   }
 
-  if (apuracaoAtiva) {
-  return (
-    <ApuracaoCredito
-      competencia={apuracaoAtiva.competencia}
-      clienteId={apuracaoAtiva.clienteId}
-      clienteNome={apuracaoAtiva.clienteNome}
-      onVoltar={() => setApuracaoAtiva(null)}
-    />
-  );
-}
+  function abrirCompetencia(comp) {
+    setApuracaoAtiva({
+      competencia: comp.competencia,
+      clienteId: clienteSelecionado,
+      clienteNome: clienteObj?.razao_social || '',
+    });
+  }
 
   const buscarDados = useCallback(async () => {
     if (!clienteSelecionado) return;
@@ -159,11 +155,8 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
     setResultados(null);
     setDivergencias([]);
     setResolucoes({});
-
-    // Usa periodo_inicio e periodo_fim (colunas reais da tabela)
     const periodoInicioFiltro = `${anoInicio}-${mesInicio}-01`;
     const periodoFimFiltro = `${anoFim}-${mesFim}-31`;
-
     const { data: diags, error: e1 } = await supabase
       .from('diagnosticos_monofasicos')
       .select('*')
@@ -171,7 +164,6 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       .gte('periodo_inicio', periodoInicioFiltro)
       .lte('periodo_fim', periodoFimFiltro)
       .order('periodo_inicio');
-
     if (e1) { setErro('Erro ao buscar dados.'); setCarregando(false); return; }
     if (!diags || diags.length === 0) {
       setErro('Nenhum diagnostico encontrado para este periodo. Importe os XMLs e PGDAS-D primeiro.');
@@ -192,14 +184,14 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
       let receitaMonoFinal = receitaMono;
       let receitaNormalFinal = (receitaXML || receitaPGDAS) - receitaMono;
       if (resolucao === 'declarada') {
-      receitaNormalFinal = receitaPGDAS - receitaMono;
-}     else if (resolucao === 'apurada') {
-      receitaNormalFinal = receitaXML - receitaMono;
-}     else if (resolucao === 'conservador' && receitaPGDAS > 0) {
-      const diff = receitaPGDAS - receitaXML;
-      if (diff > 0) receitaNormalFinal += diff;
-      else receitaMonoFinal = Math.max(0, receitaMonoFinal + diff);
-	   }
+        receitaNormalFinal = receitaPGDAS - receitaMono;
+      } else if (resolucao === 'apurada') {
+        receitaNormalFinal = receitaXML - receitaMono;
+      } else if (resolucao === 'conservador' && receitaPGDAS > 0) {
+        const diff = receitaPGDAS - receitaXML;
+        if (diff > 0) receitaNormalFinal += diff;
+        else receitaMonoFinal = Math.max(0, receitaMonoFinal + diff);
+      }
       if (resolucao === 'manter') {
         linhasDetalhadas.push({ periodo, receitaXML, receitaPGDAS, receitaMono: receitaMonoFinal,
           receitaNormal: receitaNormalFinal, pisPago: rj.pis_recolhido||0, cofinsPago: rj.cofins_recolhido||0,
@@ -251,13 +243,12 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
     const novas = { ...resolucoes, [periodo]: opcao };
     setResolucoes(novas);
     setModalDivergencia(null);
-    setCompetenciaAtiva(null);
     const proxima = divergencias.find(d => d.periodo !== periodo && !novas[d.periodo]);
     if (proxima) { setModalDivergencia(proxima); return; }
     const comps = diagnosticos.map(diag => {
       const rj = diag.pgdas_json || {};
-      const periodo = diag.periodo_inicio ? diag.periodo_inicio.substring(0, 7) : '—';
-      return { periodo, receitaXML: diag.receita_total || 0,
+      const p = diag.periodo_inicio ? diag.periodo_inicio.substring(0, 7) : '—';
+      return { periodo: p, receitaXML: diag.receita_total || 0,
         receitaPGDAS: rj.receita_bruta_pgdas || diag.receita_total || 0,
         rj: { ...rj, receita_monofasica: diag.receita_monofasica } };
     });
@@ -287,19 +278,13 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   const totalPaginasComp = Math.max(1, Math.ceil(competencias.length / porPaginaComp));
   const competenciasPagina = competencias.slice((paginaComp - 1) * porPaginaComp, paginaComp * porPaginaComp);
 
-  // Se ConciliacaoCFOP estiver aberta, renderiza ela por cima
-  if (competenciaAtiva) {
+  if (apuracaoAtiva) {
     return (
-      <ConciliacaoCFOP
-        clienteId={clienteSelecionado}
-        competencia={competenciaAtiva.competencia}
-        receitaDeclarada={competenciaAtiva.receitaDeclarada}
-        receitaApurada={competenciaAtiva.receitaApurada}
-        cfopsXML={competenciaAtiva.cfopsXML || []}
-        onInterromper={() => resolverDivergencia(competenciaAtiva.competencia, 'interromper')}
-        onManter={() => resolverDivergencia(competenciaAtiva.competencia, 'manter')}
-        onProsseguir={(receitaFinal) => resolverDivergencia(competenciaAtiva.competencia, receitaFinal >= competenciaAtiva.receitaDeclarada ? 'declarada' : 'apurada', receitaFinal)}
-        onFechar={() => setCompetenciaAtiva(null)}
+      <ApuracaoCredito
+        competencia={apuracaoAtiva.competencia}
+        clienteId={apuracaoAtiva.clienteId}
+        clienteNome={apuracaoAtiva.clienteNome}
+        onVoltar={() => setApuracaoAtiva(null)}
       />
     );
   }
@@ -372,7 +357,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         </div>
       )}
 
-      {/* Preview diagnosticos encontrados */}
+      {/* Preview diagnosticos */}
       {diagnosticos.length > 0 && !resultados && !carregando && (
         <div style={{ background: '#fff', border: `1px solid ${S.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
@@ -397,9 +382,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               <tbody>
                 {diagnosticos.map((d, i) => (
                   <tr key={d.id} style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                    <td style={{ padding: '8px 12px', color: S.text, fontWeight: 600 }}>
-                      {d.periodo_inicio} — {d.periodo_fim}
-                    </td>
+                    <td style={{ padding: '8px 12px', color: S.text, fontWeight: 600 }}>{d.periodo_inicio} — {d.periodo_fim}</td>
                     <td style={{ padding: '8px 12px', color: S.muted }}>{formatBRL(d.receita_total)}</td>
                     <td style={{ padding: '8px 12px', color: S.blue }}>{formatBRL(d.receita_monofasica)}</td>
                     <td style={{ padding: '8px 12px', color: S.green, fontWeight: 700 }}>{formatBRL(d.credito_estimado)}</td>
@@ -411,7 +394,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
         </div>
       )}
 
-      {/* Modal Divergencia (fluxo de apuracao) */}
+      {/* Modal Divergencia */}
       {modalDivergencia && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -471,9 +454,7 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
                   Array(5).fill(null).map((_, i) => (
                     <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#CBD5E1' }}>{`${String((i % 12) + 1).padStart(2,'0')}/2026`}</td>
-                      {Array(7).fill(null).map((_, j) => (
-                        <td key={j} style={{ padding: '10px 12px', color: '#CBD5E1' }}>—</td>
-                      ))}
+                      {Array(7).fill(null).map((_, j) => <td key={j} style={{ padding: '10px 12px', color: '#CBD5E1' }}>—</td>)}
                       <td style={{ padding: '10px 12px' }}>
                         <span style={{ background: '#F1F5F9', color: '#CBD5E1', border: '1px solid #E2E8F0', borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>Aguardando</span>
                       </td>
@@ -701,17 +682,17 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
               <AnalisadorIA
                 contexto="MONOFASICOS PIS/COFINS"
                 dados={{
-                cliente: clienteObj.razao_social,
-                cnpj: clienteObj.cnpj,
-                periodo: `${mesInicio}/${anoInicio} a ${mesFim}/${anoFim}`,
-                totalCredito: resultados.totalCredito,
-                totalPIS: resultados.totalPIS,
-                totalCOFINS: resultados.totalCOFINS,
-                competencias: resultados.linhasCredito.length,
-            }}
-         cliente={clienteObj}
-          regime="Simples Nacional"
-                 />
+                  cliente: clienteObj.razao_social,
+                  cnpj: clienteObj.cnpj,
+                  periodo: `${mesInicio}/${anoInicio} a ${mesFim}/${anoFim}`,
+                  totalCredito: resultados.totalCredito,
+                  totalPIS: resultados.totalPIS,
+                  totalCOFINS: resultados.totalCOFINS,
+                  competencias: resultados.linhasCredito.length,
+                }}
+                cliente={clienteObj}
+                regime="Simples Nacional"
+              />
             </div>
           )}
         </>
