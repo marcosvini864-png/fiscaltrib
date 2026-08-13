@@ -509,27 +509,27 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
   <span>
     {loadingComp ? 'Carregando...' : competencias.length === 0 ? 'Importe XMLs e PGDAS-D para registrar competencias' : `${competencias.length} competencia(s) — Pagina ${paginaComp} de ${totalPaginasComp}`}
   </span>
-  {competencias.length > 0 && (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-      {[['«', () => setPaginaComp(1), paginaComp === 1],
-        ['<', () => setPaginaComp(p => Math.max(1, p - 1)), paginaComp === 1],
-        ['>', () => setPaginaComp(p => Math.min(totalPaginasComp, p + 1)), paginaComp === totalPaginasComp],
-        ['»', () => setPaginaComp(totalPaginasComp), paginaComp === totalPaginasComp]
-      ].map(([l, fn, dis], i) => (
-        <button key={i} onClick={fn} disabled={dis}
-          style={{ padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text, fontSize: 12 }}>
-          {l}
-        </button>
-      ))}
-      <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1) }}
-        style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
-        {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
-      </select>
-    </div>
+  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+    {competencias.length > 0 && (
+      <>
+        {[['«', () => setPaginaComp(1), paginaComp === 1],
+          ['<', () => setPaginaComp(p => Math.max(1, p - 1)), paginaComp === 1],
+          ['>', () => setPaginaComp(p => Math.min(totalPaginasComp, p + 1)), paginaComp === totalPaginasComp],
+          ['»', () => setPaginaComp(totalPaginasComp), paginaComp === totalPaginasComp]
+        ].map(([l, fn, dis], i) => (
+          <button key={i} onClick={fn} disabled={dis}
+            style={{ padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text, fontSize: 12 }}>
+            {l}
+          </button>
+        ))}
+      </>
     )}
-   </div>
+    <select value={porPaginaComp} onChange={e => { setPorPaginaComp(Number(e.target.value)); setPaginaComp(1) }}
+      style={{ marginLeft: 4, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
+      {[10, 25, 50].map(n => <option key={n} value={n}>{n} por pagina</option>)}
+    </select>
   </div>
-   )}
+</div>
 
       {/* Resultados */}
       {resultados && (
