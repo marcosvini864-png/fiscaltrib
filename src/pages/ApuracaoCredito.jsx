@@ -486,57 +486,61 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
             </div>
 
             {/* BARRA VERDE CHAPADA 100% */}
-            <div style={{
-              background: '#16a34a',
-              borderRadius: 12,
-              padding: '24px 28px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 8,
-              flexWrap: 'wrap',
-              gap: 16,
-              width: '100%',
-              boxSizing: 'border-box',
-            }}>
-              <div>
-                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Total de crédito a recuperar de PIS/COFINS
-                </div>
-                <div style={{ color: S.white, fontSize: 32, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
-                  {fmtBRL(selic?.totalCorrigido || dados.creditoTotal)}
-                </div>
-                <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 8 }}>
-                  Crédito original: {fmtBRL(dados.creditoTotal)}
-                  {selic && !selic.erro && (
-                    <span style={{ marginLeft: 8 }}>
-                      + Selic ({selic.taxaAcumulada?.toFixed(2)}%): {fmtBRL(selic.valorCorrecao)}
-                    </span>
-                  )}
-                </div>
-                {loadingSelic && (
-                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 6 }}>
-                    ⏳ Calculando correção Selic...
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {[
-                  { label: 'Competência', valor: competencia },
-                  { label: 'Alíquota Efetiva', valor: `${(dados.aliquota * 100).toFixed(2)}%` },
-                  { label: 'NF-es', valor: dados.totalNfs },
-                  ...(selic && !selic.erro ? [{ label: 'Selic Acum.', valor: `${selic.taxaAcumulada?.toFixed(2)}%` }] : []),
-                ].map(k => (
-                  <div key={k.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '10px 16px', textAlign: 'center', minWidth: 80 }}>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>{k.label}</div>
-                    <div style={{ color: S.white, fontSize: 14, fontWeight: 700 }}>{k.valor}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-        )}
+<div style={{
+  background: '#16a34a',
+  borderRadius: 12,
+  padding: '24px 28px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginTop: 8,
+  flexWrap: 'wrap',
+  gap: 16,
+  width: '100%',
+  boxSizing: 'border-box',
+}}>
+  <div>
+    <div style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      Total de crédito a recuperar de PIS/COFINS
+    </div>
+    <div style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
+      {fmtBRL(selic?.totalCorrigido || dados.creditoTotal)}
+    </div>
+    <div style={{ color: '#FFFFFF', fontSize: 12, marginTop: 8 }}>
+      Crédito original: {fmtBRL(dados.creditoTotal)}
+      {selic && !selic.erro && (
+        <span style={{ marginLeft: 8 }}>
+          + Selic ({selic.taxaAcumulada?.toFixed(2)}%): {fmtBRL(selic.valorCorrecao)}
+        </span>
+      )}
+    </div>
+    {loadingSelic && (
+      <div style={{ color: '#FFFFFF', fontSize: 11, marginTop: 6 }}>
+        ⏳ Calculando correção Selic...
+      </div>
+    )}
+  </div>
+  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+    {[
+      { label: 'Competência', valor: competencia },
+      { label: 'Alíquota Efetiva', valor: `${(dados.aliquota * 100).toFixed(2)}%` },
+      { label: 'NF-es', valor: dados.totalNfs },
+      ...(selic && !selic.erro ? [{ label: 'Selic Acum.', valor: `${selic.taxaAcumulada?.toFixed(2)}%` }] : []),
+    ].map(k => (
+      <div key={k.label} style={{
+        background: '#15803d',
+        border: '2px solid #FFFFFF',
+        borderRadius: 8,
+        padding: '10px 16px',
+        textAlign: 'center',
+        minWidth: 80,
+      }}>
+        <div style={{ color: '#FFFFFF', fontSize: 10, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>{k.label}</div>
+        <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 700 }}>{k.valor}</div>
+      </div>
+    ))}
+  </div>
+</div>
 
         {abaAtiva === 'detalhamento' && (
           <div style={{ padding: 16 }}>
