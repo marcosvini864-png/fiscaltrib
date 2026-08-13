@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import AnalisadorIA from '../AnalisadorIA';
+import ConciliacaoCFOP from './ConciliacaoCFOP'
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
@@ -374,36 +375,17 @@ export default function AbaRecuperacaoMonofasicos({ clientePre } = {}) {
 
       {/* Modal Divergencia */}
       {modalDivergencia && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 500, width: '100%', boxSizing: 'border-box' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: S.navy, marginBottom: 6 }}>Divergencia de Receita Bruta</div>
-            <div style={{ fontSize: 13, color: S.muted, marginBottom: 14 }}>Competencia <strong>{modalDivergencia.competencia}</strong></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              {[['Receita XMLs', modalDivergencia.receitaXML], ['Receita PGDAS-D', modalDivergencia.receitaPGDAS]].map(([label, valor]) => (
-                <div key={label} style={{ background: S.bg, borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, color: S.ghost, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: S.text }}>{formatBRL(valor)}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 12, color: S.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              Retificar o PGDAS-D alterando a receita bruta pode impactar a aliquota dos 12 meses anteriores e gerar DAS complementar ou exclusao do Simples.
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { key: 'interromper', label: 'Interromper esta competencia', desc: 'Remove do calculo.', color: S.red },
-                { key: 'manter', label: 'Manter divergencia - so planilha', desc: 'Gera detalhamento sem apurar credito.', color: S.orange },
-                { key: 'conservador', label: 'Usar receita declarada (conservador)', desc: 'Adota receita do PGDAS-D. Opcao mais segura.', color: S.green },
-              ].map(op => (
-                <button key={op.key} onClick={() => resolverDivergencia(modalDivergencia.competencia, op.key)}
-                  style={{ background: '#F8FAFC', border: `2px solid ${op.color}`, borderRadius: 8, padding: '10px 12px', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: op.color }}>{op.label}</div>
-                  <div style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>{op.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <ConciliacaoCFOP
+          clienteId={clienteSelecionado}
+          competencia={modalDivergencia.competencia}
+          receitaDeclarada={modalDivergencia.receitaPGDAS}
+          receitaApurada={modalDivergencia.receitaXML}
+          cfopsXML={modalDivergencia.cfopsXML || []}
+          onInterromper={() => resolverDivergencia(modalDivergencia.competencia, 'interromper')}
+          onManter={() => resolverDivergencia(modalDivergencia.competencia, 'manter')}
+          onProsseguir={(receitaFinal) => resolverDivergencia(modalDivergencia.competencia, 'conservador')}
+          onFechar={() => setModalDivergencia(null)}
+        />
       )}
 
       {/* CONTROLE DE COMPETENCIAS */}
