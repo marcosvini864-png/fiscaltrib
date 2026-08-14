@@ -1,8 +1,8 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.4 - 14/08/2026
- * + Reset inputRef apos importacao
- * + Mensagem "Se o botao nao responder, pressione F5" abaixo do botao
+ * Versao 8.5 - 14/08/2026
+ * + Modal de nome ao salvar diagnostico
+ * + Coluna Nome exibida no Historico
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -85,87 +85,68 @@ const LINHAS_GHOST = Array(5).fill(null).map((_, i) => ({
 }))
 
 const HISTORICO_GHOST = Array(5).fill(null).map((_, i) => ({
-  ghost: true,
-  created_at: null,
-  periodo_inicio: 'MM/AAAA',
-  periodo_fim: 'MM/AAAA',
-  arquivos_importados: [],
-  total_itens: 0,
-  total_monofasicos: 0,
-  receita_monofasica: 0,
-  credito_estimado: 0,
-  status: 'concluido',
+  ghost: true, created_at: null,
+  nome_diagnostico: 'Nome do diagnostico',
+  periodo_inicio: 'MM/AAAA', periodo_fim: 'MM/AAAA',
+  arquivos_importados: [], total_itens: 0, total_monofasicos: 0,
+  receita_monofasica: 0, credito_estimado: 0, status: 'concluido',
 }))
 
-// Modal de confirmacao — dados nao salvos
+// Modal confirmacao — dados nao salvos
 function ModalConfirmacaoSair({ onSalvar, onContinuar, onCancelar, salvando }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
-        background: S.white, borderRadius: 12, padding: 28, maxWidth: 440, width: '100%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-      }}>
-        {/* Icone */}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: S.white, borderRadius: 12, padding: 28, maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: '50%',
-            background: '#FEF3C7', border: '2px solid #FCD34D',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto', fontSize: 24,
-          }}>
-            ⚠️
-          </div>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#FEF3C7', border: '2px solid #FCD34D', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', fontSize: 24 }}>⚠️</div>
         </div>
-
-        {/* Titulo */}
-        <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, textAlign: 'center', marginBottom: 8 }}>
-          Dados nao salvos
-        </div>
-
-        {/* Mensagem */}
-        <div style={{ fontSize: 13, color: S.muted, textAlign: 'center', lineHeight: 1.6, marginBottom: 8 }}>
-          Voce tem dados desta competencia que ainda nao foram salvos.
-        </div>
-        <div style={{
-          background: '#FEF2F2', border: '1px solid #FECACA',
-          borderRadius: 8, padding: '10px 14px', marginBottom: 20,
-          fontSize: 12, color: S.red, fontWeight: 600, textAlign: 'center', lineHeight: 1.6,
-        }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, textAlign: 'center', marginBottom: 8 }}>Dados nao salvos</div>
+        <div style={{ fontSize: 13, color: S.muted, textAlign: 'center', lineHeight: 1.6, marginBottom: 8 }}>Voce tem dados desta competencia que ainda nao foram salvos.</div>
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: S.red, fontWeight: 600, textAlign: 'center', lineHeight: 1.6 }}>
           Se continuar sem salvar, todas as informacoes importadas e processadas desta competencia serao perdidas permanentemente.
         </div>
-
-        {/* Botoes */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button
-            onClick={onSalvar}
-            disabled={salvando}
-            style={{
-              padding: '11px 16px', background: S.navy, color: S.white,
-              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700,
-              cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1,
-            }}>
+          <button onClick={onSalvar} disabled={salvando} style={{ padding: '11px 16px', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
             {salvando ? 'Salvando...' : 'Salvar e continuar'}
           </button>
+          <button onClick={onContinuar} style={{ padding: '11px 16px', background: '#FEF2F2', color: S.red, border: `1px solid #FECACA`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Continuar sem salvar</button>
+          <button onClick={onCancelar} style={{ padding: '11px 16px', background: 'none', color: S.muted, border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Cancelar — voltar para os dados</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ✅ NOVO: Modal para digitar nome antes de salvar
+function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando }) {
+  const [nome, setNome] = useState(nomeSugerido || '')
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: S.white, borderRadius: 12, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, marginBottom: 6 }}>Salvar Diagnostico</div>
+        <div style={{ fontSize: 13, color: S.muted, marginBottom: 16, lineHeight: 1.5 }}>
+          Dê um nome para identificar este diagnostico no historico. Pode deixar em branco para usar o nome automatico.
+        </div>
+        <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, marginBottom: 6 }}>Nome / Descricao (opcional)</div>
+        <input
+          autoFocus
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onConfirmar(nome) }}
+          placeholder={nomeSugerido}
+          style={{ width: '100%', padding: '9px 12px', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
+        />
+        <div style={{ display: 'flex', gap: 8 }}>
           <button
-            onClick={onContinuar}
-            style={{
-              padding: '11px 16px', background: '#FEF2F2', color: S.red,
-              border: `1px solid #FECACA`, borderRadius: 8, fontSize: 13, fontWeight: 600,
-              cursor: 'pointer',
-            }}>
-            Continuar sem salvar
+            onClick={() => onConfirmar(nome)}
+            disabled={salvando}
+            style={{ flex: 1, padding: '10px 0', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
+            {salvando ? 'Salvando...' : 'Salvar'}
           </button>
           <button
             onClick={onCancelar}
-            style={{
-              padding: '11px 16px', background: 'none', color: S.muted,
-              border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13,
-              cursor: 'pointer',
-            }}>
-            Cancelar — voltar para os dados
+            style={{ padding: '10px 18px', background: 'none', color: S.muted, border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+            Cancelar
           </button>
         </div>
       </div>
@@ -196,6 +177,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [porPagina, setPorPagina] = useState(10)
   const [upsertInfo, setUpsertInfo] = useState(null)
   const [modalConfirmacao, setModalConfirmacao] = useState(false)
+  // ✅ NOVO: controle do modal de nome
+  const [modalNome, setModalNome] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -212,6 +195,16 @@ export default function AbaMonofasicos({ cliente, regime }) {
     const { data } = await supabase.from('diagnosticos_monofasicos').select('*').eq('cliente_id', cliente.id).order('created_at', { ascending: false })
     setHistorico(data || [])
     setLoadingHistorico(false)
+  }
+
+  // ✅ NOVO: nome sugerido automatico baseado no periodo
+  function gerarNomeSugerido() {
+    const periodos = [...new Set(itens.map(i => i.competencia))].sort()
+    const inicio = periodos[0] || ''
+    const fim = periodos[periodos.length - 1] || ''
+    if (inicio && fim && inicio !== fim) return `Monofasicos ${inicio} a ${fim}`
+    if (inicio) return `Monofasicos ${inicio}`
+    return `Diagnostico ${new Date().toLocaleDateString('pt-BR')}`
   }
 
   function exportarCSV() {
@@ -372,7 +365,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setTimeout(() => janela.print(), 800)
   }
 
-  async function salvarDiagnostico() {
+  // ✅ NOVO: salvar recebe o nome como parametro
+  async function salvarDiagnostico(nomeDiagnostico) {
     if (!itens.length || !cliente?.id) return
     setSalvando(true)
     try {
@@ -381,6 +375,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
       const { error } = await supabase.from('diagnosticos_monofasicos').insert([{
         usuario_id: user.id, cliente_id: cliente.id,
         cliente_nome: cliente.razao_social || '', cliente_cnpj: cliente.cnpj || '', regime,
+        nome_diagnostico: nomeDiagnostico || gerarNomeSugerido(),
         arquivos_importados: processados.map(p => ({ nome: p.nome, tamanho: p.tamanho, status: p.status, qtd_itens: p.qtdItens || 0 })),
         importado_por: user.email || '',
         total_itens: itens.length,
@@ -415,16 +410,13 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setPgdasResult(diag.pgdas_json || null); setAba('importar'); setPagina(1); setSelecionados([])
   }
 
-  // Limpa tudo sem perguntar
   function limparDados() {
     setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
     setPagina(1); setBusca(''); setFiltro('todos')
-    // ✅ NOVO: reset do inputRef para permitir selecionar o mesmo arquivo novamente
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  // Clicou em Nova Analise ou Limpar — verifica se tem dados nao salvos
   function novaAnalise() {
     if (itens.length > 0 && !diagAberto) {
       setModalConfirmacao(true)
@@ -433,19 +425,20 @@ export default function AbaMonofasicos({ cliente, regime }) {
     }
   }
 
-  // Salvar e continuar do modal
   async function modalSalvarEContinuar() {
-    const ok = await salvarDiagnostico()
-    if (ok) {
-      setModalConfirmacao(false)
-      limparDados()
-    }
+    const ok = await salvarDiagnostico(gerarNomeSugerido())
+    if (ok) { setModalConfirmacao(false); limparDados() }
   }
 
-  // Continuar sem salvar do modal
   function modalContinuarSemSalvar() {
     setModalConfirmacao(false)
     limparDados()
+  }
+
+  // ✅ NOVO: confirmou nome no modal
+  async function confirmarSalvarComNome(nome) {
+    const ok = await salvarDiagnostico(nome)
+    if (ok) setModalNome(false)
   }
 
   async function upsertItensFiscais(todosItens, userId) {
@@ -457,28 +450,20 @@ export default function AbaMonofasicos({ cliente, regime }) {
       mapaUnicos.set(codigo, item)
     }
     const registros = Array.from(mapaUnicos.values()).map(item => ({
-      usuario_id: userId,
-      cliente_id: cliente.id,
-      codigo: item.codigo || '',
-      descricao: item.descricao || '',
-      gtin: item.gtin || null,
-      ncm: item.ncm || null,
-      ex: item.ex || null,
-      cest: item.cest || null,
+      usuario_id: userId, cliente_id: cliente.id,
+      codigo: item.codigo || '', descricao: item.descricao || '',
+      gtin: item.gtin || null, ncm: item.ncm || null,
+      ex: item.ex || null, cest: item.cest || null,
       class_pis_cofins_econsulta: item.monofasico ? 'monofasico' : 'tributado',
       status_ncm: item.ncm ? 'encontrada' : 'nao_encontrada',
-      considerar_receita: true,
-      duplicado: false,
+      considerar_receita: true, duplicado: false,
     }))
     if (!registros.length) return
     let novosTotal = 0
     const LOTE = 100
     for (let i = 0; i < registros.length; i += LOTE) {
       const lote = registros.slice(i, i + LOTE)
-      const { data, error } = await supabase
-        .from('itens_fiscais')
-        .upsert(lote, { onConflict: 'cliente_id,codigo', ignoreDuplicates: true })
-        .select('id')
+      const { data, error } = await supabase.from('itens_fiscais').upsert(lote, { onConflict: 'cliente_id,codigo', ignoreDuplicates: true }).select('id')
       if (!error && data) novosTotal += data.length
     }
     setUpsertInfo({ novos: novosTotal, total: registros.length })
@@ -517,11 +502,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
                   monofasico: mono,
                   credito: mono && regime !== 'Simples Nacional' ? (item.vItemPIS||0)+(item.vItemCOFINS||0) : 0,
                   pendentePGDAS: mono && regime === 'Simples Nacional',
-                  arquivo: arq.nome,
-                  codigo: item.cProd || '',
-                  gtin: item.cEAN || null,
-                  ex: item.EXTIPI || null,
-                  cest: item.CEST || null,
+                  arquivo: arq.nome, codigo: item.cProd || '',
+                  gtin: item.cEAN || null, ex: item.EXTIPI || null, cest: item.CEST || null,
                 })
                 qtd++
               })
@@ -543,7 +525,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setPgdasResult(null)
     setProcessando(false)
     setPagina(1)
-    // ✅ NOVO: reset do inputRef para permitir reimportar o mesmo arquivo
     if (inputRef.current) inputRef.current.value = ''
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -602,6 +583,16 @@ export default function AbaMonofasicos({ cliente, regime }) {
         />
       )}
 
+      {/* ✅ NOVO: MODAL NOME DO DIAGNOSTICO */}
+      {modalNome && (
+        <ModalNomeDiagnostico
+          nomeSugerido={gerarNomeSugerido()}
+          onConfirmar={confirmarSalvarComNome}
+          onCancelar={() => setModalNome(false)}
+          salvando={salvando}
+        />
+      )}
+
       {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ flex: 1 }}>
@@ -640,7 +631,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
               style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
               {processando ? 'Processando...' : 'Selecionar Arquivos'}
             </button>
-            {/* ✅ NOVO: mensagem de dica abaixo do botao */}
             <div style={{ fontSize: 10, color: S.ghostText, marginTop: 6 }}>
               Se o botao nao responder, pressione F5
             </div>
@@ -677,7 +667,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
+              <div style={{ fontSize:13, color:'#2563eb' }}>
+                Visualizando: <strong>{diagAberto.nome_diagnostico || fmtData(diagAberto.created_at)}</strong>
+              </div>
               <button onClick={limparDados} style={{ background:'none', border:'none', color:S.muted, cursor:'pointer', fontSize:13 }}>Fechar</button>
             </div>
           )}
@@ -863,8 +855,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
           {temResultado && (
             <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+              {/* ✅ NOVO: botao abre modal de nome antes de salvar */}
               {!diagAberto && (
-                <button onClick={salvarDiagnostico} disabled={salvando}
+                <button onClick={() => setModalNome(true)} disabled={salvando}
                   style={{ padding:'9px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:salvando?'not-allowed':'pointer', opacity:salvando?0.7:1 }}>
                   {salvando?'Salvando...':'Salvar Diagnostico'}
                 </button>
@@ -912,17 +905,22 @@ export default function AbaMonofasicos({ cliente, regime }) {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead>
                   <tr style={{ background:S.thBg }}>
-                    {['Data','Periodo','Arquivos','Itens','Monofasicos','Receita Mono','Potencial','Status','Acoes'].map(h => (
+                    {/* ✅ NOVO: coluna Nome adicionada */}
+                    {['Nome','Data','Periodo','Arquivos','Itens','Monofasicos','Receita Mono','Potencial','Status','Acoes'].map(h => (
                       <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {loadingHistorico ? (
-                    Array(5).fill(null).map((_, i) => <SkeletonRow key={i} cols={9} />)
+                    Array(5).fill(null).map((_, i) => <SkeletonRow key={i} cols={10} />)
                   ) : (
                     historicoExibir.map((diag, i) => (
                       <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background: diag.ghost ? S.ghost : i%2===0 ? S.white : '#FAFAFA' }}>
+                        {/* ✅ NOVO: celula Nome */}
+                        <td style={{ padding:'7px 10px', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.navy, fontWeight: diag.ghost ? 400 : 600 }}>
+                          {diag.ghost ? 'Nome do diagnostico' : (diag.nome_diagnostico || '—')}
+                        </td>
                         <td style={{ padding:'7px 10px', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? '—' : fmtData(diag.created_at)}</td>
                         <td style={{ padding:'7px 10px', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? 'MM/AAAA' : `${diag.periodo_inicio}${diag.periodo_fim&&diag.periodo_fim!==diag.periodo_inicio?` -> ${diag.periodo_fim}`:''}`}</td>
                         <td style={{ padding:'7px 10px', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? '—' : `${(diag.arquivos_importados||[]).length} arquivo(s)`}</td>
