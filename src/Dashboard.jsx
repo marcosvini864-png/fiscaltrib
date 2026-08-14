@@ -58,7 +58,7 @@ const MODULES = {
   gestao_empresas:      { label:'Gestao de Empresas',       tabs:[] },
   grupo_empresas:       { label:'Grupo de Empresas',        tabs:[] },
   scanner:              { label:'Scanner Tributário',       tabs:[] },
-  diagnostico:          { label:'Diagnóstico Tributário',   tabs:[] },
+  diagnostico:              { label:'Diagnóstico Tributário',   tabs:['Importar','Monofásicos','ICMS Tema 69','ICMS-ST','Retenções','PGDAS-D'] },
   exclusao_icms:        { label:'Tema 69 — Exclusão ICMS',  tabs:[] },
   recuperacao_monofasico:{ label:'Monofásicos PIS/COFINS',  tabs:[] },
   icms_st_rec:          { label:'ICMS-ST Pago a Maior',     tabs:[] },
@@ -813,7 +813,17 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             )}
 
             {module==='diagnostico' && (
-              <DiagnosticoTributario clienteId={activeId} cliente={active} onNavegar={navigateTo} />
+            <DiagnosticoTributario
+            clienteId={activeId}
+            cliente={active}
+            onNavegar={navigateTo}
+            teseAtiva={activeTab===1?'monofasicos':activeTab===2?'icms_tema69':activeTab===3?'icms_st':activeTab===4?'retencoes':activeTab===5?'pgdas':'importar'}
+            onMudarTese={(tese)=>{const mapa={importar:0,monofasicos:1,icms_tema69:2,icms_st:3,retencoes:4,pgdas:5};setActiveTab(mapa[tese]??0)}}
+            />
+            )}
+            teseAtiva={activeTab===1?'monofasicos':activeTab===2?'icms_tema69':activeTab===3?'icms_st':activeTab===4?'retencoes':activeTab===5?'pgdas':'importar'}
+            onMudarTese={(tese)=>{const mapa={importar:0,monofasicos:1,icms_tema69:2,icms_st:3,retencoes:4,pgdas:5};setActiveTab(mapa[tese]??0)}}
+            />
             )}
             {module==='exclusao_icms' && <ExclusaoICMS cliente={active} />}
             {module==='recuperacao_monofasico' && <PainelRecuperacao />}
