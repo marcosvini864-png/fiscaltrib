@@ -1,7 +1,8 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.3 - 14/08/2026
- * + Popup de confirmacao ao clicar em Nova Analise sem salvar
+ * Versao 8.4 - 14/08/2026
+ * + Reset inputRef apos importacao
+ * + Mensagem "Se o botao nao responder, pressione F5" abaixo do botao
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -419,6 +420,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
     setPagina(1); setBusca(''); setFiltro('todos')
+    // ✅ NOVO: reset do inputRef para permitir selecionar o mesmo arquivo novamente
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   // Clicou em Nova Analise ou Limpar — verifica se tem dados nao salvos
@@ -540,6 +543,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setPgdasResult(null)
     setProcessando(false)
     setPagina(1)
+    // ✅ NOVO: reset do inputRef para permitir reimportar o mesmo arquivo
+    if (inputRef.current) inputRef.current.value = ''
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await upsertItensFiscais(todosItens, user?.id)
@@ -635,6 +640,10 @@ export default function AbaMonofasicos({ cliente, regime }) {
               style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
               {processando ? 'Processando...' : 'Selecionar Arquivos'}
             </button>
+            {/* ✅ NOVO: mensagem de dica abaixo do botao */}
+            <div style={{ fontSize: 10, color: S.ghostText, marginTop: 6 }}>
+              Se o botao nao responder, pressione F5
+            </div>
           </div>
         </div>
       </div>
