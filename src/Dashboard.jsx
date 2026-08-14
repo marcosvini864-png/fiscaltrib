@@ -821,10 +821,6 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             onMudarTese={(tese)=>{const mapa={importar:0,monofasicos:1,icms_tema69:2,icms_st:3,retencoes:4,pgdas:5};setActiveTab(mapa[tese]??0)}}
             />
             )}
-            teseAtiva={activeTab===1?'monofasicos':activeTab===2?'icms_tema69':activeTab===3?'icms_st':activeTab===4?'retencoes':activeTab===5?'pgdas':'importar'}
-            onMudarTese={(tese)=>{const mapa={importar:0,monofasicos:1,icms_tema69:2,icms_st:3,retencoes:4,pgdas:5};setActiveTab(mapa[tese]??0)}}
-            />
-            )}
             {module==='exclusao_icms' && <ExclusaoICMS cliente={active} />}
             {module==='recuperacao_monofasico' && <PainelRecuperacao />}
             {module==='icms_st_rec' && (
