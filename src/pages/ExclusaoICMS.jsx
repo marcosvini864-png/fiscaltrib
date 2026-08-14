@@ -1425,7 +1425,7 @@ export default function ExclusaoICMS({ cliente }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {notas.map((n, i) => {
+                    {notas.slice((pagina - 1) * porPagina, pagina * porPagina).map((n, i) => {
                       const key    = 'mem_' + n.nNF + n.dataEmissao + n.cnpjEmit;
                       const aberta = expandida === key;
                       return (
@@ -1478,7 +1478,21 @@ export default function ExclusaoICMS({ cliente }) {
             </div>
           )}
 
-          {/* ABA — Relatório Profissional */}
+          {Math.ceil(notas.length / porPagina) > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+                  <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}
+                    style={{ padding: '5px 12px', border: `1px solid ${S.border}`, borderRadius: 6, background: S.white, fontSize: 12, cursor: 'pointer', opacity: pagina === 1 ? 0.4 : 1 }}>‹</button>
+                  {Array.from({ length: Math.min(7, Math.ceil(notas.length / porPagina)) }, (_, i) => {
+                    const tot = Math.ceil(notas.length / porPagina)
+                    const p = tot <= 7 ? i + 1 : pagina <= 4 ? i + 1 : pagina >= tot - 3 ? tot - 6 + i : pagina - 3 + i
+                    return <button key={p} onClick={() => setPagina(p)}
+                      style={{ padding: '5px 10px', border: `1px solid ${p === pagina ? S.blue : S.border}`, borderRadius: 6, background: p === pagina ? S.blue : S.white, color: p === pagina ? '#fff' : S.text, fontSize: 12, cursor: 'pointer', fontWeight: p === pagina ? 700 : 400 }}>{p}</button>
+                  })}
+                  <button onClick={() => setPagina(p => Math.min(Math.ceil(notas.length / porPagina), p + 1))} disabled={pagina === Math.ceil(notas.length / porPagina)}
+                    style={{ padding: '5px 12px', border: `1px solid ${S.border}`, borderRadius: 6, background: S.white, fontSize: 12, cursor: 'pointer', opacity: pagina === Math.ceil(notas.length / porPagina) ? 0.4 : 1 }}>›</button>
+                </div>
+              )}
+		  {/* ABA — Relatório Profissional */}
           {aba === 'relatorio' && (
             <div style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 8 }}>
