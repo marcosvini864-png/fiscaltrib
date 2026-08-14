@@ -453,9 +453,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
       if (!user) return
       const modLabel = MODULES[module]?.label || RESTRICTED[module]?.label || module
       await supabase.from('sessoes_ativas').upsert({
-        usuario_id: user.id, email: user.email, nome: nomeUsuario || user.email,
-        ultima_atividade: new Date().toISOString(), pagina_atual: modLabel,
-      }, { onConflict: 'usuario_id' })
+      usuario_id: user.id, email: user.email, nome: nomeUsuario || user.email,
+    ultima_atividade: new Date().toISOString(), pagina_atual: modLabel,
+    }, { onConflict: 'usuario_id', ignoreDuplicates: false })
     } catch(e) {}
   }
   async function carregarClientes() {
