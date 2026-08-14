@@ -1,7 +1,9 @@
 /**
  * ClassificacaoItens.jsx - e-FiscalTribe®
- * Versao 2.1 - 13/08/2026
- * + Lixeira por linha e excluir selecionados em lote
+ * Versao 2.0 - 12/08/2026
+ * Sprint 2 — Replicar e superar e-Recuperador
+ * Novidades: contadores reais, Motor NCM vs Trib.Vigente separados,
+ * modal com periodos, aprovacao em lote, paginacao configuravel
  */
 
 import { useState, useEffect } from 'react'
@@ -15,6 +17,7 @@ const S = {
   ghost: '#F1F5F9', ghostText: '#94A3B8',
 }
 
+// Prefixos NCM monofasicos (mesmo Motor AbaMonofasicos)
 const NCM_PREFIXOS_MONO = [
   '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
   '3001','3002','3003','3004','3005','3006',
@@ -35,11 +38,11 @@ function motorNCM(ncm) {
 
 function Badge({ tipo, label }) {
   const map = {
-    monofasico:     { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
-    tributado:      { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
-    nao_encontrada: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
-    st_pis_cofins:  { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
-    pendente:       { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' },
+    monofasico:    { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+    tributado:     { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
+    nao_encontrada:{ bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+    st_pis_cofins: { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
+    pendente:      { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' },
   }
   const b = map[tipo] || map.pendente
   return (
@@ -49,6 +52,7 @@ function Badge({ tipo, label }) {
   )
 }
 
+// Modal de classificacao manual com suporte a periodos
 function ModalClassificar({ itens, onSalvar, onFechar }) {
   const [considerarReceita, setConsiderarReceita] = useState(true)
   const [classificacao, setClassificacao] = useState('')
@@ -74,9 +78,14 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
       <div style={{ background: S.white, borderRadius: 12, padding: 24, width: 480, maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: S.navy }}>Classificar produtos</div>
-          <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: S.muted }}>X</button>
+          <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: S.muted }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: S.muted, marginBottom: 16 }}>{itens.length} produto(s) selecionado(s)</div>
+
+        <div style={{ fontSize: 12, color: S.muted, marginBottom: 16 }}>
+          {itens.length} produto(s) selecionado(s)
+        </div>
+
+        {/* Toggle considerar receita */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: S.bg, borderRadius: 8, padding: '10px 14px', marginBottom: 16, border: `1px solid ${S.border}` }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: S.text }}>Considerar receita?</span>
           <button onClick={() => setConsiderarReceita(v => !v)}
@@ -84,6 +93,8 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
             <span style={{ position: 'absolute', top: 3, left: considerarReceita ? 20 : 3, width: 16, height: 16, background: S.white, borderRadius: '50%', transition: 'left 0.2s' }} />
           </button>
         </div>
+
+        {/* Classificacao */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: S.muted, display: 'block', marginBottom: 6 }}>Classificacao *</label>
           <select value={classificacao} onChange={e => setClassificacao(e.target.value)}
@@ -94,21 +105,25 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
             <option value="tributado">Tributado</option>
           </select>
         </div>
+
+        {/* Periodos */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 8 }}>Periodo de vigencia</div>
           {periodos.map((p, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
               <div style={{ flex: 1 }}>
                 <input type="month" value={p.data_inicio} onChange={e => updatePeriodo(i, 'data_inicio', e.target.value)}
+                  placeholder="Inicio"
                   style={{ width: '100%', padding: '6px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
               </div>
               <span style={{ fontSize: 11, color: S.muted }}>ate</span>
               <div style={{ flex: 1 }}>
                 <input type="month" value={p.data_fim} onChange={e => updatePeriodo(i, 'data_fim', e.target.value)}
+                  placeholder="Fim (vazio = vigente)"
                   style={{ width: '100%', padding: '6px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
               </div>
               {periodos.length > 1 && (
-                <button onClick={() => removePeriodo(i)} style={{ background: 'none', border: 'none', color: S.red, cursor: 'pointer', fontSize: 14 }}>X</button>
+                <button onClick={() => removePeriodo(i)} style={{ background: 'none', border: 'none', color: S.red, cursor: 'pointer', fontSize: 16 }}>🗑</button>
               )}
             </div>
           ))}
@@ -117,6 +132,7 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
             + Adicionar periodo
           </button>
         </div>
+
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onFechar} style={{ padding: '8px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, cursor: 'pointer', color: S.muted }}>Cancelar</button>
           <button onClick={salvar} disabled={salvando}
@@ -136,7 +152,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [filtro, setFiltro] = useState('todos')
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(25)
-  const [selecionados, setSelecionados] = useState([])
+  const [selecionados, setSelecionados] = useState([]) // array de item.id
   const [menuAberto, setMenuAberto] = useState(null)
   const [modalAberto, setModalAberto] = useState(false)
   const [aprovando, setAprovando] = useState(false)
@@ -156,12 +172,14 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     setSelecionados([])
   }
 
+  // ── CONTADORES ──────────────────────────────────────────────────────────
   const totalNaoClassificados = itens.filter(i => !i.class_pis_cofins_considerado).length
   const totalClassificados    = itens.filter(i => !!i.class_pis_cofins_considerado).length
   const totalDuplicados       = itens.filter(i => i.duplicado).length
 
+  // ── FILTRO + BUSCA ──────────────────────────────────────────────────────
   const itensFiltrados = itens.filter(i => {
-    if (filtro === 'classificados'     && !i.class_pis_cofins_considerado) return false
+    if (filtro === 'classificados'    && !i.class_pis_cofins_considerado) return false
     if (filtro === 'nao_classificados' && !!i.class_pis_cofins_considerado) return false
     if (filtro === 'duplicados'        && !i.duplicado) return false
     if (filtro === 'nao_encontrada'    && i.status_ncm !== 'nao_encontrada') return false
@@ -180,6 +198,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / porPagina))
   const itensPagina  = itensFiltrados.slice((pagina - 1) * porPagina, pagina * porPagina)
 
+  // ── SELECAO ─────────────────────────────────────────────────────────────
   const todosSelecionados = itensPagina.length > 0 && itensPagina.every(i => selecionados.includes(i.id))
 
   function toggleTodos() {
@@ -200,17 +219,23 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     setSelecionados(itensFiltrados.map(i => i.id))
   }
 
+  // ── APROVAR TODOS MONOFASICOS (diferencial exclusivo) ───────────────────
   async function aprovarTodosMonofasicos() {
-    const monofasicos = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado)
+    const monofasicos = itens.filter(i => {
+      const r = motorNCM(i.ncm)
+      return r.class === 'monofasico' && !i.class_pis_cofins_considerado
+    })
     if (monofasicos.length === 0) { alert('Nenhum item monofasico pendente de confirmacao.'); return }
     if (!window.confirm(`Confirmar ${monofasicos.length} itens como Monofasico?`)) return
     setAprovando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      // Atualiza itens_fiscais
       for (const item of monofasicos) {
         await supabase.from('itens_fiscais')
           .update({ class_pis_cofins_considerado: 'monofasico', considerar_receita: true, updated_at: new Date().toISOString() })
           .eq('id', item.id)
+        // Registra em itens_classificacoes
         await supabase.from('itens_classificacoes').insert({
           item_id: item.id, usuario_id: user.id,
           classificacao: 'monofasico', considerar_receita: true,
@@ -218,11 +243,12 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
         })
       }
       await carregar()
-      alert(`${monofasicos.length} itens aprovados como Monofasico!`)
+      alert(`✅ ${monofasicos.length} itens aprovados como Monofasico!`)
     } catch (e) { alert('Erro: ' + e.message) }
     finally { setAprovando(false) }
   }
 
+  // ── CONFIRMAR CONFORME MOTOR NCM (itens selecionados) ──────────────────
   async function confirmarConforme() {
     if (selecionados.length === 0) return
     if (!window.confirm(`Confirmar ${selecionados.length} item(s) conforme Motor NCM?`)) return
@@ -246,6 +272,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     finally { setSalvando(false) }
   }
 
+  // ── CLASSIFICAR MANUALMENTE (modal) ────────────────────────────────────
   async function salvarClassificacaoManual({ classificacao, considerarReceita, periodos }) {
     if (selecionados.length === 0) return
     setSalvando(true)
@@ -254,8 +281,13 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
       const itensSelecionados = itens.filter(i => selecionados.includes(i.id))
       for (const item of itensSelecionados) {
         await supabase.from('itens_fiscais')
-          .update({ class_pis_cofins_considerado: classificacao, considerar_receita: considerarReceita, updated_at: new Date().toISOString() })
+          .update({
+            class_pis_cofins_considerado: classificacao,
+            considerar_receita: considerarReceita,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', item.id)
+        // Insere um registro por periodo
         for (const p of periodos) {
           await supabase.from('itens_classificacoes').insert({
             item_id: item.id, usuario_id: user.id,
@@ -272,25 +304,6 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     finally { setSalvando(false) }
   }
 
-  async function excluirItem(id) {
-    if (!window.confirm('Excluir este item do cadastro?')) return
-    await supabase.from('itens_fiscais').delete().eq('id', id)
-    setMenuAberto(null)
-    await carregar()
-  }
-
-  async function excluirSelecionados() {
-    if (selecionados.length === 0) return
-    if (!window.confirm(`Excluir ${selecionados.length} item(s) permanentemente?`)) return
-    setSalvando(true)
-    try {
-      await supabase.from('itens_fiscais').delete().in('id', selecionados)
-      setSelecionados([])
-      await carregar()
-    } catch (e) { alert('Erro: ' + e.message) }
-    finally { setSalvando(false) }
-  }
-
   if (!clienteId) return (
     <div style={{ textAlign: 'center', padding: 60, color: S.muted }}>
       <div style={{ fontSize: 36, marginBottom: 16 }}>🏢</div>
@@ -299,12 +312,13 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     </div>
   )
 
-  const itensSelecionadosObj  = itens.filter(i => selecionados.includes(i.id))
-  const monofasicosPendentes  = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado).length
+  const itensSelecionadosObj = itens.filter(i => selecionados.includes(i.id))
+  const monofasicosPendentes = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado).length
 
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
+      {/* MODAL */}
       {modalAberto && (
         <ModalClassificar
           itens={itensSelecionadosObj}
@@ -324,10 +338,11 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
             Revise, ajuste e confirme a classificacao fiscal dos itens de PIS/COFINS.
           </div>
         </div>
+        {/* Botao diferencial exclusivo */}
         {monofasicosPendentes > 0 && (
           <button onClick={aprovarTodosMonofasicos} disabled={aprovando}
             style={{ padding: '9px 18px', background: '#fff7ed', color: '#ea580c', border: '2px solid #fed7aa', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: aprovando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Aprovar {monofasicosPendentes} monofasico(s) em 1 clique
+            ⚡ Aprovar {monofasicosPendentes} monofasico(s) em 1 clique
           </button>
         )}
       </div>
@@ -339,13 +354,13 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
         <span style={{ fontSize: 11, color: S.muted }}>({cliente?.regime || 'Simples Nacional'})</span>
       </div>
 
-      {/* CONTADORES */}
+      {/* CONTADORES CLICAVEIS */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { id: 'nao_classificados', label: 'nao classificados', count: totalNaoClassificados,                                      cor: S.red,    bg: '#fef2f2', border: '#fecaca' },
-          { id: 'classificados',     label: 'classificados',     count: totalClassificados,                                          cor: S.green,  bg: '#f0fdf4', border: '#86efac' },
-          { id: 'duplicados',        label: 'duplicados',        count: totalDuplicados,                                             cor: S.blue,   bg: '#eff6ff', border: '#bfdbfe' },
-          { id: 'nao_encontrada',    label: 'NCM nao encontrada',count: itens.filter(i => i.status_ncm === 'nao_encontrada').length, cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+          { id: 'nao_classificados', label: 'nao classificados', count: totalNaoClassificados, cor: S.red,    bg: '#fef2f2', border: '#fecaca' },
+          { id: 'classificados',     label: 'classificados',     count: totalClassificados,    cor: S.green,  bg: '#f0fdf4', border: '#86efac' },
+          { id: 'duplicados',        label: 'duplicados',        count: totalDuplicados,        cor: S.blue,   bg: '#eff6ff', border: '#bfdbfe' },
+          { id: 'nao_encontrada',    label: 'NCM nao encontrada',count: itens.filter(i=>i.status_ncm==='nao_encontrada').length, cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
         ].map(c => (
           <button key={c.id}
             onClick={() => { setFiltro(filtro === c.id ? 'todos' : c.id); setPagina(1) }}
@@ -357,7 +372,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
         {filtro !== 'todos' && (
           <button onClick={() => { setFiltro('todos'); setPagina(1) }}
             style={{ padding: '8px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 99, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-            X Limpar filtro
+            ✕ Limpar filtro
           </button>
         )}
       </div>
@@ -375,27 +390,26 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
               </span>
             )}
           </div>
+
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {selecionados.length > 0 ? (
+              // Botoes de acao em lote (aparecem quando ha selecao)
               <>
                 <button onClick={confirmarConforme} disabled={salvando}
                   style={{ padding: '6px 14px', background: '#f0fdf4', color: S.green, border: `1px solid #86efac`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  Confirmar conforme Motor NCM
+                  ✓ Confirmar conforme Motor NCM
                 </button>
                 <button onClick={() => setModalAberto(true)}
                   style={{ padding: '6px 14px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  Classificar manualmente
-                </button>
-                <button onClick={excluirSelecionados} disabled={salvando}
-                  style={{ padding: '6px 14px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  Excluir selecionados
+                  ✎ Classificar manualmente
                 </button>
                 <button onClick={() => setSelecionados([])}
                   style={{ padding: '6px 10px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-                  X
+                  ✕
                 </button>
               </>
             ) : (
+              // Botoes padrao
               <>
                 <button onClick={selecionarTodos}
                   style={{ padding: '6px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
@@ -403,7 +417,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                 </button>
                 <button onClick={() => carregar()}
                   style={{ padding: '6px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-                  Atualizar
+                  ↺ Atualizar
                 </button>
               </>
             )}
@@ -417,7 +431,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
             style={{ padding: '6px 12px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', width: 280 }} />
           {busca && (
             <button onClick={() => { setBusca(''); setPagina(1) }}
-              style={{ padding: '6px 10px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>X</button>
+              style={{ padding: '6px 10px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>✕</button>
           )}
           <span style={{ fontSize: 12, color: S.muted, marginLeft: 'auto' }}>
             {itensFiltrados.length} item(s) encontrado(s)
@@ -448,14 +462,18 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                     <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Descricao</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>NCM</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>CEST</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#374151', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Motor NCM</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Trib. Vigente</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#374151', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>
+                      Motor NCM
+                    </th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>
+                      Trib. Vigente
+                    </th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {itensPagina.map((item, i) => {
-                    const sel   = selecionados.includes(item.id)
+                    const sel = selecionados.includes(item.id)
                     const motor = motorNCM(item.ncm)
                     const temConfirmacao = !!item.class_pis_cofins_considerado
                     return (
@@ -471,14 +489,18 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                           {item.ncm || <span style={{ color: S.red }}>—</span>}
                         </td>
                         <td style={{ padding: '8px 10px', color: S.muted, fontSize: 11 }}>{item.cest || '—'}</td>
+
+                        {/* MOTOR NCM — sugestao automatica */}
                         <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
                           <Badge tipo={motor.class} label={motor.label} />
                         </td>
+
+                        {/* TRIB. VIGENTE — confirmado pelo usuario */}
                         <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
                           {temConfirmacao ? (
                             <Badge tipo={item.class_pis_cofins_considerado} label={
-                              item.class_pis_cofins_considerado === 'monofasico'    ? 'Monofasico'    :
-                              item.class_pis_cofins_considerado === 'tributado'     ? 'Tributado'     :
+                              item.class_pis_cofins_considerado === 'monofasico' ? 'Monofasico' :
+                              item.class_pis_cofins_considerado === 'tributado'  ? 'Tributado'  :
                               item.class_pis_cofins_considerado === 'st_pis_cofins' ? 'ST PIS/COFINS' :
                               item.class_pis_cofins_considerado
                             } />
@@ -486,20 +508,15 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                             <span style={{ color: S.ghostText, fontSize: 13 }}>—</span>
                           )}
                         </td>
+
+                        {/* ACOES */}
                         <td style={{ padding: '8px 10px', position: 'relative' }}>
-                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <button onClick={e => { e.stopPropagation(); setMenuAberto(menuAberto === item.id ? null : item.id) }}
-                              style={{ background: 'none', border: `1px solid ${S.border}`, borderRadius: 4, cursor: 'pointer', padding: '2px 8px', fontSize: 13, color: S.muted }}>
-                              ...
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); excluirItem(item.id) }}
-                              title="Excluir item"
-                              style={{ background: 'none', border: `1px solid #fecaca`, borderRadius: 4, cursor: 'pointer', padding: '2px 7px', fontSize: 12, color: S.red }}>
-                              X
-                            </button>
-                          </div>
+                          <button onClick={e => { e.stopPropagation(); setMenuAberto(menuAberto === item.id ? null : item.id) }}
+                            style={{ background: 'none', border: `1px solid ${S.border}`, borderRadius: 4, cursor: 'pointer', padding: '2px 8px', fontSize: 13, color: S.muted }}>
+                            &#8943;
+                          </button>
                           {menuAberto === item.id && (
-                            <div style={{ position: 'absolute', right: 8, top: 30, background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 200 }}
+                            <div style={{ position: 'absolute', right: 8, top: 30, background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 180 }}
                               onClick={e => e.stopPropagation()}>
                               <button onClick={() => {
                                 setSelecionados([item.id])
@@ -507,7 +524,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                                 setTimeout(() => confirmarConforme(), 0)
                               }}
                                 style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
-                                Confirmar conforme Motor NCM
+                                ✓ Confirmar conforme Motor NCM
                               </button>
                               <button onClick={() => {
                                 setSelecionados([item.id])
@@ -515,22 +532,18 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                                 setModalAberto(true)
                               }}
                                 style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
-                                Classificar manualmente
+                                ✎ Classificar manualmente
                               </button>
-                              {temConfirmacao && (
+                              {item.class_pis_cofins_considerado && (
                                 <button onClick={async () => {
                                   await supabase.from('itens_fiscais').update({ class_pis_cofins_considerado: null }).eq('id', item.id)
                                   setMenuAberto(null)
                                   await carregar()
                                 }}
-                                  style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.orange, borderBottom: `1px solid ${S.border}` }}>
-                                  Remover classificacao
+                                  style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.red }}>
+                                  ✕ Remover classificacao
                                 </button>
                               )}
-                              <button onClick={() => excluirItem(item.id)}
-                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.red }}>
-                                Excluir item
-                              </button>
                             </div>
                           )}
                         </td>
@@ -545,11 +558,9 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
             <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.muted, flexWrap: 'wrap', gap: 8 }}>
               <span>{itensFiltrados.length} itens — Pagina {pagina} de {totalPaginas}</span>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {[['«', () => setPagina(1), pagina === 1],
-                  ['<', () => setPagina(p => Math.max(1, p - 1)), pagina === 1],
+                {[['«', () => setPagina(1), pagina === 1], ['<', () => setPagina(p => Math.max(1, p - 1)), pagina === 1],
                   ['>', () => setPagina(p => Math.min(totalPaginas, p + 1)), pagina === totalPaginas],
-                  ['»', () => setPagina(totalPaginas), pagina === totalPaginas],
-                ].map(([l, fn, dis], i) => (
+                  ['»', () => setPagina(totalPaginas), pagina === totalPaginas]].map(([l, fn, dis], i) => (
                   <button key={i} onClick={fn} disabled={dis}
                     style={{ padding: '4px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text }}>
                     {l}
@@ -564,7 +575,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                     </button>
                   )
                 })}
-                <select value={porPagina} onChange={e => { const n = Number(e.target.value); setPorPagina(n); setPagina(1) }}
+                <select value={porPagina} onChange={e => { setPorPagina(Number(e.target.value)); setPagina(1) }}
                   style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
                   {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n} por pagina</option>)}
                 </select>
