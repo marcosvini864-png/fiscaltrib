@@ -1269,17 +1269,9 @@ export default function ExclusaoICMS({ cliente }) {
           {/* ABA — Por Competência */}
           {aba === 'competencia' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.border}`, flexWrap: 'wrap' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-           <span style={{ fontSize: 12, color: S.ghost }}>Itens por página:</span>
-           <select value={porPagina} onChange={e => setPorPagina(Number(e.target.value))}
-          style={{ padding: '5px 8px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-         {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-          <span style={{ fontSize: 11, color: S.ghost }}>{competencias.length} competências</span>
-        </div>
-        <BotoesAba elementId="print-competencia" nomeArquivo={`competencia_${cliente?.cnpj || 'cliente'}`} />
-         </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.border}` }}>
+                <BotoesAba elementId="print-competencia" nomeArquivo={`competencia_${cliente?.cnpj || 'cliente'}`} />
+              </div>
               <div id="print-competencia" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
@@ -1402,19 +1394,11 @@ export default function ExclusaoICMS({ cliente }) {
           {aba === 'memoria' && (
             <div style={{ padding: '12px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: S.navy, fontWeight: 600 }}>
-              📐 Clique em qualquer NF para expandir o detalhamento
-            </div>
-           <span style={{ fontSize: 12, color: S.ghost }}>Itens por página:</span>
-             <select value={porPagina} onChange={e => setPorPagina(Number(e.target.value))}
-            style={{ padding: '5px 8px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-            {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <span style={{ fontSize: 11, color: S.ghost }}>{notas.length} NF-es</span>
-            </div>
-            <BotoesAba elementId="print-memoria" nomeArquivo={`memoria_calculo_${cliente?.cnpj || 'cliente'}`} />
-             </div>
+                <div style={{ background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: S.navy, fontWeight: 600 }}>
+                  📐 Clique em qualquer NF para expandir o detalhamento
+                </div>
+                <BotoesAba elementId="print-memoria" nomeArquivo={`memoria_calculo_${cliente?.cnpj || 'cliente'}`} />
+              </div>
               <div id="print-memoria" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                   <thead>
