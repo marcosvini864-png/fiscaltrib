@@ -4,9 +4,8 @@ import ImportarCDA from './ImportarCDA'
 
 const C = {
   navy:'#0B1F4D', white:'#FFFFFF',
-  bg:'#F8FAFC', border:'#E2E8F0',
-  text:'#0F172A', muted:'#334155',
-  ghost:'#F1F5F9', ghostText:'#64748B',
+  bg:'#E4E7EC', border:'#C8D0DC',
+  text:'#1E293B', muted:'#64748B',
 }
 
 const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
@@ -34,65 +33,6 @@ function normalizarData(d) {
   if (d.includes('-') && d.length === 10) return d
   return converterDataBR(d)
 }
-
-// ── Skeleton Components ────────────────────────────────────────────────────
-function SkeletonRow({ cols }) {
-  return (
-    <tr>
-      {Array(cols).fill(null).map((_, i) => (
-        <td key={i} style={{ padding: '10px 14px' }}>
-          <div style={{ height: 13, borderRadius: 4, background: 'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
-        </td>
-      ))}
-    </tr>
-  )
-}
-
-function SkeletonKPI({ count = 4 }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${count}, 1fr)`, gap: 12, marginBottom: 16 }}>
-      {Array(count).fill(null).map((_, i) => (
-        <div key={i} style={{ background: C.white, borderRadius: 10, padding: '14px 16px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
-          <div style={{ height: 24, width: 80, borderRadius: 4, background: 'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', margin: '0 auto 8px' }} />
-          <div style={{ height: 11, width: 100, borderRadius: 4, background: '#E2E8F0', margin: '0 auto' }} />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Ghost rows para histórico
-const HISTORICO_GHOST = Array(5).fill(null).map((_, i) => ({
-  ghost: true, id: i,
-  razao_social: 'Nome do Cliente Exemplo',
-  cnpj: '00.000.000/0001-00',
-  created_at: null,
-}))
-
-// Ghost rows para CDAs salvas
-const CDAS_GHOST = Array(5).fill(null).map((_, i) => ({
-  ghost: true, id: i,
-  numero_cda: '80.6.00.000000-00',
-  devedor: 'Nome do Devedor',
-  cnpj_devedor: '00.000.000/0001-00',
-  periodo_divida_inicio: 'MM/AAAA',
-  periodo_divida_fim: 'MM/AAAA',
-  valor_total: 0,
-  tipo_debito: '—',
-  data_inscricao: '—',
-}))
-
-// Ghost rows para SISPAR
-const SISPAR_GHOST = Array(5).fill(null).map((_, i) => ({
-  ghost: true, id: i,
-  numero_cda: '80.6.00.000000-00',
-  devedor: 'Nome do Devedor',
-  cnpj_devedor: '00.000.000/0001-00',
-  total_sem_desconto: 0,
-  desconto_valor: 0,
-  valor_entrada: 0,
-  valor_parcela: 0,
-}))
 
 function migrarCDA(cda) {
   let migrada = cda
@@ -301,7 +241,7 @@ function analisarElegibilidadeTransacao(cda, regraCapag) {
     { label:'Situação', valor:problemas.length===0?'✅ ELEGÍVEL':'⚠️ NÃO ELEGÍVEL (verificar pontos)', obs:'' },
   ]
 
-  if (problemas.length===0) return { conclusao:'elegivel', titulo:'✅ Elegível à Transação por Capacidade de Pagamento', cor:'#16A34A', passos, justificativa:`A CDA atende aos critérios de elegibilidade do Edital PGDAU 6/2026 para a modalidade de capacidade de pagamento.` }
+  if (problemas.length===0) return { conclusao:'elegivel', titulo:'✅ Elegível à Transação por Capacidade de Pagamento', cor:'#16A34A', passos, justificativa:`A CDA atende aos critérios de elegibilidade do Edital PGDAU 6/2026 para a modalidade de capacidade de pagamento: valor dentro do limite e inscrição dentro do prazo, sem garantia ou parcelamento que impeçam a adesão.` }
   return { conclusao:'nao_elegivel', titulo:'⚠️ Possível inelegibilidade', cor:'#D97706', passos, justificativa:`Foram identificados ${problemas.length} ponto(s) que podem impedir ou exigir modalidade diferente: ${problemas.join('; ')}.` }
 }
 
@@ -391,6 +331,7 @@ function ScoreDividaAtiva({ score }) {
   )
 }
 
+// ─── CORREÇÃO 1: SeletorCliente agora passa o objeto completo incluindo id ───
 function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
@@ -433,6 +374,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
       const { data, error } = await supabase.from('clientes').insert([{ usuario_id:user.id, razao_social:novoNome, nome_fantasia:'', cnpj:novoCnpj, regime:'Simples Nacional', municipio:'', uf:'', cnae_principal:'', competencia_inicio:'', competencia_fim:'', responsavel_contabil:'', observacoes:'' }]).select()
       if(error) throw error
       if(data?.[0]) {
+        // Passa objeto completo com id
         onCadastrarNovo({ id: data[0].id, razao_social: data[0].razao_social, cnpj: data[0].cnpj })
         setModoNovo(false); setNovoNome(''); setNovoCnpj(''); setAberto(false)
       }
@@ -451,8 +393,13 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
         <div style={{position:'absolute',top:'110%',left:0,width:380,background:C.white,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 8px 24px rgba(0,0,0,0.18)',zIndex:50,padding:14}}>
           {!modoNovo ? (
             <>
-              <input autoFocus value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou CNPJ..."
-                style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}/>
+              <input
+                autoFocus
+                value={busca}
+                onChange={e=>setBusca(e.target.value)}
+                placeholder="Buscar por nome ou CNPJ..."
+                style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,marginBottom:10,boxSizing:'border-box'}}
+              />
               <div style={{maxHeight:220,overflowY:'auto'}}>
                 {carregando?(
                   <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Carregando...</div>
@@ -460,6 +407,7 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
                   <div style={{textAlign:'center',padding:16,color:C.muted,fontSize:13}}>Nenhum cliente encontrado.</div>
                 ):filtrados.map(c=>(
                   <div key={c.id}
+                    // ─── CORREÇÃO 2: passa id junto com razao_social e cnpj ───
                     onClick={()=>{ onSelecionar({ id: c.id, razao_social: c.razao_social, cnpj: c.cnpj }); setAberto(false); setBusca('') }}
                     style={{padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13}}
                     onMouseEnter={e=>e.currentTarget.style.background='#F1F5F9'}
@@ -504,6 +452,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [analisesCDA, setAnalisesCDA] = useState([])
   const [diagnostico, setDiagnostico] = useState(null)
   const [analisando, setAnalisando] = useState(false)
+  // ─── CORREÇÃO 3: clienteAtual agora inclui id quando vem do prop active ───
   const [clienteAtual, setClienteAtual] = useState(
     active ? { id: active.id || null, razao_social: active.razao_social, cnpj: active.cnpj } : null
   )
@@ -519,14 +468,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [mostrarCdasSalvas, setMostrarCdasSalvas] = useState(false)
   const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
   const [loadingCdas, setLoadingCdas] = useState(false)
-
-  // ── Injetar shimmer CSS ────────────────────────────────────────────────
-  useEffect(() => {
-    const style = document.createElement('style')
-    style.textContent = `@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`
-    document.head.appendChild(style)
-    return () => document.head.removeChild(style)
-  }, [])
 
   useEffect(()=>{
     async function carregarCore() {
@@ -550,17 +491,17 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
     const tipoCredito = campos.tipo_debito || 'tributario_federal'
     const cdaDiag = {
-      ...CDA_VAZIA,
-      numero_cda: campos.numero_cda || '',
-      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
-      situacao: 'Ativa',
-      modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
-      data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
-      data_constituicao:        normalizarData(campos.data_constituicao_definitiva) || normalizarData(campos.data_inscricao) || '',
-      data_inscricao:           normalizarData(campos.data_inscricao) || '',
-      data_ajuizamento:         normalizarData(campos.data_ajuizamento) || '',
-      data_citacao:             normalizarData(campos.data_citacao) || '',
-      data_ultima_movimentacao: normalizarData(campos.data_ultima_movimentacao) || '',
+    ...CDA_VAZIA,
+    numero_cda: campos.numero_cda || '',
+    inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
+    situacao: 'Ativa',
+    modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
+    data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
+    data_constituicao:        normalizarData(campos.data_constituicao_definitiva) || normalizarData(campos.data_inscricao) || '',
+    data_inscricao:           normalizarData(campos.data_inscricao) || '',
+    data_ajuizamento:         normalizarData(campos.data_ajuizamento) || '',
+    data_citacao:             normalizarData(campos.data_citacao) || '',
+    data_ultima_movimentacao: normalizarData(campos.data_ultima_movimentacao) || '',
     }
 
     setDados(d => ({
@@ -600,20 +541,22 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     }, 100)
   }, [cdaParaDiagnostico])
 
+  // ─── CORREÇÃO 4: carregarSispar usa clienteAtual.id ou active.id de forma confiável ───
   async function carregarSispar() {
     setSisparLoading(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
       const clienteId = clienteAtual?.id || active?.id || null
       let query = supabase.from('cdas').select('*').eq('usuario_id', user.id)
-      if (clienteId) query = query.eq('cliente_id', clienteId)
+      if (clienteId) {
+        query = query.eq('cliente_id', clienteId)
+      }
       const { data, error } = await query.order('created_at', { ascending: false })
       if(error) throw error
       setSisparDados(data || [])
     } catch(e) { setSisparDados([]) }
     setSisparLoading(false)
   }
-
   async function carregarCdasSalvas() {
     setLoadingCdas(true)
     try {
@@ -670,16 +613,14 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       setAba(1)
     }, 150)
   }
-
-  async function deletarCDA(id) {
-    if (!window.confirm('Excluir este registro da CDA?')) return
-    try {
-      const { error } = await supabase.from('cdas').delete().eq('id', id)
-      if (error) throw error
-      await carregarSispar()
-    } catch(e) { alert('Erro ao excluir: ' + e.message) }
-  }
-
+ async function deletarCDA(id) {
+  if (!window.confirm('Excluir este registro da CDA?')) return
+  try {
+    const { error } = await supabase.from('cdas').delete().eq('id', id)
+    if (error) throw error
+    await carregarSispar()
+  } catch(e) { alert('Erro ao excluir: ' + e.message) }
+ }
   useEffect(() => {
     if(aba === 7) carregarSispar()
   }, [aba, clienteAtual])
@@ -766,6 +707,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setAba(0)
   }
 
+  // ─── CORREÇÃO 5: selecionarCliente recebe e armazena o id ───
   function selecionarCliente(c) {
     setClienteAtual({ id: c.id || null, razao_social: c.razao_social, cnpj: c.cnpj || '' })
     setDados({ cnpj:c.cnpj||'', valor_total:'', orgao_credor:'PGFN', processo_execucao:'', possui_parcelamento:false, possui_transacao_anterior:false, possui_garantia:false, possui_penhora:false, possui_bloqueio:false, possui_embargos:false, observacoes:'' })
@@ -878,6 +820,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
   const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer']
 
+  // Cálculos SISPAR
   const sisparTotais = sisparDados.reduce((acc, r) => {
     const _t = parseValor(r.total_sem_desconto || 0)
     const _d = parseValor(r.desconto_valor || 0)
@@ -909,11 +852,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     background:'#dce6f7', whiteSpace:'nowrap'
   }
 
-  // ── Dados exibidos (ghost quando loading) ─────────────────────────────
-  const historicoExibir = loadingHist ? HISTORICO_GHOST : historico
-  const cdasExibir = loadingCdas ? CDAS_GHOST : cdasSalvas
-  const sisparExibir = sisparLoading ? SISPAR_GHOST : sisparDados
-
   if (mostrarImportarCDA) {
     return (
       <ImportarCDA
@@ -925,30 +863,37 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     )
   }
 
-  return (
+    return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
-      {/* BANNER */}
       <div style={{background:'#0B1F4D',borderRadius:14,padding:'18px 24px',color:'#fff',marginBottom:20,boxSizing:'border-box'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
-          <div>
-            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>FISCALTRIB — DIAGNÓSTICO</div>
-            <div style={{fontSize:18,fontWeight:700,marginBottom:4,color:'#fff'}}><span style={{fontSize:'0.6em'}}>⚖️</span> Diagnóstico da Dívida Ativa</div>
-            <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
-          </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
+        <div>
+          <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>FISCALTRIB — DIAGNÓSTICO</div>
+          <div style={{fontSize:18,fontWeight:700,marginBottom:4,color:'#fff'}}><span style={{fontSize:'0.6em'}}>⚖️</span> Diagnóstico da Dívida Ativa</div>
+          <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
+        </div>
           <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>setMostrarImportarCDA(true)} style={{background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📄 Importar CDA</button>
-            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>+ Nova análise</button>
-            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📂 Análises salvas</button>
-            <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📋 CDAs Salvas</button>
-          </div>
+                <button onClick={()=>setMostrarImportarCDA(true)} style={{background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                  📄 Importar CDA
+                </button>
+                <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                  + Nova análise
+                </button>
+                <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                  📂 Análises salvas
+                </button>
+                <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+                style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              📋 CDAs Salvas
+                </button>
+              </div>
         </div>
         <div style={{marginTop:16}}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
         </div>
       </div>
 
-      {/* ── MODAL HISTÓRICO com skeleton ─────────────────────────────────── */}
       {mostrarHistorico&&(
         <div onClick={()=>setMostrarHistorico(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
           <div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:14,maxWidth:780,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
@@ -956,11 +901,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               <div style={{fontSize:16,fontWeight:700,color:C.navy}}>📂 Análises salvas</div>
               <button onClick={()=>setMostrarHistorico(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.muted}}>✕</button>
             </div>
-
-            {/* ✅ KPIs skeleton */}
-            {loadingHist && <SkeletonKPI count={3} />}
-
-            {!loadingHist && historico.length === 0 ? (
+            {loadingHist?(
+              <div style={{textAlign:'center',padding:32,color:C.muted}}>Carregando...</div>
+            ):historico.length===0?(
               <div style={{textAlign:'center',padding:'32px 0',color:C.muted}}>
                 <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
                 <div style={{fontSize:14}}>Nenhuma análise salva ainda.</div>
@@ -969,36 +912,23 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                 <thead>
                   <tr style={{background:'#F1F5F9'}}>
-                    {['Razão Social','CNPJ','Data','Ações'].map(h=>(
-                      <th key={h} style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>{h}</th>
-                    ))}
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Razão Social</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>CNPJ</th>
+                    <th style={{textAlign:'left',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Data</th>
+                    <th style={{textAlign:'center',padding:'10px 14px',color:C.muted,fontWeight:600,borderBottom:`2px solid ${C.border}`}}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {historicoExibir.map((reg,idx)=>(
+                  {historico.map((reg,idx)=>(
                     <tr key={reg.id} style={{background:idx%2===0?C.white:'#F8FAFC',borderBottom:`1px solid ${C.border}`}}>
-                      <td style={{padding:'10px 14px',color:reg.ghost?C.ghostText:C.text,fontWeight:reg.ghost?400:600}}>
-                        {reg.ghost
-                          ? <div style={{height:13,width:160,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
-                          : reg.razao_social||'—'}
-                      </td>
-                      <td style={{padding:'10px 14px',color:reg.ghost?C.ghostText:C.muted}}>
-                        {reg.ghost
-                          ? <div style={{height:13,width:120,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
-                          : reg.cnpj||'—'}
-                      </td>
-                      <td style={{padding:'10px 14px',color:reg.ghost?C.ghostText:C.muted}}>
-                        {reg.ghost
-                          ? <div style={{height:13,width:100,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
-                          : fmtDateTime(reg.created_at)}
-                      </td>
+                      <td style={{padding:'10px 14px',color:C.text,fontWeight:600}}>{reg.razao_social||'—'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{reg.cnpj||'—'}</td>
+                      <td style={{padding:'10px 14px',color:C.muted}}>{fmtDateTime(reg.created_at)}</td>
                       <td style={{padding:'10px 14px',textAlign:'center'}}>
-                        {!reg.ghost && (
-                          <div style={{display:'flex',gap:8,justifyContent:'center'}}>
-                            <button onClick={()=>abrirRegistro(reg)} style={{padding:'5px 16px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>📂 Abrir</button>
-                            <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️ Excluir</button>
-                          </div>
-                        )}
+                        <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+                          <button onClick={()=>abrirRegistro(reg)} style={{padding:'5px 16px',background:C.navy,color:C.white,border:'none',borderRadius:6,fontSize:12,cursor:'pointer',fontWeight:600}}>📂 Abrir</button>
+                          <button onClick={()=>excluirRegistro(reg.id)} style={btnDanger}>🗑️ Excluir</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1008,75 +938,64 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           </div>
         </div>
       )}
-
-      {/* ── MODAL CDAs SALVAS com skeleton ───────────────────────────────── */}
-      {mostrarCdasSalvas && (
-        <div onClick={()=>setMostrarCdasSalvas(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,maxWidth:900,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D'}}>📋 CDAs Salvas — {clienteAtual?.razao_social||'Todos os clientes'}</div>
-              <button onClick={()=>setMostrarCdasSalvas(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#64748B'}}>✕</button>
-            </div>
-
-            {/* ✅ KPIs skeleton */}
-            {loadingCdas && <SkeletonKPI count={3} />}
-
-            {!loadingCdas && cdasSalvas.length === 0 ? (
-              <div style={{textAlign:'center',padding:'32px 0',color:'#64748B'}}>
-                <div style={{fontSize:32,marginBottom:8}}>📋</div>
-                <div style={{fontSize:14}}>Nenhuma CDA salva ainda.</div>
-              </div>
-            ):(
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                  <thead>
-                    <tr style={{background:'#0B1F4D'}}>
-                      {['Nº CDA','Devedor','CNPJ','Período','Valor Total','Tipo','Data Inscrição','Ações'].map(h=>(
-                        <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cdasExibir.map((cda,idx)=>(
-                      <tr key={cda.id} style={{background:idx%2===0?'#fff':'#F8FAFC',borderBottom:'1px solid #E2E8F0'}}>
-                        <td style={{padding:'10px 12px',fontWeight:700,color:cda.ghost?C.ghostText:'#0B1F4D'}}>
-                          {cda.ghost ? <div style={{height:12,width:100,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.numero_cda||'—'}
-                        </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#1E293B'}}>
-                          {cda.ghost ? <div style={{height:12,width:140,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.devedor||'—'}
-                        </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11}}>
-                          {cda.ghost ? <div style={{height:12,width:110,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.cnpj_devedor||'—'}
-                        </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>
-                          {cda.ghost ? '—' : `${cda.periodo_divida_inicio||'—'} a ${cda.periodo_divida_fim||'—'}`}
-                        </td>
-                        <td style={{padding:'10px 12px',fontWeight:600,color:cda.ghost?C.ghostText:'#DC2626',whiteSpace:'nowrap'}}>
-                          {cda.ghost ? 'R$ —,——' : `R$ ${parseFloat(cda.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`}
-                        </td>
-                        <td style={{padding:'10px 12px'}}>
-                          {!cda.ghost && <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:600}}>{cda.tipo_debito||'—'}</span>}
-                        </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>
-                          {cda.ghost ? '—' : cda.data_inscricao||'—'}
-                        </td>
-                        <td style={{padding:'10px 12px'}}>
-                          {!cda.ghost && (
-                            <div style={{display:'flex',gap:6}}>
-                              <button onClick={()=>abrirCdaParaDiagnostico(cda)} style={{padding:'5px 10px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:6,fontSize:11,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>🧠 Diagnóstico</button>
-                              <button onClick={()=>deletarCDA(cda.id)} style={{padding:'5px 8px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:11,cursor:'pointer'}}>🗑️</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+	  
+	  {mostrarCdasSalvas && (
+      <div onClick={()=>setMostrarCdasSalvas(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:100,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'60px 20px',overflowY:'auto'}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,maxWidth:900,width:'100%',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontSize:16,fontWeight:700,color:'#0B1F4D'}}>📋 CDAs Salvas — {clienteAtual?.razao_social||'Todos os clientes'}</div>
+            <button onClick={()=>setMostrarCdasSalvas(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#64748B'}}>✕</button>
           </div>
+          {loadingCdas?(
+            <div style={{textAlign:'center',padding:32,color:'#64748B'}}>Carregando...</div>
+          ):cdasSalvas.length===0?(
+            <div style={{textAlign:'center',padding:'32px 0',color:'#64748B'}}>
+              <div style={{fontSize:32,marginBottom:8}}>📋</div>
+              <div style={{fontSize:14}}>Nenhuma CDA salva ainda.</div>
+            </div>
+          ):(
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead>
+                  <tr style={{background:'#0B1F4D'}}>
+                    {['Nº CDA','Devedor','CNPJ','Período','Valor Total','Tipo','Data Inscrição','Ações'].map(h=>(
+                      <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cdasSalvas.map((cda,idx)=>(
+                    <tr key={cda.id} style={{background:idx%2===0?'#fff':'#F8FAFC',borderBottom:'1px solid #E2E8F0'}}>
+                      <td style={{padding:'10px 12px',fontWeight:700,color:'#0B1F4D'}}>{cda.numero_cda||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#1E293B'}}>{cda.devedor||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11}}>{cda.cnpj_devedor||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>{cda.periodo_divida_inicio||'—'} a {cda.periodo_divida_fim||'—'}</td>
+                      <td style={{padding:'10px 12px',fontWeight:600,color:'#DC2626',whiteSpace:'nowrap'}}>R$ {parseFloat(cda.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:600}}>{cda.tipo_debito||'—'}</span>
+                      </td>
+                      <td style={{padding:'10px 12px',color:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>{cda.data_inscricao||'—'}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>abrirCdaParaDiagnostico(cda)}
+                            style={{padding:'5px 10px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:6,fontSize:11,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                            🧠 Diagnóstico
+                          </button>
+                          <button onClick={()=>deletarCDA(cda.id)}
+                            style={{padding:'5px 8px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:11,cursor:'pointer'}}>
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
+    )}
 
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
         <button onClick={()=>salvar()} disabled={salvando} style={{...btnPrimary,padding:'7px 16px',fontSize:13,opacity:salvando?0.7:1}}>{salvando?'💾 Salvando...':'💾 Salvar'}</button>
@@ -1084,19 +1003,27 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       </div>
 
       {aba !== 0 && (
-        <div style={{marginBottom:12}}>
-          <button onClick={()=>setAba(0)} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:`1.5px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:13,cursor:'pointer'}}>← Voltar à Visão Geral</button>
-        </div>
-      )}
-
-      <div style={{marginBottom:4}}>
-        <button onClick={()=>setAba(7)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',border:`2px solid #0B1F4D`,borderRadius:8,marginBottom:10}}>
+      <div style={{marginBottom:12}}>
+      <button onClick={()=>setAba(0)}
+      style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'none',border:`1.5px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:13,cursor:'pointer'}}>
+      ← Voltar à Visão Geral
+      </button>
+      </div>
+     )}
+	  <div style={{marginBottom:4}}>
+        <button onClick={()=>setAba(7)}
+          style={{display:'flex',alignItems:'center',gap:8,padding:'7px 18px',fontSize:12,fontWeight:600,cursor:'pointer',
+          background:aba===7?'#0B1F4D':'#fff',color:aba===7?'#fff':'#0B1F4D',
+          border:`2px solid #0B1F4D`,borderRadius:8,marginBottom:10}}>
           📊 Relatório SISPAR
           {aba===7&&<span style={{background:'rgba(255,255,255,0.2)',borderRadius:4,padding:'1px 6px',fontSize:10}}>ATIVO</span>}
         </button>
         <div style={{borderBottom:`2px solid ${C.border}`}}>
           {ABAS.map((t,i)=>(
-            <button key={i} onClick={()=>setAba(i)} style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>{t}</button>
+            <button key={i} onClick={()=>setAba(i)}
+              style={{padding:'8px 14px',fontSize:12,fontWeight:aba===i?700:400,color:aba===i?C.navy:C.muted,background:'none',border:'none',borderBottom:`2px solid ${aba===i?C.navy:'transparent'}`,marginBottom:-2,cursor:'pointer',whiteSpace:'nowrap'}}>
+              {t}
+            </button>
           ))}
         </div>
       </div>
@@ -1164,10 +1091,12 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 <div style={{fontSize:13,fontWeight:700,color:C.navy}}>CDA {i+1}</div>
                 {cdas.length>1&&<button onClick={()=>removeCDA(i)} style={btnDanger}>🗑️ Remover CDA</button>}
               </div>
+
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Número da CDA</label>
                 <input value={cda.numero_cda||''} onChange={e=>updateCDA(i,'numero_cda',e.target.value)} placeholder="Ex: 80.6.18.123456-78" style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',maxWidth:320,boxSizing:'border-box'}}/>
               </div>
+
               <div style={{marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                   <label style={{fontSize:12,fontWeight:500,color:C.text}}>Inscrições desta CDA — número, tipo de crédito e valor</label>
@@ -1177,43 +1106,43 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                   {(cda.inscricoes||[]).map((ins,j)=>{
                     const tipoInfo = TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)
                     return (
-                      <div key={j} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px'}}>
-                        <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
-                          <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Número da inscrição" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
-                          <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
-                          {(cda.inscricoes||[]).length>1&&(
-                            <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>🗑️</button>
-                          )}
-                        </div>
-                        <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
-                          {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
-                        </select>
-                        {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>📖 {tipoInfo.legislacao}</div>}
+                    <div key={j} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px'}}>
+                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+                        <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Número da inscrição" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
+                        <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
+                        {(cda.inscricoes||[]).length>1&&(
+                          <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>🗑️</button>
+                        )}
                       </div>
-                    )
-                  })}
+                      <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                        {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                      </select>
+                      {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>📖 {tipoInfo.legislacao}</div>}
+                    </div>
+                  )})}
                 </div>
                 <div style={{marginTop:8,display:'flex',justifyContent:'flex-end',fontSize:12,color:C.navy,fontWeight:700}}>
                   Total das inscrições: {fmtR(totalInscricoes(cda))}
                 </div>
               </div>
+
               <div style={{background:'#F8F5FF',border:'1.5px solid #7C3AED',borderRadius:8,padding:'14px 16px',marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#7C3AED',marginBottom:10}}>📅 Datas Jurídicas — Essenciais para Diagnóstico Conclusivo</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-                  <div>
-                    <label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Modalidade do lançamento</label>
-                    <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}>
-                      <option value="oficio">De ofício / Declaração (art. 173 CTN)</option>
-                      <option value="homologacao">Por homologação (art. 150 CTN)</option>
-                    </select>
-                  </div>
-                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do fato gerador (1º período)</label><input type="date" value={cda.data_fato_gerador} onChange={e=>updateCDA(i,'data_fato_gerador',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da constituição definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data de inscrição em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da citação válida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
-                </div>
-              </div>
+        <div style={{fontSize:12,fontWeight:700,color:'#7C3AED',marginBottom:10}}>📅 Datas Jurídicas — Essenciais para Diagnóstico Conclusivo</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+         <div>
+         <label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Modalidade do lançamento</label>
+      <select value={cda.modalidade_lancamento} onChange={e=>updateCDA(i,'modalidade_lancamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}>
+        <option value="oficio">De ofício / Declaração (art. 173 CTN)</option>
+        <option value="homologacao">Por homologação (art. 150 CTN)</option>
+        </select>
+         </div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do fato gerador (1º período)</label><input type="date" value={cda.data_fato_gerador} onChange={e=>updateCDA(i,'data_fato_gerador',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da constituição definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data de inscrição em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+          <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da citação válida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+         </div>
+        </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
                 <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Data da última movimentação</label><input type="date" value={cda.data_ultima_movimentacao} onChange={e=>updateCDA(i,'data_ultima_movimentacao',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}/></div>
                 <div>
@@ -1254,19 +1183,18 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           {analisesCDA.map((a,i)=>{
             const tipo = tipoReferenciaCDA(a.cda)
             return (
-              <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                  <div style={{fontSize:15,fontWeight:700,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
-                  <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{tipo.label} (referência)</span>
-                </div>
-                <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{fmtR(totalInscricoes(a.cda))} · {a.cda.situacao}</div>
-                <ResultadoAnalise resultado={a.decadencia}/>
-                <ResultadoAnalise resultado={a.prescricao}/>
-                <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
-                <ResultadoAnalise resultado={{...a.validadeCDA,teses:tesesReferenciaCDA(a.cda)}}/>
+            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                <div style={{fontSize:15,fontWeight:700,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
+                <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{tipo.label} (referência)</span>
               </div>
-            )
-          })}
+              <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{fmtR(totalInscricoes(a.cda))} · {a.cda.situacao}</div>
+              <ResultadoAnalise resultado={a.decadencia}/>
+              <ResultadoAnalise resultado={a.prescricao}/>
+              <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
+              <ResultadoAnalise resultado={{...a.validadeCDA,teses:tesesReferenciaCDA(a.cda)}}/>
+            </div>
+          )})}
           <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'14px 18px',fontSize:12,color:'#166534',marginBottom:16}}>
             💡 Clique em "▼ Ver raciocínio" para ver o passo a passo do raciocínio jurídico aplicado.
           </div>
@@ -1390,26 +1318,25 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'—'}]`).join(' / ')
               const tipo = tipoReferenciaCDA(a.cda)
               return (
-                <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
-                  <div style={{fontSize:12,color:'#1E40AF',marginBottom:8}}>{tipo.label} (referência) · {tipo.legislacao}</div>
-                  <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Inscrições: {inscricoesTxt||'Sem número'}</div>
-                  {[['Decadência',a.decadencia],['Prescrição',a.prescricao],['Prescrição Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
-                    <div key={titulo} style={{marginBottom:12}}>
-                      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{titulo}</div>
-                      <div style={{fontSize:13,fontWeight:700,color:res.cor,marginBottom:4}}>{res.titulo}</div>
-                      <div style={{fontSize:13,color:C.text,lineHeight:1.7}}>{res.justificativa}</div>
-                    </div>
-                  ))}
-                  <div style={{marginTop:12}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:0.5}}>Teses aplicáveis</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                      {tesesReferenciaCDA(a.cda).map((t,j)=><span key={j} style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:11,fontWeight:500}}>{t}</span>)}
-                    </div>
+              <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
+                <div style={{fontSize:12,color:'#1E40AF',marginBottom:8}}>{tipo.label} (referência) · {tipo.legislacao}</div>
+                <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Inscrições: {inscricoesTxt||'Sem número'}</div>
+                {[['Decadência',a.decadencia],['Prescrição',a.prescricao],['Prescrição Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
+                  <div key={titulo} style={{marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{titulo}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:res.cor,marginBottom:4}}>{res.titulo}</div>
+                    <div style={{fontSize:13,color:C.text,lineHeight:1.7}}>{res.justificativa}</div>
+                  </div>
+                ))}
+                <div style={{marginTop:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:0.5}}>Teses aplicáveis</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {tesesReferenciaCDA(a.cda).map((t,j)=><span key={j} style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:11,fontWeight:500}}>{t}</span>)}
                   </div>
                 </div>
-              )
-            })}
+              </div>
+            )})}
             <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'12px 16px',fontSize:12,color:'#92400E',marginBottom:16}}>
               ⚠️ Parecer preliminar — não substitui análise jurídica profissional.
             </div>
@@ -1424,7 +1351,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 <h2>Parecer Final</h2>${diagnostico.parecer.map(p=>`<div class="${p.tipo==='danger'?'danger':'indef'}">• ${p.msg}</div>`).join('')}
                 ${analisesCDA.map((a,i)=>{const tipo=tipoReferenciaCDA(a.cda);const gc=c=>c.conclusao.includes('ha_')||c.conclusao==='cda_vicio'?'danger':c.conclusao==='indefinida'?'indef':'ok';return`<h2>${rotuloCDA(a.cda,i)} — ${tipo.label}</h2><p>Valor: ${fmtR(totalInscricoes(a.cda))} | Situação: ${a.cda.situacao}</p><div class="${gc(a.decadencia)}"><strong>Decadência:</strong> ${a.decadencia.titulo}<br><small>${a.decadencia.justificativa}</small></div><div class="${gc(a.prescricao)}"><strong>Prescrição:</strong> ${a.prescricao.titulo}<br><small>${a.prescricao.justificativa}</small></div><div class="${gc(a.prescricaoIntercorrente)}"><strong>Prescrição Intercorrente:</strong> ${a.prescricaoIntercorrente.titulo}<br><small>${a.prescricaoIntercorrente.justificativa}</small></div><div class="${gc(a.validadeCDA)}"><strong>Validade CDA:</strong> ${a.validadeCDA.titulo}<br><small>${a.validadeCDA.justificativa}</small></div><p>${tesesReferenciaCDA(a.cda).map(t=>`<span class="tese">${t}</span>`).join(' ')}</p>`}).join('')}
                 <div class="aviso">⚠️ Parecer preliminar — FiscalTrib ${new Date().toLocaleString('pt-BR')} — não substitui análise jurídica profissional.</div>
-                <script>window.onload=()=>window.print()<\/script></body></html>`
+                <script>window.onload=()=>window.print()</script></body></html>`
                 w.document.write(html);w.document.close()
               }} style={btnOutline}>🖨️ Imprimir parecer</button>
             </div>
@@ -1432,8 +1359,8 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
         </div>
       </>}
 
-      {/* ── ABA SISPAR com skeleton ───────────────────────────────────────── */}
       {aba===7&&<>
+        {/* Cabeçalho SISPAR */}
         <div style={{background:'#0B1F4D',borderRadius:10,padding:'14px 20px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div>
             <div style={{fontSize:10,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:4}}>FISCALTRIB — DÍVIDA ATIVA</div>
@@ -1451,16 +1378,22 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <div style={{fontSize:10,color:'#7CC4FF',marginBottom:2}}>Gerado em</div>
             <div style={{fontSize:12,fontWeight:700,color:'#fff'}}>{new Date().toLocaleDateString('pt-BR')}</div>
             <div style={{display:'flex',gap:6,marginTop:8,justifyContent:'flex-end'}}>
-              <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>📋 CDAs</button>
-              <button onClick={carregarSispar} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🔄 Atualizar</button>
+              <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }}
+              style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>
+              📋 CDAs
+            </button>
+			  <button onClick={carregarSispar} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🔄 Atualizar</button>
               <button onClick={()=>window.print()} style={{padding:'4px 12px',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:6,color:'#fff',fontSize:11,cursor:'pointer'}}>🖨️ Imprimir</button>
             </div>
+              
           </div>
         </div>
 
-        {/* ✅ KPIs skeleton SISPAR */}
         {sisparLoading ? (
-          <SkeletonKPI count={4} />
+          <div style={{textAlign:'center',padding:48,color:C.muted}}>
+            <div style={{fontSize:32,marginBottom:12}}>⏳</div>
+            <div style={{fontSize:14}}>Carregando dados...</div>
+          </div>
         ) : sisparDados.length === 0 ? (
           <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.border}`,padding:48,textAlign:'center'}}>
             <div style={{fontSize:40,marginBottom:12}}>📋</div>
@@ -1468,12 +1401,14 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               {clienteAtual ? `Nenhuma CDA encontrada para ${clienteAtual.razao_social}` : 'Nenhum registro na tabela CDAs'}
             </div>
             <div style={{fontSize:13,color:C.muted}}>
-              {clienteAtual ? 'Importe uma CDA para este cliente via "Importar CDA".' : 'Selecione um cliente ou cadastre CDAs.'}
+              {clienteAtual
+                ? 'Importe uma CDA para este cliente via "Importar CDA" para visualizá-la aqui.'
+                : 'Selecione um cliente ou cadastre CDAs para populá-las.'}
             </div>
           </div>
         ) : (
           <>
-            {/* KPIs reais */}
+            {/* KPIs consolidados */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
               {[
                 {label:'Total de Registros', valor:sisparTotais.count, fmt:'num', cor:'#0B1F4D', bg:'#EFF6FF'},
@@ -1490,98 +1425,120 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               ))}
             </div>
 
-            {/* Tabela SISPAR */}
+            {/* Tabela SISPAR principal */}
             <div style={{overflowX:'auto',marginBottom:16}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:10,minWidth:900}}>
                 <thead>
-                  <tr>
-                    <th style={{...thSispar,width:40,textAlign:'center'}}>Item</th>
-                    <th style={{...thSispar,textAlign:'left',width:200}}>Nº CDA / Devedor / CNPJ</th>
-                    <th style={thSispar}>Tipo</th>
-                    <th style={thSispar}>Modalidade</th>
-                    <th style={thSispar}>Data Cálculo</th>
-                    <th style={thSispar}>UFIR</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Desconto R$</th>
-                    <th style={{...thSispar,background:'#1a3566'}}>Prov. Econ. %</th>
-                    <th style={{...thSispar,background:'#163b5c'}}>Total a Pagar</th>
-                    <th style={thSispar}>Qt Entrada</th>
-                    <th style={thSispar}>Vl Entrada</th>
-                    <th style={thSispar}>Qt Parcela</th>
-                    <th style={thSispar}>Vl Parcela</th>
-                    <th style={{...thSispar,textAlign:'left'}}>Processo / TRF / Vara</th>
-                    <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
-                    <th style={{...thSispar,width:40}}></th>
-                  </tr>
+              <tr>
+                 <th style={{...thSispar,width:40,textAlign:'center'}}>Item</th>
+                 <th style={{...thSispar,textAlign:'left',width:200}}>Nº CDA / Devedor / CNPJ</th>
+                 <th style={thSispar}>Tipo</th>
+                 <th style={thSispar}>Modalidade</th>
+                 <th style={thSispar}>Data Cálculo</th>
+                 <th style={thSispar}>UFIR</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Total s/Desc.</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Desconto R$</th>
+                 <th style={{...thSispar,background:'#1a3566'}}>Prov. Econ. %</th>
+                 <th style={{...thSispar,background:'#163b5c'}}>Total a Pagar</th>
+                 <th style={thSispar}>Qt Entrada</th>
+                 <th style={thSispar}>Vl Entrada</th>
+                 <th style={thSispar}>Qt Parcela</th>
+                 <th style={thSispar}>Vl Parcela</th>
+                 <th style={{...thSispar,textAlign:'left'}}>Processo / TRF / Vara</th>
+                 <th style={{...thSispar,textAlign:'left'}}>Sócios / Obs.</th>
+                 <th style={{...thSispar,width:40}}></th>
+                 </tr>
                 </thead>
                 <tbody>
-                  {sisparExibir.map((r, idx) => {
-                    const isGhost = r.ghost
-                    const vTotal   = isGhost ? 0 : parseValor(r.total_sem_desconto || 0)
-                    const vDesc    = isGhost ? 0 : parseValor(r.desconto_valor || 0)
-                    const vPagar   = vTotal - vDesc
-                    const vEntrada = isGhost ? 0 : parseValor(r.valor_entrada || 0)
-                    const vParcela = isGhost ? 0 : parseValor(r.valor_parcela || 0)
+                  {sisparDados.map((r, idx) => {
+                    const vTotal    = parseValor(r.total_sem_desconto || 0)
+                    const vDesc     = parseValor(r.desconto_valor || 0)
+                    const vPagar    = vTotal - vDesc
+                    const vEntrada  = parseValor(r.valor_entrada || 0)
+                    const vParcela  = parseValor(r.valor_parcela || 0)
                     const qtEntrada = vEntrada > 0 ? 1 : 0
                     const qtParcela = r.qt_parcelas || 0
                     const provEcon  = vTotal > 0 ? ((vDesc / vTotal) * 100).toFixed(1) + '%' : '—'
-                    const zebra     = isGhost ? C.ghost : idx % 2 === 0 ? '#fff' : '#F8FAFC'
-
-                    const ghostCell = (w=80) => (
-                      <div style={{height:11,width:w,borderRadius:3,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
-                    )
-
+                    const zebra     = idx % 2 === 0 ? '#fff' : '#F8FAFC'
                     return (
                       <tr key={r.id} style={{background:zebra}}>
-                        <td style={{...tdSispar(),width:40,fontWeight:700,color:'#0B1F4D',textAlign:'center'}}>{isGhost ? <div style={{height:11,width:20,borderRadius:3,background:'#E2E8F0',margin:'0 auto'}}/> : idx+1}</td>
+					  <td style={{...tdSispar(),width:40,fontWeight:700,color:'#0B1F4D',textAlign:'center'}}>{idx+1}</td>
+                        {/* ─── CORREÇÃO 7: célula com numero_cda, devedor e cnpj_devedor empilhados ─── */}
                         <td style={{...tdSispar('left'),maxWidth:200}}>
-                          {isGhost ? <>{ghostCell(100)}<div style={{marginTop:4}}>{ghostCell(120)}</div></> : (
-                            <>
-                              <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10,lineHeight:1.4}}>{r.numero_cda || '—'}</div>
-                              {r.devedor && <div style={{color:'#1E293B',fontSize:9,lineHeight:1.4,marginTop:1}}>{r.devedor}</div>}
-                              {r.cnpj_devedor && <div style={{color:'#64748B',fontSize:9,lineHeight:1.4}}>{r.cnpj_devedor}</div>}
-                            </>
+                          <div style={{fontWeight:700,color:'#0B1F4D',fontSize:10,lineHeight:1.4}}>
+                            {r.numero_cda || '—'}
+                          </div>
+                          {r.devedor && (
+                            <div style={{color:'#1E293B',fontSize:9,lineHeight:1.4,marginTop:1}}>
+                              {r.devedor}
+                            </div>
+                          )}
+                          {r.cnpj_devedor && (
+                            <div style={{color:'#64748B',fontSize:9,lineHeight:1.4}}>
+                              {r.cnpj_devedor}
+                            </div>
                           )}
                         </td>
-                        <td style={tdSispar()}>{isGhost ? ghostCell(60) : <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>{TIPOS_CREDITO.find(t=>t.key===r.tipo_credito)?.label || r.tipo_debito || '—'}</span>}</td>
-                        <td style={tdSispar()}>{isGhost ? ghostCell(70) : <span style={{background:'#F0FDF4',color:'#166534',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>{MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade_transacao || '—'}</span>}</td>
-                        <td style={tdSispar()}>{isGhost ? ghostCell(50) : r.data_calculo ? new Date(r.data_calculo+'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                        <td style={tdSispar()}>{isGhost ? ghostCell(40) : r.ufir_conversao || '—'}</td>
-                        <td style={{...tdSisparNum,background:'#fafbff'}}>{isGhost ? ghostCell(60) : fmtR(vTotal)}</td>
-                        <td style={{...tdSisparNum,color:'#16A34A',background:'#fafbff'}}>{isGhost ? ghostCell(50) : vDesc > 0 ? fmtR(vDesc) : '—'}</td>
-                        <td style={{...tdSispar(),color:'#16A34A',fontWeight:700,background:'#fafbff'}}>{isGhost ? ghostCell(30) : provEcon}</td>
-                        <td style={{...tdSisparNum,fontWeight:700,color:'#0B1F4D',background:'#EFF6FF'}}>{isGhost ? ghostCell(60) : fmtR(vPagar)}</td>
-                        <td style={tdSispar()}>{isGhost ? '—' : qtEntrada > 0 ? qtEntrada : '—'}</td>
-                        <td style={tdSisparNum}>{isGhost ? '—' : vEntrada > 0 ? fmtR(vEntrada) : '—'}</td>
-                        <td style={tdSispar()}>{isGhost ? '—' : qtParcela > 0 ? qtParcela : '—'}</td>
-                        <td style={tdSisparNum}>{isGhost ? '—' : vParcela > 0 ? fmtR(vParcela) : '—'}</td>
-                        <td style={{...tdSispar('left'),maxWidth:150,fontSize:9}}>{isGhost ? ghostCell(80) : r.numero_processo_execucao ? <div style={{fontWeight:600,color:'#0B1F4D'}}>{r.numero_processo_execucao}</div> : '—'}</td>
-                        <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>{isGhost ? ghostCell(80) : [r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ')||r.observacoes||'—'}</td>
-                        <td style={{...tdSispar(), width:40}}>
-                          {!isGhost && (
-                            <button onClick={() => deletarCDA(r.id)} title="Excluir registro" style={{background:'#fff1f2',border:'1px solid #fecdd3',borderRadius:6,padding:'3px 7px',cursor:'pointer',fontSize:12,color:'#dc2626',lineHeight:1}}>🗑️</button>
-                          )}
+                        <td style={tdSispar()}>
+                          <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
+                            {TIPOS_CREDITO.find(t=>t.key===r.tipo_credito)?.label || r.tipo_debito || '—'}
+                          </span>
                         </td>
+                        <td style={tdSispar()}>
+                          <span style={{background:'#F0FDF4',color:'#166534',padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:600}}>
+                            {MODALIDADES_PGFN.find(m=>m.key===r.modalidade)?.label || r.modalidade_transacao || '—'}
+                          </span>
+                        </td>
+                        <td style={tdSispar()}>{r.data_calculo ? new Date(r.data_calculo+'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                        <td style={tdSispar()}>{r.ufir_conversao || '—'}</td>
+						<td style={{...tdSisparNum,background:'#fafbff'}}>{fmtR(vTotal)}</td>
+                        <td style={{...tdSisparNum,color:'#16A34A',background:'#fafbff'}}>{vDesc > 0 ? fmtR(vDesc) : '—'}</td>
+                        <td style={{...tdSispar(),color:'#16A34A',fontWeight:700,background:'#fafbff'}}>{provEcon}</td>
+                        <td style={{...tdSisparNum,fontWeight:700,color:'#0B1F4D',background:'#EFF6FF'}}>{fmtR(vPagar)}</td>
+                        <td style={tdSispar()}>{qtEntrada > 0 ? qtEntrada : '—'}</td>
+                        <td style={tdSisparNum}>{vEntrada > 0 ? fmtR(vEntrada) : '—'}</td>
+                        <td style={tdSispar()}>{qtParcela > 0 ? qtParcela : '—'}</td>
+                        <td style={tdSisparNum}>{vParcela > 0 ? fmtR(vParcela) : '—'}</td>
+                        <td style={{...tdSispar('left'),maxWidth:150,fontSize:9}}>
+                        {r.numero_processo_execucao && <div style={{fontWeight:600,color:'#0B1F4D'}}>{r.numero_processo_execucao}</div>}
+                        {r.trf_regiao && <div style={{color:'#64748B'}}>{r.trf_regiao}</div>}
+                        {r.vara_execucao && <div style={{color:'#64748B'}}>{r.vara_execucao}</div>}
+                        {!r.numero_processo_execucao && !r.trf_regiao && '—'}
+                         </td>
+                         <td style={{...tdSispar('left'),maxWidth:120,color:'#64748B',fontSize:9}}>
+                        {[r.socio_1,r.socio_2,r.socio_3].filter(Boolean).join(', ')||r.observacoes||'—'}
+                        </td>
+						<td style={{...tdSispar(), width:40}}>
+                        <button
+                        onClick={() => deletarCDA(r.id)}
+                          title="Excluir registro"
+                          style={{background:'#fff1f2',border:'1px solid #fecdd3',borderRadius:6,padding:'3px 7px',cursor:'pointer',fontSize:12,color:'#dc2626',lineHeight:1}}>
+                          🗑️
+                        </button>
+                      </td>
                       </tr>
                     )
                   })}
                 </tbody>
-                {!sisparLoading && sisparDados.length > 0 && (
-                  <tfoot>
-                    <tr style={{background:'#dce6f7'}}>
-                      <td colSpan={5} style={{...tdTotal,textAlign:'left',fontSize:11}}>TOTAIS CONSOLIDADOS</td>
-                      <td style={tdTotal}>{fmtR(sisparTotais.totalSemDesconto)}</td>
-                      <td style={{...tdTotal,color:'#16A34A'}}>{fmtR(sisparTotais.totalDesconto)}</td>
-                      <td style={tdTotal}>{sisparTotais.totalSemDesconto > 0 ? ((sisparTotais.totalDesconto / sisparTotais.totalSemDesconto) * 100).toFixed(1) + '%' : '—'}</td>
-                      <td style={{...tdTotal,color:'#0B1F4D'}}>{fmtR(sisparTotais.totalAPagar)}</td>
-                      <td colSpan={7} style={tdTotal}></td>
-                      <td style={tdTotal}></td>
-                    </tr>
-                  </tfoot>
-                )}
+                <tfoot>
+                  <tr style={{background:'#dce6f7'}}>
+                    <td colSpan={5} style={{...tdTotal,textAlign:'left',fontSize:11}}>TOTAIS CONSOLIDADOS</td>
+                    <td style={tdTotal}>{fmtR(sisparTotais.totalSemDesconto)}</td>
+                    <td style={{...tdTotal,color:'#16A34A'}}>{fmtR(sisparTotais.totalDesconto)}</td>
+                    <td style={tdTotal}>
+                      {sisparTotais.totalSemDesconto > 0
+                        ? ((sisparTotais.totalDesconto / sisparTotais.totalSemDesconto) * 100).toFixed(1) + '%'
+                        : '—'}
+                    </td>
+                    <td style={{...tdTotal,color:'#0B1F4D'}}>{fmtR(sisparTotais.totalAPagar)}</td>
+                    <td colSpan={7} style={tdTotal}></td>
+                    <td style={tdTotal}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
 
+            {/* Notas de rodapé */}
             <div style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:8,padding:'12px 16px',fontSize:10,color:C.muted,lineHeight:1.8}}>
               <div style={{fontWeight:700,color:C.navy,marginBottom:6,fontSize:11}}>📌 Notas</div>
               <div>• Valores apurados com base nos registros cadastrados na tabela CDAs do FiscalTrib.</div>
