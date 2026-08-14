@@ -27,7 +27,6 @@ import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
 import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos'
-import AbaICMSST from './pages/abas/AbaICMSST'
 import ExclusaoICMS from './pages/ExclusaoICMS'
 import PainelRecuperacao from './pages/PainelRecuperacao'
 
@@ -818,7 +817,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='exclusao_icms' && <ExclusaoICMS cliente={active} />}
             {module==='recuperacao_monofasico' && <PainelRecuperacao />}
             {module==='icms_st_rec' && (
-            <AbaICMSST cliente={active} regime={active?.regime} />
+              <div style={{padding:40,textAlign:'center',color:'#64748B',fontSize:14}}>
+                ⚙️ Módulo ICMS-ST Pago a Maior em construção.
+              </div>
             )}
             {module==='divida' && (
               <DiagnosticoDividaAtiva
