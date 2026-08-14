@@ -1,7 +1,7 @@
 /**
  * ClassificacaoItens.jsx - e-FiscalTribe®
- * Versao 2.1 - 13/08/2026
- * + Lixeira por linha e excluir selecionados em lote
+ * Versao 2.2 - 13/08/2026
+ * + Skeleton e ghost rows
  */
 
 import { useState, useEffect } from 'react'
@@ -48,6 +48,30 @@ function Badge({ tipo, label }) {
     </span>
   )
 }
+
+function SkeletonRow() {
+  return (
+    <tr>
+      <td style={{ padding: '10px 10px' }}><div style={{ width: 14, height: 14, borderRadius: 3, background: S.ghost }} /></td>
+      {[80, 160, 90, 50, 80, 80, 60].map((w, i) => (
+        <td key={i} style={{ padding: '10px 10px' }}>
+          <div style={{ height: 13, width: w, borderRadius: 4, background: 'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+const GHOST_ROWS = Array(8).fill(null).map((_, i) => ({
+  ghost: true,
+  id: `ghost-${i}`,
+  codigo: `COD-${String(i + 1).padStart(4, '0')}`,
+  descricao: 'Descricao do produto',
+  ncm: '0000.00.00',
+  cest: '—',
+  class_pis_cofins_considerado: null,
+  status_ncm: 'encontrada',
+}))
 
 function ModalClassificar({ itens, onSalvar, onFechar }) {
   const [considerarReceita, setConsiderarReceita] = useState(true)
@@ -142,6 +166,13 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [aprovando, setAprovando] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`
+    document.head.appendChild(style)
+    return () => document.head.removeChild(style)
+  }, [])
+
   useEffect(() => { if (clienteId) carregar() }, [clienteId])
 
   async function carregar() {
@@ -179,8 +210,9 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
 
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / porPagina))
   const itensPagina  = itensFiltrados.slice((pagina - 1) * porPagina, pagina * porPagina)
+  const temDados     = itens.length > 0
 
-  const todosSelecionados = itensPagina.length > 0 && itensPagina.every(i => selecionados.includes(i.id))
+  const todosSelecionados = itensPagina.length > 0 && !itensPagina[0]?.ghost && itensPagina.every(i => selecionados.includes(i.id))
 
   function toggleTodos() {
     if (todosSelecionados) {
@@ -299,8 +331,11 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     </div>
   )
 
-  const itensSelecionadosObj  = itens.filter(i => selecionados.includes(i.id))
-  const monofasicosPendentes  = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado).length
+  const itensSelecionadosObj = itens.filter(i => selecionados.includes(i.id))
+  const monofasicosPendentes = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado).length
+
+  // Linhas a exibir: skeleton se loading, ghost se vazio, dados se tem
+  const linhasExibir = loading ? null : (temDados ? itensPagina : GHOST_ROWS)
 
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
@@ -342,19 +377,19 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
       {/* CONTADORES */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { id: 'nao_classificados', label: 'nao classificados', count: totalNaoClassificados,                                      cor: S.red,    bg: '#fef2f2', border: '#fecaca' },
-          { id: 'classificados',     label: 'classificados',     count: totalClassificados,                                          cor: S.green,  bg: '#f0fdf4', border: '#86efac' },
-          { id: 'duplicados',        label: 'duplicados',        count: totalDuplicados,                                             cor: S.blue,   bg: '#eff6ff', border: '#bfdbfe' },
-          { id: 'nao_encontrada',    label: 'NCM nao encontrada',count: itens.filter(i => i.status_ncm === 'nao_encontrada').length, cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+          { id: 'nao_classificados', label: 'nao classificados', count: loading ? '—' : totalNaoClassificados,                                      cor: S.red,    bg: '#fef2f2', border: '#fecaca' },
+          { id: 'classificados',     label: 'classificados',     count: loading ? '—' : totalClassificados,                                          cor: S.green,  bg: '#f0fdf4', border: '#86efac' },
+          { id: 'duplicados',        label: 'duplicados',        count: loading ? '—' : totalDuplicados,                                             cor: S.blue,   bg: '#eff6ff', border: '#bfdbfe' },
+          { id: 'nao_encontrada',    label: 'NCM nao encontrada',count: loading ? '—' : itens.filter(i => i.status_ncm === 'nao_encontrada').length, cor: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
         ].map(c => (
           <button key={c.id}
-            onClick={() => { setFiltro(filtro === c.id ? 'todos' : c.id); setPagina(1) }}
-            style={{ padding: '8px 16px', background: filtro === c.id ? c.bg : S.white, border: `1px solid ${filtro === c.id ? c.border : S.border}`, borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: 'pointer', color: filtro === c.id ? c.cor : S.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            onClick={() => { if (!loading && temDados) { setFiltro(filtro === c.id ? 'todos' : c.id); setPagina(1) } }}
+            style={{ padding: '8px 16px', background: filtro === c.id ? c.bg : S.white, border: `1px solid ${filtro === c.id ? c.border : S.border}`, borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: loading ? 'default' : 'pointer', color: filtro === c.id ? c.cor : S.muted, display: 'flex', alignItems: 'center', gap: 6, opacity: loading ? 0.6 : 1 }}>
             <span style={{ background: filtro === c.id ? c.cor : S.muted, color: S.white, borderRadius: 99, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{c.count}</span>
             {c.label}
           </button>
         ))}
-        {filtro !== 'todos' && (
+        {filtro !== 'todos' && !loading && (
           <button onClick={() => { setFiltro('todos'); setPagina(1) }}
             style={{ padding: '8px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 99, fontSize: 12, cursor: 'pointer', color: S.muted }}>
             X Limpar filtro
@@ -397,9 +432,9 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
               </>
             ) : (
               <>
-                <button onClick={selecionarTodos}
-                  style={{ padding: '6px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
-                  Selecionar todos ({itensFiltrados.length})
+                <button onClick={selecionarTodos} disabled={!temDados || loading}
+                  style={{ padding: '6px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: temDados ? 'pointer' : 'not-allowed', color: S.muted, opacity: temDados ? 1 : 0.5 }}>
+                  Selecionar todos ({temDados ? itensFiltrados.length : '—'})
                 </button>
                 <button onClick={() => carregar()}
                   style={{ padding: '6px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
@@ -414,79 +449,77 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
         <div style={{ padding: '10px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
           <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1) }}
             placeholder="Buscar por descricao, NCM, codigo..."
-            style={{ padding: '6px 12px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', width: 280 }} />
+            disabled={!temDados || loading}
+            style={{ padding: '6px 12px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', width: 280, opacity: temDados ? 1 : 0.5 }} />
           {busca && (
             <button onClick={() => { setBusca(''); setPagina(1) }}
               style={{ padding: '6px 10px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>X</button>
           )}
           <span style={{ fontSize: 12, color: S.muted, marginLeft: 'auto' }}>
-            {itensFiltrados.length} item(s) encontrado(s)
+            {loading ? 'Carregando...' : temDados ? `${itensFiltrados.length} item(s) encontrado(s)` : 'Importe NF-es para popular'}
           </span>
         </div>
 
         {/* CONTEUDO */}
-        {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: S.muted }}>Carregando itens...</div>
-        ) : itensFiltrados.length === 0 ? (
-          <div style={{ padding: 48, textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Nenhum item encontrado</div>
-            <div style={{ fontSize: 13, color: S.muted }}>
-              {busca ? 'Tente uma busca diferente' : 'Importe NF-es para popular a lista de itens'}
-            </div>
-          </div>
-        ) : (
-          <>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: S.thBg }}>
-                    <th style={{ padding: '8px 10px', color: S.thText, width: 36 }}>
-                      <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} style={{ cursor: 'pointer' }} />
-                    </th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>Codigo</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Descricao</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>NCM</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>CEST</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#374151', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Motor NCM</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Trib. Vigente</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Acoes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itensPagina.map((item, i) => {
-                    const sel   = selecionados.includes(item.id)
-                    const motor = motorNCM(item.ncm)
-                    const temConfirmacao = !!item.class_pis_cofins_considerado
-                    return (
-                      <tr key={item.id} style={{ borderBottom: `1px solid ${S.border}`, background: sel ? '#eff6ff' : i % 2 === 0 ? S.white : '#FAFAFA' }}>
-                        <td style={{ padding: '8px 10px' }}>
-                          <input type="checkbox" checked={sel} onChange={() => toggleItem(item.id)} style={{ cursor: 'pointer' }} />
-                        </td>
-                        <td style={{ padding: '8px 10px', fontWeight: 600, color: S.navy, whiteSpace: 'nowrap' }}>{item.codigo || '-'}</td>
-                        <td style={{ padding: '8px 10px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.descricao}>
-                          {item.descricao || '-'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: S.muted, fontFamily: 'monospace', fontSize: 11 }}>
-                          {item.ncm || <span style={{ color: S.red }}>—</span>}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: S.muted, fontSize: 11 }}>{item.cest || '—'}</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
-                          <Badge tipo={motor.class} label={motor.label} />
-                        </td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
-                          {temConfirmacao ? (
-                            <Badge tipo={item.class_pis_cofins_considerado} label={
-                              item.class_pis_cofins_considerado === 'monofasico'    ? 'Monofasico'    :
-                              item.class_pis_cofins_considerado === 'tributado'     ? 'Tributado'     :
-                              item.class_pis_cofins_considerado === 'st_pis_cofins' ? 'ST PIS/COFINS' :
-                              item.class_pis_cofins_considerado
-                            } />
-                          ) : (
-                            <span style={{ color: S.ghostText, fontSize: 13 }}>—</span>
-                          )}
-                        </td>
-                        <td style={{ padding: '8px 10px', position: 'relative' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: S.thBg }}>
+                <th style={{ padding: '8px 10px', color: S.thText, width: 36 }}>
+                  <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} disabled={!temDados || loading} style={{ cursor: temDados ? 'pointer' : 'not-allowed' }} />
+                </th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>Codigo</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Descricao</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>NCM</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>CEST</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#374151', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Motor NCM</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Trib. Vigente</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array(8).fill(null).map((_, i) => <SkeletonRow key={i} />)
+              ) : (
+                linhasExibir.map((item, i) => {
+                  const isGhost = item.ghost
+                  const sel     = !isGhost && selecionados.includes(item.id)
+                  const motor   = motorNCM(item.ncm)
+                  const temConf = !isGhost && !!item.class_pis_cofins_considerado
+                  return (
+                    <tr key={item.id} style={{ borderBottom: `1px solid ${S.border}`, background: isGhost ? S.ghost : sel ? '#eff6ff' : i % 2 === 0 ? S.white : '#FAFAFA' }}>
+                      <td style={{ padding: '8px 10px' }}>
+                        {!isGhost && <input type="checkbox" checked={sel} onChange={() => toggleItem(item.id)} style={{ cursor: 'pointer' }} />}
+                      </td>
+                      <td style={{ padding: '8px 10px', fontWeight: 600, color: isGhost ? S.ghostText : S.navy, whiteSpace: 'nowrap' }}>{item.codigo || '-'}</td>
+                      <td style={{ padding: '8px 10px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isGhost ? S.ghostText : S.text }} title={item.descricao}>
+                        {item.descricao || '-'}
+                      </td>
+                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.muted, fontFamily: 'monospace', fontSize: 11 }}>
+                        {isGhost ? item.ncm : (item.ncm || <span style={{ color: S.red }}>—</span>)}
+                      </td>
+                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.muted, fontSize: 11 }}>{item.cest || '—'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
+                        {isGhost
+                          ? <span style={{ background: S.ghost, color: S.ghostText, border: `1px solid ${S.border}`, borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700 }}>—</span>
+                          : <Badge tipo={motor.class} label={motor.label} />
+                        }
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', borderLeft: '1px solid #f1f5f9' }}>
+                        {isGhost
+                          ? <span style={{ color: S.ghostText, fontSize: 13 }}>—</span>
+                          : temConf
+                            ? <Badge tipo={item.class_pis_cofins_considerado} label={
+                                item.class_pis_cofins_considerado === 'monofasico'    ? 'Monofasico'    :
+                                item.class_pis_cofins_considerado === 'tributado'     ? 'Tributado'     :
+                                item.class_pis_cofins_considerado === 'st_pis_cofins' ? 'ST PIS/COFINS' :
+                                item.class_pis_cofins_considerado
+                              } />
+                            : <span style={{ color: S.ghostText, fontSize: 13 }}>—</span>
+                        }
+                      </td>
+                      <td style={{ padding: '8px 10px', position: 'relative' }}>
+                        {!isGhost && (
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                             <button onClick={e => { e.stopPropagation(); setMenuAberto(menuAberto === item.id ? null : item.id) }}
                               style={{ background: 'none', border: `1px solid ${S.border}`, borderRadius: 4, cursor: 'pointer', padding: '2px 8px', fontSize: 13, color: S.muted }}>
@@ -498,80 +531,83 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                               X
                             </button>
                           </div>
-                          {menuAberto === item.id && (
-                            <div style={{ position: 'absolute', right: 8, top: 30, background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 200 }}
-                              onClick={e => e.stopPropagation()}>
-                              <button onClick={() => {
-                                setSelecionados([item.id])
+                        )}
+                        {!isGhost && menuAberto === item.id && (
+                          <div style={{ position: 'absolute', right: 8, top: 30, background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 200 }}
+                            onClick={e => e.stopPropagation()}>
+                            <button onClick={() => { setSelecionados([item.id]); setMenuAberto(null); setTimeout(() => confirmarConforme(), 0) }}
+                              style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
+                              Confirmar conforme Motor NCM
+                            </button>
+                            <button onClick={() => { setSelecionados([item.id]); setMenuAberto(null); setModalAberto(true) }}
+                              style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
+                              Classificar manualmente
+                            </button>
+                            {temConf && (
+                              <button onClick={async () => {
+                                await supabase.from('itens_fiscais').update({ class_pis_cofins_considerado: null }).eq('id', item.id)
                                 setMenuAberto(null)
-                                setTimeout(() => confirmarConforme(), 0)
+                                await carregar()
                               }}
-                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
-                                Confirmar conforme Motor NCM
+                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.orange, borderBottom: `1px solid ${S.border}` }}>
+                                Remover classificacao
                               </button>
-                              <button onClick={() => {
-                                setSelecionados([item.id])
-                                setMenuAberto(null)
-                                setModalAberto(true)
-                              }}
-                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
-                                Classificar manualmente
-                              </button>
-                              {temConfirmacao && (
-                                <button onClick={async () => {
-                                  await supabase.from('itens_fiscais').update({ class_pis_cofins_considerado: null }).eq('id', item.id)
-                                  setMenuAberto(null)
-                                  await carregar()
-                                }}
-                                  style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.orange, borderBottom: `1px solid ${S.border}` }}>
-                                  Remover classificacao
-                                </button>
-                              )}
-                              <button onClick={() => excluirItem(item.id)}
-                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.red }}>
-                                Excluir item
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* PAGINACAO */}
-            <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.muted, flexWrap: 'wrap', gap: 8 }}>
-              <span>{itensFiltrados.length} itens — Pagina {pagina} de {totalPaginas}</span>
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {[['«', () => setPagina(1), pagina === 1],
-                  ['<', () => setPagina(p => Math.max(1, p - 1)), pagina === 1],
-                  ['>', () => setPagina(p => Math.min(totalPaginas, p + 1)), pagina === totalPaginas],
-                  ['»', () => setPagina(totalPaginas), pagina === totalPaginas],
-                ].map(([l, fn, dis], i) => (
-                  <button key={i} onClick={fn} disabled={dis}
-                    style={{ padding: '4px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text }}>
-                    {l}
-                  </button>
-                ))}
-                {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                  const p = Math.max(1, Math.min(pagina - 2, totalPaginas - 4)) + i
-                  return (
-                    <button key={p} onClick={() => setPagina(p)}
-                      style={{ padding: '4px 10px', border: `1px solid ${p === pagina ? S.navy : S.border}`, borderRadius: 4, background: p === pagina ? S.navy : 'none', color: p === pagina ? S.white : S.text, cursor: 'pointer', fontWeight: p === pagina ? 700 : 400 }}>
-                      {p}
-                    </button>
+                            )}
+                            <button onClick={() => excluirItem(item.id)}
+                              style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.red }}>
+                              Excluir item
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
                   )
-                })}
-                <select value={porPagina} onChange={e => { const n = Number(e.target.value); setPorPagina(n); setPagina(1) }}
-                  style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
-                  {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n} por pagina</option>)}
-                </select>
-              </div>
-            </div>
-          </>
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* RODAPE */}
+        {!loading && !temDados && (
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, textAlign: 'center', fontSize: 12, color: S.ghostText }}>
+            Importe NF-es na aba Monofasicos para popular a lista de itens
+          </div>
         )}
+
+        {/* PAGINACAO */}
+        <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.muted, flexWrap: 'wrap', gap: 8 }}>
+          <span>
+            {loading ? 'Carregando...' : temDados ? `${itensFiltrados.length} itens — Pagina ${pagina} de ${totalPaginas}` : 'Nenhum item cadastrado'}
+          </span>
+          {temDados && !loading && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {[['«', () => setPagina(1), pagina === 1],
+                ['<', () => setPagina(p => Math.max(1, p - 1)), pagina === 1],
+                ['>', () => setPagina(p => Math.min(totalPaginas, p + 1)), pagina === totalPaginas],
+                ['»', () => setPagina(totalPaginas), pagina === totalPaginas],
+              ].map(([l, fn, dis], i) => (
+                <button key={i} onClick={fn} disabled={dis}
+                  style={{ padding: '4px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis ? 'not-allowed' : 'pointer', color: dis ? '#CBD5E1' : S.text }}>
+                  {l}
+                </button>
+              ))}
+              {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                const p = Math.max(1, Math.min(pagina - 2, totalPaginas - 4)) + i
+                return (
+                  <button key={p} onClick={() => setPagina(p)}
+                    style={{ padding: '4px 10px', border: `1px solid ${p === pagina ? S.navy : S.border}`, borderRadius: 4, background: p === pagina ? S.navy : 'none', color: p === pagina ? S.white : S.text, cursor: 'pointer', fontWeight: p === pagina ? 700 : 400 }}>
+                    {p}
+                  </button>
+                )
+              })}
+              <select value={porPagina} onChange={e => { const n = Number(e.target.value); setPorPagina(n); setPagina(1) }}
+                style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
+                {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n} por pagina</option>)}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
