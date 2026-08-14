@@ -494,17 +494,21 @@ export default function AbaMonofasicos({ cliente, regime }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
           {temResultado && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={gerarRelatorioPDF}
-                style={{ padding: '7px 14px', background: S.navy, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Imprimir PDF
-              </button>
-              <button onClick={exportarCSV}
-                style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Exportar CSV
-              </button>
-            </div>
-          )}
+      <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={gerarRelatorioPDF}
+          style={{ padding: '7px 14px', background: S.navy, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          Imprimir PDF
+          </button>
+          <button onClick={exportarCSV}
+          style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          Exportar CSV
+          </button>
+          <button onClick={novaAnalise}
+          style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>
+          Limpar
+          </button>
+        </div>
+       )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar NF-es</div>
             <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
