@@ -1,7 +1,7 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.3 - 14/08/2026
- * + Popup de confirmacao ao clicar em Nova Analise sem salvar
+ * Versao 8.2 - 13/08/2026
+ * + Skeleton e ghost rows na aba Historico
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -96,82 +96,6 @@ const HISTORICO_GHOST = Array(5).fill(null).map((_, i) => ({
   status: 'concluido',
 }))
 
-// Modal de confirmacao — dados nao salvos
-function ModalConfirmacaoSair({ onSalvar, onContinuar, onCancelar, salvando }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
-        background: S.white, borderRadius: 12, padding: 28, maxWidth: 440, width: '100%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-      }}>
-        {/* Icone */}
-        <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: '50%',
-            background: '#FEF3C7', border: '2px solid #FCD34D',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto', fontSize: 24,
-          }}>
-            ⚠️
-          </div>
-        </div>
-
-        {/* Titulo */}
-        <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, textAlign: 'center', marginBottom: 8 }}>
-          Dados nao salvos
-        </div>
-
-        {/* Mensagem */}
-        <div style={{ fontSize: 13, color: S.muted, textAlign: 'center', lineHeight: 1.6, marginBottom: 8 }}>
-          Voce tem dados desta competencia que ainda nao foram salvos.
-        </div>
-        <div style={{
-          background: '#FEF2F2', border: '1px solid #FECACA',
-          borderRadius: 8, padding: '10px 14px', marginBottom: 20,
-          fontSize: 12, color: S.red, fontWeight: 600, textAlign: 'center', lineHeight: 1.6,
-        }}>
-          Se continuar sem salvar, todas as informacoes importadas e processadas desta competencia serao perdidas permanentemente.
-        </div>
-
-        {/* Botoes */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button
-            onClick={onSalvar}
-            disabled={salvando}
-            style={{
-              padding: '11px 16px', background: S.navy, color: S.white,
-              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700,
-              cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1,
-            }}>
-            {salvando ? 'Salvando...' : 'Salvar e continuar'}
-          </button>
-          <button
-            onClick={onContinuar}
-            style={{
-              padding: '11px 16px', background: '#FEF2F2', color: S.red,
-              border: `1px solid #FECACA`, borderRadius: 8, fontSize: 13, fontWeight: 600,
-              cursor: 'pointer',
-            }}>
-            Continuar sem salvar
-          </button>
-          <button
-            onClick={onCancelar}
-            style={{
-              padding: '11px 16px', background: 'none', color: S.muted,
-              border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13,
-              cursor: 'pointer',
-            }}>
-            Cancelar — voltar para os dados
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function AbaMonofasicos({ cliente, regime }) {
   const [aba, setAba] = useState('importar')
   const [arquivos, setArquivos] = useState([])
@@ -194,7 +118,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [diagAberto, setDiagAberto] = useState(null)
   const [porPagina, setPorPagina] = useState(10)
   const [upsertInfo, setUpsertInfo] = useState(null)
-  const [modalConfirmacao, setModalConfirmacao] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -235,6 +158,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     if (!itens.length) return
     const totalMono   = itens.filter(i => i.monofasico).length
     const recMono     = itens.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
+    const recTotal    = itens.reduce((s,i) => s + i.vProd, 0)
     const credito     = pgdasResult?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
     const periodos    = [...new Set(itens.map(i => i.competencia))].sort()
     const dataHoje    = new Date().toLocaleDateString('pt-BR')
@@ -393,13 +317,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
       }])
       if (error) throw error
       await carregarHistorico()
-      return true
-    } catch (e) {
-      alert('Erro ao salvar: ' + e.message)
-      return false
-    } finally {
-      setSalvando(false)
-    }
+      alert('Diagnostico salvo com sucesso!')
+    } catch (e) { alert('Erro ao salvar: ' + e.message) }
+    finally { setSalvando(false) }
   }
 
   async function excluirDiagnostico(id) {
@@ -414,35 +334,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setPgdasResult(diag.pgdas_json || null); setAba('importar'); setPagina(1); setSelecionados([])
   }
 
-  // Limpa tudo sem perguntar
-  function limparDados() {
+  function novaAnalise() {
     setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
-    setPagina(1); setBusca(''); setFiltro('todos')
-  }
-
-  // Clicou em Nova Analise ou Limpar — verifica se tem dados nao salvos
-  function novaAnalise() {
-    if (itens.length > 0 && !diagAberto) {
-      setModalConfirmacao(true)
-    } else {
-      limparDados()
-    }
-  }
-
-  // Salvar e continuar do modal
-  async function modalSalvarEContinuar() {
-    const ok = await salvarDiagnostico()
-    if (ok) {
-      setModalConfirmacao(false)
-      limparDados()
-    }
-  }
-
-  // Continuar sem salvar do modal
-  function modalContinuarSemSalvar() {
-    setModalConfirmacao(false)
-    limparDados()
   }
 
   async function upsertItensFiscais(todosItens, userId) {
@@ -587,16 +481,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* MODAL CONFIRMACAO DADOS NAO SALVOS */}
-      {modalConfirmacao && (
-        <ModalConfirmacaoSair
-          onSalvar={modalSalvarEContinuar}
-          onContinuar={modalContinuarSemSalvar}
-          onCancelar={() => setModalConfirmacao(false)}
-          salvando={salvando}
-        />
-      )}
-
       {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ flex: 1 }}>
@@ -610,21 +494,21 @@ export default function AbaMonofasicos({ cliente, regime }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
           {temResultado && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={gerarRelatorioPDF}
-                style={{ padding: '7px 14px', background: S.navy, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                Imprimir PDF
-              </button>
-              <button onClick={exportarCSV}
-                style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                Exportar CSV
-              </button>
-              <button onClick={novaAnalise}
-                style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>
-                Limpar
-              </button>
-            </div>
-          )}
+      <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={gerarRelatorioPDF}
+          style={{ padding: '7px 14px', background: S.navy, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          Imprimir PDF
+          </button>
+          <button onClick={exportarCSV}
+          style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          Exportar CSV
+          </button>
+          <button onClick={novaAnalise}
+          style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>
+          Limpar
+          </button>
+        </div>
+       )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar NF-es</div>
             <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
@@ -669,7 +553,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
           {diagAberto && (
             <div style={{ background:'#eff6ff', border:`1px solid #bfdbfe`, borderRadius:8, padding:'10px 16px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div style={{ fontSize:13, color:'#2563eb' }}>Visualizando diagnostico salvo em <strong>{fmtData(diagAberto.created_at)}</strong></div>
-              <button onClick={limparDados} style={{ background:'none', border:'none', color:S.muted, cursor:'pointer', fontSize:13 }}>Fechar</button>
+              <button onClick={novaAnalise} style={{ background:'none', border:'none', color:S.muted, cursor:'pointer', fontSize:13 }}>Fechar</button>
             </div>
           )}
 
@@ -874,6 +758,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
             <button onClick={carregarHistorico} style={{ padding:'6px 12px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:12, cursor:'pointer', color:S.muted }}>Atualizar</button>
           </div>
 
+          {/* KPIs do historico — skeleton ou dados reais */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
             {loadingHistorico ? (
               Array(3).fill(null).map((_, i) => <SkeletonKPI key={i} />)
@@ -891,6 +776,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
             )}
           </div>
 
+          {/* Tabela historico — skeleton, ghost ou dados reais */}
           {!loadingHistorico && historico.length === 0 ? (
             <div style={{ padding:40, textAlign:'center' }}>
               <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
