@@ -566,7 +566,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setDados(d => ({
       ...d,
       cnpj: campos.cnpj_devedor || clienteEfetivo?.cnpj || '',
-      valor_total: campos.valor_total || '',
+      valor_total: campos.valor_total ? parseValor(campos.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '',
       orgao_credor: 'PGFN',
     }))
     setCdas([cdaDiag])
@@ -648,7 +648,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     if (cda.cliente_id) {
       setClienteAtual({ id: cda.cliente_id, razao_social: cda.devedor || '', cnpj: cda.cnpj_devedor || '' })
     }
-    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? String(cda.valor_total) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
+    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
     setCdas([cdaDiag])
     setDiagnostico(null)
     setAnalisesCDA([])
@@ -747,7 +747,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
   function abrirRegistro(reg) {
     setClienteAtual({ id: reg.cliente_id || null, razao_social: reg.razao_social, cnpj: reg.cnpj })
-    setDados({ cnpj:reg.cnpj||'', valor_total:reg.valor_total||'', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
+    setDados({ cnpj:reg.cnpj||'', valor_total: reg.valor_total ? parseValor(reg.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
     setCdas(migrarListaCDAs(reg.cdas))
     setDiagnostico(reg.diagnostico||null)
     setAnalisesCDA([])
