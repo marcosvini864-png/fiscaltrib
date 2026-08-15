@@ -40,7 +40,8 @@ const CAMPOS_VAZIOS = {
   numero_processo_execucao:'',
   trf_regiao:'',
   vara_execucao:'',
-  observacoes:''
+  observacoes:'',
+  data_vencimento_original:''
 }
 
 const TIPOS_DEBITO = [
@@ -739,7 +740,140 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
             </div>
           </div>
 
-          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+          <div style={{background:'#F0FDF4',borderRadius:12,border:'2px solid #16A34A',padding:24,marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:'#15803D',marginBottom:4}}>🧮 Atualização Monetária — Bases PGFN</div>
+            <div style={{fontSize:12,color:'#64748B',marginBottom:16}}>Cálculo automático com SELIC acumulada (RFB) + Multa 20% + Encargo legal 10% — mesmas bases utilizadas pela PGFN.</div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:'#64748B',display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>Data de vencimento original</label>
+                <input type="date" value={campos.data_vencimento_original||''}
+                  onChange={e=>setCampos(p=>({...p,data_vencimento_original:e.target.value}))}
+                  style={{width:'100%',padding:'7px 10px',border:'1px solid #C8D0DC',borderRadius:6,fontSize:13,boxSizing:'border-box'}}/>
+                <div style={{fontSize:10,color:'#64748B',marginTop:3}}>Primeiro vencimento não pago — marco inicial dos juros SELIC (art. 61 Lei 9.430/96)</div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',justifyContent:'center'}}>
+                <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#1E293B',cursor:'pointer',marginBottom:8}}>
+                  <input type="checkbox" checked={campos.possui_execucao_fiscal||false}
+                    onChange={e=>setCampos(p=>({...p,possui_execucao_fiscal:e.target.checked}))}
+                    style={{accentColor:'#0B1F4D',width:15,height:15}}/>
+                  Há execução fiscal ajuizada
+                </label>
+                <div style={{fontSize:10,color:'#64748B'}}>Se marcado, aplica encargo legal de 10% (Decreto-Lei 1.025/69)</div>
+              </div>
+            </div>
+
+            {(()=>{
+              // ── Tabela SELIC RFB acumulada (fonte: RFB via VRi Consulting, atualizada jul/2026) ──
+              const SELIC_ACUMULADA = {
+                '1995':{'01':442.65,'02':439.02,'03':436.42,'04':432.16,'05':427.91,'06':423.87,'07':419.85,'08':416.01,'09':412.69,'10':409.60,'11':406.72,'12':403.94},
+                '1996':{'01':401.36,'02':399.01,'03':396.79,'04':394.72,'05':392.71,'06':390.73,'07':388.80,'08':386.83,'09':384.93,'10':383.07,'11':381.27,'12':379.47},
+                '1997':{'01':377.74,'02':376.07,'03':374.43,'04':372.77,'05':371.19,'06':369.58,'07':367.98,'08':366.39,'09':364.80,'10':363.13,'11':360.09,'12':357.12},
+                '1998':{'01':354.45,'02':352.32,'03':350.12,'04':348.41,'05':346.78,'06':345.18,'07':343.48,'08':342.00,'09':339.51,'10':336.57,'11':333.94,'12':331.54},
+                '1999':{'01':329.36,'02':326.98,'03':323.65,'04':321.30,'05':319.28,'06':317.61,'07':315.95,'08':314.38,'09':312.89,'10':311.51,'11':310.12,'12':308.52},
+                '2000':{'01':307.06,'02':305.61,'03':304.16,'04':302.86,'05':301.37,'06':299.98,'07':298.67,'08':297.26,'09':296.04,'10':294.75,'11':293.53,'12':292.33},
+                '2001':{'01':291.06,'02':290.04,'03':288.78,'04':287.59,'05':286.25,'06':284.98,'07':283.48,'08':281.88,'09':280.56,'10':279.03,'11':277.64,'12':276.25},
+                '2002':{'01':274.72,'02':273.47,'03':272.10,'04':270.62,'05':269.21,'06':267.88,'07':266.34,'08':264.90,'09':263.52,'10':261.87,'11':260.33,'12':258.59},
+                '2003':{'01':256.62,'02':254.79,'03':253.01,'04':251.14,'05':249.17,'06':247.31,'07':245.23,'08':243.46,'09':241.78,'10':240.14,'11':238.80,'12':237.43},
+                '2004':{'01':236.16,'02':235.08,'03':233.70,'04':232.52,'05':231.29,'06':230.06,'07':228.77,'08':227.48,'09':226.23,'10':225.02,'11':223.77,'12':222.29},
+                '2005':{'01':220.91,'02':219.69,'03':218.16,'04':216.75,'05':215.25,'06':213.66,'07':212.15,'08':210.49,'09':208.99,'10':207.58,'11':206.20,'12':204.73},
+                '2006':{'01':203.30,'02':202.15,'03':200.73,'04':199.65,'05':198.37,'06':197.19,'07':196.02,'08':194.76,'09':193.70,'10':192.61,'11':191.59,'12':190.60},
+                '2007':{'01':189.52,'02':188.65,'03':187.60,'04':186.66,'05':185.63,'06':184.72,'07':183.75,'08':182.76,'09':181.96,'10':181.03,'11':180.19,'12':179.35},
+                '2008':{'01':178.42,'02':177.62,'03':176.78,'04':175.88,'05':175.00,'06':174.04,'07':172.97,'08':171.95,'09':170.85,'10':169.67,'11':168.65,'12':167.53},
+                '2009':{'01':166.48,'02':165.62,'03':164.65,'04':163.81,'05':163.04,'06':162.28,'07':161.49,'08':160.80,'09':160.11,'10':159.42,'11':158.76,'12':158.03},
+                '2010':{'01':157.37,'02':156.78,'03':156.02,'04':155.35,'05':154.60,'06':153.81,'07':152.95,'08':152.06,'09':151.21,'10':150.40,'11':149.59,'12':148.66},
+                '2011':{'01':147.80,'02':146.96,'03':146.04,'04':145.20,'05':144.21,'06':143.25,'07':142.28,'08':141.21,'09':140.27,'10':139.39,'11':138.53,'12':137.62},
+                '2012':{'01':136.73,'02':135.98,'03':135.16,'04':134.45,'05':133.71,'06':133.07,'07':132.39,'08':131.70,'09':131.16,'10':130.55,'11':130.00,'12':129.45},
+                '2013':{'01':128.85,'02':128.36,'03':127.81,'04':127.20,'05':126.60,'06':125.99,'07':125.27,'08':124.56,'09':123.85,'10':123.04,'11':122.32,'12':121.53},
+                '2014':{'01':120.68,'02':119.89,'03':119.12,'04':118.30,'05':117.43,'06':116.61,'07':115.66,'08':114.79,'09':113.88,'10':112.93,'11':112.09,'12':111.13},
+                '2015':{'01':110.19,'02':109.37,'03':108.33,'04':107.38,'05':106.39,'06':105.32,'07':104.14,'08':103.03,'09':101.92,'10':100.81,'11':99.75,'12':98.59},
+                '2016':{'01':97.53,'02':96.53,'03':95.37,'04':94.31,'05':93.20,'06':92.04,'07':90.93,'08':89.71,'09':88.60,'10':87.55,'11':86.51,'12':85.39},
+                '2017':{'01':84.30,'02':83.43,'03':82.38,'04':81.59,'05':80.66,'06':79.85,'07':79.05,'08':78.25,'09':77.61,'10':76.97,'11':76.40,'12':75.86},
+                '2018':{'01':75.28,'02':74.81,'03':74.28,'04':73.76,'05':73.24,'06':72.72,'07':72.18,'08':71.61,'09':71.14,'10':70.60,'11':70.11,'12':69.62},
+                '2019':{'01':69.08,'02':68.59,'03':68.12,'04':67.60,'05':67.06,'06':66.59,'07':66.02,'08':65.52,'09':65.06,'10':64.58,'11':64.20,'12':63.83},
+                '2020':{'01':63.45,'02':63.16,'03':62.82,'04':62.54,'05':62.30,'06':62.09,'07':61.90,'08':61.74,'09':61.58,'10':61.42,'11':61.27,'12':61.11},
+                '2021':{'01':60.96,'02':60.83,'03':60.63,'04':60.42,'05':60.15,'06':59.84,'07':59.48,'08':59.05,'09':58.61,'10':58.12,'11':57.53,'12':56.76},
+                '2022':{'01':56.03,'02':55.27,'03':54.34,'04':53.51,'05':52.48,'06':51.46,'07':50.43,'08':49.26,'09':48.19,'10':47.17,'11':46.15,'12':45.03},
+                '2023':{'01':43.91,'02':42.99,'03':41.82,'04':40.90,'05':39.78,'06':38.71,'07':37.64,'08':36.50,'09':35.53,'10':34.53,'11':33.61,'12':32.72},
+                '2024':{'01':31.75,'02':30.95,'03':30.12,'04':29.23,'05':28.40,'06':27.61,'07':26.70,'08':25.83,'09':24.99,'10':24.06,'11':23.27,'12':22.34},
+                '2025':{'01':21.33,'02':20.34,'03':19.38,'04':18.32,'05':17.18,'06':16.08,'07':14.80,'08':13.64,'09':12.42,'10':11.14,'11':10.09,'12':8.87},
+                '2026':{'01':7.71,'02':6.71,'03':5.50,'04':4.41,'05':3.34,'06':2.22,'07':1.00},
+              }
+
+              function calcularSELIC(dataVenc) {
+                if (!dataVenc) return null
+                const hoje = new Date()
+                const anoHoje = String(hoje.getFullYear())
+                const mesHoje = String(hoje.getMonth() + 1).padStart(2, '0')
+                const [anoVenc, mesVenc] = dataVenc.split('-')
+                // SELIC acumulada = valor no mês do vencimento - valor no mês anterior ao pagamento
+                // Fórmula RFB: acumulado(mesVenc) - acumulado(mesAnteriorAoPagamento) + 1% no mês do pagamento
+                const selicVenc = SELIC_ACUMULADA[anoVenc]?.[mesVenc]
+                const selicAtual = SELIC_ACUMULADA[anoHoje]?.[mesHoje]
+                if (selicVenc == null || selicAtual == null) return null
+                return selicVenc - selicAtual + 1.00 // +1% no mês do pagamento
+              }
+
+              const vPrincipal = fmtVal(campos.principal_atualizado || campos.valor_originario)
+              const vTotal = fmtVal(campos.valor_total)
+              const selicPct = calcularSELIC(campos.data_vencimento_original)
+              const multaPct = 20
+              const encargoPct = campos.possui_execucao_fiscal ? 10 : 0
+
+              const vMulta = vPrincipal * (multaPct / 100)
+              const vSelic = selicPct != null ? vPrincipal * (selicPct / 100) : null
+              const vEncargo = (vPrincipal + vMulta + (vSelic||0)) * (encargoPct / 100)
+              const vAtualizado = vPrincipal + vMulta + (vSelic||0) + vEncargo
+
+              const temDados = vPrincipal > 0
+
+              return (
+                <div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:12}}>
+                    {[
+                      {label:'Principal / Atualizado',valor:fmtR(vPrincipal),cor:'#1E293B',base:'Art. 61 Lei 9.430/96'},
+                      {label:`Multa de Mora (${multaPct}%)`,valor:temDados?fmtR(vMulta):'—',cor:'#D97706',base:'Art. 61 §1º Lei 9.430/96 — limite 20%'},
+                      {label:`Juros SELIC${selicPct!=null?` (${selicPct.toFixed(2)}%)`:''}`,valor:temDados&&vSelic!=null?fmtR(vSelic):campos.data_vencimento_original?'Mês fora da tabela':'Informe data vencimento',cor:'#DC2626',base:'SELIC acumulada RFB — Lei 9.250/95 + Lei 9.430/96'},
+                      {label:`Encargo Legal${encargoPct>0?` (${encargoPct}%)`:''}`,valor:encargoPct>0&&temDados?fmtR(vEncargo):'Sem execução fiscal',cor:'#7C3AED',base:'Decreto-Lei 1.025/69 — aplica-se após ajuizamento'},
+                    ].map((k,i)=>(
+                      <div key={i} style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:10,color:'#64748B',fontWeight:700,marginBottom:4,textTransform:'uppercase',letterSpacing:0.4}}>{k.label}</div>
+                        <div style={{fontSize:14,fontWeight:700,color:k.cor,marginBottom:3}}>{k.valor}</div>
+                        <div style={{fontSize:9,color:'#94A3B8',lineHeight:1.4}}>{k.base}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:'#15803D',borderRadius:10,padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontSize:11,color:'#BBF7D0',fontWeight:700,marginBottom:2,textTransform:'uppercase',letterSpacing:0.5}}>Total Atualizado na Data de Hoje ({new Date().toLocaleDateString('pt-BR')})</div>
+                      <div style={{fontSize:10,color:'#86EFAC'}}>
+                        Principal + Multa 20% + SELIC acumulada{encargoPct>0?' + Encargo 10% (DL 1.025/69)':''}
+                        {' · '}Bases: Lei 9.250/95, Lei 9.430/96{encargoPct>0?', DL 1.025/69':''}
+                      </div>
+                    </div>
+                    <div style={{fontSize:22,fontWeight:900,color:'#fff'}}>
+                      {temDados && vSelic != null ? fmtR(vAtualizado) : vTotal > 0 ? `≈ ${fmtR(vTotal)} (valor da CDA)` : '—'}
+                    </div>
+                  </div>
+                  {selicPct == null && campos.data_vencimento_original && (
+                    <div style={{marginTop:8,fontSize:11,color:'#92400E',background:'#FFFBEB',borderRadius:6,padding:'8px 12px'}}>
+                      ⚠️ Data de vencimento fora do intervalo da tabela SELIC disponível (fev/1995 a jul/2026). Informe uma data válida para cálculo automático.
+                    </div>
+                  )}
+                  {!campos.data_vencimento_original && (
+                    <div style={{marginTop:8,fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'8px 12px'}}>
+                      ℹ️ Informe a data de vencimento original para calcular os juros SELIC automaticamente.
+                    </div>
+                  )}
+                  <div style={{marginTop:10,fontSize:10,color:'#94A3B8',lineHeight:1.6}}>
+                    ⚠️ Cálculo estimado para fins de planejamento — valores oficiais devem ser obtidos via SICALC (Receita Federal) ou sistema PGFN.
+                    A tabela SELIC utilizada é a publicada pela RFB (fonte: vriconsulting.com.br/indices/selic.php), atualizada até jul/2026.
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+		  <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Natureza e Negociação</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
               {sel('tipo_debito','Tipo de Débito',TIPOS_DEBITO)}
