@@ -792,7 +792,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       score = Math.min(100, score)
       setAnalisesCDA(resultados)
       setDiagnostico({ parecer, urgente, score, valor: parseFloat(cda.valor_total)||0, data: new Date().toISOString() })
-      setAba(1)
+      setAba(2)
     }, 150)
   }
 
@@ -802,6 +802,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       const { error } = await supabase.from('cdas').delete().eq('id', id)
       if (error) throw error
       await carregarSispar()
+      await carregarCdasSalvas()
     } catch(e) { alert('Erro ao excluir: ' + e.message) }
   }
 
@@ -1353,6 +1354,77 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>setAba(2)} style={btnPrimary}>Ver diagnóstico completo →</button>
             <button onClick={()=>setAba(6)} style={btnOutline}>📄 Gerar parecer</button>
+            <button onClick={()=>{
+              const w=window.open('','_blank')
+              const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Períodos de paralisação processual:</strong> verificar se houve paralisação superior a 1 ano sem localização do devedor ou bens, seguida de arquivamento — configurando o início da contagem da prescrição intercorrente nos termos do art. 40 da Lei 6.830/80, Tema 566 STJ e Súmula 314 STJ.</li><li><strong>Intimação da Fazenda Pública:</strong> verificar se a Fazenda foi devidamente intimada do despacho de suspensão/arquivamento — conforme Tema 566 STJ, o prazo corre independentemente dessa intimação, mas sua ausência pode ser arguida.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
+              const scoreCor = diagnostico.score>=70?'#16A34A':diagnostico.score>=40?'#D97706':'#DC2626'
+              const scoreLabel = diagnostico.score>=70?'Alto potencial de regularização':diagnostico.score>=40?'Potencial moderado':'Situação crítica'
+              const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Parecer — Dívida Ativa</title><style>
+                body{font-family:Arial,sans-serif;font-size:12px;margin:28px;color:#1E293B}
+                h1{font-size:15px;color:#0B1F4D;border-bottom:2px solid #0B1F4D;padding-bottom:6px;margin-bottom:4px}
+                h2{font-size:12px;color:#0B1F4D;border-bottom:1px solid #CBD5E1;padding-bottom:3px;margin-top:20px;margin-bottom:8px}
+                h3{font-size:11px;color:#334155;margin:10px 0 4px;text-transform:uppercase;letter-spacing:0.5px}
+                .score-box{display:flex;align-items:center;gap:20px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px 18px;margin:12px 0 20px}
+                .score-circle{width:64px;height:64px;border-radius:50%;border:6px solid ${scoreCor};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:${scoreCor};flex-shrink:0}
+                .score-info{font-size:13px}
+                .score-label{font-size:15px;font-weight:700;color:${scoreCor};margin-bottom:4px}
+                .score-sub{font-size:11px;color:#64748B}
+                .danger{background:#FEF2F2;border-left:4px solid #DC2626;padding:8px 12px;margin:6px 0;font-size:12px}
+                .ok{background:#F0FDF4;border-left:4px solid #16A34A;padding:8px 12px;margin:6px 0;font-size:12px}
+                .indef{background:#FFFBEB;border-left:4px solid #D97706;padding:8px 12px;margin:6px 0;font-size:12px}
+                .tese{display:inline-block;background:#EFF6FF;color:#1E40AF;padding:2px 8px;border-radius:10px;font-size:10px;margin:2px;font-weight:600}
+                .aviso{background:#FFFBEB;border:1px solid #FCD34D;border-radius:4px;padding:10px 14px;font-size:11px;color:#92400E;margin-top:20px}
+                .recomendacao{background:#FEF3C7;border:2px solid #D97706;border-radius:6px;padding:14px 18px;margin-top:24px;font-size:11px;color:#78350F;line-height:1.7}
+                .recomendacao ol{margin:8px 0 8px 18px;padding:0}
+                .recomendacao li{margin-bottom:6px}
+                .passos{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:10px 14px;margin-top:6px;font-size:10px}
+                .passos .linha{display:grid;grid-template-columns:180px 1fr;gap:6px;padding:3px 0;border-bottom:1px solid #F1F5F9}
+                .passos .label{color:#64748B;font-weight:600}
+                .passos .valor{color:#1E293B}
+                .passos .obs{color:#64748B;font-style:italic;grid-column:2;font-size:9px;margin-top:-2px}
+                .meta{font-size:11px;color:#64748B;margin-bottom:16px}
+                @media print{body{margin:14px}.recomendacao{break-inside:avoid}}
+              </style></head><body>
+              <h1>⚖️ e-FiscalTribe® — Parecer Técnico — Dívida Ativa (PGFN)</h1>
+              <div class="meta"><strong>Cliente:</strong> ${clienteAtual?.razao_social||dados.cnpj} &nbsp;|&nbsp; <strong>CNPJ:</strong> ${dados.cnpj} &nbsp;|&nbsp; <strong>Processo:</strong> ${dados.processo_execucao||'Não informado'} &nbsp;|&nbsp; <strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+              <div class="score-box">
+                <div class="score-circle">${diagnostico.score}</div>
+                <div class="score-info">
+                  <div class="score-label">${scoreLabel}</div>
+                  <div class="score-sub">Score de risco jurídico · e-FiscalTribe® · ${new Date().toLocaleDateString('pt-BR')}</div>
+                  <div class="score-sub" style="margin-top:4px">Baseado em risco jurídico, situação processual e potencial de negociação com a PGFN.</div>
+                </div>
+              </div>
+              <h2>Parecer Final</h2>
+              ${diagnostico.parecer.length>0 ? diagnostico.parecer.map(p=>`<div class="${p.tipo==='danger'?'danger':'indef'}">• ${p.msg}</div>`).join('') : '<div class="ok">✅ Sem irregularidades graves identificadas com base nos dados informados.</div>'}
+              ${analisesCDA.map((a,i)=>{
+                const tipo=tipoReferenciaCDA(a.cda)
+                const gc=c=>c.conclusao.includes('ha_')||c.conclusao==='cda_vicio'?'danger':c.conclusao==='indefinida'?'indef':'ok'
+                const renderPassos=passos=>`<div class="passos">${(passos||[]).map(p=>`<div class="linha"><span class="label">${p.label}</span><span class="valor">${p.valor}</span>${p.obs?`<span class="obs">${p.obs}</span>`:''}</div>`).join('')}</div>`
+                return `
+                  <h2>${rotuloCDA(a.cda,i)} — ${tipo.label}</h2>
+                  <p style="font-size:11px;color:#64748B;margin:0 0 10px">${tipo.legislacao} &nbsp;|&nbsp; Valor: ${fmtR(totalInscricoes(a.cda))} &nbsp;|&nbsp; Situação: ${a.cda.situacao}</p>
+                  <h3>I. Decadência</h3>
+                  <div class="${gc(a.decadencia)}"><strong>${a.decadencia.titulo}</strong><br><span style="line-height:1.7">${a.decadencia.justificativa}</span></div>
+                  ${renderPassos(a.decadencia.passos)}
+                  <h3>II. Prescrição</h3>
+                  <div class="${gc(a.prescricao)}"><strong>${a.prescricao.titulo}</strong><br><span style="line-height:1.7">${a.prescricao.justificativa}</span></div>
+                  ${renderPassos(a.prescricao.passos)}
+                  <h3>III. Prescrição Intercorrente</h3>
+                  <div class="${gc(a.prescricaoIntercorrente)}"><strong>${a.prescricaoIntercorrente.titulo}</strong><br><span style="line-height:1.7">${a.prescricaoIntercorrente.justificativa}</span></div>
+                  ${renderPassos(a.prescricaoIntercorrente.passos)}
+                  <h3>IV. Validade da CDA (art. 202 CTN)</h3>
+                  <div class="${gc(a.validadeCDA)}"><strong>${a.validadeCDA.titulo}</strong><br><span style="line-height:1.7">${a.validadeCDA.justificativa}</span></div>
+                  ${renderPassos(a.validadeCDA.passos)}
+                  <h3>V. Teses aplicáveis</h3>
+                  <p>${tesesReferenciaCDA(a.cda).map(t=>`<span class="tese">${t}</span>`).join(' ')}</p>
+                `
+              }).join('')}
+              ${recomendacaoHTML}
+              <div class="aviso">⚠️ Parecer preliminar — e-FiscalTribe® &nbsp;·&nbsp; fiscaltrib.com.br &nbsp;·&nbsp; ${new Date().toLocaleString('pt-BR')} — não substitui análise jurídica profissional.</div>
+              <script>window.onload=()=>window.print()<\/script></body></html>`
+              w.document.write(html);w.document.close()
+            }} style={{...btnOutline,borderColor:'#16A34A',color:'#16A34A'}}>🖨️ Imprimir parecer</button>
           </div>
         </>}
       </>}
