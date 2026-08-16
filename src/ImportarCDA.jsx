@@ -20,6 +20,19 @@ const fmtExibir = v => {
   return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
 }
 
+function normalizarDataSalvar(d) {
+  if (!d) return null
+  // já está no formato AAAA-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+  // formato DD/MM/AAAA → converter
+  const partes = d.split('/')
+  if (partes.length === 3) {
+    const convertida = `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`
+    if (/^\d{4}-\d{2}-\d{2}$/.test(convertida)) return convertida
+  }
+  return null
+}
+
 const CAMPOS_VAZIOS = {
   numero_cda:'', devedor:'', cnpj_devedor:'',
   pgfn_origem:'', livro_folha:'', processo_administrativo:'',
@@ -524,11 +537,11 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
         socio_3: campos.socio_3,
         observacoes: campos.observacoes,
         modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
-        data_fato_gerador: campos.data_fato_gerador || null,
-        data_constituicao_definitiva: campos.data_constituicao_definitiva || null,
-        data_ajuizamento: campos.data_ajuizamento || null,
-        data_citacao: campos.data_citacao || null,
-        data_ultima_movimentacao: campos.data_ultima_movimentacao || null,
+        data_fato_gerador: normalizarDataSalvar(campos.data_fato_gerador),
+        data_constituicao_definitiva: normalizarDataSalvar(campos.data_constituicao_definitiva),
+        data_ajuizamento: normalizarDataSalvar(campos.data_ajuizamento),
+        data_citacao: normalizarDataSalvar(campos.data_citacao),
+        data_ultima_movimentacao: normalizarDataSalvar(campos.data_ultima_movimentacao),
         numero_processo_execucao: campos.numero_processo_execucao || '',
         trf_regiao: campos.trf_regiao || '',
         vara_execucao: campos.vara_execucao || '',
