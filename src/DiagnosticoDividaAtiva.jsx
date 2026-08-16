@@ -1254,8 +1254,17 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                   <thead>
                     <tr style={{background:'#0B1F4D'}}>
-                      {['Nº CDA','Devedor','CNPJ','Período','Valor Total','Tipo','Data Inscrição','Ações'].map(h=>(
-                        <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{h}</th>
+                      {[
+                        {h:'Nº CDA', w:160},
+                        {h:'Devedor', w:null},
+                        {h:'CNPJ', w:null},
+                        {h:'Período', w:null},
+                        {h:'Valor Total', w:null},
+                        {h:'Tipo', w:null},
+                        {h:'Data Inscrição', w:null},
+                        {h:'Ações', w:null},
+                      ].map(({h,w})=>(
+                        <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap',minWidth:w||undefined}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1275,7 +1284,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                           {cda.ghost ? '—' : `${cda.periodo_divida_inicio||'—'} a ${cda.periodo_divida_fim||'—'}`}
                         </td>
                         <td style={{padding:'10px 12px',fontWeight:600,color:cda.ghost?C.ghostText:'#DC2626',whiteSpace:'nowrap'}}>
-                          {cda.ghost ? 'R$ —,——' : `R$ ${parseFloat(cda.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`}
+                          {cda.ghost ? 'R$ —,——' : fmtR(parseFloat(cda.valor_total||0))}
                         </td>
                         <td style={{padding:'10px 12px'}}>
                           {!cda.ghost && <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:600}}>{cda.tipo_debito||'—'}</span>}
@@ -1472,16 +1481,25 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                     const tipoInfo = TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)
                     return (
                       <div key={j} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px'}}>
-                        <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
-                          <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Número da inscrição" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
-                          <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
-                          {(cda.inscricoes||[]).length>1&&(
-                            <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>🗑️</button>
-                          )}
+                        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr auto',gap:6,alignItems:'end',marginBottom:8}}>
+                          <div>
+                            <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Nº da Inscrição em DA</label>
+                            <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Ex: 13.775.238-5" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/>
+                          </div>
+                          <div>
+                            <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Valor (R$)</label>
+                            <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Ex: 29.150,55" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/>
+                          </div>
+                          {(cda.inscricoes||[]).length>1 ? (
+                            <button onClick={()=>removeInscricao(i,j)} style={{padding:'6px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer',alignSelf:'flex-end'}}>🗑️</button>
+                          ) : <div/>}
                         </div>
-                        <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
-                          {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
-                        </select>
+                        <div>
+                          <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Tipo de crédito</label>
+                          <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                            {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                          </select>
+                        </div>
                         {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>📖 {tipoInfo.legislacao}</div>}
                       </div>
                     )
