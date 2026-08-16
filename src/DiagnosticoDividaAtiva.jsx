@@ -663,7 +663,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda: campos.numero_cda || '',
-      inscricoes: [{ numero: campos.numero_cda || '', valor: parseValor(campos.valor_total) > 0 ? parseValor(campos.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', tipo_credito: tipoCredito }],
+      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
       situacao: 'Ativa',
       modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
@@ -1277,10 +1277,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                         <td style={{padding:'10px 12px',fontWeight:700,color:cda.ghost?C.ghostText:'#0B1F4D'}}>
                           {cda.ghost ? <div style={{height:12,width:100,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.numero_cda||'—'}
                         </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#1E293B'}}>
+                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#1E293B',maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {cda.ghost ? <div style={{height:12,width:140,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.devedor||'—'}
                         </td>
-                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11}}>
+                        <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>
                           {cda.ghost ? <div style={{height:12,width:110,borderRadius:4,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/> : cda.cnpj_devedor||'—'}
                         </td>
                         <td style={{padding:'10px 12px',color:cda.ghost?C.ghostText:'#64748B',fontSize:11,whiteSpace:'nowrap'}}>
