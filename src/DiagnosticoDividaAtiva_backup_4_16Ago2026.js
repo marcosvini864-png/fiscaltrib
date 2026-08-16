@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import ImportarCDA from './ImportarCDA'
-import VisualizarCDA from './VisualizarCDA'
 
 const C = {
   navy:'#0B1F4D', white:'#FFFFFF',
@@ -627,9 +626,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [mostrarCdasSalvas, setMostrarCdasSalvas] = useState(false)
   const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
   const [loadingCdas, setLoadingCdas] = useState(false)
-  const [cdaVisualizar, setCdaVisualizar] = useState(null)
-  const [analisesCdaVisualizar, setAnalisesCdaVisualizar] = useState([])
-  const [diagnosticoCdaVisualizar, setDiagnosticoCdaVisualizar] = useState(null)
 
   // ── Injetar shimmer CSS ────────────────────────────────────────────────
   useEffect(() => {
@@ -739,52 +735,47 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setLoadingCdas(false)
   }
 
- function abrirCdaParaDiagnostico(cda) {
-    // Monta cdaDiag para as funções de análise
-    const tipoCredito = cda.tipo_debito || cda.tipo_credito || 'tributario_federal'
+  function abrirCdaParaDiagnostico(cda) {
+    const tipoCredito = cda.tipo_debito || 'tributario_federal'
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda:               cda.numero_cda || '',
-      inscricoes: [{ numero: cda.numero_cda || '', valor: String(parseValor(cda.valor_total) || 0), tipo_credito: tipoCredito }],
-      situacao:                 cda.situacao || 'Ativa',
-      modalidade_lancamento:    cda.modalidade_lancamento || 'oficio',
+      inscricoes: [{ numero: cda.numero_cda || '', valor: String(cda.valor_total || 0), tipo_credito: tipoCredito }],
+      situacao:                 'Ativa',
+      modalidade_lancamento:    cda.modalidade_lancamento || 'homologacao',
       data_fato_gerador:        normalizarData(cda.data_fato_gerador) || '',
-      data_constituicao:        normalizarData(cda.data_constituicao_definitiva) || normalizarData(cda.data_constituicao) || normalizarData(cda.data_inscricao) || '',
+      data_constituicao:        normalizarData(cda.data_constituicao_definitiva) || normalizarData(cda.data_inscricao) || '',
       data_inscricao:           normalizarData(cda.data_inscricao) || '',
       data_ajuizamento:         normalizarData(cda.data_ajuizamento) || '',
       data_citacao:             normalizarData(cda.data_citacao) || '',
       data_ultima_movimentacao: normalizarData(cda.data_ultima_movimentacao) || '',
-      possui_parcelamento:      cda.possui_parcelamento || false,
-      possui_suspensao:         cda.possui_suspensao || false,
-      possui_garantia:          cda.possui_garantia || false,
-      possui_penhora:           cda.possui_penhora || false,
-      possui_embargos:          cda.possui_embargos || false,
+      possui_parcelamento: false, possui_suspensao: false, possui_garantia: false,
+      possui_penhora: false, possui_embargos: false,
     }
-
-    // Roda diagnóstico
-    const resultados = [cdaDiag].map(c => ({
-      cda: c,
-      decadencia: analisarDecadencia(c),
-      prescricao: analisarPrescricao(c),
-      prescricaoIntercorrente: analisarPrescricaoIntercorrente(c),
-      validadeCDA: analisarCDA(c),
-    }))
-    const { parecer, urgente } = gerarParecer(resultados)
-    let score = 50
-    resultados.forEach(r => {
-      if(r.decadencia.conclusao==='ha_decadencia') score+=25
-      if(r.prescricao.conclusao==='ha_prescricao') score+=25
-      if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
-      if(r.validadeCDA.conclusao==='cda_vicio') score+=10
-    })
-    score = Math.min(100, score)
-    const diagNovo = { parecer, urgente, score, valor: parseFloat(cda.valor_total)||0, data: new Date().toISOString() }
-
-    // Abre VisualizarCDA com CDA completa + diagnóstico
+    if (cda.cliente_id) {
+      setClienteAtual({ id: cda.cliente_id, razao_social: cda.devedor || '', cnpj: cda.cnpj_devedor || '' })
+    }
+    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
+    setCdas([cdaDiag])
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setRegistroId(null)
     setMostrarCdasSalvas(false)
-    setCdaVisualizar(cda)
-    setAnalisesCdaVisualizar(resultados)
-    setDiagnosticoCdaVisualizar(diagNovo)
+    setTimeout(() => {
+      const resultados = [cdaDiag].map(c => ({ cda:c, decadencia:analisarDecadencia(c), prescricao:analisarPrescricao(c), prescricaoIntercorrente:analisarPrescricaoIntercorrente(c), validadeCDA:analisarCDA(c) }))
+      const { parecer, urgente } = gerarParecer(resultados)
+      let score = 50
+      resultados.forEach(r => {
+        if(r.decadencia.conclusao==='ha_decadencia') score+=25
+        if(r.prescricao.conclusao==='ha_prescricao') score+=25
+        if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
+        if(r.validadeCDA.conclusao==='cda_vicio') score+=10
+      })
+      score = Math.min(100, score)
+      setAnalisesCDA(resultados)
+      setDiagnostico({ parecer, urgente, score, valor: parseFloat(cda.valor_total)||0, data: new Date().toISOString() })
+      setAba(1)
+    }, 150)
   }
 
   async function deletarCDA(id) {
@@ -793,7 +784,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       const { error } = await supabase.from('cdas').delete().eq('id', id)
       if (error) throw error
       await carregarSispar()
-      await carregarCdasSalvas()
     } catch(e) { alert('Erro ao excluir: ' + e.message) }
   }
 
@@ -1139,18 +1129,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     )
   }
 
-  if (cdaVisualizar) {
-    return (
-      <VisualizarCDA
-        cda={cdaVisualizar}
-        clienteNome={clienteAtual?.razao_social || cdaVisualizar.devedor || '—'}
-        analises={analisesCdaVisualizar}
-        diagnostico={diagnosticoCdaVisualizar}
-        onVoltar={() => { setCdaVisualizar(null); setMostrarCdasSalvas(true); carregarCdasSalvas() }}
-      />
-    )
-  }
-
   return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
@@ -1257,17 +1235,8 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                   <thead>
                     <tr style={{background:'#0B1F4D'}}>
-                      {[
-                        {h:'Nº CDA', w:160},
-                        {h:'Devedor', w:null},
-                        {h:'CNPJ', w:null},
-                        {h:'Período', w:null},
-                        {h:'Valor Total', w:null},
-                        {h:'Tipo', w:null},
-                        {h:'Data Inscrição', w:null},
-                        {h:'Ações', w:null},
-                      ].map(({h,w})=>(
-                        <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap',minWidth:w||undefined}}>{h}</th>
+                      {['Nº CDA','Devedor','CNPJ','Período','Valor Total','Tipo','Data Inscrição','Ações'].map(h=>(
+                        <th key={h} style={{textAlign:'left',padding:'8px 12px',color:'#fff',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1287,7 +1256,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                           {cda.ghost ? '—' : `${cda.periodo_divida_inicio||'—'} a ${cda.periodo_divida_fim||'—'}`}
                         </td>
                         <td style={{padding:'10px 12px',fontWeight:600,color:cda.ghost?C.ghostText:'#DC2626',whiteSpace:'nowrap'}}>
-                          {cda.ghost ? 'R$ —,——' : fmtR(parseFloat(cda.valor_total||0))}
+                          {cda.ghost ? 'R$ —,——' : `R$ ${parseFloat(cda.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`}
                         </td>
                         <td style={{padding:'10px 12px'}}>
                           {!cda.ghost && <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:600}}>{cda.tipo_debito||'—'}</span>}
@@ -1366,77 +1335,6 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           <div style={{display:'flex',gap:10}}>
             <button onClick={()=>setAba(2)} style={btnPrimary}>Ver diagnóstico completo →</button>
             <button onClick={()=>setAba(6)} style={btnOutline}>📄 Gerar parecer</button>
-            <button onClick={()=>{
-              const w=window.open('','_blank')
-              const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Períodos de paralisação processual:</strong> verificar se houve paralisação superior a 1 ano sem localização do devedor ou bens, seguida de arquivamento — configurando o início da contagem da prescrição intercorrente nos termos do art. 40 da Lei 6.830/80, Tema 566 STJ e Súmula 314 STJ.</li><li><strong>Intimação da Fazenda Pública:</strong> verificar se a Fazenda foi devidamente intimada do despacho de suspensão/arquivamento — conforme Tema 566 STJ, o prazo corre independentemente dessa intimação, mas sua ausência pode ser arguida.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
-              const scoreCor = diagnostico.score>=70?'#16A34A':diagnostico.score>=40?'#D97706':'#DC2626'
-              const scoreLabel = diagnostico.score>=70?'Alto potencial de regularização':diagnostico.score>=40?'Potencial moderado':'Situação crítica'
-              const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Parecer — Dívida Ativa</title><style>
-                body{font-family:Arial,sans-serif;font-size:12px;margin:28px;color:#1E293B}
-                h1{font-size:15px;color:#0B1F4D;border-bottom:2px solid #0B1F4D;padding-bottom:6px;margin-bottom:4px}
-                h2{font-size:12px;color:#0B1F4D;border-bottom:1px solid #CBD5E1;padding-bottom:3px;margin-top:20px;margin-bottom:8px}
-                h3{font-size:11px;color:#334155;margin:10px 0 4px;text-transform:uppercase;letter-spacing:0.5px}
-                .score-box{display:flex;align-items:center;gap:20px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px 18px;margin:12px 0 20px}
-                .score-circle{width:64px;height:64px;border-radius:50%;border:6px solid ${scoreCor};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:${scoreCor};flex-shrink:0}
-                .score-info{font-size:13px}
-                .score-label{font-size:15px;font-weight:700;color:${scoreCor};margin-bottom:4px}
-                .score-sub{font-size:11px;color:#64748B}
-                .danger{background:#FEF2F2;border-left:4px solid #DC2626;padding:8px 12px;margin:6px 0;font-size:12px}
-                .ok{background:#F0FDF4;border-left:4px solid #16A34A;padding:8px 12px;margin:6px 0;font-size:12px}
-                .indef{background:#FFFBEB;border-left:4px solid #D97706;padding:8px 12px;margin:6px 0;font-size:12px}
-                .tese{display:inline-block;background:#EFF6FF;color:#1E40AF;padding:2px 8px;border-radius:10px;font-size:10px;margin:2px;font-weight:600}
-                .aviso{background:#FFFBEB;border:1px solid #FCD34D;border-radius:4px;padding:10px 14px;font-size:11px;color:#92400E;margin-top:20px}
-                .recomendacao{background:#FEF3C7;border:2px solid #D97706;border-radius:6px;padding:14px 18px;margin-top:24px;font-size:11px;color:#78350F;line-height:1.7}
-                .recomendacao ol{margin:8px 0 8px 18px;padding:0}
-                .recomendacao li{margin-bottom:6px}
-                .passos{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:10px 14px;margin-top:6px;font-size:10px}
-                .passos .linha{display:grid;grid-template-columns:180px 1fr;gap:6px;padding:3px 0;border-bottom:1px solid #F1F5F9}
-                .passos .label{color:#64748B;font-weight:600}
-                .passos .valor{color:#1E293B}
-                .passos .obs{color:#64748B;font-style:italic;grid-column:2;font-size:9px;margin-top:-2px}
-                .meta{font-size:11px;color:#64748B;margin-bottom:16px}
-                @media print{body{margin:14px}.recomendacao{break-inside:avoid}}
-              </style></head><body>
-              <h1>⚖️ e-FiscalTribe® — Parecer Técnico — Dívida Ativa (PGFN)</h1>
-              <div class="meta"><strong>Cliente:</strong> ${clienteAtual?.razao_social||dados.cnpj} &nbsp;|&nbsp; <strong>CNPJ:</strong> ${dados.cnpj} &nbsp;|&nbsp; <strong>Processo:</strong> ${dados.processo_execucao||'Não informado'} &nbsp;|&nbsp; <strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
-              <div class="score-box">
-                <div class="score-circle">${diagnostico.score}</div>
-                <div class="score-info">
-                  <div class="score-label">${scoreLabel}</div>
-                  <div class="score-sub">Score de risco jurídico · e-FiscalTribe® · ${new Date().toLocaleDateString('pt-BR')}</div>
-                  <div class="score-sub" style="margin-top:4px">Baseado em risco jurídico, situação processual e potencial de negociação com a PGFN.</div>
-                </div>
-              </div>
-              <h2>Parecer Final</h2>
-              ${diagnostico.parecer.length>0 ? diagnostico.parecer.map(p=>`<div class="${p.tipo==='danger'?'danger':'indef'}">• ${p.msg}</div>`).join('') : '<div class="ok">✅ Sem irregularidades graves identificadas com base nos dados informados.</div>'}
-              ${analisesCDA.map((a,i)=>{
-                const tipo=tipoReferenciaCDA(a.cda)
-                const gc=c=>c.conclusao.includes('ha_')||c.conclusao==='cda_vicio'?'danger':c.conclusao==='indefinida'?'indef':'ok'
-                const renderPassos=passos=>`<div class="passos">${(passos||[]).map(p=>`<div class="linha"><span class="label">${p.label}</span><span class="valor">${p.valor}</span>${p.obs?`<span class="obs">${p.obs}</span>`:''}</div>`).join('')}</div>`
-                return `
-                  <h2>${rotuloCDA(a.cda,i)} — ${tipo.label}</h2>
-                  <p style="font-size:11px;color:#64748B;margin:0 0 10px">${tipo.legislacao} &nbsp;|&nbsp; Valor: ${fmtR(totalInscricoes(a.cda))} &nbsp;|&nbsp; Situação: ${a.cda.situacao}</p>
-                  <h3>I. Decadência</h3>
-                  <div class="${gc(a.decadencia)}"><strong>${a.decadencia.titulo}</strong><br><span style="line-height:1.7">${a.decadencia.justificativa}</span></div>
-                  ${renderPassos(a.decadencia.passos)}
-                  <h3>II. Prescrição</h3>
-                  <div class="${gc(a.prescricao)}"><strong>${a.prescricao.titulo}</strong><br><span style="line-height:1.7">${a.prescricao.justificativa}</span></div>
-                  ${renderPassos(a.prescricao.passos)}
-                  <h3>III. Prescrição Intercorrente</h3>
-                  <div class="${gc(a.prescricaoIntercorrente)}"><strong>${a.prescricaoIntercorrente.titulo}</strong><br><span style="line-height:1.7">${a.prescricaoIntercorrente.justificativa}</span></div>
-                  ${renderPassos(a.prescricaoIntercorrente.passos)}
-                  <h3>IV. Validade da CDA (art. 202 CTN)</h3>
-                  <div class="${gc(a.validadeCDA)}"><strong>${a.validadeCDA.titulo}</strong><br><span style="line-height:1.7">${a.validadeCDA.justificativa}</span></div>
-                  ${renderPassos(a.validadeCDA.passos)}
-                  <h3>V. Teses aplicáveis</h3>
-                  <p>${tesesReferenciaCDA(a.cda).map(t=>`<span class="tese">${t}</span>`).join(' ')}</p>
-                `
-              }).join('')}
-              ${recomendacaoHTML}
-              <div class="aviso">⚠️ Parecer preliminar — e-FiscalTribe® &nbsp;·&nbsp; fiscaltrib.com.br &nbsp;·&nbsp; ${new Date().toLocaleString('pt-BR')} — não substitui análise jurídica profissional.</div>
-              <script>window.onload=()=>window.print()<\/script></body></html>`
-              w.document.write(html);w.document.close()
-            }} style={{...btnOutline,borderColor:'#16A34A',color:'#16A34A'}}>🖨️ Imprimir parecer</button>
           </div>
         </>}
       </>}
@@ -1484,25 +1382,16 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                     const tipoInfo = TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)
                     return (
                       <div key={j} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px'}}>
-                        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr auto',gap:6,alignItems:'end',marginBottom:8}}>
-                          <div>
-                            <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Nº da Inscrição em DA</label>
-                            <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Ex: 13.775.238-5" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/>
-                          </div>
-                          <div>
-                            <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Valor (R$)</label>
-                            <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Ex: 29.150,55" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%',boxSizing:'border-box'}}/>
-                          </div>
-                          {(cda.inscricoes||[]).length>1 ? (
-                            <button onClick={()=>removeInscricao(i,j)} style={{padding:'6px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer',alignSelf:'flex-end'}}>🗑️</button>
-                          ) : <div/>}
+                        <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+                          <input value={ins.numero} onChange={e=>updateInscricao(i,j,'numero',e.target.value)} placeholder="Número da inscrição" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:2,boxSizing:'border-box'}}/>
+                          <input value={ins.valor} onChange={e=>updateInscricao(i,j,'valor',e.target.value)} onBlur={()=>blurInscricaoValor(i,j)} placeholder="Valor (R$)" style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,flex:1,boxSizing:'border-box'}}/>
+                          {(cda.inscricoes||[]).length>1&&(
+                            <button onClick={()=>removeInscricao(i,j)} style={{padding:'5px 9px',background:'#fff1f2',color:'#dc2626',border:'1px solid #fecdd3',borderRadius:6,fontSize:12,cursor:'pointer'}}>🗑️</button>
+                          )}
                         </div>
-                        <div>
-                          <label style={{fontSize:10,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.4}}>Tipo de crédito</label>
-                          <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
-                            {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
-                          </select>
-                        </div>
+                        <select value={ins.tipo_credito} onChange={e=>updateInscricao(i,j,'tipo_credito',e.target.value)} style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,width:'100%'}}>
+                          {TIPOS_CREDITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                        </select>
                         {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>📖 {tipoInfo.legislacao}</div>}
                       </div>
                     )
