@@ -663,7 +663,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda: campos.numero_cda || '',
-      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
+      inscricoes: [{ numero: campos.numero_cda || '', valor: parseValor(campos.valor_total) > 0 ? parseValor(campos.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', tipo_credito: tipoCredito }],
       situacao: 'Ativa',
       modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
@@ -745,7 +745,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda:               cda.numero_cda || '',
-      inscricoes: [{ numero: cda.numero_cda || '', valor: String(parseValor(cda.valor_total) || 0), tipo_credito: tipoCredito }],
+      inscricoes: [{ numero: cda.numero_cda || '', valor: parseValor(cda.valor_total) > 0 ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', tipo_credito: tipoCredito }],
       situacao:                 cda.situacao || 'Ativa',
       modalidade_lancamento:    cda.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(cda.data_fato_gerador) || '',
