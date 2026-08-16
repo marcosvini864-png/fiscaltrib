@@ -736,26 +736,44 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   }
 
   function abrirCdaParaDiagnostico(cda) {
-    const tipoCredito = cda.tipo_debito || 'tributario_federal'
+    const tipoCredito = cda.tipo_debito || cda.tipo_credito || 'tributario_federal'
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda:               cda.numero_cda || '',
-      inscricoes: [{ numero: cda.numero_cda || '', valor: String(cda.valor_total || 0), tipo_credito: tipoCredito }],
-      situacao:                 'Ativa',
-      modalidade_lancamento:    cda.modalidade_lancamento || 'homologacao',
+      inscricoes: [{
+        numero: cda.numero_cda || '',
+        valor: String(parseValor(cda.valor_total) || 0),
+        tipo_credito: tipoCredito
+      }],
+      situacao:                 cda.situacao || 'Ativa',
+      modalidade_lancamento:    cda.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(cda.data_fato_gerador) || '',
-      data_constituicao:        normalizarData(cda.data_constituicao_definitiva) || normalizarData(cda.data_inscricao) || '',
+      data_constituicao:        normalizarData(cda.data_constituicao_definitiva) || normalizarData(cda.data_constituicao) || normalizarData(cda.data_inscricao) || '',
       data_inscricao:           normalizarData(cda.data_inscricao) || '',
       data_ajuizamento:         normalizarData(cda.data_ajuizamento) || '',
       data_citacao:             normalizarData(cda.data_citacao) || '',
       data_ultima_movimentacao: normalizarData(cda.data_ultima_movimentacao) || '',
-      possui_parcelamento: false, possui_suspensao: false, possui_garantia: false,
-      possui_penhora: false, possui_embargos: false,
+      possui_parcelamento:      cda.possui_parcelamento || false,
+      possui_suspensao:         cda.possui_suspensao || false,
+      possui_garantia:          cda.possui_garantia || false,
+      possui_penhora:           cda.possui_penhora || false,
+      possui_embargos:          cda.possui_embargos || false,
     }
     if (cda.cliente_id) {
       setClienteAtual({ id: cda.cliente_id, razao_social: cda.devedor || '', cnpj: cda.cnpj_devedor || '' })
     }
-    setDados(d => ({ ...d, cnpj: cda.cnpj_devedor || '', valor_total: cda.valor_total ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor: 'PGFN', processo_execucao: cda.numero_processo_execucao || '' }))
+    setDados(d => ({
+      ...d,
+      cnpj: cda.cnpj_devedor || '',
+      valor_total: cda.valor_total ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '',
+      orgao_credor: 'PGFN',
+      processo_execucao: cda.numero_processo_execucao || '',
+      possui_parcelamento: cda.possui_parcelamento || false,
+      possui_suspensao: cda.possui_suspensao || false,
+      possui_garantia: cda.possui_garantia || false,
+      possui_penhora: cda.possui_penhora || false,
+      possui_embargos: cda.possui_embargos || false,
+    }))
     setCdas([cdaDiag])
     setDiagnostico(null)
     setAnalisesCDA([])
