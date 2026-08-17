@@ -608,9 +608,18 @@ export default function AbaMonofasicos({ cliente, regime }) {
   }
 }
 
-  function limparDados() {
-	diagAbertoRef.current = null
-    setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
+  	function limparDados() {
+  diagAbertoRef.current = null
+
+  setPgdasForm({
+    receita_bruta_total: '',
+    receita_monofasica: '',
+    receita_st: '',
+    das_recolhido: '',
+    segregou: false,
+  })
+
+  setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
     setPagina(1); setBusca(''); setFiltro('todos')
     if (inputRef.current) inputRef.current.value = ''
