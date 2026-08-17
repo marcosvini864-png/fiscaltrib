@@ -1,7 +1,7 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.7 - 16/08/2026
- * + usuario_id na busca PGDAS-D para respeitar RLS
+ * Versao 8.8 - 16/08/2026
+ * + Remove usuario_id da busca PGDAS-D (RLS ja garante autenticacao)
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -191,24 +191,20 @@ export default function AbaMonofasicos({ cliente, regime }) {
     }
     const competencias = [...new Set(itens.map(i => i.competencia))].filter(Boolean)
     if (!competencias.length) return
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase
-        .from('diagnosticos_pgdas')
-        .select('competencia, diferenca_recuperavel')
-        .eq('cliente_id', cliente.id)
-        .eq('usuario_id', user.id)
-        .in('competencia', competencias)
-        .then(({ data, error }) => {
-          if (error) { console.warn('Busca PGDAS falhou:', error.message); return }
-          if (data && data.length > 0) {
-            const total = data.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
-            setPgdasSupabase({ diferenca: total, registros: data })
-          } else {
-            setPgdasSupabase(null)
-          }
-        })
-    })
+    supabase
+      .from('diagnosticos_pgdas')
+      .select('competencia, diferenca_recuperavel')
+      .eq('cliente_id', cliente.id)
+      .in('competencia', competencias)
+      .then(({ data, error }) => {
+        if (error) { console.warn('Busca PGDAS falhou:', error.message); return }
+        if (data && data.length > 0) {
+          const total = data.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
+          setPgdasSupabase({ diferenca: total, registros: data })
+        } else {
+          setPgdasSupabase(null)
+        }
+      })
   }, [itens])
 
   async function carregarHistorico() {
@@ -247,11 +243,11 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   function gerarRelatorioPDF() {
     if (!itens.length) return
-    const totalMono   = itens.filter(i => i.monofasico).length
-    const recMono     = itens.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
-    const credito     = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
-    const periodos    = [...new Set(itens.map(i => i.competencia))].sort()
-    const dataHoje    = new Date().toLocaleDateString('pt-BR')
+    const totalMono = itens.filter(i => i.monofasico).length
+    const recMono   = itens.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
+    const credito   = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
+    const periodos  = [...new Set(itens.map(i => i.competencia))].sort()
+    const dataHoje  = new Date().toLocaleDateString('pt-BR')
     const linhasTabela = itens.filter(i => i.monofasico).map(i => `
       <tr>
         <td>${i.nNF}</td><td>${i.competencia}</td>
@@ -486,7 +482,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/porPagina))
   const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
   const totalMono    = itens.filter(i=>i.monofasico).length
-  const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||pgdasSupabase?.diferenca||diagAberto?.credito_estimado||itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
+  const creditoTotal = regime==='Simples Nacional'
+    ? (pgdasResult?.diferenca || pgdasSupabase?.diferenca || diagAberto?.credito_estimado || itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0))
+    : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
   const receitaMono  = itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.vProd,0)
   const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*porPagina+i))
 
