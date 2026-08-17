@@ -1,8 +1,9 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.9.3 - 16/08/2026
- * + Secao "Instrucoes para Retificacao do PGDAS-D" no PDF
- *   com valores reais de receita bruta, monofasica e valor a restituir
+ * Versao 8.9.4 - 17/08/2026
+ * + gerarRelatorioPDF usa diagAberto?.itens_json quando disponivel
+ *   eliminando race condition ao abrir diagnostico do historico
+ * + slice aumentado para 2000 itens (solucao intermediaria)
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -246,21 +247,27 @@ export default function AbaMonofasicos({ cliente, regime }) {
   }
 
   function gerarRelatorioPDF() {
-    if (!itens.length) return
-    const totalMono = itens.filter(i => i.monofasico).length
-    const recMono   = itens.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
-    const credito   = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
-    const periodos  = [...new Set(itens.map(i => i.competencia))].sort()
+    // ── v8.9.4 FIX: usa itens_json do diagAberto quando disponivel
+    // evita race condition ao abrir diagnostico do historico
+    const itensParaPDF = (diagAberto?.itens_json && diagAberto.itens_json.length > 0)
+      ? diagAberto.itens_json
+      : itens
+
+    if (!itensParaPDF.length) return
+
+    const totalMono = itensParaPDF.filter(i => i.monofasico).length
+    const recMono   = itensParaPDF.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
+    const credito   = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itensParaPDF.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
+    const periodos  = [...new Set(itensParaPDF.map(i => i.competencia))].sort()
     const dataHoje  = new Date().toLocaleDateString('pt-BR')
 
-    // Valores para a secao de instrucoes
-    const rbTotal   = pgdasResult?.rb || parseFloat(pgdasSupabase?.registros?.[0]?.receita_bruta_total || 0)
-    const rmTotal   = pgdasResult?.rm || parseFloat(pgdasSupabase?.registros?.[0]?.receita_monofasica || 0)
-    const semMono   = rbTotal - rmTotal
-    const temPGDAS  = !!(pgdasResult || pgdasSupabase)
-    const secNum    = temPGDAS ? { base: '4', instrucoes: '5', legal: '6' } : { base: '3', instrucoes: '4', legal: '5' }
+    const rbTotal  = pgdasResult?.rb || parseFloat(pgdasSupabase?.registros?.[0]?.receita_bruta_total || 0)
+    const rmTotal  = pgdasResult?.rm || parseFloat(pgdasSupabase?.registros?.[0]?.receita_monofasica || 0)
+    const semMono  = rbTotal - rmTotal
+    const temPGDAS = !!(pgdasResult || pgdasSupabase)
+    const secNum   = temPGDAS ? { base: '4', instrucoes: '5', legal: '6' } : { base: '3', instrucoes: '4', legal: '5' }
 
-    const linhasTabela = itens.filter(i => i.monofasico).map(i => `
+    const linhasTabela = itensParaPDF.filter(i => i.monofasico).map(i => `
       <tr>
         <td>${i.nNF}</td><td>${i.competencia}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.descricao}</td>
@@ -311,13 +318,13 @@ export default function AbaMonofasicos({ cliente, regime }) {
       <div class="info">CNPJ: <span>${cliente?.cnpj||'—'}</span></div>
       <div class="info">Regime Tributario: <span>${regime||'Simples Nacional'}</span></div>
       <div class="info">Periodo Analisado: <span>${periodos[0]||'—'} a ${periodos[periodos.length-1]||'—'}</span></div>
-      <div class="info">Total de NF-es Analisadas: <span>${[...new Set(itens.map(i => i.nNF))].length}</span></div>
+      <div class="info">Total de NF-es Analisadas: <span>${[...new Set(itensParaPDF.map(i => i.nNF))].length}</span></div>
     </div>
 
     <div class="secao">
       <div class="secao-titulo">2. Resumo Executivo</div>
       <div class="kpis">
-        <div class="kpi"><div class="kpi-valor" style="color:#0B1F4D">${itens.length}</div><div class="kpi-label">Total de Itens</div></div>
+        <div class="kpi"><div class="kpi-valor" style="color:#0B1F4D">${itensParaPDF.length}</div><div class="kpi-label">Total de Itens</div></div>
         <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${totalMono}</div><div class="kpi-label">Itens Monofasicos</div></div>
         <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${fmtR(recMono)}</div><div class="kpi-label">Receita Monofasica</div></div>
         <div class="kpi"><div class="kpi-valor" style="color:#16a34a">${fmtR(credito)}</div><div class="kpi-label">Potencial de Recuperacao</div></div>
@@ -455,7 +462,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
         periodo_inicio: periodos[0] || null, periodo_fim: periodos[periodos.length - 1] || null,
         pgdas_json: pgdasResult || null,
         credito_estimado: creditoFinal,
-        itens_json: itens.slice(0, 500), status: 'concluido',
+        itens_json: itens.slice(0, 2000), // v8.9.4: aumentado de 500 para 2000
+        status: 'concluido',
       }])
       if (error) throw error
       await carregarHistorico()
