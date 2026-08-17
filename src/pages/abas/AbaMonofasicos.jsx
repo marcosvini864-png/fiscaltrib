@@ -205,7 +205,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
           setPgdasSupabase(null)
         }
       })
-  }, [itens])
+  }, [itens.length, cliente?.id])
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
