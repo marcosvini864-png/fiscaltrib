@@ -1,7 +1,8 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.8 - 16/08/2026
- * + Remove usuario_id da busca PGDAS-D (RLS ja garante autenticacao)
+ * Versao 8.9.2 - 16/08/2026
+ * + useEffect PGDAS-D depende de competenciasKey, itens.length, cliente?.id e regime
+ *   garantindo disparo tanto em troca de competencia quanto em adicao de itens
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -175,6 +176,13 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [modalNome, setModalNome] = useState(false)
   const inputRef = useRef(null)
 
+  // Chave derivada das competencias presentes nos itens.
+  // Muda quando: competencias diferentes sao importadas, ou quando
+  // novos itens da mesma competencia sao adicionados (via itens.length).
+  const competenciasKey = [...new Set(
+    itens.map(i => i.competencia).filter(Boolean)
+  )].sort().join(',')
+
   useEffect(() => {
     const style = document.createElement('style')
     style.textContent = `@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`
@@ -184,13 +192,15 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
 
+  // ─── BUSCA PGDAS-D DO SUPABASE ───────────────────────────────────────────
+  // Dispara quando: competencias mudam, itens sao adicionados,
+  // cliente muda ou regime muda
   useEffect(() => {
-    if (regime !== 'Simples Nacional' || !cliente?.id || !itens.length) {
+    if (regime !== 'Simples Nacional' || !cliente?.id || !competenciasKey) {
       setPgdasSupabase(null)
       return
     }
-    const competencias = [...new Set(itens.map(i => i.competencia))].filter(Boolean)
-    if (!competencias.length) return
+    const competencias = competenciasKey.split(',').filter(Boolean)
     supabase
       .from('diagnosticos_pgdas')
       .select('competencia, diferenca_recuperavel')
@@ -205,7 +215,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
           setPgdasSupabase(null)
         }
       })
-  }, [itens.length, cliente?.id])
+  }, [competenciasKey, itens.length, cliente?.id, regime])
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
