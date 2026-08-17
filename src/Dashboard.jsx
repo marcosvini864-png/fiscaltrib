@@ -843,7 +843,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               />
             )}
 
-            {module==='monofasicos' && <AbaMonofasicos clienteId={activeId} cliente={active} />}
+            {module==='monofasicos' && <AbaMonofasicos clienteId={activeId} cliente={active} regime={active?.regime} />}
             {module==='pgdas' && <AbaPGDAS cliente={active} regime={active?.regime} />}
             {module==='painel_simples' && <PainelSimples clienteId={activeId} cliente={active} />}
             {module==='dados_complementares' && (
