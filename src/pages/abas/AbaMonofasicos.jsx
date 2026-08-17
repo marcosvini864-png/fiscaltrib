@@ -185,7 +185,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
 
   useEffect(() => {
-    if (regime !== 'Simples Nacional' || !cliente?.id || !itens.length || diagAberto) {
+    if (regime !== 'Simples Nacional' || !cliente?.id || !itens.length) {
       setPgdasSupabase(null)
       return
     }
