@@ -651,7 +651,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
                         <td style={{ padding:'7px 10px' }}>
                           {isGhost
                             ? <span style={{ background:S.ghost, color:S.ghostText, border:`1px solid ${S.border}`, borderRadius:99, padding:'2px 10px', fontSize:10, fontWeight:700 }}>Classificacao</span>
-                            : <Badge tipo={item.monofasico?(item.pendentePGDAS?'pendente':'monofasico'):'nao_monofasico'} />}
+                            : <Badge tipo={item.monofasico ? ((item.pendentePGDAS && !pgdasSupabase && !pgdasResult) ? 'pendente' : 'monofasico') : 'nao_monofasico'} />}
                         </td>
                         <td style={{ padding:'7px 10px', position:'relative' }}>
                           {!isGhost && (
