@@ -1,8 +1,7 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.5 - 14/08/2026
- * + Modal de nome ao salvar diagnostico
- * + Coluna Nome exibida no Historico
+ * Versao 8.6 - 16/08/2026
+ * + Busca PGDAS-D via useEffect para creditoTotal atualizar corretamente
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -92,7 +91,6 @@ const HISTORICO_GHOST = Array(5).fill(null).map((_, i) => ({
   receita_monofasica: 0, credito_estimado: 0, status: 'concluido',
 }))
 
-// Modal confirmacao — dados nao salvos
 function ModalConfirmacaoSair({ onSalvar, onContinuar, onCancelar, salvando }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -117,7 +115,6 @@ function ModalConfirmacaoSair({ onSalvar, onContinuar, onCancelar, salvando }) {
   )
 }
 
-// ✅ NOVO: Modal para digitar nome antes de salvar
 function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando }) {
   const [nome, setNome] = useState(nomeSugerido || '')
   return (
@@ -125,7 +122,7 @@ function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando 
       <div style={{ background: S.white, borderRadius: 12, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, marginBottom: 6 }}>Salvar Diagnostico</div>
         <div style={{ fontSize: 13, color: S.muted, marginBottom: 16, lineHeight: 1.5 }}>
-          Dê um nome para identificar este diagnostico no historico. Pode deixar em branco para usar o nome automatico.
+          De um nome para identificar este diagnostico no historico. Pode deixar em branco para usar o nome automatico.
         </div>
         <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, marginBottom: 6 }}>Nome / Descricao (opcional)</div>
         <input
@@ -137,14 +134,11 @@ function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando 
           style={{ width: '100%', padding: '9px 12px', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
         />
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => onConfirmar(nome)}
-            disabled={salvando}
+          <button onClick={() => onConfirmar(nome)} disabled={salvando}
             style={{ flex: 1, padding: '10px 0', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
             {salvando ? 'Salvando...' : 'Salvar'}
           </button>
-          <button
-            onClick={onCancelar}
+          <button onClick={onCancelar}
             style={{ padding: '10px 18px', background: 'none', color: S.muted, border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
             Cancelar
           </button>
@@ -170,6 +164,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     receita_bruta_total: '', receita_monofasica: '', receita_st: '', das_recolhido: '', segregou: false,
   })
   const [pgdasResult, setPgdasResult] = useState(null)
+  const [pgdasSupabase, setPgdasSupabase] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [historico, setHistorico] = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
@@ -177,9 +172,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [porPagina, setPorPagina] = useState(10)
   const [upsertInfo, setUpsertInfo] = useState(null)
   const [modalConfirmacao, setModalConfirmacao] = useState(false)
-  // ✅ NOVO: controle do modal de nome
   const [modalNome, setModalNome] = useState(false)
-  const [pgdasSupabase, setPgdasSupabase] = useState(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -191,6 +184,30 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
 
+  // Busca PGDAS-D do Supabase sempre que itens mudam
+  useEffect(() => {
+    if (regime !== 'Simples Nacional' || !cliente?.id || !itens.length || diagAberto) {
+      setPgdasSupabase(null)
+      return
+    }
+    const competencias = [...new Set(itens.map(i => i.competencia))].filter(Boolean)
+    if (!competencias.length) return
+    supabase
+      .from('diagnosticos_pgdas')
+      .select('competencia, diferenca_recuperavel')
+      .eq('cliente_id', cliente.id)
+      .in('competencia', competencias)
+      .then(({ data, error }) => {
+        if (error) { console.warn('Busca PGDAS falhou:', error.message); return }
+        if (data && data.length > 0) {
+          const total = data.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
+          setPgdasSupabase({ diferenca: total, registros: data })
+        } else {
+          setPgdasSupabase(null)
+        }
+      })
+  }, [itens])
+
   async function carregarHistorico() {
     setLoadingHistorico(true)
     const { data } = await supabase.from('diagnosticos_monofasicos').select('*').eq('cliente_id', cliente.id).order('created_at', { ascending: false })
@@ -198,7 +215,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setLoadingHistorico(false)
   }
 
-  // ✅ NOVO: nome sugerido automatico baseado no periodo
   function gerarNomeSugerido() {
     const periodos = [...new Set(itens.map(i => i.competencia))].sort()
     const inicio = periodos[0] || ''
@@ -230,7 +246,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     if (!itens.length) return
     const totalMono   = itens.filter(i => i.monofasico).length
     const recMono     = itens.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
-    const credito     = pgdasResult?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
+    const credito     = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
     const periodos    = [...new Set(itens.map(i => i.competencia))].sort()
     const dataHoje    = new Date().toLocaleDateString('pt-BR')
 
@@ -307,19 +323,19 @@ export default function AbaMonofasicos({ cliente, regime }) {
       <div class="kpi"><div class="kpi-valor" style="color:#16a34a">${fmtR(credito)}</div><div class="kpi-label">Potencial de Recuperacao</div></div>
     </div>
   </div>
-  ${pgdasResult ? `
+  ${pgdasResult || pgdasSupabase ? `
   <div class="secao">
     <div class="secao-titulo">3. Apuracao PGDAS-D</div>
     <div class="kpis">
-      <div class="kpi"><div class="kpi-valor">${fmtR(pgdasResult.rb)}</div><div class="kpi-label">Receita Bruta Total</div></div>
-      <div class="kpi"><div class="kpi-valor">${fmtR(pgdasResult.rm)}</div><div class="kpi-label">Receita Monofasica</div></div>
-      <div class="kpi"><div class="kpi-valor alerta">${fmtR(pgdasResult.das)}</div><div class="kpi-label">DAS Recolhido</div></div>
-      <div class="kpi"><div class="kpi-valor destaque">${fmtR(pgdasResult.diferenca)}</div><div class="kpi-label">Diferenca Recuperavel</div></div>
+      <div class="kpi"><div class="kpi-valor">${fmtR(pgdasResult?.rb || 0)}</div><div class="kpi-label">Receita Bruta Total</div></div>
+      <div class="kpi"><div class="kpi-valor">${fmtR(pgdasResult?.rm || 0)}</div><div class="kpi-label">Receita Monofasica</div></div>
+      <div class="kpi"><div class="kpi-valor alerta">${fmtR(pgdasResult?.das || 0)}</div><div class="kpi-label">DAS Recolhido</div></div>
+      <div class="kpi"><div class="kpi-valor destaque">${fmtR(pgdasResult?.diferenca || pgdasSupabase?.diferenca || 0)}</div><div class="kpi-label">Diferenca Recuperavel</div></div>
     </div>
   </div>
   ` : ''}
   <div class="secao">
-    <div class="secao-titulo">${pgdasResult ? '4' : '3'}. Detalhamento — Itens Monofasicos</div>
+    <div class="secao-titulo">${pgdasResult || pgdasSupabase ? '4' : '3'}. Detalhamento — Itens Monofasicos</div>
     <table>
       <thead>
         <tr>
@@ -341,7 +357,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     </table>
   </div>
   <div class="secao">
-    <div class="secao-titulo">${pgdasResult ? '5' : '4'}. Base Legal</div>
+    <div class="secao-titulo">${pgdasResult || pgdasSupabase ? '5' : '4'}. Base Legal</div>
     <div class="base-legal">
       <strong>Fundamentacao Juridica:</strong><br><br>
       • <strong>Lei 10.147/2000</strong> — Institui a tributacao monofasica do PIS/COFINS para medicamentos, cosmeticos e produtos de higiene pessoal.<br>
@@ -366,13 +382,13 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setTimeout(() => janela.print(), 800)
   }
 
-  // ✅ NOVO: salvar recebe o nome como parametro
   async function salvarDiagnostico(nomeDiagnostico) {
     if (!itens.length || !cliente?.id) return
     setSalvando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const periodos = [...new Set(itens.map(i => i.competencia))].sort()
+      const creditoFinal = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s, i) => s + i.credito, 0)
       const { error } = await supabase.from('diagnosticos_monofasicos').insert([{
         usuario_id: user.id, cliente_id: cliente.id,
         cliente_nome: cliente.razao_social || '', cliente_cnpj: cliente.cnpj || '', regime,
@@ -385,7 +401,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
         receita_monofasica: itens.filter(i => i.monofasico).reduce((s, i) => s + i.vProd, 0),
         periodo_inicio: periodos[0] || null, periodo_fim: periodos[periodos.length - 1] || null,
         pgdas_json: pgdasResult || null,
-        credito_estimado: pgdasResult?.diferenca || itens.filter(i => i.monofasico).reduce((s, i) => s + i.credito, 0),
+        credito_estimado: creditoFinal,
         itens_json: itens.slice(0, 500), status: 'concluido',
       }])
       if (error) throw error
@@ -412,7 +428,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   }
 
   function limparDados() {
-    setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null)
+    setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
     setPagina(1); setBusca(''); setFiltro('todos')
     if (inputRef.current) inputRef.current.value = ''
@@ -436,7 +452,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
     limparDados()
   }
 
-  // ✅ NOVO: confirmou nome no modal
   async function confirmarSalvarComNome(nome) {
     const ok = await salvarDiagnostico(nome)
     if (ok) setModalNome(false)
@@ -528,26 +543,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setProcessando(false)
     setPagina(1)
     if (inputRef.current) inputRef.current.value = ''
-    // Busca PGDAS-D salvo no Supabase pela competencia das NF-es
-    if (regime === 'Simples Nacional' && cliente?.id && todosItens.length > 0) {
-      try {
-        const competencias = [...new Set(todosItens.map(i => i.competencia))].filter(Boolean)
-        if (competencias.length > 0) {
-          const { data: pgdasSalvos } = await supabase
-            .from('diagnosticos_pgdas')
-            .select('competencia, diferenca_recuperavel, receita_bruta_periodo, receita_monofasica, das_total_declarado')
-            .eq('cliente_id', cliente.id)
-            .in('competencia', competencias)
-          console.log('PGDAS busca:', JSON.stringify(pgdasSalvos), 'competencias:', competencias, 'cliente:', cliente.id)
-          if (pgdasSalvos && pgdasSalvos.length > 0) {
-            const totalDiferenca = pgdasSalvos.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
-            setPgdasSupabase({ diferenca: totalDiferenca, registros: pgdasSalvos })
-          }
-        }
-      } catch (e) {
-        console.warn('Busca PGDAS Supabase falhou:', e.message)
-      }
-    }
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await upsertItensFiscais(todosItens, user?.id)
@@ -595,7 +590,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
 
-      {/* MODAL CONFIRMACAO DADOS NAO SALVOS */}
       {modalConfirmacao && (
         <ModalConfirmacaoSair
           onSalvar={modalSalvarEContinuar}
@@ -605,7 +599,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
         />
       )}
 
-      {/* ✅ NOVO: MODAL NOME DO DIAGNOSTICO */}
       {modalNome && (
         <ModalNomeDiagnostico
           nomeSugerido={gerarNomeSugerido()}
@@ -660,7 +653,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
         </div>
       </div>
 
-      {/* BANNER UPSERT */}
       {upsertInfo && (
         <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, color: '#166534' }}>
@@ -682,7 +674,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
         ))}
       </div>
 
-      {/* ABA IMPORTAR */}
       {aba === 'importar' && (
         <>
           <AnalisadorIA contexto="Monofasicos PIS/COFINS" dados={dadosIA} cliente={cliente} regime={regime} />
@@ -693,6 +684,12 @@ export default function AbaMonofasicos({ cliente, regime }) {
                 Visualizando: <strong>{diagAberto.nome_diagnostico || fmtData(diagAberto.created_at)}</strong>
               </div>
               <button onClick={limparDados} style={{ background:'none', border:'none', color:S.muted, cursor:'pointer', fontSize:13 }}>Fechar</button>
+            </div>
+          )}
+
+          {pgdasSupabase && !pgdasResult && (
+            <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, padding:'10px 16px', marginBottom:12, fontSize:13, color:'#166534' }}>
+              ✅ PGDAS-D encontrado para {pgdasSupabase.registros.length} competencia(s) — Diferenca recuperavel: <strong>{fmtR(pgdasSupabase.diferenca)}</strong>
             </div>
           )}
 
@@ -811,7 +808,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
             </div>
           </div>
 
-          {/* PGDAS-D */}
           {regime === 'Simples Nacional' && (
             <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
               <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, background:'#fff7ed' }}>
@@ -877,7 +873,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
           {temResultado && (
             <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
-              {/* ✅ NOVO: botao abre modal de nome antes de salvar */}
               {!diagAberto && (
                 <button onClick={() => setModalNome(true)} disabled={salvando}
                   style={{ padding:'9px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:salvando?'not-allowed':'pointer', opacity:salvando?0.7:1 }}>
@@ -890,7 +885,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
         </>
       )}
 
-      {/* ABA HISTORICO */}
       {aba === 'historico' && (
         <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -927,7 +921,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead>
                   <tr style={{ background:S.thBg }}>
-                    {/* ✅ NOVO: coluna Nome adicionada */}
                     {['Nome','Data','Periodo','Arquivos','Itens','Monofasicos','Receita Mono','Potencial','Status','Acoes'].map(h => (
                       <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
                     ))}
@@ -939,7 +932,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
                   ) : (
                     historicoExibir.map((diag, i) => (
                       <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background: diag.ghost ? S.ghost : i%2===0 ? S.white : '#FAFAFA' }}>
-                        {/* ✅ NOVO: celula Nome */}
                         <td style={{ padding:'7px 10px', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.navy, fontWeight: diag.ghost ? 400 : 600 }}>
                           {diag.ghost ? 'Nome do diagnostico' : (diag.nome_diagnostico || '—')}
                         </td>
