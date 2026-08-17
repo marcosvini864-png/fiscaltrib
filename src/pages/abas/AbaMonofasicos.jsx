@@ -538,6 +538,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
             .select('competencia, diferenca_recuperavel, receita_bruta_periodo, receita_monofasica, das_total_declarado')
             .eq('cliente_id', cliente.id)
             .in('competencia', competencias)
+          console.log('PGDAS busca:', JSON.stringify(pgdasSalvos), 'competencias:', competencias, 'cliente:', cliente.id)
           if (pgdasSalvos && pgdasSalvos.length > 0) {
             const totalDiferenca = pgdasSalvos.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
             setPgdasSupabase({ diferenca: totalDiferenca, registros: pgdasSalvos })
