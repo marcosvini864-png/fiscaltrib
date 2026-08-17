@@ -1,8 +1,8 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.9.2 - 16/08/2026
- * + useEffect PGDAS-D depende de competenciasKey, itens.length, cliente?.id e regime
- *   garantindo disparo tanto em troca de competencia quanto em adicao de itens
+ * Versao 8.9.3 - 16/08/2026
+ * + Secao "Instrucoes para Retificacao do PGDAS-D" no PDF
+ *   com valores reais de receita bruta, monofasica e valor a restituir
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -176,9 +176,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [modalNome, setModalNome] = useState(false)
   const inputRef = useRef(null)
 
-  // Chave derivada das competencias presentes nos itens.
-  // Muda quando: competencias diferentes sao importadas, ou quando
-  // novos itens da mesma competencia sao adicionados (via itens.length).
   const competenciasKey = [...new Set(
     itens.map(i => i.competencia).filter(Boolean)
   )].sort().join(',')
@@ -192,9 +189,6 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
 
-  // ─── BUSCA PGDAS-D DO SUPABASE ───────────────────────────────────────────
-  // Dispara quando: competencias mudam, itens sao adicionados,
-  // cliente muda ou regime muda
   useEffect(() => {
     if (regime !== 'Simples Nacional' || !cliente?.id || !competenciasKey) {
       setPgdasSupabase(null)
@@ -203,7 +197,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
     const competencias = competenciasKey.split(',').filter(Boolean)
     supabase
       .from('diagnosticos_pgdas')
-      .select('competencia, diferenca_recuperavel')
+      .select('competencia, diferenca_recuperavel, receita_bruta_total, receita_monofasica')
       .eq('cliente_id', cliente.id)
       .in('competencia', competencias)
       .then(({ data, error }) => {
@@ -258,6 +252,14 @@ export default function AbaMonofasicos({ cliente, regime }) {
     const credito   = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
     const periodos  = [...new Set(itens.map(i => i.competencia))].sort()
     const dataHoje  = new Date().toLocaleDateString('pt-BR')
+
+    // Valores para a secao de instrucoes
+    const rbTotal   = pgdasResult?.rb || parseFloat(pgdasSupabase?.registros?.[0]?.receita_bruta_total || 0)
+    const rmTotal   = pgdasResult?.rm || parseFloat(pgdasSupabase?.registros?.[0]?.receita_monofasica || 0)
+    const semMono   = rbTotal - rmTotal
+    const temPGDAS  = !!(pgdasResult || pgdasSupabase)
+    const secNum    = temPGDAS ? { base: '4', instrucoes: '5', legal: '6' } : { base: '3', instrucoes: '4', legal: '5' }
+
     const linhasTabela = itens.filter(i => i.monofasico).map(i => `
       <tr>
         <td>${i.nNF}</td><td>${i.competencia}</td>
@@ -267,46 +269,165 @@ export default function AbaMonofasicos({ cliente, regime }) {
         <td style="text-align:right">${fmtR(i.vItemPIS)}</td>
         <td style="text-align:right">${fmtR(i.vItemCOFINS)}</td>
       </tr>`).join('')
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dossie Monofasicos</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#0F172A;padding:32px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;border-bottom:3px solid #0B1F4D;padding-bottom:16px}
-    .logo{font-size:18px;font-weight:700;color:#0B1F4D}.logo span{color:#2563EB}
-    .secao{margin-bottom:20px}.secao-titulo{font-size:11px;font-weight:700;color:#0B1F4D;text-transform:uppercase;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-bottom:12px}
-    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-    .kpi{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;text-align:center}
-    .kpi-valor{font-size:14px;font-weight:700;margin-bottom:4px}.kpi-label{font-size:10px;color:#334155}
-    table{width:100%;border-collapse:collapse;font-size:10px}th{background:#4B5563;color:#fff;padding:6px 8px;text-align:left;font-weight:600}
-    td{padding:5px 8px;border-bottom:1px solid #E2E8F0}tr:nth-child(even){background:#F8FAFC}
-    .base-legal{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;font-size:10px;color:#1E40AF;line-height:1.6}
-    .rodape{margin-top:24px;border-top:1px solid #E2E8F0;padding-top:12px;font-size:10px;color:#64748B;display:flex;justify-content:space-between}
-    .destaque{color:#16a34a}.alerta{color:#dc2626}.info{margin-bottom:8px}.info span{font-weight:600;color:#0F172A}
-    @media print{body{padding:16px}}</style></head><body>
-    <div class="header"><div><div class="logo">e-<span>FiscalTribe</span>®</div><div style="font-size:10px;color:#64748B;margin-top:4px">Sistema de Inteligencia Tributaria</div></div>
-    <div style="text-align:right"><div style="font-size:14px;font-weight:700;color:#0B1F4D">Dossie de Recuperacao PIS/COFINS Monofasico</div><div style="font-size:11px;color:#334155">Gerado em: ${dataHoje}</div></div></div>
-    <div class="secao"><div class="secao-titulo">1. Identificacao do Contribuinte</div>
-    <div class="info">Razao Social: <span>${cliente?.razao_social||'—'}</span></div>
-    <div class="info">CNPJ: <span>${cliente?.cnpj||'—'}</span></div>
-    <div class="info">Regime: <span>${regime||'Simples Nacional'}</span></div>
-    <div class="info">Periodo: <span>${periodos[0]||'—'} a ${periodos[periodos.length-1]||'—'}</span></div></div>
-    <div class="secao"><div class="secao-titulo">2. Resumo Executivo</div>
-    <div class="kpis">
-    <div class="kpi"><div class="kpi-valor" style="color:#0B1F4D">${itens.length}</div><div class="kpi-label">Total de Itens</div></div>
-    <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${totalMono}</div><div class="kpi-label">Itens Monofasicos</div></div>
-    <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${fmtR(recMono)}</div><div class="kpi-label">Receita Monofasica</div></div>
-    <div class="kpi"><div class="kpi-valor" style="color:#16a34a">${fmtR(credito)}</div><div class="kpi-label">Potencial de Recuperacao</div></div>
-    </div></div>
-    <div class="secao"><div class="secao-titulo">3. Detalhamento — Itens Monofasicos</div>
-    <table><thead><tr><th>NF</th><th>Competencia</th><th>Descricao</th><th>NCM</th><th style="text-align:right">Valor</th><th style="text-align:right">PIS</th><th style="text-align:right">COFINS</th></tr></thead>
-    <tbody>${linhasTabela}<tr style="background:#F0FDF4;font-weight:700"><td colspan="4">TOTAL</td><td style="text-align:right;color:#16a34a">${fmtR(recMono)}</td><td></td><td></td></tr></tbody></table></div>
-    <div class="secao"><div class="secao-titulo">4. Base Legal</div>
-    <div class="base-legal"><strong>Fundamentacao:</strong><br><br>
-    • <strong>Lei 10.147/2000</strong> — Tributacao monofasica para medicamentos e cosmeticos.<br>
-    • <strong>Lei 10.485/2002</strong> — Tributacao monofasica para veiculos e autopecas.<br>
-    • <strong>LC 123/2006 art. 18 §4-A</strong> — Segregacao de receitas no PGDAS-D.<br>
-    • <strong>IN RFB 2.055/2021</strong> — Restituicao via PER/DCOMP.<br><br>
-    Prazo prescricional: 5 anos (art. 168 CTN).</div></div>
-    <div class="rodape"><div>e-FiscalTribe®</div><div>Gerado em ${dataHoje}</div></div>
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dossie Monofasicos — ${cliente?.razao_social||''}</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:Arial,sans-serif;font-size:11px;color:#0F172A;padding:32px}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;border-bottom:3px solid #0B1F4D;padding-bottom:16px}
+      .logo{font-size:18px;font-weight:700;color:#0B1F4D}.logo span{color:#2563EB}
+      .secao{margin-bottom:20px}
+      .secao-titulo{font-size:11px;font-weight:700;color:#0B1F4D;text-transform:uppercase;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-bottom:12px}
+      .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+      .kpi{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;text-align:center}
+      .kpi-valor{font-size:14px;font-weight:700;margin-bottom:4px}.kpi-label{font-size:10px;color:#334155}
+      table{width:100%;border-collapse:collapse;font-size:10px}
+      th{background:#4B5563;color:#fff;padding:6px 8px;text-align:left;font-weight:600}
+      td{padding:5px 8px;border-bottom:1px solid #E2E8F0}
+      tr:nth-child(even){background:#F8FAFC}
+      .base-legal{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;font-size:10px;color:#1E40AF;line-height:1.6}
+      .instrucoes{background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:12px 16px;font-size:10px;color:#14532D;line-height:1.6}
+      .rodape{margin-top:24px;border-top:1px solid #E2E8F0;padding-top:12px;font-size:10px;color:#64748B;display:flex;justify-content:space-between}
+      .destaque{color:#16a34a}.alerta{color:#dc2626}
+      .info{margin-bottom:8px}.info span{font-weight:600;color:#0F172A}
+      .alerta-box{background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:8px 12px;margin:8px 0;font-weight:700;color:#DC2626}
+      @media print{body{padding:16px}}
+    </style></head><body>
+
+    <div class="header">
+      <div>
+        <div class="logo">e-<span>FiscalTribe</span>®</div>
+        <div style="font-size:10px;color:#64748B;margin-top:4px">Sistema de Inteligencia Tributaria</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:14px;font-weight:700;color:#0B1F4D">Dossie de Recuperacao PIS/COFINS Monofasico</div>
+        <div style="font-size:11px;color:#334155">Gerado em: ${dataHoje}</div>
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">1. Identificacao do Contribuinte</div>
+      <div class="info">Razao Social: <span>${cliente?.razao_social||'—'}</span></div>
+      <div class="info">CNPJ: <span>${cliente?.cnpj||'—'}</span></div>
+      <div class="info">Regime Tributario: <span>${regime||'Simples Nacional'}</span></div>
+      <div class="info">Periodo Analisado: <span>${periodos[0]||'—'} a ${periodos[periodos.length-1]||'—'}</span></div>
+      <div class="info">Total de NF-es Analisadas: <span>${[...new Set(itens.map(i => i.nNF))].length}</span></div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">2. Resumo Executivo</div>
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-valor" style="color:#0B1F4D">${itens.length}</div><div class="kpi-label">Total de Itens</div></div>
+        <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${totalMono}</div><div class="kpi-label">Itens Monofasicos</div></div>
+        <div class="kpi"><div class="kpi-valor" style="color:#ea580c">${fmtR(recMono)}</div><div class="kpi-label">Receita Monofasica</div></div>
+        <div class="kpi"><div class="kpi-valor" style="color:#16a34a">${fmtR(credito)}</div><div class="kpi-label">Potencial de Recuperacao</div></div>
+      </div>
+    </div>
+
+    ${temPGDAS ? `
+    <div class="secao">
+      <div class="secao-titulo">3. Apuracao PGDAS-D</div>
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-valor">${fmtR(rbTotal)}</div><div class="kpi-label">Receita Bruta Total</div></div>
+        <div class="kpi"><div class="kpi-valor">${fmtR(rmTotal)}</div><div class="kpi-label">Receita Monofasica</div></div>
+        <div class="kpi"><div class="kpi-valor alerta">${fmtR(pgdasResult?.das || 0)}</div><div class="kpi-label">DAS Recolhido</div></div>
+        <div class="kpi"><div class="kpi-valor destaque">${fmtR(credito)}</div><div class="kpi-label">Diferenca Recuperavel</div></div>
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="secao">
+      <div class="secao-titulo">${secNum.base}. Detalhamento — Itens Monofasicos</div>
+      <table>
+        <thead>
+          <tr>
+            <th>NF</th><th>Competencia</th><th>Descricao</th><th>NCM</th>
+            <th style="text-align:right">Valor Produto</th>
+            <th style="text-align:right">PIS</th>
+            <th style="text-align:right">COFINS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhasTabela}
+          <tr style="background:#F0FDF4;font-weight:700">
+            <td colspan="4">TOTAL MONOFASICO</td>
+            <td style="text-align:right;color:#16a34a">${fmtR(recMono)}</td>
+            <td style="text-align:right"></td>
+            <td style="text-align:right"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">${secNum.instrucoes}. Instrucoes para Retificacao do PGDAS-D</div>
+      <div class="instrucoes">
+        <strong>Como preencher a retificacao no PGDAS-D:</strong><br><br>
+        Acesse o PGDAS-D com certificado digital ou codigo de acesso em <strong>Declaracao Mensal → Declarar/Retificar</strong>,
+        informe o periodo de apuracao e clique em <strong>Sim</strong> para retificar a declaracao anterior.<br><br>
+        <div class="alerta-box">⚠️ NAO altere o valor da Receita Bruta Total. Apenas redistribua as receitas conforme a tabela abaixo.</div>
+        <table style="margin-top:10px">
+          <thead>
+            <tr>
+              <th>Campo no PGDAS-D</th>
+              <th style="text-align:right">Valor Original</th>
+              <th style="text-align:right">Valor Retificado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Receita Bruta Total (nao alterar)</td>
+              <td style="text-align:right">${fmtR(rbTotal)}</td>
+              <td style="text-align:right"><strong>${fmtR(rbTotal)}</strong></td>
+            </tr>
+            <tr style="background:#F8FAFC">
+              <td>Revenda SEM tributacao monofasica/ST</td>
+              <td style="text-align:right">${fmtR(rbTotal)}</td>
+              <td style="text-align:right"><strong>${fmtR(semMono)}</strong></td>
+            </tr>
+            <tr>
+              <td style="color:#16a34a"><strong>Revenda COM tributacao monofasica/ST</strong></td>
+              <td style="text-align:right">R$ 0,00</td>
+              <td style="text-align:right;color:#16a34a"><strong>${fmtR(rmTotal)}</strong></td>
+            </tr>
+            <tr style="background:#F0FDF4">
+              <td><strong>Valor a restituir (PIS + COFINS)</strong></td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right;color:#16a34a"><strong>${fmtR(credito)}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <br>
+        Apos transmitir a retificacao, aguarde <strong>24 horas</strong> e acesse:<br>
+        <strong>Simples Servicos → Restituicao e Compensacao → Pedido Eletronico de Restituicao</strong><br><br>
+        • Um pedido por DAS (por periodo de apuracao)<br>
+        • Prazo permitido: entre 4 meses e 5 anos da data atual<br>
+        • Conta bancaria obrigatoriamente da pessoa juridica (CNPJ)<br>
+        • Prazo medio de pagamento: <strong>60 dias</strong> (creditado todo dia 20 de cada mes)
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">${secNum.legal}. Base Legal</div>
+      <div class="base-legal">
+        <strong>Fundamentacao Juridica:</strong><br><br>
+        • <strong>Lei 10.147/2000</strong> — Institui a tributacao monofasica do PIS/COFINS para medicamentos, cosmeticos e produtos de higiene pessoal.<br>
+        • <strong>Lei 9.990/2000</strong> — Tributacao monofasica para combustiveis derivados de petroleo.<br>
+        • <strong>Lei 10.485/2002</strong> — Tributacao monofasica para veiculos automotores e autopecas.<br>
+        • <strong>LC 123/2006 art. 18 §4-A</strong> — Segregacao de receitas com tributacao concentrada no PGDAS-D das empresas do Simples Nacional.<br>
+        • <strong>IN RFB 2.055/2021</strong> — Procedimentos para restituicao e compensacao de tributos administrados pela Receita Federal.<br><br>
+        A recuperacao se da mediante retificacao do PGDAS-D e pedido eletronico de restituicao via PER/DCOMP junto a Receita Federal,
+        respeitando o prazo prescricional de 5 anos (art. 168 do CTN).
+      </div>
+    </div>
+
+    <div class="rodape">
+      <div>e-FiscalTribe® — Sistema de Inteligencia Tributaria</div>
+      <div>Documento gerado em ${dataHoje} — Uso exclusivo do profissional tributario</div>
+    </div>
+
     </body></html>`
+
     const janela = window.open('', '_blank', 'width=900,height=700')
     janela.document.write(html)
     janela.document.close()
