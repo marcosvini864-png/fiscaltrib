@@ -451,7 +451,9 @@ export default function AbaMonofasicos({ cliente, regime }) {
       const { data: { user } } = await supabase.auth.getUser()
       const periodos = [...new Set(itens.map(i => i.competencia))].sort()
       const creditoFinal = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s, i) => s + i.credito, 0)
-      const { error } = await supabase.from('diagnosticos_monofasicos').insert([{
+      const { data: diagCriado, error } = await supabase
+     .from('diagnosticos_monofasicos')
+     .insert([{
         usuario_id: user.id, cliente_id: cliente.id,
         cliente_nome: cliente.razao_social || '', cliente_cnpj: cliente.cnpj || '', regime,
         nome_diagnostico: nomeDiagnostico || gerarNomeSugerido(),
@@ -464,10 +466,57 @@ export default function AbaMonofasicos({ cliente, regime }) {
         periodo_inicio: periodos[0] || null, periodo_fim: periodos[periodos.length - 1] || null,
         pgdas_json: pgdasResult || null,
         credito_estimado: creditoFinal,
-        itens_json: itens.slice(0, 2000), // v8.9.4: aumentado de 500 para 2000
+        itens_json: null, // itens completos salvos em diagnostico_monofasico_itens
         status: 'concluido',
-      }])
+       }])
+      .select('id')
+      .single()
+
       if (error) throw error
+	  const itensBanco = itens.map((item, index) => ({
+      diagnostico_id: diagCriado.id,
+      usuario_id: user.id,
+      cliente_id: cliente.id,
+      ordem_item: index + 1,
+
+     nf: item.nNF || null,
+     competencia: item.competencia || null,
+     emitente: item.emitente || null,
+     descricao: item.descricao || null,
+     ncm: item.ncm || null,
+
+     valor_produto: item.vProd || 0,
+     valor_pis: item.vItemPIS || 0,
+     valor_cofins: item.vItemCOFINS || 0,
+     credito: item.credito || 0,
+
+     monofasico: !!item.monofasico,
+     pendente_pgdas: !!item.pendentePGDAS,
+
+     arquivo: item.arquivo || null,
+     codigo: item.codigo || null,
+     gtin: item.gtin || null,
+     ex_tipi: item.ex || null,
+     cest: item.cest || null,
+    }))
+	const TAMANHO_LOTE = 500
+
+    for (let i = 0; i < itensBanco.length; i += TAMANHO_LOTE) {
+    const lote = itensBanco.slice(i, i + TAMANHO_LOTE)
+
+    const { error: erroItens } = await supabase
+    .from('diagnostico_monofasico_itens')
+    .insert(lote)
+
+    if (erroItens) {
+    await supabase
+      .from('diagnosticos_monofasicos')
+      .delete()
+      .eq('id', diagCriado.id)
+
+    throw erroItens
+    }
+  }
       await carregarHistorico()
       return true
     } catch (e) {
@@ -488,11 +537,76 @@ export default function AbaMonofasicos({ cliente, regime }) {
     await carregarHistorico()
   }
 
-  function abrirDiagnostico(diag) {
-	diagAbertoRef.current = diag
-    setDiagAberto(diag); setItens(diag.itens_json || [])
-    setPgdasResult(diag.pgdas_json || null); setAba('importar'); setPagina(1); setSelecionados([])
+  async function abrirDiagnostico(diag) {
+  try {
+    const todosItensBanco = []
+    const LOTE = 500
+    let inicio = 0
+    let terminou = false
+
+    while (!terminou) {
+      const { data, error } = await supabase
+        .from('diagnostico_monofasico_itens')
+        .select('*')
+        .eq('diagnostico_id', diag.id)
+        .order('ordem_item', { ascending: true })
+        .range(inicio, inicio + LOTE - 1)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        todosItensBanco.push(...data)
+      }
+
+      if (!data || data.length < LOTE) {
+        terminou = true
+      } else {
+        inicio += LOTE
+      }
+    }
+
+    const itensCompletos = todosItensBanco.length > 0
+      ? todosItensBanco.map(item => ({
+          nNF: item.nf || '-',
+          competencia: item.competencia || '',
+          emitente: item.emitente || '-',
+          descricao: item.descricao || '-',
+          ncm: item.ncm || '-',
+
+          vProd: parseFloat(item.valor_produto || 0),
+          vItemPIS: parseFloat(item.valor_pis || 0),
+          vItemCOFINS: parseFloat(item.valor_cofins || 0),
+          credito: parseFloat(item.credito || 0),
+
+          monofasico: !!item.monofasico,
+          pendentePGDAS: !!item.pendente_pgdas,
+
+          arquivo: item.arquivo || '',
+          codigo: item.codigo || '',
+          gtin: item.gtin || null,
+          ex: item.ex_tipi || null,
+          cest: item.cest || null,
+        }))
+      : (diag.itens_json || [])
+
+    const diagCompleto = {
+      ...diag,
+      itens_json: itensCompletos,
+    }
+
+    diagAbertoRef.current = diagCompleto
+    setDiagAberto(diagCompleto)
+    setItens(itensCompletos)
+
+    setPgdasResult(diag.pgdas_json || null)
+    setAba('importar')
+    setPagina(1)
+    setSelecionados([])
+
+  } catch (e) {
+    alert('Erro ao abrir diagnostico: ' + e.message)
   }
+}
 
   function limparDados() {
 	diagAbertoRef.current = null
