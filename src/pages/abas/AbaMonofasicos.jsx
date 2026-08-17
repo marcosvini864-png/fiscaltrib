@@ -176,6 +176,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [modalConfirmacao, setModalConfirmacao] = useState(false)
   const [modalNome, setModalNome] = useState(false)
   const inputRef = useRef(null)
+  const diagAbertoRef = useRef(null)
 
   const competenciasKey = [...new Set(
     itens.map(i => i.competencia).filter(Boolean)
@@ -249,9 +250,10 @@ export default function AbaMonofasicos({ cliente, regime }) {
   function gerarRelatorioPDF() {
     // ── v8.9.4 FIX: usa itens_json do diagAberto quando disponivel
     // evita race condition ao abrir diagnostico do historico
-    const itensParaPDF = (diagAberto?.itens_json && diagAberto.itens_json.length > 0)
-      ? diagAberto.itens_json
-      : itens
+    const diagRef = diagAbertoRef.current
+    const itensParaPDF = (diagRef?.itens_json && diagRef.itens_json.length > 0)
+    ? diagRef.itens_json
+    : itens
 
     if (!itensParaPDF.length) return
 
@@ -479,16 +481,21 @@ export default function AbaMonofasicos({ cliente, regime }) {
   async function excluirDiagnostico(id) {
     if (!window.confirm('Excluir este diagnostico?')) return
     await supabase.from('diagnosticos_monofasicos').delete().eq('id', id)
-    if (diagAberto?.id === id) { setDiagAberto(null); setItens([]); setProcessados([]) }
+    if (diagAbertoRef.current?.id === id || diagAberto?.id === id) {
+    diagAbertoRef.current = null
+    setDiagAberto(null); setItens([]); setProcessados([])
+   }
     await carregarHistorico()
   }
 
   function abrirDiagnostico(diag) {
+	diagAbertoRef.current = diag
     setDiagAberto(diag); setItens(diag.itens_json || [])
     setPgdasResult(diag.pgdas_json || null); setAba('importar'); setPagina(1); setSelecionados([])
   }
 
   function limparDados() {
+	diagAbertoRef.current = null
     setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
     setPagina(1); setBusca(''); setFiltro('todos')
@@ -550,6 +557,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   async function processarArquivos(listaArquivos) {
     if (!listaArquivos || listaArquivos.length === 0) return
+	diagAbertoRef.current = null
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
     for (const arq of listaArquivos) {
