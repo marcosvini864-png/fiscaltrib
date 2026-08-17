@@ -179,6 +179,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [modalConfirmacao, setModalConfirmacao] = useState(false)
   // ✅ NOVO: controle do modal de nome
   const [modalNome, setModalNome] = useState(false)
+  const [pgdasSupabase, setPgdasSupabase] = useState(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -523,9 +524,29 @@ export default function AbaMonofasicos({ cliente, regime }) {
     setProcessados(novosProcessados)
     setItens(todosItens)
     setPgdasResult(null)
+    setPgdasSupabase(null)
     setProcessando(false)
     setPagina(1)
     if (inputRef.current) inputRef.current.value = ''
+    // Busca PGDAS-D salvo no Supabase pela competencia das NF-es
+    if (regime === 'Simples Nacional' && cliente?.id && todosItens.length > 0) {
+      try {
+        const competencias = [...new Set(todosItens.map(i => i.competencia))].filter(Boolean)
+        if (competencias.length > 0) {
+          const { data: pgdasSalvos } = await supabase
+            .from('diagnosticos_pgdas')
+            .select('competencia, diferenca_recuperavel, receita_bruta_periodo, receita_monofasica, das_total_declarado')
+            .eq('cliente_id', cliente.id)
+            .in('competencia', competencias)
+          if (pgdasSalvos && pgdasSalvos.length > 0) {
+            const totalDiferenca = pgdasSalvos.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
+            setPgdasSupabase({ diferenca: totalDiferenca, registros: pgdasSalvos })
+          }
+        }
+      } catch (e) {
+        console.warn('Busca PGDAS Supabase falhou:', e.message)
+      }
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await upsertItensFiscais(todosItens, user?.id)
@@ -551,7 +572,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/porPagina))
   const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
   const totalMono    = itens.filter(i=>i.monofasico).length
-  const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||diagAberto?.credito_estimado||itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
+  const creditoTotal = regime==='Simples Nacional' ? (pgdasResult?.diferenca||pgdasSupabase?.diferenca||diagAberto?.credito_estimado||itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)) : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
   const receitaMono  = itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.vProd,0)
   const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*porPagina+i))
 
