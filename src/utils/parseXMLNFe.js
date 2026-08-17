@@ -10,7 +10,7 @@ export function parseXMLNFe(xmlString) {
   // Dados da nota
   const dhEmi = get(doc, 'dhEmi') || get(doc, 'dEmi')
   const data = new Date(dhEmi)
-  const competencia = dhEmi
+  const competencia = dhEmi ? `${String(data.getMonth()+1).padStart(2,'0')}/${data.getFullYear()}` : ''
     ? `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
     : null
 
