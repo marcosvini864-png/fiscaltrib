@@ -301,6 +301,10 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [upsertInfo, setUpsertInfo] = useState(null)
   const [modalConfirmacao, setModalConfirmacao] = useState(false)
   const [modalNome, setModalNome] = useState(false)
+  const [diagnosticoSalvoId, setDiagnosticoSalvoId] = useState(null)
+  const [memorias, setMemorias] = useState([])
+  const [loadingMemorias, setLoadingMemorias] = useState(false)
+  const [salvandoMemoria, setSalvandoMemoria] = useState(false)
   const inputRef = useRef(null)
   const diagAbertoRef = useRef(null)
 
@@ -315,7 +319,34 @@ export default function AbaMonofasicos({ cliente, regime }) {
     return () => document.head.removeChild(style)
   }, [])
 
-  useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
+  useEffect(() => {
+    if (cliente?.id) {
+    carregarHistorico()
+    carregarMemorias()
+    }
+    }, [cliente?.id])
+	
+	async function carregarMemorias() {
+  if (!cliente?.id) return
+
+  setLoadingMemorias(true)
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnostico_monofasico_memorias')
+      .select('*')
+      .eq('cliente_id', cliente.id)
+      .order('gerado_em', { ascending: false })
+
+    if (error) throw error
+
+    setMemorias(data || [])
+  } catch (e) {
+    console.error('Erro ao carregar memorias:', e)
+  } finally {
+    setLoadingMemorias(false)
+  }
+}
 
   useEffect(() => {
     if (regime !== 'Simples Nacional' || !cliente?.id || !competenciasKey) {
@@ -758,8 +789,11 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
     throw erroItens
     }
   }
-      await carregarHistorico()
-      return true
+    setDiagnosticoSalvoId(diagCriado.id)
+
+    await carregarHistorico()
+
+    return diagCriado.id
     } catch (e) {
       alert('Erro ao salvar: ' + e.message)
       return false
@@ -919,6 +953,7 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
 
     diagAbertoRef.current = diagCompleto
     setDiagAberto(diagCompleto)
+	setDiagnosticoSalvoId(diag.id)
     setItens(itensCompletos)
 
     setPgdasResult(diag.pgdas_json || null)
@@ -933,6 +968,7 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
 
   	function limparDados() {
   diagAbertoRef.current = null
+  setDiagnosticoSalvoId(null)
 
   setPgdasForm({
     receita_bruta_total: '',
@@ -1164,6 +1200,1164 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
     }
   }
 
+  function escHTML(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+
+function ordenarCompetencias(a, b) {
+  const ma = String(a || '').match(/^(\d{2})\/(\d{4})$/)
+  const mb = String(b || '').match(/^(\d{2})\/(\d{4})$/)
+
+  if (!ma || !mb) {
+    return String(a || '').localeCompare(String(b || ''))
+  }
+
+  const va = Number(ma[2]) * 100 + Number(ma[1])
+  const vb = Number(mb[2]) * 100 + Number(mb[1])
+
+  return va - vb
+}
+
+
+function criarSnapshotItens(lista) {
+  return lista.map((item, index) => ({
+    ordem: index + 1,
+
+    nNF: item.nNF || '',
+    numeroItemNFe: item.numeroItemNFe || null,
+    serieNFe: item.serieNFe || '',
+    chaveNFe: item.chaveNFe || '',
+
+    competencia: item.competencia || '',
+    dataEmissao: item.dataEmissao || '',
+
+    emitente: item.emitente || '',
+    emitenteCNPJ: item.emitenteCNPJ || '',
+    destinatarioCNPJ: item.destinatarioCNPJ || '',
+
+    codigo: item.codigo || '',
+    descricao: item.descricao || '',
+    ncm: item.ncm || '',
+    cest: item.cest || '',
+    cfop: item.cfop || '',
+
+    quantidade: Number(item.quantidade || 0),
+    vProd: Number(item.vProd || 0),
+
+    cstPIS: item.cstPIS || '',
+    basePIS: Number(item.basePIS || 0),
+    aliquotaPIS: Number(item.aliquotaPIS || 0),
+    vItemPIS: Number(item.vItemPIS || 0),
+
+    cstCOFINS: item.cstCOFINS || '',
+    baseCOFINS: Number(item.baseCOFINS || 0),
+    aliquotaCOFINS: Number(item.aliquotaCOFINS || 0),
+    vItemCOFINS: Number(item.vItemCOFINS || 0),
+
+    origemICMS: item.origemICMS || '',
+    cstICMS: item.cstICMS || '',
+    csosn: item.csosn || '',
+
+    baseICMS: Number(item.baseICMS || 0),
+    aliquotaICMS: Number(item.aliquotaICMS || 0),
+    valorICMS: Number(item.valorICMS || 0),
+
+    baseICMSST: Number(item.baseICMSST || 0),
+    aliquotaICMSST: Number(item.aliquotaICMSST || 0),
+    valorICMSST: Number(item.valorICMSST || 0),
+
+    cstIPI: item.cstIPI || '',
+    baseIPI: Number(item.baseIPI || 0),
+    aliquotaIPI: Number(item.aliquotaIPI || 0),
+    valorIPI: Number(item.valorIPI || 0),
+
+    monofasico: !!item.monofasico,
+
+    consideraReceita:
+      item.consideraReceita ?? true,
+
+    motivoNaoConsiderarReceita:
+      item.motivoNaoConsiderarReceita || '',
+
+    classificacaoRevisada:
+      item.classificacaoRevisada ?? false,
+
+    classificacaoOrigem:
+      item.classificacaoOrigem || 'xml',
+  }))
+  }
+
+
+  function imprimirVisaoAuditoria() {
+  if (!itensFiltrados.length) return
+
+  const lista = itensFiltrados.filter(i => !i.ghost)
+
+  const linhas = lista.map(item => `
+    <tr>
+      <td>${escHTML(item.nNF)}</td>
+      <td>${escHTML(item.numeroItemNFe || '')}</td>
+      <td>${escHTML(item.dataEmissao || '')}</td>
+      <td>${escHTML(item.cfop || '')}</td>
+      <td>${escHTML(item.ncm || '')}</td>
+
+      <td>${escHTML(item.cstPIS || '')}</td>
+      <td class="num">${fmtR(item.basePIS)}</td>
+      <td class="num">${Number(item.aliquotaPIS || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.vItemPIS)}</td>
+
+      <td>${escHTML(item.cstCOFINS || '')}</td>
+      <td class="num">${fmtR(item.baseCOFINS)}</td>
+      <td class="num">${Number(item.aliquotaCOFINS || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.vItemCOFINS)}</td>
+
+      <td>${escHTML(item.origemICMS || '')}</td>
+      <td>${escHTML(item.cstICMS || '')}</td>
+      <td>${escHTML(item.csosn || '')}</td>
+
+      <td class="num">${fmtR(item.baseICMS)}</td>
+      <td class="num">${Number(item.aliquotaICMS || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.valorICMS)}</td>
+
+      <td class="num">${fmtR(item.baseICMSST)}</td>
+      <td class="num">${Number(item.aliquotaICMSST || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.valorICMSST)}</td>
+
+      <td>${escHTML(item.cstIPI || '')}</td>
+      <td class="num">${fmtR(item.valorIPI)}</td>
+
+      <td>${item.monofasico ? 'MONOFASICO' : 'NAO MONOFASICO'}</td>
+    </tr>
+  `).join('')
+
+  const janela = window.open('', '_blank', 'width=1400,height=800')
+
+  if (!janela) {
+    alert('O navegador bloqueou a janela de impressao.')
+    return
+  }
+
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+
+      <title>Visao Auditoria NF-e</title>
+
+      <style>
+        @page {
+          size: A2 landscape;
+          margin: 8mm;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #0F172A;
+          margin: 0;
+          font-size: 8px;
+        }
+
+        .cabecalho {
+          border-bottom: 3px solid #0B1F4D;
+          padding-bottom: 8px;
+          margin-bottom: 10px;
+        }
+
+        h1 {
+          font-size: 16px;
+          color: #0B1F4D;
+          margin: 0 0 4px;
+        }
+
+        .meta {
+          font-size: 9px;
+          line-height: 1.5;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: auto;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        th {
+          background: #4B5563;
+          color: white;
+          padding: 4px;
+          border: 1px solid #64748B;
+          white-space: nowrap;
+          font-size: 8px;
+        }
+
+        td {
+          border: 1px solid #CBD5E1;
+          padding: 3px 4px;
+          white-space: nowrap;
+          font-size: 8px;
+        }
+
+        tr:nth-child(even) {
+          background: #F8FAFC;
+        }
+
+        .num {
+          text-align: right;
+        }
+
+        .rodape {
+          margin-top: 10px;
+          font-size: 8px;
+          color: #64748B;
+        }
+      </style>
+    </head>
+
+    <body>
+
+      <div class="cabecalho">
+        <h1>e-FiscalTribe® — Visao Auditoria NF-e</h1>
+
+        <div class="meta">
+          <strong>Cliente:</strong>
+          ${escHTML(cliente?.razao_social || '')}
+          <br>
+
+          <strong>CNPJ:</strong>
+          ${escHTML(cliente?.cnpj || '')}
+
+          &nbsp;&nbsp;
+
+          <strong>Regime:</strong>
+          ${escHTML(regime || '')}
+
+          <br>
+
+          <strong>Filtro impresso:</strong>
+          ${escHTML(filtro)}
+
+          &nbsp;&nbsp;
+
+          <strong>Itens:</strong>
+          ${lista.length}
+
+          &nbsp;&nbsp;
+
+          <strong>Gerado em:</strong>
+          ${new Date().toLocaleString('pt-BR')}
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>NF</th>
+            <th>Item</th>
+            <th>Data</th>
+            <th>CFOP</th>
+            <th>NCM</th>
+
+            <th>CST PIS</th>
+            <th>BC PIS</th>
+            <th>Aliq. PIS</th>
+            <th>PIS</th>
+
+            <th>CST COFINS</th>
+            <th>BC COFINS</th>
+            <th>Aliq. COFINS</th>
+            <th>COFINS</th>
+
+            <th>Orig.</th>
+            <th>CST ICMS</th>
+            <th>CSOSN</th>
+
+            <th>BC ICMS</th>
+            <th>Aliq. ICMS</th>
+            <th>ICMS</th>
+
+            <th>BC ST</th>
+            <th>Aliq. ST</th>
+            <th>ICMS-ST</th>
+
+            <th>CST IPI</th>
+            <th>IPI</th>
+
+            <th>Classificacao</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${linhas}
+        </tbody>
+      </table>
+
+      <div class="rodape">
+        Documento analitico gerado pelo e-FiscalTribe®.
+        A impressao considera todos os registros do filtro atual,
+        independentemente da paginacao exibida na tela.
+      </div>
+
+    </body>
+    </html>
+  `)
+
+  janela.document.close()
+  janela.focus()
+
+  setTimeout(() => {
+    janela.print()
+  }, 600)
+}
+
+
+async function gerarMemoriaCalculo() {
+  if (!itens.length) {
+    alert('Nao ha itens para gerar a memoria.')
+    return
+  }
+
+  const diagnosticoId =
+    diagAberto?.id ||
+    diagAbertoRef.current?.id ||
+    diagnosticoSalvoId
+
+  if (!diagnosticoId) {
+    alert(
+      'Primeiro salve o diagnostico. A memoria precisa ficar vinculada a um diagnostico salvo.'
+    )
+    return
+  }
+
+  setSalvandoMemoria(true)
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user?.id) {
+      throw new Error('Usuario nao autenticado.')
+    }
+
+    const periodos = [
+  ...new Set(
+    itens
+      .map(i => i.competencia)
+      .filter(Boolean)
+  ),
+].sort(ordenarCompetencias)
+
+
+// ============================================================
+// CONFERENCIA DAS COMPETENCIAS PGDAS-D
+// ============================================================
+
+const competenciasAnalisadas = periodos
+
+const registrosPGDAS =
+  Array.isArray(pgdasSupabase?.registros)
+    ? pgdasSupabase.registros
+    : []
+
+let competenciasPGDAS = [
+  ...new Set(
+    registrosPGDAS
+      .map(p => p.competencia)
+      .filter(Boolean)
+  ),
+].sort(ordenarCompetencias)
+
+
+// Se o PGDAS foi informado manualmente na tela,
+// so podemos associa-lo automaticamente quando existe
+// uma unica competencia na analise.
+if (
+  pgdasResult &&
+  competenciasAnalisadas.length === 1 &&
+  !competenciasPGDAS.includes(competenciasAnalisadas[0])
+) {
+  competenciasPGDAS = [
+    ...competenciasPGDAS,
+    competenciasAnalisadas[0],
+  ]
+}
+
+
+const competenciasPendentes =
+  competenciasAnalisadas.filter(
+    competencia =>
+      !competenciasPGDAS.includes(competencia)
+  )
+
+
+const pgdasConciliacaoCompleta =
+  competenciasAnalisadas.length > 0 &&
+  competenciasPendentes.length === 0
+
+
+const valorPGDASVinculado =
+  pgdasResult
+    ? Number(pgdasResult.diferenca || 0)
+    : registrosPGDAS.reduce(
+        (total, p) =>
+          total +
+          Number(p.diferenca_recuperavel || 0),
+        0
+      )
+
+
+const itensSnapshot =
+  criarSnapshotItens(itens)
+
+    const itensMono =
+      itens.filter(i => i.monofasico)
+
+    const receitaTotal =
+      itens.reduce(
+        (s, i) => s + Number(i.vProd || 0),
+        0
+      )
+
+    const receitaMonofasica =
+      itensMono.reduce(
+        (s, i) => s + Number(i.vProd || 0),
+        0
+      )
+
+    const pisItensMono =
+      itensMono.reduce(
+        (s, i) => s + Number(i.vItemPIS || 0),
+        0
+      )
+
+    const cofinsItensMono =
+      itensMono.reduce(
+        (s, i) => s + Number(i.vItemCOFINS || 0),
+        0
+      )
+
+    const qtdNotas =
+      new Set(
+        itens.map(i =>
+          i.chaveNFe ||
+          `${i.emitenteCNPJ || ''}-${i.nNF || ''}`
+        )
+      ).size
+
+    const resumo = {
+      qtd_notas: qtdNotas,
+
+      total_itens: itens.length,
+
+      total_monofasicos:
+        itensMono.length,
+
+      receita_total:
+        receitaTotal,
+
+      receita_monofasica:
+        receitaMonofasica,
+
+      pis_documentos_itens_monofasicos:
+        pisItensMono,
+
+      cofins_documentos_itens_monofasicos:
+        cofinsItensMono,
+
+      potencial_exibido_tela:
+        Number(creditoTotal || 0),
+
+      credito_final_consolidado:
+        false,
+
+      pgdas_vinculado:
+  competenciasPGDAS.length > 0,
+
+fonte_pgdas:
+  pgdasResult
+    ? 'calculo_tela'
+    : registrosPGDAS.length > 0
+      ? 'diagnosticos_pgdas'
+      : 'nao_vinculado',
+
+competencias_analisadas:
+  competenciasAnalisadas,
+
+competencias_pgdas_encontradas:
+  competenciasPGDAS,
+
+competencias_pgdas_pendentes:
+  competenciasPendentes,
+
+pgdas_conciliacao_completa:
+  pgdasConciliacaoCompleta,
+
+valor_pgdas_vinculado:
+  valorPGDASVinculado,
+
+potencial_pgdas_conciliado:
+  pgdasConciliacaoCompleta
+    ? valorPGDASVinculado
+    : null,
+
+credito_consolidado:
+  null,
+
+filtro_no_momento_da_geracao:
+  filtro,
+
+      observacao:
+        'Snapshot tecnico da auditoria. O valor definitivo do credito devera ser consolidado no modulo Apuracao do Simples antes da emissao de memoria final.',
+    }
+
+    const payload = {
+      diagnostico_id:
+        diagnosticoId,
+
+      usuario_id:
+        user.id,
+
+      cliente_id:
+        cliente.id,
+
+      cliente_nome:
+        cliente.razao_social || '',
+
+      cliente_cnpj:
+        cliente.cnpj || '',
+
+      titulo:
+        'Memoria de Calculo — PIS/COFINS Monofasico',
+
+      periodo_inicio:
+        periodos[0] || null,
+
+      periodo_fim:
+        periodos[periodos.length - 1] || null,
+
+      versao_motor:
+        'monofasicos-v1',
+
+      status:
+        'preliminar',
+
+      total_itens:
+        itens.length,
+
+      total_monofasicos:
+        itensMono.length,
+
+      receita_total:
+        receitaTotal,
+
+      receita_monofasica:
+        receitaMonofasica,
+
+      /*
+       * Importante:
+       * preserva o valor que estava exibido na analise,
+       * mas a memoria continua marcada como PRELIMINAR.
+       */
+      credito_estimado:
+        Number(creditoTotal || 0),
+
+      pgdas_json:
+        pgdasResult ||
+        pgdasSupabase ||
+        null,
+
+      resumo_json:
+        resumo,
+
+      itens_json:
+        itensSnapshot,
+
+      gerado_em:
+        new Date().toISOString(),
+    }
+
+    const {
+      data: memoriaCriada,
+      error,
+    } = await supabase
+      .from('diagnostico_monofasico_memorias')
+      .insert([payload])
+      .select('*')
+      .single()
+
+    if (error) throw error
+
+    await carregarMemorias()
+
+    setAba('memorias')
+
+    alert(
+      `Memoria salva com sucesso.\n\nID: ${memoriaCriada.id}\nItens registrados: ${itens.length}`
+    )
+  } catch (e) {
+    alert(
+      'Erro ao gerar memoria: ' +
+      e.message
+    )
+  } finally {
+    setSalvandoMemoria(false)
+  }
+}
+
+
+function imprimirMemoria(memoria) {
+  if (!memoria) return
+
+  const lista =
+    Array.isArray(memoria.itens_json)
+      ? memoria.itens_json
+      : []
+
+  const resumo =
+    memoria.resumo_json || {}
+	
+  const competenciasAnalisadas =
+   resumo.competencias_analisadas || []
+
+  const competenciasPGDAS =
+   resumo.competencias_pgdas_encontradas || []
+
+  const competenciasPendentes =
+   resumo.competencias_pgdas_pendentes || []
+
+ const conciliacaoCompleta =
+   resumo.pgdas_conciliacao_completa === true
+
+  const linhas = lista.map(item => `
+    <tr>
+      <td>${escHTML(item.nNF)}</td>
+      <td>${escHTML(item.dataEmissao)}</td>
+      <td>${escHTML(item.numeroItemNFe || '')}</td>
+
+      <td class="desc">
+        ${escHTML(item.descricao)}
+      </td>
+
+      <td>${escHTML(item.ncm)}</td>
+      <td>${escHTML(item.cfop)}</td>
+
+      <td>${escHTML(item.cstPIS)}</td>
+      <td class="num">${fmtR(item.basePIS)}</td>
+      <td class="num">${Number(item.aliquotaPIS || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.vItemPIS)}</td>
+
+      <td>${escHTML(item.cstCOFINS)}</td>
+      <td class="num">${fmtR(item.baseCOFINS)}</td>
+      <td class="num">${Number(item.aliquotaCOFINS || 0).toLocaleString('pt-BR')}%</td>
+      <td class="num">${fmtR(item.vItemCOFINS)}</td>
+
+      <td>
+        ${item.monofasico ? 'SIM' : 'NAO'}
+      </td>
+
+      <td>
+        ${item.consideraReceita ? 'SIM' : 'NAO'}
+      </td>
+    </tr>
+  `).join('')
+
+  const janela =
+    window.open(
+      '',
+      '_blank',
+      'width=1300,height=800'
+    )
+
+  if (!janela) {
+    alert(
+      'O navegador bloqueou a janela de impressao.'
+    )
+    return
+  }
+
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+
+    <head>
+      <meta charset="UTF-8">
+
+      <title>
+        Memoria de Calculo - ${escHTML(memoria.cliente_nome || '')}
+      </title>
+
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 9mm;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 9px;
+          color: #0F172A;
+          margin: 0;
+        }
+
+        h1 {
+          color: #0B1F4D;
+          font-size: 17px;
+          margin: 0;
+        }
+
+        h2 {
+          color: #0B1F4D;
+          font-size: 11px;
+          border-bottom: 1px solid #CBD5E1;
+          padding-bottom: 4px;
+          margin: 18px 0 8px;
+        }
+
+        .header {
+          border-bottom: 3px solid #0B1F4D;
+          padding-bottom: 10px;
+        }
+
+        .sub {
+          color: #64748B;
+          margin-top: 3px;
+        }
+
+        .alerta {
+          margin-top: 12px;
+          padding: 8px 10px;
+          background: #FFF7ED;
+          border: 1px solid #FED7AA;
+          border-radius: 5px;
+          color: #9A3412;
+          line-height: 1.4;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns:
+            repeat(4, 1fr);
+          gap: 7px;
+        }
+
+        .card {
+          border: 1px solid #E2E8F0;
+          border-radius: 5px;
+          padding: 8px;
+        }
+
+        .card .label {
+          color: #64748B;
+          font-size: 8px;
+        }
+
+        .card .valor {
+          color: #0B1F4D;
+          font-size: 12px;
+          font-weight: bold;
+          margin-top: 3px;
+        }
+
+        .info {
+          line-height: 1.7;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 7px;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        th {
+          background: #4B5563;
+          color: white;
+          border: 1px solid #64748B;
+          padding: 4px;
+          white-space: nowrap;
+        }
+
+        td {
+          border: 1px solid #CBD5E1;
+          padding: 3px 4px;
+          white-space: nowrap;
+        }
+
+        .desc {
+          max-width: 170px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .num {
+          text-align: right;
+        }
+
+        .rastreio {
+          margin-top: 15px;
+          padding: 8px;
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
+          font-family: monospace;
+          font-size: 7px;
+          line-height: 1.5;
+        }
+
+        .rodape {
+          margin-top: 14px;
+          border-top: 1px solid #E2E8F0;
+          padding-top: 7px;
+          color: #64748B;
+        }
+      </style>
+    </head>
+
+    <body>
+
+      <div class="header">
+        <h1>
+          e-FiscalTribe® — Memoria de Calculo
+        </h1>
+
+        <div class="sub">
+          PIS/COFINS Monofasico —
+          Evidencia tecnica da auditoria fiscal
+        </div>
+      </div>
+
+      <div class="alerta">
+        <strong>Status:</strong>
+        ${escHTML(memoria.status || 'preliminar').toUpperCase()}.
+        Esta memoria preserva o estado da auditoria na data de sua geracao.
+        O credito definitivo somente deve ser tratado como consolidado
+        apos a conclusao da Apuracao do Simples e da conciliacao com o PGDAS-D.
+      </div>
+
+      <h2>1. Identificacao</h2>
+
+      <div class="info">
+        <strong>Cliente:</strong>
+        ${escHTML(memoria.cliente_nome || '')}
+        <br>
+
+        <strong>CNPJ:</strong>
+        ${escHTML(memoria.cliente_cnpj || '')}
+        <br>
+
+        <strong>Periodo:</strong>
+        ${escHTML(memoria.periodo_inicio || '')}
+        a
+        ${escHTML(memoria.periodo_fim || '')}
+        <br>
+
+        <strong>Gerado em:</strong>
+        ${fmtData(memoria.gerado_em)}
+      </div>
+
+      <h2>2. Resumo da Auditoria</h2>
+
+      <div class="grid">
+
+        <div class="card">
+          <div class="label">
+            NF-es analisadas
+          </div>
+
+          <div class="valor">
+            ${Number(resumo.qtd_notas || 0)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            Total de itens
+          </div>
+
+          <div class="valor">
+            ${Number(memoria.total_itens || 0)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            Itens monofasicos
+          </div>
+
+          <div class="valor">
+            ${Number(memoria.total_monofasicos || 0)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            Receita total analisada
+          </div>
+
+          <div class="valor">
+            ${fmtR(memoria.receita_total)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            Receita monofasica
+          </div>
+
+          <div class="valor">
+            ${fmtR(memoria.receita_monofasica)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            PIS nos itens monofasicos
+          </div>
+
+          <div class="valor">
+            ${fmtR(
+              resumo.pis_documentos_itens_monofasicos
+            )}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            COFINS nos itens monofasicos
+          </div>
+
+          <div class="valor">
+            ${fmtR(
+              resumo.cofins_documentos_itens_monofasicos
+            )}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">
+            Potencial exibido na analise
+          </div>
+
+          <div class="valor">
+            ${fmtR(memoria.credito_estimado)}
+          </div>
+        </div>
+
+      </div>
+
+      <h2>
+      3. Conciliacao com PGDAS-D
+     </h2>
+
+      <div class="info">
+
+    <strong>Competencias analisadas:</strong>
+    ${
+    competenciasAnalisadas.length
+      ? competenciasAnalisadas
+          .map(escHTML)
+          .join(', ')
+      : '—'
+    }
+
+   <br>
+
+    <strong>PGDAS-D encontrados:</strong>
+    ${
+    competenciasPGDAS.length
+      ? competenciasPGDAS
+          .map(escHTML)
+          .join(', ')
+      : 'Nenhum'
+    }
+
+    <br>
+
+    <strong>Competencias pendentes:</strong>
+    ${
+    competenciasPendentes.length
+      ? competenciasPendentes
+          .map(escHTML)
+          .join(', ')
+      : 'Nenhuma'
+    }
+
+    <br>
+
+   <strong>Valor identificado nos PGDAS-D vinculados:</strong>
+   ${fmtR(resumo.valor_pgdas_vinculado || 0)}
+
+   </div>
+
+
+   <div
+   style="
+    margin-top:10px;
+    padding:10px 12px;
+    border-radius:5px;
+    border:1px solid ${
+      conciliacaoCompleta
+        ? '#86EFAC'
+        : '#FED7AA'
+    };
+    background:${
+      conciliacaoCompleta
+        ? '#F0FDF4'
+        : '#FFF7ED'
+    };
+    color:${
+      conciliacaoCompleta
+        ? '#166534'
+        : '#9A3412'
+    };
+    font-size:10px;
+    font-weight:bold;
+    "
+    >
+
+    ${
+  conciliacaoCompleta
+    ? `CONCILIACAO PGDAS-D COMPLETA.
+       Potencial identificado nesta etapa: ${fmtR(
+         resumo.valor_pgdas_vinculado || 0
+       )}.
+       O credito definitivo permanece pendente da Apuracao do Simples.`
+    : `CONCILIACAO PGDAS-D PENDENTE.
+       Existem ${competenciasPendentes.length}
+       competencia(s) sem PGDAS-D vinculado.
+       O credito definitivo ainda nao esta consolidado.`
+    }}
+
+      </div>
+	  
+	  <h2>
+        4. Demonstrativo Analitico
+      </h2>
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>NF</th>
+            <th>Data</th>
+            <th>Item</th>
+            <th>Produto</th>
+            <th>NCM</th>
+            <th>CFOP</th>
+
+            <th>CST PIS</th>
+            <th>BC PIS</th>
+            <th>Aliq. PIS</th>
+            <th>PIS</th>
+
+            <th>CST COFINS</th>
+            <th>BC COFINS</th>
+            <th>Aliq. COFINS</th>
+            <th>COFINS</th>
+
+            <th>Mono</th>
+            <th>Receita</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${linhas}
+        </tbody>
+
+      </table>
+
+      <h2>
+        5. Rastreabilidade
+      </h2>
+
+      <div class="rastreio">
+        MEMORIA_ID:
+        ${escHTML(memoria.id)}
+        <br>
+
+        DIAGNOSTICO_ID:
+        ${escHTML(memoria.diagnostico_id)}
+        <br>
+
+        VERSAO_MOTOR:
+        ${escHTML(memoria.versao_motor)}
+        <br>
+
+        PGDAS_VINCULADO:
+        ${resumo.pgdas_vinculado ? 'SIM' : 'NAO'}
+        <br>
+
+        FONTE_PGDAS:
+        ${escHTML(resumo.fonte_pgdas || '')}
+        <br>
+
+        GERADO_EM:
+        ${escHTML(memoria.gerado_em || '')}
+      </div>
+
+      <div class="rodape">
+        e-FiscalTribe® —
+        Documento tecnico de suporte a auditoria tributaria.
+      </div>
+
+    </body>
+    </html>
+  `)
+
+  janela.document.close()
+  janela.focus()
+
+  setTimeout(() => {
+    janela.print()
+  }, 600)
+}
+
+
+async function excluirMemoria(id) {
+  if (
+    !window.confirm(
+      'Excluir esta memoria de calculo?'
+    )
+  ) {
+    return
+  }
+
+  try {
+    const { error } = await supabase
+      .from('diagnostico_monofasico_memorias')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    await carregarMemorias()
+  } catch (e) {
+    alert(
+      'Erro ao excluir memoria: ' +
+      e.message
+    )
+  }
+}
   function calcularPGDAS() {
     const rb = parseFloat(pgdasForm.receita_bruta_total||0), rm = parseFloat(pgdasForm.receita_monofasica||0)
     const rst = parseFloat(pgdasForm.receita_st||0), das = parseFloat(pgdasForm.das_recolhido||0)
@@ -1235,7 +2429,24 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
           {temResultado && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={gerarRelatorioPDF} style={{ padding: '7px 14px', background: S.navy, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Imprimir PDF</button>
-              <button onClick={exportarCSV} style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exportar CSV</button>
+              {visaoTabela === 'auditoria' && (
+              <button
+          onClick={imprimirVisaoAuditoria}
+          style={{
+          padding:'7px 14px',
+          background:'#7c3aed',
+          color:S.white,
+          border:'none',
+          borderRadius:7,
+          fontSize:12,
+          fontWeight:600,
+          cursor:'pointer'
+           }}
+          >
+         Imprimir Auditoria
+              </button>
+           )}
+			  <button onClick={exportarCSV} style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exportar CSV</button>
               <button onClick={novaAnalise} style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>Limpar</button>
             </div>
           )}
@@ -1264,7 +2475,20 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
       )}
 
       <div style={{ display: 'flex', borderBottom: `2px solid ${S.border}`, marginBottom: 20 }}>
-        {[{ id:'importar', label:'Importar' }, { id:'historico', label:`Historico (${historico.length})` }].map(a => (
+        {[
+        {
+        id:'importar',
+        label:'Importar'
+        },
+        {
+        id:'historico',
+        label:`Historico (${historico.length})`
+        },
+        {
+      id:'memorias',
+      label:`Memorias (${memorias.length})`
+      }
+      ].map(a => (
           <button key={a.id} onClick={() => setAba(a.id)}
             style={{ padding:'10px 20px', fontSize:13, fontWeight:aba===a.id?700:400, color:aba===a.id?S.navy:S.muted, background:'none', border:'none', borderBottom:`2px solid ${aba===a.id?S.navy:'transparent'}`, marginBottom:-2, cursor:'pointer' }}>
             {a.label}
@@ -1530,12 +2754,35 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
 
           {temResultado && (
             <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
-              {!diagAberto && (
+              {!diagAberto && !diagnosticoSalvoId && (
                 <button onClick={() => setModalNome(true)} disabled={salvando}
                   style={{ padding:'9px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:salvando?'not-allowed':'pointer', opacity:salvando?0.7:1 }}>
                   {salvando?'Salvando...':'Salvar Diagnostico'}
                 </button>
               )}
+			  {(diagAberto || diagnosticoSalvoId) && (
+                <button
+             onClick={gerarMemoriaCalculo}
+             disabled={salvandoMemoria}
+             style={{
+             padding:'9px 20px',
+             background:'#7c3aed',
+             color:S.white,
+             border:'none',
+             borderRadius:6,
+             fontSize:13,
+             fontWeight:600,
+             cursor:salvandoMemoria
+             ? 'not-allowed'
+             : 'pointer',
+             opacity:salvandoMemoria ? 0.7 : 1
+            }}
+           >
+            {salvandoMemoria
+            ? 'Gerando memoria...'
+            : 'Gerar Memoria de Calculo'}
+              </button>
+           )}
               <button onClick={novaAnalise} style={{ padding:'9px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Nova analise</button>
             </div>
           )}
@@ -1614,7 +2861,328 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
             </div>
           )}
         </div>
-      )}
+		)}
+		{aba === 'memorias' && (
+  <div
+    style={{
+      background:S.white,
+      borderRadius:10,
+      border:`1px solid ${S.border}`,
+      overflow:'hidden'
+    }}
+  >
+
+    <div
+      style={{
+        padding:'12px 16px',
+        borderBottom:`1px solid ${S.border}`,
+        display:'flex',
+        justifyContent:'space-between',
+        alignItems:'center'
+      }}
+    >
+
+      <div>
+        <div
+          style={{
+            fontSize:14,
+            fontWeight:700,
+            color:S.navy
+          }}
+        >
+          Memorias de Calculo
+        </div>
+
+        <div
+          style={{
+            fontSize:11,
+            color:S.muted,
+            marginTop:2
+          }}
+        >
+          Snapshots tecnicos preservados para rastreabilidade da auditoria.
+        </div>
+      </div>
+
+      <button
+        onClick={carregarMemorias}
+        style={{
+          padding:'6px 12px',
+          background:'none',
+          border:`1px solid ${S.border}`,
+          borderRadius:6,
+          fontSize:12,
+          cursor:'pointer',
+          color:S.muted
+        }}
+      >
+        Atualizar
+      </button>
+
+    </div>
+
+    {loadingMemorias ? (
+
+      <div
+        style={{
+          padding:30,
+          textAlign:'center',
+          color:S.muted
+        }}
+      >
+        Carregando memorias...
+      </div>
+
+    ) : memorias.length === 0 ? (
+
+      <div
+        style={{
+          padding:40,
+          textAlign:'center'
+        }}
+      >
+
+        <div
+          style={{
+            fontSize:32,
+            marginBottom:10
+          }}
+        >
+          📑
+        </div>
+
+        <div
+          style={{
+            fontSize:14,
+            fontWeight:600
+          }}
+        >
+          Nenhuma memoria salva
+        </div>
+
+        <div
+          style={{
+            fontSize:12,
+            color:S.muted,
+            marginTop:5
+          }}
+        >
+          Salve um diagnostico e gere a memoria de calculo.
+        </div>
+
+      </div>
+
+    ) : (
+
+      <div style={{ overflowX:'auto' }}>
+
+        <table
+          style={{
+            width:'100%',
+            borderCollapse:'collapse',
+            fontSize:12
+          }}
+        >
+
+          <thead>
+            <tr
+              style={{
+                background:S.thBg
+              }}
+            >
+
+              {[
+                'Gerada em',
+                'Periodo',
+                'Itens',
+                'Monofasicos',
+                'Receita Total',
+                'Receita Mono',
+                'Potencial',
+                'Status',
+                'Acoes'
+              ].map(h => (
+
+                <th
+                  key={h}
+                  style={{
+                    padding:'8px 10px',
+                    textAlign:'left',
+                    color:S.thText,
+                    fontWeight:600,
+                    whiteSpace:'nowrap'
+                  }}
+                >
+                  {h}
+                </th>
+
+              ))}
+
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {memorias.map((memoria, i) => (
+
+              <tr
+                key={memoria.id}
+                style={{
+                  borderBottom:
+                    `1px solid ${S.border}`,
+                  background:
+                    i % 2 === 0
+                      ? S.white
+                      : '#FAFAFA'
+                }}
+              >
+
+                <td
+                  style={{
+                    padding:'8px 10px',
+                    whiteSpace:'nowrap'
+                  }}
+                >
+                  {fmtData(memoria.gerado_em)}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+                  {memoria.periodo_inicio || '—'}
+
+                  {memoria.periodo_fim &&
+                   memoria.periodo_fim !== memoria.periodo_inicio
+                    ? ` a ${memoria.periodo_fim}`
+                    : ''}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+                  {memoria.total_itens || 0}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px',
+                    color:S.orange,
+                    fontWeight:700
+                  }}
+                >
+                  {memoria.total_monofasicos || 0}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+                  {fmtR(memoria.receita_total)}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+                  {fmtR(memoria.receita_monofasica)}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px',
+                    color:S.green,
+                    fontWeight:700
+                  }}
+                >
+                  {fmtR(memoria.credito_estimado)}
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+                  <Badge
+                    tipo={
+                      memoria.status === 'final'
+                        ? 'concluido'
+                        : 'pendente'
+                    }
+                  />
+                </td>
+
+                <td
+                  style={{
+                    padding:'8px 10px'
+                  }}
+                >
+
+                  <div
+                    style={{
+                      display:'flex',
+                      gap:5
+                    }}
+                  >
+
+                    <button
+                      onClick={() =>
+                        imprimirMemoria(memoria)
+                      }
+                      style={{
+                        padding:'4px 10px',
+                        background:S.navy,
+                        color:S.white,
+                        border:'none',
+                        borderRadius:4,
+                        fontSize:11,
+                        fontWeight:600,
+                        cursor:'pointer'
+                      }}
+                    >
+                      Imprimir
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        excluirMemoria(memoria.id)
+                      }
+                      style={{
+                        padding:'4px 10px',
+                        background:'#fef2f2',
+                        color:S.red,
+                        border:'1px solid #fecaca',
+                        borderRadius:4,
+                        fontSize:11,
+                        cursor:'pointer'
+                      }}
+                    >
+                      Excluir
+                    </button>
+
+                  </div>
+
+                </td>
+
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    )}
+
+  </div>
+   )}
     </div>
   )
 }
