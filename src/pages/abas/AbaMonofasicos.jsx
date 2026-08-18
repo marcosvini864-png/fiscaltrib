@@ -1610,14 +1610,14 @@ const pgdasConciliacaoCompleta =
 
 
 const valorPGDASVinculado =
-  pgdasResult
-    ? Number(pgdasResult.diferenca || 0)
-    : registrosPGDAS.reduce(
+  registrosPGDAS.length > 0
+    ? registrosPGDAS.reduce(
         (total, p) =>
           total +
           Number(p.diferenca_recuperavel || 0),
         0
       )
+    : Number(pgdasResult?.diferenca || 0)
 
 
 const itensSnapshot =
@@ -1912,7 +1912,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
         body {
           font-family: Arial, sans-serif;
-          font-size: 9px;
+          font-size: 10px;
           color: #0F172A;
           margin: 0;
         }
@@ -1966,7 +1966,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
         .card .label {
           color: #64748B;
-          font-size: 8px;
+          font-size: 10px;
         }
 
         .card .valor {
@@ -1983,7 +1983,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 7px;
+          font-size: 10px;
         }
 
         thead {
@@ -2020,7 +2020,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
           background: #F8FAFC;
           border: 1px solid #E2E8F0;
           font-family: monospace;
-          font-size: 7px;
+          font-size: 10px;
           line-height: 1.5;
         }
 
@@ -2030,10 +2030,48 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
           padding-top: 7px;
           color: #64748B;
         }
+		
+		.toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 0;
+        background: #FFFFFF;
+        }
+
+      .btn-imprimir {
+      background: #0B1F4D;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+     }
+
+    @media print {
+    .toolbar {
+    display: none !important;
+    }
+    }
+
       </style>
     </head>
 
     <body>
+	
+	<div class="toolbar">
+  <button
+    class="btn-imprimir"
+    onclick="window.print()"
+  >
+    Imprimir Memoria
+  </button>
+</div>
 
       <div class="header">
         <h1>
@@ -2155,7 +2193,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
         <div class="card">
           <div class="label">
-            Potencial exibido na analise
+            Potencial preliminar identificado
           </div>
 
           <div class="valor">
@@ -2999,7 +3037,7 @@ async function excluirMemoria(id) {
                 'Monofasicos',
                 'Receita Total',
                 'Receita Mono',
-                'Potencial',
+                'Potencial preliminar',
                 'Status',
                 'Acoes'
               ].map(h => (
