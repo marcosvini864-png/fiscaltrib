@@ -1213,6 +1213,64 @@ export default function AbaPGDAS({ cliente, regime }) {
           gap: 12,
         }}
       >
+	  <style>{`
+  @keyframes pgdasSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pgdasProgress {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(320%); }
+  }
+
+  .pgdas-spinner {
+    display: inline-block;
+    animation: pgdasSpin 1s linear infinite;
+  }
+
+  .pgdas-progress-track {
+    width: 100%;
+    height: 4px;
+    margin-top: 8px;
+    background: #E2E8F0;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .pgdas-progress-bar {
+    width: 35%;
+    height: 100%;
+    background: #2563EB;
+    border-radius: 999px;
+    animation: pgdasProgress 1.2s ease-in-out infinite;
+  }
+
+  .tabela-pgdas-atividades th,
+  .tabela-pgdas-atividades td {
+    border-right: 1px solid #E2E8F0;
+  }
+
+  .tabela-pgdas-atividades th:last-child,
+  .tabela-pgdas-atividades td:last-child {
+    border-right: none;
+  }
+
+  .tabela-pgdas-atividades tbody tr {
+    transition: background-color 0.12s ease;
+  }
+
+  .tabela-pgdas-atividades tbody tr:hover {
+    background: #F8FAFC;
+  }
+
+  .tabela-pgdas-atividades thead th:nth-child(4),
+  .tabela-pgdas-atividades tbody td:nth-child(4),
+  .tabela-pgdas-atividades thead th:nth-child(n+6),
+  .tabela-pgdas-atividades tbody td:nth-child(n+6) {
+    text-align: right;
+  }
+`}</style>
         <div>
           <div
             style={{
@@ -1288,28 +1346,50 @@ export default function AbaPGDAS({ cliente, regime }) {
           />
 
           <button
-            onClick={() => inputImportRef.current?.click()}
-            disabled={importando || !!diagAberto}
-            style={{
-              width: '100%',
-              padding: '8px 0',
-              background:
-                importando || diagAberto ? '#CBD5E1' : '#4B5563',
-              color: S.white,
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor:
-                importando || diagAberto
-                  ? 'not-allowed'
-                  : 'pointer',
-            }}
-          >
-            {importando
-              ? '⏳ Extraindo declaracao...'
-              : '⬆ Importar e Preencher'}
-          </button>
+  onClick={() => inputImportRef.current?.click()}
+  disabled={importando || !!diagAberto}
+  style={{
+    width: '100%',
+    padding: '8px 0',
+    background:
+      importando || diagAberto ? '#CBD5E1' : '#4B5563',
+    color:
+      importando || diagAberto ? '#0F172A' : S.white,
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor:
+      importando || diagAberto
+        ? 'not-allowed'
+        : 'pointer',
+  }}
+>
+  {importando ? (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 7,
+      }}
+    >
+      <span className="pgdas-spinner">⏳</span>
+      Extraindo declaracao...
+    </span>
+  ) : (
+    '⬆ Importar e Preencher'
+  )}
+</button>
+
+{importando && (
+  <div
+    className="pgdas-progress-track"
+    aria-label="Processando PGDAS-D"
+  >
+    <div className="pgdas-progress-bar" />
+  </div>
+)}
         </div>
       </div>
 
@@ -1834,13 +1914,14 @@ export default function AbaPGDAS({ cliente, regime }) {
                       }}
                     >
                       <table
-                        style={{
-                          width: '100%',
-                          borderCollapse: 'collapse',
-                          fontSize: 11,
-                          minWidth: 1100,
-                        }}
-                      >
+                     className="tabela-pgdas-atividades"
+                     style={{
+                     width: '100%',
+                     borderCollapse: 'collapse',
+                    fontSize: 11,
+                    minWidth: 1100,
+                    }}
+                    >
                         <thead>
                           <tr style={{ background: S.thBg }}>
                             {[
@@ -1862,12 +1943,13 @@ export default function AbaPGDAS({ cliente, regime }) {
                               <th
                                 key={h}
                                 style={{
-                                  color: S.thText,
-                                  textAlign: 'left',
-                                  padding: '8px 9px',
-                                  fontWeight: 600,
-                                  whiteSpace: 'nowrap',
-                                }}
+                             color: S.thText,
+                             textAlign: 'left',
+                             padding: '8px 9px',
+                             fontWeight: 600,
+                             whiteSpace: 'nowrap',
+                             borderRight: '1px solid #64748B',
+                             }}
                               >
                                 {h}
                               </th>

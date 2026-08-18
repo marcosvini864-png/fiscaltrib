@@ -14,6 +14,43 @@ import AnalisadorIA from '../../AnalisadorIA'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
+function normalizarCompetencia(valor) {
+  if (!valor) return null
+
+  const s = String(valor).trim()
+
+  // 01/05/2026 a 31/05/2026 ou 01/05/2026
+  let m = s.match(/\b\d{1,2}\/(\d{1,2})\/(\d{4})\b/)
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`
+  }
+
+  // 05/2026
+  m = s.match(/\b(\d{1,2})\/(\d{4})\b/)
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`
+  }
+
+  // 05-2026
+  m = s.match(/\b(\d{1,2})-(\d{4})\b/)
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`
+  }
+
+  // 2026-05 ou 2026-05-01
+  m = s.match(/\b(\d{4})-(\d{1,2})(?:-\d{1,2})?\b/)
+  if (m) {
+    return `${String(m[2]).padStart(2, '0')}/${m[1]}`
+  }
+
+  // 202605
+  m = s.match(/\b(\d{4})(0[1-9]|1[0-2])\b/)
+  if (m) {
+    return `${m[2]}/${m[1]}`
+  }
+
+  return s
+}
 const FORMATOS = '.xml'
 
 const NCM_PREFIXOS = [
@@ -314,7 +351,44 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   useEffect(() => {
     const style = document.createElement('style')
-    style.textContent = `@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`
+    style.textContent = `
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes monoSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes monoProgress {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(320%); }
+  }
+
+  .mono-spinner {
+    display: inline-block;
+    animation: monoSpin 1s linear infinite;
+  }
+
+  .mono-progress-track {
+    width: 75%;
+    height: 4px;
+    margin: 8px auto 0;
+    background: #E2E8F0;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .mono-progress-bar {
+    width: 35%;
+    height: 100%;
+    background: #2563EB;
+    border-radius: 999px;
+    animation: monoProgress 1.2s ease-in-out infinite;
+  }
+`
     document.head.appendChild(style)
     return () => document.head.removeChild(style)
   }, [])
@@ -353,22 +427,45 @@ export default function AbaMonofasicos({ cliente, regime }) {
       setPgdasSupabase(null)
       return
     }
-    const competencias = competenciasKey.split(',').filter(Boolean)
-    supabase
-      .from('diagnosticos_pgdas')
-      .select('competencia, diferenca_recuperavel, receita_bruta_total, receita_monofasica')
-      .eq('cliente_id', cliente.id)
-      .in('competencia', competencias)
-      .then(({ data, error }) => {
-        if (error) { console.warn('Busca PGDAS falhou:', error.message); return }
-        if (data && data.length > 0) {
-          const total = data.reduce((s, p) => s + (parseFloat(p.diferenca_recuperavel) || 0), 0)
-          setPgdasSupabase({ diferenca: total, registros: data })
-        } else {
-          setPgdasSupabase(null)
-        }
+    const competencias = competenciasKey
+  .split(',')
+  .map(normalizarCompetencia)
+  .filter(Boolean)
+
+const competenciasAlvo = new Set(competencias)
+
+supabase
+  .from('diagnosticos_pgdas')
+  .select('competencia, diferenca_recuperavel, receita_bruta_total, receita_monofasica')
+  .eq('cliente_id', cliente.id)
+  .then(({ data, error }) => {
+    if (error) {
+      console.warn('Busca PGDAS falhou:', error.message)
+      return
+    }
+
+    const encontrados = (data || []).filter(p =>
+      competenciasAlvo.has(
+        normalizarCompetencia(p.competencia)
+      )
+    )
+
+    if (encontrados.length > 0) {
+      const total = encontrados.reduce(
+        (s, p) =>
+          s + (parseFloat(p.diferenca_recuperavel) || 0),
+        0
+      )
+
+      setPgdasSupabase({
+        diferenca: total,
+        registros: encontrados
       })
-  }, [competenciasKey, itens.length, cliente?.id, regime])
+    } else {
+      setPgdasSupabase(null)
+    }
+    })
+    }, [competenciasKey, itens.length, cliente?.id, regime])
 
   async function carregarHistorico() {
     setLoadingHistorico(true)
@@ -1566,7 +1663,13 @@ async function gerarMemoriaCalculo() {
 // CONFERENCIA DAS COMPETENCIAS PGDAS-D
 // ============================================================
 
-const competenciasAnalisadas = periodos
+const competenciasAnalisadas = [
+  ...new Set(
+    periodos
+      .map(normalizarCompetencia)
+      .filter(Boolean)
+  )
+].sort(ordenarCompetencias)
 
 const registrosPGDAS =
   Array.isArray(pgdasSupabase?.registros)
@@ -1576,11 +1679,10 @@ const registrosPGDAS =
 let competenciasPGDAS = [
   ...new Set(
     registrosPGDAS
-      .map(p => p.competencia)
+      .map(p => normalizarCompetencia(p.competencia))
       .filter(Boolean)
-  ),
+  )
 ].sort(ordenarCompetencias)
-
 
 // Se o PGDAS foi informado manualmente na tela,
 // so podemos associa-lo automaticamente quando existe
@@ -2493,10 +2595,46 @@ async function excluirMemoria(id) {
             <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar NF-es</div>
             <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.xml (NF-e)</strong></div>
             <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
-            <button onClick={() => inputRef.current?.click()} disabled={processando}
-              style={{ width: '75%', padding: '8px 0', background: processando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: processando ? 'not-allowed' : 'pointer' }}>
-              {processando ? 'Processando...' : 'Selecionar Arquivos'}
-            </button>
+            <button
+  onClick={() => inputRef.current?.click()}
+  disabled={processando}
+  style={{
+    width: '75%',
+    padding: '8px 0',
+    background: processando ? '#CBD5E1' : '#4B5563',
+    color: processando ? '#0F172A' : S.white,
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: processando ? 'not-allowed' : 'pointer'
+    }}
+     >
+    {processando ? (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 7
+      }}
+    >
+      <span className="mono-spinner">⏳</span>
+      Processando XML...
+    </span>
+    ) : (
+    'Selecionar Arquivos'
+    )}
+    </button>
+
+    {processando && (
+     <div
+    className="mono-progress-track"
+    aria-label="Processando arquivos XML"
+    >
+    <div className="mono-progress-bar" />
+    </div>
+    )}
             <div style={{ fontSize: 10, color: S.ghostText, marginTop: 6 }}>Se o botao nao responder, pressione F5</div>
           </div>
         </div>
