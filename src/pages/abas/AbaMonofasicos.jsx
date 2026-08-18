@@ -1,9 +1,10 @@
 /**
  * AbaMonofasicos.jsx - e-FiscalTribe®
- * Versao 8.9.4 - 17/08/2026
- * + gerarRelatorioPDF usa diagAberto?.itens_json quando disponivel
- *   eliminando race condition ao abrir diagnostico do historico
- * + slice aumentado para 2000 itens (solucao intermediaria)
+ * Versao 9.0 - 18/08/2026
+ * + Visao Resumida e Visao Auditoria
+ * + Detalhamento fiscal completo por item
+ * + Persistencia das bases, aliquotas e campos fiscais da NF-e
+ * + Historico restaura integralmente os dados fiscais salvos
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -150,6 +151,129 @@ function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando 
   )
 }
 
+
+function ModalDetalhesFiscais({ item, onFechar }) {
+  if (!item) return null
+
+  const Linha = ({ label, valor, moeda = false }) => (
+    <div style={{ padding:'8px 10px', borderBottom:`1px solid ${S.border}`, display:'grid', gridTemplateColumns:'180px 1fr', gap:12, alignItems:'start' }}>
+      <div style={{ fontSize:11, fontWeight:700, color:S.muted }}>{label}</div>
+      <div style={{ fontSize:12, color:S.text, wordBreak:'break-word' }}>
+        {moeda ? fmtR(valor) : (valor === null || valor === undefined || valor === '' ? '—' : String(valor))}
+      </div>
+    </div>
+  )
+
+  const Secao = ({ titulo, children }) => (
+    <div style={{ border:`1px solid ${S.border}`, borderRadius:8, overflow:'hidden', marginBottom:14 }}>
+      <div style={{ padding:'8px 10px', background:S.bg, fontSize:12, fontWeight:700, color:S.navy, borderBottom:`1px solid ${S.border}` }}>{titulo}</div>
+      {children}
+    </div>
+  )
+
+  return (
+    <div onClick={onFechar} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.55)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:'min(980px, 96vw)', maxHeight:'92vh', overflowY:'auto', background:S.white, borderRadius:12, boxShadow:'0 24px 70px rgba(0,0,0,.28)' }}>
+        <div style={{ position:'sticky', top:0, zIndex:2, background:S.white, padding:'14px 18px', borderBottom:`1px solid ${S.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color:S.navy }}>Detalhamento Fiscal do Item</div>
+            <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>NF {item.nNF || '—'} · Item {item.numeroItemNFe || '—'} · {item.descricao || 'Produto'}</div>
+          </div>
+          <button onClick={onFechar} style={{ border:`1px solid ${S.border}`, background:'none', borderRadius:6, padding:'5px 10px', cursor:'pointer', color:S.muted }}>Fechar</button>
+        </div>
+
+        <div style={{ padding:18, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))', gap:14 }}>
+          <div>
+            <Secao titulo="NF-e / Operacao">
+              <Linha label="Chave NF-e" valor={item.chaveNFe} />
+              <Linha label="Numero / Serie / Modelo" valor={`${item.nNF || '—'} / ${item.serieNFe || '—'} / ${item.modeloNFe || '—'}`} />
+              <Linha label="Data de emissao" valor={item.dataEmissao} />
+              <Linha label="Tipo de operacao" valor={item.tipoOperacao} />
+              <Linha label="Natureza da operacao" valor={item.naturezaOperacao} />
+              <Linha label="Finalidade NF-e" valor={item.finalidadeNFe} />
+              <Linha label="Destino da operacao" valor={item.indicadorDestino} />
+              <Linha label="Consumidor final" valor={item.consumidorFinal} />
+              <Linha label="Presenca comprador" valor={item.presencaComprador} />
+              <Linha label="Emitente" valor={`${item.emitente || '—'} · ${item.emitenteCNPJ || '—'} · ${item.emitenteUF || '—'}`} />
+              <Linha label="Destinatario" valor={`${item.destinatarioCNPJ || '—'} · ${item.destinatarioUF || '—'}`} />
+            </Secao>
+
+            <Secao titulo="Produto / Comercial">
+              <Linha label="Codigo" valor={item.codigo} />
+              <Linha label="Descricao" valor={item.descricao} />
+              <Linha label="NCM" valor={item.ncm} />
+              <Linha label="CEST" valor={item.cest} />
+              <Linha label="GTIN/EAN" valor={item.gtin} />
+              <Linha label="EX TIPI" valor={item.ex} />
+              <Linha label="CFOP" valor={item.cfop} />
+              <Linha label="Beneficio fiscal" valor={item.codigoBeneficioFiscal} />
+              <Linha label="Quantidade comercial" valor={`${item.quantidade || 0} ${item.unidadeComercial || ''}`} />
+              <Linha label="Valor unitario" valor={item.valorUnitario} moeda />
+              <Linha label="Quantidade tributavel" valor={`${item.quantidadeTributavel || 0} ${item.unidadeTributavel || ''}`} />
+              <Linha label="Valor unit. tributavel" valor={item.valorUnitarioTributavel} moeda />
+              <Linha label="Valor produto" valor={item.vProd} moeda />
+              <Linha label="Desconto" valor={item.valorDesconto} moeda />
+              <Linha label="Frete" valor={item.valorFrete} moeda />
+              <Linha label="Seguro" valor={item.valorSeguro} moeda />
+              <Linha label="Outras despesas" valor={item.valorOutrasDespesas} moeda />
+            </Secao>
+          </div>
+
+          <div>
+            <Secao titulo="PIS / COFINS">
+              <Linha label="CST PIS" valor={item.cstPIS} />
+              <Linha label="Base PIS" valor={item.basePIS} moeda />
+              <Linha label="Aliquota PIS (%)" valor={item.aliquotaPIS} />
+              <Linha label="Valor PIS" valor={item.vItemPIS} moeda />
+              <Linha label="PIS-ST" valor={item.valorPISST} moeda />
+              <Linha label="CST COFINS" valor={item.cstCOFINS} />
+              <Linha label="Base COFINS" valor={item.baseCOFINS} moeda />
+              <Linha label="Aliquota COFINS (%)" valor={item.aliquotaCOFINS} />
+              <Linha label="Valor COFINS" valor={item.vItemCOFINS} moeda />
+              <Linha label="COFINS-ST" valor={item.valorCOFINSST} moeda />
+            </Secao>
+
+            <Secao titulo="ICMS / ICMS-ST / FCP">
+              <Linha label="Origem" valor={item.origemICMS} />
+              <Linha label="CST / CSOSN" valor={`${item.cstICMS || '—'} / ${item.csosn || '—'}`} />
+              <Linha label="Modalidade BC" valor={item.modalidadeBCICMS} />
+              <Linha label="Base ICMS" valor={item.baseICMS} moeda />
+              <Linha label="Reducao BC ICMS (%)" valor={item.reducaoBCICMS} />
+              <Linha label="Aliquota ICMS (%)" valor={item.aliquotaICMS} />
+              <Linha label="Valor ICMS" valor={item.valorICMS} moeda />
+              <Linha label="ICMS desonerado" valor={item.valorICMSDesonerado} moeda />
+              <Linha label="Motivo desoneracao" valor={item.motivoDesoneracaoICMS} />
+              <Linha label="Modalidade BC-ST" valor={item.modalidadeBCST} />
+              <Linha label="MVA-ST (%)" valor={item.mvaST} />
+              <Linha label="Reducao BC-ST (%)" valor={item.reducaoBCST} />
+              <Linha label="Base ICMS-ST" valor={item.baseICMSST} moeda />
+              <Linha label="Aliquota ICMS-ST (%)" valor={item.aliquotaICMSST} />
+              <Linha label="Valor ICMS-ST" valor={item.valorICMSST} moeda />
+              <Linha label="Aliquota FCP (%)" valor={item.aliquotaFCP} />
+              <Linha label="Valor FCP" valor={item.valorFCP} moeda />
+              <Linha label="Aliquota FCP-ST (%)" valor={item.aliquotaFCPST} />
+              <Linha label="Valor FCP-ST" valor={item.valorFCPST} moeda />
+            </Secao>
+
+            <Secao titulo="IPI / Auditoria">
+              <Linha label="CST IPI" valor={item.cstIPI} />
+              <Linha label="Enquadramento IPI" valor={item.enquadramentoIPI} />
+              <Linha label="Base IPI" valor={item.baseIPI} moeda />
+              <Linha label="Aliquota IPI (%)" valor={item.aliquotaIPI} />
+              <Linha label="Valor IPI" valor={item.valorIPI} moeda />
+              <Linha label="Monofasico PIS/COFINS" valor={item.monofasico ? 'Sim' : 'Nao'} />
+              <Linha label="Considera receita" valor={item.consideraReceita ? 'Sim' : 'Nao'} />
+              <Linha label="Classificacao revisada" valor={item.classificacaoRevisada ? 'Sim' : 'Nao'} />
+              <Linha label="Origem classificacao" valor={item.classificacaoOrigem} />
+              <Linha label="Informacao adicional item" valor={item.infoAdicionalProduto} />
+            </Secao>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AbaMonofasicos({ cliente, regime }) {
   const [aba, setAba] = useState('importar')
   const [arquivos, setArquivos] = useState([])
@@ -162,6 +286,8 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [pagina, setPagina] = useState(1)
   const [selecionados, setSelecionados] = useState([])
   const [menuAberto, setMenuAberto] = useState(null)
+  const [visaoTabela, setVisaoTabela] = useState('resumida')
+  const [itemDetalhe, setItemDetalhe] = useState(null)
   const [pgdasForm, setPgdasForm] = useState({
     receita_bruta_total: '', receita_monofasica: '', receita_st: '', das_recolhido: '', segregou: false,
   })
@@ -231,18 +357,47 @@ export default function AbaMonofasicos({ cliente, regime }) {
 
   function exportarCSV() {
     if (!itens.length) return
-    const headers = ['NF','Competencia','Emitente','Descricao','NCM','Valor Produto','PIS','COFINS','Classificacao']
+
+    const headers = [
+      'NF','Serie','Data Emissao','Competencia','Chave NFe','Tipo Operacao','Natureza Operacao',
+      'Emitente','CNPJ Emitente','UF Emitente','CNPJ Destinatario','UF Destinatario',
+      'Item','Codigo','Descricao','NCM','CEST','GTIN','EX TIPI','CFOP',
+      'Unidade','Quantidade','Valor Unitario','Valor Produto','Desconto','Frete','Seguro','Outras Despesas',
+      'CST PIS','Base PIS','Aliquota PIS','Valor PIS','PIS ST',
+      'CST COFINS','Base COFINS','Aliquota COFINS','Valor COFINS','COFINS ST',
+      'Origem ICMS','CST ICMS','CSOSN','Base ICMS','Aliquota ICMS','Valor ICMS',
+      'Base ICMS ST','Aliquota ICMS ST','Valor ICMS ST','Valor ICMS Desonerado',
+      'CST IPI','Base IPI','Aliquota IPI','Valor IPI',
+      'Monofasico','Considera Receita','Classificacao Revisada','Origem Classificacao'
+    ]
+
+    const csvCell = v => {
+      const s = v === null || v === undefined ? '' : String(v)
+      return `"${s.replace(/"/g, '""')}"`
+    }
+
     const rows = itens.map(i => [
-      i.nNF, i.competencia, i.emitente, i.descricao, i.ncm,
-      i.vProd.toFixed(2), i.vItemPIS.toFixed(2), i.vItemCOFINS.toFixed(2),
-      i.monofasico ? 'Monofasico' : 'Nao monofasico'
+      i.nNF, i.serieNFe, i.dataEmissao, i.competencia, i.chaveNFe, i.tipoOperacao, i.naturezaOperacao,
+      i.emitente, i.emitenteCNPJ, i.emitenteUF, i.destinatarioCNPJ, i.destinatarioUF,
+      i.numeroItemNFe, i.codigo, i.descricao, i.ncm, i.cest, i.gtin, i.ex, i.cfop,
+      i.unidadeComercial, i.quantidade, i.valorUnitario, i.vProd, i.valorDesconto, i.valorFrete, i.valorSeguro, i.valorOutrasDespesas,
+      i.cstPIS, i.basePIS, i.aliquotaPIS, i.vItemPIS, i.valorPISST,
+      i.cstCOFINS, i.baseCOFINS, i.aliquotaCOFINS, i.vItemCOFINS, i.valorCOFINSST,
+      i.origemICMS, i.cstICMS, i.csosn, i.baseICMS, i.aliquotaICMS, i.valorICMS,
+      i.baseICMSST, i.aliquotaICMSST, i.valorICMSST, i.valorICMSDesonerado,
+      i.cstIPI, i.baseIPI, i.aliquotaIPI, i.valorIPI,
+      i.monofasico ? 'Sim' : 'Nao',
+      i.consideraReceita ? 'Sim' : 'Nao',
+      i.classificacaoRevisada ? 'Sim' : 'Nao',
+      i.classificacaoOrigem || ''
     ])
-    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
+
+    const csv = [headers, ...rows].map(r => r.map(csvCell).join(';')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `monofasicos_${cliente?.cnpj || 'cliente'}_${new Date().toISOString().slice(0,10)}.csv`
+    a.download = `auditoria_nfe_${cliente?.cnpj || 'cliente'}_${new Date().toISOString().slice(0,10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -522,6 +677,63 @@ valor_icms: item.valorICMS || 0,
 valor_icms_st: item.valorICMSST || 0,
 valor_ipi: item.valorIPI || 0,
 
+numero_item_nfe: item.numeroItemNFe || null,
+serie_nfe: item.serieNFe || null,
+modelo_nfe: item.modeloNFe || null,
+finalidade_nfe: item.finalidadeNFe || null,
+indicador_destino: item.indicadorDestino || null,
+consumidor_final: item.consumidorFinal || null,
+presenca_comprador: item.presencaComprador || null,
+emitente_uf: item.emitenteUF || null,
+destinatario_uf: item.destinatarioUF || null,
+
+unidade_comercial: item.unidadeComercial || null,
+valor_unitario: item.valorUnitario || 0,
+quantidade_tributavel: item.quantidadeTributavel || 0,
+unidade_tributavel: item.unidadeTributavel || null,
+valor_unitario_tributavel: item.valorUnitarioTributavel || 0,
+valor_seguro: item.valorSeguro || 0,
+valor_outras_despesas: item.valorOutrasDespesas || 0,
+inclui_total_nf: item.incluiTotalNF || null,
+codigo_beneficio_fiscal: item.codigoBeneficioFiscal || null,
+pedido_compra: item.pedidoCompra || null,
+item_pedido_compra: item.itemPedidoCompra || null,
+info_adicional_produto: item.infoAdicionalProduto || null,
+
+base_pis: item.basePIS || 0,
+aliquota_pis: item.aliquotaPIS || 0,
+quantidade_base_pis: item.quantidadeBasePIS || 0,
+aliquota_valor_pis: item.aliquotaValorPIS || 0,
+valor_pis_st: item.valorPISST || 0,
+
+base_cofins: item.baseCOFINS || 0,
+aliquota_cofins: item.aliquotaCOFINS || 0,
+quantidade_base_cofins: item.quantidadeBaseCOFINS || 0,
+aliquota_valor_cofins: item.aliquotaValorCOFINS || 0,
+valor_cofins_st: item.valorCOFINSST || 0,
+
+origem_icms: item.origemICMS || null,
+modalidade_bc_icms: item.modalidadeBCICMS || null,
+base_icms: item.baseICMS || 0,
+reducao_bc_icms: item.reducaoBCICMS || 0,
+aliquota_icms: item.aliquotaICMS || 0,
+valor_icms_desonerado: item.valorICMSDesonerado || 0,
+motivo_desoneracao_icms: item.motivoDesoneracaoICMS || null,
+modalidade_bc_st: item.modalidadeBCST || null,
+mva_st: item.mvaST || 0,
+reducao_bc_st: item.reducaoBCST || 0,
+base_icms_st: item.baseICMSST || 0,
+aliquota_icms_st: item.aliquotaICMSST || 0,
+aliquota_fcp: item.aliquotaFCP || 0,
+valor_fcp: item.valorFCP || 0,
+aliquota_fcp_st: item.aliquotaFCPST || 0,
+valor_fcp_st: item.valorFCPST || 0,
+
+cst_ipi: item.cstIPI || null,
+enquadramento_ipi: item.enquadramentoIPI || null,
+base_ipi: item.baseIPI || 0,
+aliquota_ipi: item.aliquotaIPI || 0,
+
 considera_receita: item.consideraReceita ?? true,
 motivo_nao_considerar_receita: item.motivoNaoConsiderarReceita || null,
 
@@ -615,6 +827,88 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
           gtin: item.gtin || null,
           ex: item.ex_tipi || null,
           cest: item.cest || null,
+
+          cfop: item.cfop || null,
+          cstPIS: item.cst_pis || null,
+          cstCOFINS: item.cst_cofins || null,
+          cstICMS: item.cst_icms || null,
+          csosn: item.csosn || null,
+
+          chaveNFe: item.chave_nfe || null,
+          dataEmissao: item.data_emissao || null,
+          emitenteCNPJ: item.emitente_cnpj || null,
+          destinatarioCNPJ: item.destinatario_cnpj || null,
+          tipoOperacao: item.tipo_operacao || null,
+          naturezaOperacao: item.natureza_operacao || null,
+
+          quantidade: parseFloat(item.quantidade || 0),
+          valorDesconto: parseFloat(item.valor_desconto || 0),
+          valorFrete: parseFloat(item.valor_frete || 0),
+          valorICMS: parseFloat(item.valor_icms || 0),
+          valorICMSST: parseFloat(item.valor_icms_st || 0),
+          valorIPI: parseFloat(item.valor_ipi || 0),
+
+          numeroItemNFe: item.numero_item_nfe || null,
+          serieNFe: item.serie_nfe || null,
+          modeloNFe: item.modelo_nfe || null,
+          finalidadeNFe: item.finalidade_nfe || null,
+          indicadorDestino: item.indicador_destino || null,
+          consumidorFinal: item.consumidor_final || null,
+          presencaComprador: item.presenca_comprador || null,
+          emitenteUF: item.emitente_uf || null,
+          destinatarioUF: item.destinatario_uf || null,
+
+          unidadeComercial: item.unidade_comercial || null,
+          valorUnitario: parseFloat(item.valor_unitario || 0),
+          quantidadeTributavel: parseFloat(item.quantidade_tributavel || 0),
+          unidadeTributavel: item.unidade_tributavel || null,
+          valorUnitarioTributavel: parseFloat(item.valor_unitario_tributavel || 0),
+          valorSeguro: parseFloat(item.valor_seguro || 0),
+          valorOutrasDespesas: parseFloat(item.valor_outras_despesas || 0),
+          incluiTotalNF: item.inclui_total_nf || null,
+          codigoBeneficioFiscal: item.codigo_beneficio_fiscal || null,
+          pedidoCompra: item.pedido_compra || null,
+          itemPedidoCompra: item.item_pedido_compra || null,
+          infoAdicionalProduto: item.info_adicional_produto || null,
+
+          basePIS: parseFloat(item.base_pis || 0),
+          aliquotaPIS: parseFloat(item.aliquota_pis || 0),
+          quantidadeBasePIS: parseFloat(item.quantidade_base_pis || 0),
+          aliquotaValorPIS: parseFloat(item.aliquota_valor_pis || 0),
+          valorPISST: parseFloat(item.valor_pis_st || 0),
+
+          baseCOFINS: parseFloat(item.base_cofins || 0),
+          aliquotaCOFINS: parseFloat(item.aliquota_cofins || 0),
+          quantidadeBaseCOFINS: parseFloat(item.quantidade_base_cofins || 0),
+          aliquotaValorCOFINS: parseFloat(item.aliquota_valor_cofins || 0),
+          valorCOFINSST: parseFloat(item.valor_cofins_st || 0),
+
+          origemICMS: item.origem_icms || null,
+          modalidadeBCICMS: item.modalidade_bc_icms || null,
+          baseICMS: parseFloat(item.base_icms || 0),
+          reducaoBCICMS: parseFloat(item.reducao_bc_icms || 0),
+          aliquotaICMS: parseFloat(item.aliquota_icms || 0),
+          valorICMSDesonerado: parseFloat(item.valor_icms_desonerado || 0),
+          motivoDesoneracaoICMS: item.motivo_desoneracao_icms || null,
+          modalidadeBCST: item.modalidade_bc_st || null,
+          mvaST: parseFloat(item.mva_st || 0),
+          reducaoBCST: parseFloat(item.reducao_bc_st || 0),
+          baseICMSST: parseFloat(item.base_icms_st || 0),
+          aliquotaICMSST: parseFloat(item.aliquota_icms_st || 0),
+          aliquotaFCP: parseFloat(item.aliquota_fcp || 0),
+          valorFCP: parseFloat(item.valor_fcp || 0),
+          aliquotaFCPST: parseFloat(item.aliquota_fcp_st || 0),
+          valorFCPST: parseFloat(item.valor_fcp_st || 0),
+
+          cstIPI: item.cst_ipi || null,
+          enquadramentoIPI: item.enquadramento_ipi || null,
+          baseIPI: parseFloat(item.base_ipi || 0),
+          aliquotaIPI: parseFloat(item.aliquota_ipi || 0),
+
+          consideraReceita: item.considera_receita ?? true,
+          motivoNaoConsiderarReceita: item.motivo_nao_considerar_receita || null,
+          classificacaoRevisada: item.classificacao_revisada ?? false,
+          classificacaoOrigem: item.classificacao_origem || 'xml',
         }))
       : (diag.itens_json || [])
 
@@ -649,7 +943,7 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   })
 
   setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
-    setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null)
+    setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null); setItemDetalhe(null)
     setPagina(1); setBusca(''); setFiltro('todos')
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -776,7 +1070,64 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   valorICMSST: item.vICMSST || 0,
   valorIPI: item.vIPI || 0,
 
-  // Será refinado depois pelas regras de CFOP
+  numeroItemNFe: item.numeroItem || null,
+  serieNFe: nfe.serie || null,
+  modeloNFe: nfe.modelo || null,
+  finalidadeNFe: nfe.finalidadeNFe || null,
+  indicadorDestino: nfe.indicadorDestino || null,
+  consumidorFinal: nfe.consumidorFinal || null,
+  presencaComprador: nfe.presencaComprador || null,
+  emitenteUF: nfe.emitUF || null,
+  destinatarioUF: nfe.destUF || null,
+
+  unidadeComercial: item.uCom || null,
+  valorUnitario: item.vUnCom || 0,
+  quantidadeTributavel: item.qTrib || 0,
+  unidadeTributavel: item.uTrib || null,
+  valorUnitarioTributavel: item.vUnTrib || 0,
+  valorSeguro: item.vSeg || 0,
+  valorOutrasDespesas: item.vOutro || 0,
+  incluiTotalNF: item.indTot || null,
+  codigoBeneficioFiscal: item.cBenef || null,
+  pedidoCompra: item.xPed || null,
+  itemPedidoCompra: item.nItemPed || null,
+  infoAdicionalProduto: item.infAdProd || null,
+
+  basePIS: item.vBCPIS || 0,
+  aliquotaPIS: item.pPIS || 0,
+  quantidadeBasePIS: item.qBCProdPIS || 0,
+  aliquotaValorPIS: item.vAliqProdPIS || 0,
+  valorPISST: item.vPISST || 0,
+
+  baseCOFINS: item.vBCCOFINS || 0,
+  aliquotaCOFINS: item.pCOFINS || 0,
+  quantidadeBaseCOFINS: item.qBCProdCOFINS || 0,
+  aliquotaValorCOFINS: item.vAliqProdCOFINS || 0,
+  valorCOFINSST: item.vCOFINSST || 0,
+
+  origemICMS: item.origICMS || null,
+  modalidadeBCICMS: item.modBC || null,
+  baseICMS: item.vBCICMS || 0,
+  reducaoBCICMS: item.pRedBC || 0,
+  aliquotaICMS: item.pICMS || 0,
+  valorICMSDesonerado: item.vICMSDeson || 0,
+  motivoDesoneracaoICMS: item.motDesICMS || null,
+  modalidadeBCST: item.modBCST || null,
+  mvaST: item.pMVAST || 0,
+  reducaoBCST: item.pRedBCST || 0,
+  baseICMSST: item.vBCST || 0,
+  aliquotaICMSST: item.pICMSST || 0,
+  aliquotaFCP: item.pFCP || 0,
+  valorFCP: item.vFCP || 0,
+  aliquotaFCPST: item.pFCPST || 0,
+  valorFCPST: item.vFCPST || 0,
+
+  cstIPI: item.cstIPI || null,
+  enquadramentoIPI: item.cEnqIPI || null,
+  baseIPI: item.vBCIPI || 0,
+  aliquotaIPI: item.pIPI || 0,
+
+  // Sera refinado depois pelas regras de CFOP
   consideraReceita: true,
   motivoNaoConsiderarReceita: null,
 
@@ -824,7 +1175,16 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   const itensFiltrados = itens.filter(i => {
     if (filtro==='monofasico' && !i.monofasico) return false
     if (filtro==='nao_monofasico' && i.monofasico) return false
-    if (busca) { const b=busca.toLowerCase(); return i.descricao.toLowerCase().includes(b)||i.ncm.includes(b)||i.emitente.toLowerCase().includes(b)||i.nNF.includes(b) }
+    if (busca) {
+      const b = busca.toLowerCase()
+      return (i.descricao || '').toLowerCase().includes(b)
+        || (i.ncm || '').toLowerCase().includes(b)
+        || (i.emitente || '').toLowerCase().includes(b)
+        || (i.nNF || '').toLowerCase().includes(b)
+        || (i.cfop || '').toLowerCase().includes(b)
+        || (i.codigo || '').toLowerCase().includes(b)
+        || (i.chaveNFe || '').toLowerCase().includes(b)
+    }
     return true
   })
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/porPagina))
@@ -859,6 +1219,10 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
       )}
       {modalNome && (
         <ModalNomeDiagnostico nomeSugerido={gerarNomeSugerido()} onConfirmar={confirmarSalvarComNome} onCancelar={() => setModalNome(false)} salvando={salvando} />
+      )}
+
+      {itemDetalhe && (
+        <ModalDetalhesFiscais item={itemDetalhe} onFechar={() => setItemDetalhe(null)} />
       )}
 
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -942,9 +1306,10 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
 
           <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
-              <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, emitente..."
-                style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:220 }} />
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, CFOP, NF, chave..."
+                style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:270 }} />
+
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                 <span style={{ fontSize:12, color:S.muted }}>Filtrar:</span>
                 {[
                   { id:'todos',          label:`Todos (${itens.length})`                     },
@@ -956,62 +1321,131 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
                     {f.label}
                   </button>
                 ))}
+
+                <span style={{ width:1, height:22, background:S.border, margin:'0 4px' }} />
+
+                <button onClick={()=>setVisaoTabela('resumida')}
+                  style={{ padding:'4px 12px', background:visaoTabela==='resumida'?S.navy:'none', color:visaoTabela==='resumida'?S.white:S.muted, border:`1px solid ${visaoTabela==='resumida'?S.navy:S.border}`, borderRadius:6, fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                  Visao resumida
+                </button>
+                <button onClick={()=>setVisaoTabela('auditoria')}
+                  style={{ padding:'4px 12px', background:visaoTabela==='auditoria'?S.navy:'none', color:visaoTabela==='auditoria'?S.white:S.muted, border:`1px solid ${visaoTabela==='auditoria'?S.navy:S.border}`, borderRadius:6, fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                  Visao auditoria
+                </button>
               </div>
             </div>
             <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                <thead>
-                  <tr style={{ background:S.thBg }}>
-                    <th style={{ padding:'8px 10px', color:S.thText }}>
-                      <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} disabled={!temResultado} style={{ cursor:temResultado?'pointer':'not-allowed' }} />
-                    </th>
-                    {['NF','Competencia','Emitente','Descricao do Produto','NCM','Valor Produto','PIS','COFINS','Classificacao','Acoes'].map(h => (
-                      <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {itensPagina.map((item,i) => {
-                    const idx=(pagina-1)*porPagina+i
-                    const sel=selecionados.includes(idx)
-                    const isGhost=item.ghost
-                    return (
-                      <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:isGhost?S.ghost:sel?'#eff6ff':i%2===0?S.white:'#FAFAFA' }}>
-                        <td style={{ padding:'7px 10px' }}>{!isGhost && <input type="checkbox" checked={sel} onChange={()=>toggleItem(idx)} style={{ cursor:'pointer' }} />}</td>
-                        <td style={{ padding:'7px 10px', fontWeight:600, color:isGhost?S.ghostText:S.navy }}>{item.nNF}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.text }}>{item.competencia}</td>
-                        <td style={{ padding:'7px 10px', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.emitente}</td>
-                        <td style={{ padding:'7px 10px', maxWidth:170, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.descricao}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.muted }}>{item.ncm}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:S.text }}>{isGhost?'R$ —,——':fmtR(item.vProd)}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vItemPIS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemPIS)}</td>
-                        <td style={{ padding:'7px 10px', color:isGhost?S.ghostText:item.vItemCOFINS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemCOFINS)}</td>
-                        <td style={{ padding:'7px 10px' }}>
-                          {isGhost
-                            ? <span style={{ background:S.ghost, color:S.ghostText, border:`1px solid ${S.border}`, borderRadius:99, padding:'2px 10px', fontSize:10, fontWeight:700 }}>Classificacao</span>
-                            : <Badge tipo={item.monofasico ? ((item.pendentePGDAS && !pgdasSupabase && !pgdasResult) ? 'pendente' : 'monofasico') : 'nao_monofasico'} />}
-                        </td>
-                        <td style={{ padding:'7px 10px', position:'relative' }}>
-                          {!isGhost && (
-                            <>
-                              <button onClick={e=>{e.stopPropagation();setMenuAberto(menuAberto===idx?null:idx)}}
-                                style={{ background:'none', border:`1px solid ${S.border}`, borderRadius:4, cursor:'pointer', padding:'2px 8px', fontSize:13, color:S.muted }}>...</button>
-                              {menuAberto===idx && (
-                                <div style={{ position:'absolute', right:8, top:30, background:S.white, border:`1px solid ${S.border}`, borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', zIndex:100, minWidth:140 }}>
-                                  <button onClick={()=>{alert('NCM: '+item.ncm+'\nDescricao: '+item.descricao+'\nMonofasico: '+(item.monofasico?'Sim':'Nao'));setMenuAberto(null)}}
-                                    style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>Ver detalhes</button>
-                                  <button onClick={()=>{toggleItem(idx);setMenuAberto(null)}}
-                                    style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>{sel?'Desselecionar':'Selecionar'}</button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              {visaoTabela === 'resumida' ? (
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, minWidth:1250 }}>
+                  <thead>
+                    <tr style={{ background:S.thBg }}>
+                      <th style={{ padding:'8px 10px', color:S.thText, borderRight:'1px solid #64748B' }}>
+                        <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} disabled={!temResultado} style={{ cursor:temResultado?'pointer':'not-allowed' }} />
+                      </th>
+                      {['NF','Data','Emitente','Descricao do Produto','NCM','CFOP','Valor Produto','PIS','COFINS','Classificacao','Acoes'].map(h => (
+                        <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap', borderRight:'1px solid #64748B' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensPagina.map((item,i) => {
+                      const idx=(pagina-1)*porPagina+i
+                      const sel=selecionados.includes(idx)
+                      const isGhost=item.ghost
+                      const td = { padding:'7px 10px', borderRight:`1px solid ${S.border}` }
+                      return (
+                        <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:isGhost?S.ghost:sel?'#eff6ff':i%2===0?S.white:'#FAFAFA' }}>
+                          <td style={td}>{!isGhost && <input type="checkbox" checked={sel} onChange={()=>toggleItem(idx)} style={{ cursor:'pointer' }} />}</td>
+                          <td style={{ ...td, fontWeight:600, color:isGhost?S.ghostText:S.navy }}>{item.nNF}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>{isGhost?'—':(item.dataEmissao || '—')}</td>
+                          <td style={{ ...td, maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.emitente}</td>
+                          <td style={{ ...td, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.descricao}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:S.muted }}>{item.ncm}</td>
+                          <td style={{ ...td, fontWeight:600, color:isGhost?S.ghostText:S.text }}>{isGhost?'—':(item.cfop || '—')}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:S.text }}>{isGhost?'R$ —,——':fmtR(item.vProd)}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:item.vItemPIS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemPIS)}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:item.vItemCOFINS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemCOFINS)}</td>
+                          <td style={td}>
+                            {isGhost
+                              ? <span style={{ background:S.ghost, color:S.ghostText, border:`1px solid ${S.border}`, borderRadius:99, padding:'2px 10px', fontSize:10, fontWeight:700 }}>Classificacao</span>
+                              : <Badge tipo={item.monofasico ? ((item.pendentePGDAS && !pgdasSupabase && !pgdasResult) ? 'pendente' : 'monofasico') : 'nao_monofasico'} />}
+                          </td>
+                          <td style={{ ...td, position:'relative' }}>
+                            {!isGhost && (
+                              <>
+                                <button onClick={e=>{e.stopPropagation();setMenuAberto(menuAberto===idx?null:idx)}}
+                                  style={{ background:'none', border:`1px solid ${S.border}`, borderRadius:4, cursor:'pointer', padding:'2px 8px', fontSize:13, color:S.muted }}>...</button>
+                                {menuAberto===idx && (
+                                  <div style={{ position:'absolute', right:8, top:30, background:S.white, border:`1px solid ${S.border}`, borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', zIndex:100, minWidth:170 }}>
+                                    <button onClick={()=>{setItemDetalhe(item);setMenuAberto(null)}}
+                                      style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>Detalhamento fiscal</button>
+                                    <button onClick={()=>{toggleItem(idx);setMenuAberto(null)}}
+                                      style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>{sel?'Desselecionar':'Selecionar'}</button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11, minWidth:2100 }}>
+                  <thead>
+                    <tr style={{ background:S.thBg }}>
+                      <th style={{ padding:'8px 8px', color:S.thText, borderRight:'1px solid #64748B' }}>NF</th>
+                      {['Item','CFOP','NCM','CST PIS','BC PIS','Aliq. PIS','PIS','CST COFINS','BC COFINS','Aliq. COFINS','COFINS','Orig.','CST ICMS','CSOSN','BC ICMS','Aliq. ICMS','ICMS','BC ST','Aliq. ST','ICMS-ST','CST IPI','IPI','Classificacao','Acoes'].map(h=>(
+                        <th key={h} style={{ padding:'8px 8px', textAlign:'left', color:S.thText, fontWeight:600, whiteSpace:'nowrap', borderRight:'1px solid #64748B' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensPagina.map((item,i)=>{
+                      const idx=(pagina-1)*porPagina+i
+                      const isGhost=item.ghost
+                      const td={ padding:'7px 8px', borderRight:`1px solid ${S.border}`, whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }
+                      return (
+                        <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:isGhost?S.ghost:i%2===0?S.white:'#FAFAFA' }}>
+                          <td style={{ ...td, fontWeight:700, color:isGhost?S.ghostText:S.navy }}>{item.nNF}</td>
+                          <td style={td}>{isGhost?'—':(item.numeroItemNFe || '—')}</td>
+                          <td style={{ ...td, fontWeight:700 }}>{isGhost?'—':(item.cfop || '—')}</td>
+                          <td style={td}>{item.ncm}</td>
+                          <td style={td}>{isGhost?'—':(item.cstPIS || '—')}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.basePIS)}</td>
+                          <td style={td}>{isGhost?'—':`${Number(item.aliquotaPIS||0).toLocaleString('pt-BR')}%`}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.vItemPIS)}</td>
+                          <td style={td}>{isGhost?'—':(item.cstCOFINS || '—')}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.baseCOFINS)}</td>
+                          <td style={td}>{isGhost?'—':`${Number(item.aliquotaCOFINS||0).toLocaleString('pt-BR')}%`}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.vItemCOFINS)}</td>
+                          <td style={td}>{isGhost?'—':(item.origemICMS || '—')}</td>
+                          <td style={td}>{isGhost?'—':(item.cstICMS || '—')}</td>
+                          <td style={td}>{isGhost?'—':(item.csosn || '—')}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.baseICMS)}</td>
+                          <td style={td}>{isGhost?'—':`${Number(item.aliquotaICMS||0).toLocaleString('pt-BR')}%`}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.valorICMS)}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.baseICMSST)}</td>
+                          <td style={td}>{isGhost?'—':`${Number(item.aliquotaICMSST||0).toLocaleString('pt-BR')}%`}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.valorICMSST)}</td>
+                          <td style={td}>{isGhost?'—':(item.cstIPI || '—')}</td>
+                          <td style={td}>{isGhost?'—':fmtR(item.valorIPI)}</td>
+                          <td style={td}>{!isGhost && <Badge tipo={item.monofasico ? ((item.pendentePGDAS && !pgdasSupabase && !pgdasResult) ? 'pendente' : 'monofasico') : 'nao_monofasico'} />}</td>
+                          <td style={{ ...td, position:'relative' }}>
+                            {!isGhost && (
+                              <button onClick={()=>setItemDetalhe(item)}
+                                style={{ background:'none', border:`1px solid ${S.border}`, borderRadius:4, cursor:'pointer', padding:'3px 8px', fontSize:11, color:S.navy, fontWeight:600 }}>
+                                Detalhes
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
             {!temResultado && (
               <div style={{ padding:'16px 20px', borderTop:`1px solid ${S.border}`, textAlign:'center', fontSize:12, color:S.ghostText }}>
