@@ -1819,7 +1819,7 @@ filtro_no_momento_da_geracao:
 }
 
 
-function imprimirMemoria(memoria) {
+function imprimirMemoria(memoria, imprimirAutomatico = true) {
   if (!memoria) return
 
   const lista =
@@ -2325,8 +2325,9 @@ function imprimirMemoria(memoria) {
   `)
 
   janela.document.close()
-  janela.focus()
+janela.focus()
 
+if (imprimirAutomatico) {
   setTimeout(() => {
     janela.print()
   }, 600)
@@ -3131,6 +3132,24 @@ async function excluirMemoria(id) {
                   >
 
                     <button
+                onClick={() =>
+                imprimirMemoria(memoria, false)
+                }
+                style={{
+                padding:'4px 10px',
+                background:'#2563EB',
+                color:S.white,
+                border:'none',
+                borderRadius:4,
+                fontSize:11,
+                fontWeight:600,
+                cursor:'pointer'
+                }}
+                >
+                Abrir
+                 </button>
+					
+					<button
                       onClick={() =>
                         imprimirMemoria(memoria)
                       }
@@ -3182,7 +3201,8 @@ async function excluirMemoria(id) {
     )}
 
   </div>
-   )}
-    </div>
-  )
+)}
+</div>
+)
+}
 }
