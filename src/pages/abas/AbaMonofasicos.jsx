@@ -2332,7 +2332,7 @@ if (imprimirAutomatico) {
     janela.print()
   }, 600)
 }
-
+}
 
 async function excluirMemoria(id) {
   if (
@@ -3204,5 +3204,4 @@ async function excluirMemoria(id) {
 )}
 </div>
 )
-}
 }
