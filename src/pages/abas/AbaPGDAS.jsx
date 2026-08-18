@@ -1,7 +1,17 @@
 /**
  * AbaPGDAS.jsx - e-FiscalTribe®
- * Segregacao no PGDAS-D — Motor do Simples Nacional
- * Versao 3.0 - 08/08/2026
+ * PGDAS-D — Motor do Simples Nacional
+ * Versao 4.0 - 18/08/2026
+ *
+ * Estrutura:
+ * - Importacao integral do PGDAS-D
+ * - Declaracao principal em diagnosticos_pgdas
+ * - Atividades/segregacoes em diagnosticos_pgdas_atividades
+ * - Historico com reabertura completa
+ * - Sem calculo artificial de credito nesta etapa
+ *
+ * O credito recuperavel sera apurado posteriormente em "Apuracao do Simples",
+ * cruzando PGDAS-D + documentos fiscais + classificacao de itens.
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -9,62 +19,388 @@ import { supabase } from '../../supabase'
 import AnalisadorIA from '../../AnalisadorIA'
 import RelatorioRecuperacaoPGDAS from './RelatorioRecuperacaoPGDAS'
 
-const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
+const fmtR = v =>
+  'R$ ' +
+  Number(v || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+
+const fmtData = v => (v ? new Date(v).toLocaleString('pt-BR') : '-')
+
+const num = v => {
+  if (v === null || v === undefined || v === '') return 0
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+
+  const s = String(v).trim()
+
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  const normalizado = s
+    .replace(/R\$/gi, '')
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+
+  const n = Number(normalizado)
+  return Number.isFinite(n) ? n : 0
+}
+
+const str = v => (v === null || v === undefined ? '' : String(v))
+
+const bool = v => {
+  if (typeof v === 'boolean') return v
+  const s = String(v ?? '').trim().toLowerCase()
+  return ['true', '1', 'sim', 's', 'yes'].includes(s)
+}
 
 const S = {
-  navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
-  red: '#dc2626', orange: '#ea580c', muted: '#334155',
-  border: '#E2E8F0', bg: '#F8FAFC', white: '#FFFFFF',
-  text: '#0F172A', thBg: '#4B5563', thText: '#FFFFFF',
-  ghost: '#F1F5F9', ghostText: '#64748B',
+  navy: '#0B1F4D',
+  blue: '#2563EB',
+  green: '#16a34a',
+  red: '#dc2626',
+  orange: '#ea580c',
+  purple: '#7c3aed',
+  muted: '#334155',
+  border: '#E2E8F0',
+  bg: '#F8FAFC',
+  white: '#FFFFFF',
+  text: '#0F172A',
+  thBg: '#4B5563',
+  thText: '#FFFFFF',
+  ghost: '#F1F5F9',
+  ghostText: '#64748B',
 }
+
+const FORM_VAZIO = {
+  num_declaracao: '',
+  num_recibo: '',
+  autenticacao: '',
+  periodo_apuracao: '',
+  tipo_declaracao: 'Original',
+  data_transmissao: '',
+
+  rpa: '',
+  rbt12: '',
+  rba: '',
+  rbaa: '',
+
+  receita_revenda: '',
+  receita_industrializacao: '',
+  receita_servicos: '',
+  receita_monofasica: '',
+  receita_st: '',
+  receita_imune: '',
+
+  fator_r: '',
+  das_total: '',
+
+  irpj: '',
+  csll: '',
+  cofins: '',
+  pis: '',
+  inss_cpp: '',
+  icms: '',
+  ipi: '',
+  iss: '',
+
+  irpj_susp: '',
+  csll_susp: '',
+  cofins_susp: '',
+  pis_susp: '',
+  inss_susp: '',
+  icms_susp: '',
+  ipi_susp: '',
+  iss_susp: '',
+
+  observacoes: '',
+}
+
+const ATIVIDADE_VAZIA = {
+  ordem: 1,
+  descricao: '',
+  anexo: '',
+  tipo_atividade: '',
+  receita: 0,
+  receita_revenda: 0,
+  receita_industrializacao: 0,
+  receita_servicos: 0,
+  mercado_interno: 0,
+  mercado_externo: 0,
+
+  icms_st: false,
+  pis_cofins_monofasico: false,
+  antecipacao_com_encerramento: false,
+  iss_retido: false,
+  imunidade: false,
+  exportacao: false,
+
+  irpj: 0,
+  csll: 0,
+  cofins: 0,
+  pis: 0,
+  inss_cpp: 0,
+  icms: 0,
+  ipi: 0,
+  iss: 0,
+
+  irpj_susp: 0,
+  csll_susp: 0,
+  cofins_susp: 0,
+  pis_susp: 0,
+  inss_susp: 0,
+  icms_susp: 0,
+  ipi_susp: 0,
+  iss_susp: 0,
+
+  valor_total_tributos: 0,
+  texto_original: '',
+}
+
+const PROMPT_PGDAS = `
+Analise integralmente este documento PGDAS-D.
+
+Seu objetivo e TRANSCRITIVO e ESTRUTURADO:
+extraia os dados existentes no documento sem inventar informacoes e sem consolidar
+atividades diferentes em uma unica atividade.
+
+Retorne SOMENTE JSON valido.
+Nao use markdown.
+Nao use bloco de codigo.
+Nao escreva comentarios antes ou depois do JSON.
+
+Use exatamente esta estrutura:
+
+{
+  "periodo_apuracao": "",
+  "tipo_declaracao": "",
+  "num_declaracao": "",
+  "num_recibo": "",
+  "autenticacao": "",
+  "data_transmissao": "",
+
+  "rpa": 0,
+  "rbt12": 0,
+  "rba": 0,
+  "rbaa": 0,
+
+  "receita_revenda": 0,
+  "receita_industrializacao": 0,
+  "receita_servicos": 0,
+  "receita_monofasica": 0,
+  "receita_st": 0,
+  "receita_imune": 0,
+
+  "fator_r": "",
+  "das_total": 0,
+
+  "irpj": 0,
+  "csll": 0,
+  "cofins": 0,
+  "pis": 0,
+  "inss_cpp": 0,
+  "icms": 0,
+  "ipi": 0,
+  "iss": 0,
+
+  "irpj_susp": 0,
+  "csll_susp": 0,
+  "cofins_susp": 0,
+  "pis_susp": 0,
+  "inss_susp": 0,
+  "icms_susp": 0,
+  "ipi_susp": 0,
+  "iss_susp": 0,
+
+  "atividades": [
+    {
+      "ordem": 1,
+      "descricao": "",
+      "anexo": "",
+      "tipo_atividade": "",
+
+      "receita": 0,
+      "receita_revenda": 0,
+      "receita_industrializacao": 0,
+      "receita_servicos": 0,
+      "mercado_interno": 0,
+      "mercado_externo": 0,
+
+      "icms_st": false,
+      "pis_cofins_monofasico": false,
+      "antecipacao_com_encerramento": false,
+      "iss_retido": false,
+      "imunidade": false,
+      "exportacao": false,
+
+      "irpj": 0,
+      "csll": 0,
+      "cofins": 0,
+      "pis": 0,
+      "inss_cpp": 0,
+      "icms": 0,
+      "ipi": 0,
+      "iss": 0,
+
+      "irpj_susp": 0,
+      "csll_susp": 0,
+      "cofins_susp": 0,
+      "pis_susp": 0,
+      "inss_susp": 0,
+      "icms_susp": 0,
+      "ipi_susp": 0,
+      "iss_susp": 0,
+
+      "valor_total_tributos": 0,
+      "texto_original": ""
+    }
+  ]
+}
+
+REGRAS DE EXTRACAO:
+
+1. Gere um objeto em "atividades" para CADA atividade/segregacao apresentada no PGDAS-D.
+2. Nao una revenda, industrializacao e servicos em uma unica atividade se o documento os apresentar separadamente.
+3. Nao confunda ICMS-ST com tributacao monofasica de PIS/COFINS.
+4. "icms_st" so deve ser true quando o documento indicar substituicao tributaria de ICMS naquela atividade.
+5. "pis_cofins_monofasico" so deve ser true quando o documento indicar tributacao monofasica de PIS/COFINS naquela atividade.
+6. "antecipacao_com_encerramento" deve ser independente de ICMS-ST e de PIS/COFINS monofasico.
+7. Preserve em "texto_original" a descricao relevante da atividade como aparece no documento.
+8. Nao deduza tributacao monofasica apenas porque uma descricao generica menciona varias possibilidades de tributacao.
+9. Quando houver linha explicita "Substituicao tributaria de: ICMS", isso nao significa automaticamente PIS/COFINS monofasico.
+10. Valores inexistentes devem ser 0. Textos inexistentes devem ser "". Booleanos inexistentes devem ser false.
+11. Valores monetarios devem ser numeros JSON, sem R$, sem separador de milhar e com ponto decimal.
+12. Nao calcule credito tributario. Apenas extraia o PGDAS-D.
+13. Sempre que o proprio documento permitir conferencia, mantenha os totais coerentes com as atividades.
+`
 
 function Badge({ tipo }) {
   const map = {
-    original:     { label: 'Original',      bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
-    retificadora: { label: 'Retificadora',  bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
-    transmitida:  { label: 'Transmitida',   bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
-    pendente:     { label: 'Pendente',      bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
-    concluido:    { label: 'Concluido',     bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
-    erro:         { label: 'Erro',          bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+    original: {
+      label: 'Original',
+      bg: '#eff6ff',
+      color: '#2563eb',
+      border: '#bfdbfe',
+    },
+    retificadora: {
+      label: 'Retificadora',
+      bg: '#f5f3ff',
+      color: '#7c3aed',
+      border: '#ddd6fe',
+    },
+    concluido: {
+      label: 'Concluido',
+      bg: '#f0fdf4',
+      color: '#16a34a',
+      border: '#86efac',
+    },
+    pendente: {
+      label: 'Pendente',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '#fed7aa',
+    },
+    erro: {
+      label: 'Erro',
+      bg: '#fef2f2',
+      color: '#dc2626',
+      border: '#fecaca',
+    },
   }
+
   const b = map[tipo] || map.pendente
+
   return (
-    <span style={{ background: b.bg, color: b.color, border: `1px solid ${b.border}`, borderRadius: 99, padding: '2px 10px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+    <span
+      style={{
+        background: b.bg,
+        color: b.color,
+        border: `1px solid ${b.border}`,
+        borderRadius: 99,
+        padding: '2px 10px',
+        fontSize: 10,
+        fontWeight: 700,
+        whiteSpace: 'nowrap',
+      }}
+    >
       {b.label}
     </span>
   )
 }
 
-const FORM_VAZIO = {
-  num_declaracao: '', num_recibo: '', autenticacao: '',
-  periodo_apuracao: '', tipo_declaracao: 'Original',
-  data_transmissao: '',
-  rpa: '', rbt12: '', rba: '', rbaa: '',
-  receita_revenda: '', receita_industrializacao: '', receita_servicos: '',
-  receita_monofasica: '', receita_st: '', receita_imune: '',
-  fator_r: '',
-  das_total: '',
-  irpj: '', csll: '', cofins: '', pis: '', inss_cpp: '', icms: '', ipi: '', iss: '',
-  irpj_susp: '', csll_susp: '', cofins_susp: '', pis_susp: '', inss_susp: '', icms_susp: '', ipi_susp: '', iss_susp: '',
-  observacoes: '',
+function Flag({ ativo, texto, cor = S.blue }) {
+  if (!ativo) return null
+
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 7px',
+        borderRadius: 99,
+        background: `${cor}12`,
+        color: cor,
+        border: `1px solid ${cor}35`,
+        fontSize: 10,
+        fontWeight: 700,
+        marginRight: 4,
+        marginBottom: 4,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {texto}
+    </span>
+  )
 }
 
-const LINHAS_GHOST = Array(3).fill(null).map((_, i) => ({
-  id: `ghost-${i}`, periodo_apuracao: 'MM/AAAA', tipo_declaracao: 'Original',
-  rpa: 0, rbt12: 0, das_total: 0, receita_monofasica: 0, status: 'pendente', ghost: true,
-}))
-
-function InputMoeda({ label, value, onChange, placeholder = 'R$ 0,00', disabled }) {
+function InputMoeda({
+  label,
+  value,
+  onChange,
+  placeholder = 'R$ 0,00',
+  disabled,
+}) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{label}</div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: S.muted,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+
       <input
-        value={value ? parseFloat(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
-        onChange={e => { const raw = e.target.value.replace(/\D/g, ''); onChange((parseInt(raw || '0') / 100).toFixed(2)) }}
-        placeholder={placeholder} disabled={disabled}
-        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text, background: disabled ? S.bg : S.white }}
+        value={
+          value !== '' && value !== null && value !== undefined
+            ? Number(value || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : ''
+        }
+        onChange={e => {
+          const raw = e.target.value.replace(/\D/g, '')
+          onChange((parseInt(raw || '0', 10) / 100).toFixed(2))
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          padding: '7px 10px',
+          border: `1px solid ${S.border}`,
+          borderRadius: 6,
+          fontSize: 13,
+          outline: 'none',
+          boxSizing: 'border-box',
+          color: S.text,
+          background: disabled ? S.bg : S.white,
+        }}
       />
     </div>
   )
@@ -73,37 +409,208 @@ function InputMoeda({ label, value, onChange, placeholder = 'R$ 0,00', disabled 
 function InputTexto({ label, value, onChange, placeholder, disabled }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{label}</div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: S.muted,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+
       <input
-        value={value || ''} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} disabled={disabled}
-        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text, background: disabled ? S.bg : S.white }}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          padding: '7px 10px',
+          border: `1px solid ${S.border}`,
+          borderRadius: 6,
+          fontSize: 13,
+          outline: 'none',
+          boxSizing: 'border-box',
+          color: S.text,
+          background: disabled ? S.bg : S.white,
+        }}
       />
     </div>
   )
 }
 
+function normalizarAtividade(a, index) {
+  const tributos =
+    num(a.irpj) +
+    num(a.csll) +
+    num(a.cofins) +
+    num(a.pis) +
+    num(a.inss_cpp) +
+    num(a.icms) +
+    num(a.ipi) +
+    num(a.iss)
+
+  return {
+    ...ATIVIDADE_VAZIA,
+    ordem: Number(a.ordem || index + 1),
+    descricao: str(a.descricao),
+    anexo: str(a.anexo),
+    tipo_atividade: str(a.tipo_atividade),
+
+    receita: num(a.receita),
+    receita_revenda: num(a.receita_revenda),
+    receita_industrializacao: num(a.receita_industrializacao),
+    receita_servicos: num(a.receita_servicos),
+    mercado_interno: num(a.mercado_interno),
+    mercado_externo: num(a.mercado_externo),
+
+    icms_st: bool(a.icms_st),
+    pis_cofins_monofasico: bool(a.pis_cofins_monofasico),
+    antecipacao_com_encerramento: bool(a.antecipacao_com_encerramento),
+    iss_retido: bool(a.iss_retido),
+    imunidade: bool(a.imunidade ?? a.imune),
+    exportacao: bool(a.exportacao),
+
+    irpj: num(a.irpj),
+    csll: num(a.csll),
+    cofins: num(a.cofins),
+    pis: num(a.pis),
+    inss_cpp: num(a.inss_cpp),
+    icms: num(a.icms),
+    ipi: num(a.ipi),
+    iss: num(a.iss),
+
+    irpj_susp: num(a.irpj_susp),
+    csll_susp: num(a.csll_susp),
+    cofins_susp: num(a.cofins_susp),
+    pis_susp: num(a.pis_susp),
+    inss_susp: num(a.inss_susp),
+    icms_susp: num(a.icms_susp),
+    ipi_susp: num(a.ipi_susp),
+    iss_susp: num(a.iss_susp),
+
+    valor_total_tributos:
+      num(a.valor_total_tributos) > 0
+        ? num(a.valor_total_tributos)
+        : tributos,
+
+    texto_original: str(a.texto_original || a.descricao_original),
+  }
+}
+
+function mapAtividadeBanco(a) {
+  return {
+    ordem: Number(a.ordem_atividade || 0),
+    descricao: a.descricao_original || '',
+    anexo: a.anexo || '',
+    tipo_atividade: a.tipo_atividade || '',
+
+    receita: num(a.receita_bruta),
+
+    icms_st: !!a.icms_st,
+    pis_cofins_monofasico: !!a.pis_cofins_monofasico,
+    antecipacao_com_encerramento: !!a.antecipacao_encerramento,
+    iss_retido: !!a.iss_retido,
+    imunidade: !!a.imune,
+    exportacao: !!a.exportacao,
+
+    irpj: num(a.irpj),
+    csll: num(a.csll),
+    cofins: num(a.cofins),
+    pis: num(a.pis),
+    inss_cpp: num(a.inss_cpp),
+    icms: num(a.icms),
+    ipi: num(a.ipi),
+    iss: num(a.iss),
+
+    irpj_susp: num(a.irpj_susp),
+    csll_susp: num(a.csll_susp),
+    cofins_susp: num(a.cofins_susp),
+    pis_susp: num(a.pis_susp),
+    inss_susp: num(a.inss_susp),
+    icms_susp: num(a.icms_susp),
+    ipi_susp: num(a.ipi_susp),
+    iss_susp: num(a.iss_susp),
+
+    valor_total_tributos: num(a.total_tributos),
+    texto_original: a.descricao_original || '',
+    dados_originais: a.dados_originais || null,
+  }
+}
+
 export default function AbaPGDAS({ cliente, regime }) {
   const [aba, setAba] = useState('lancamento')
   const [form, setForm] = useState(FORM_VAZIO)
+  const [atividades, setAtividades] = useState([])
+
   const [salvando, setSalvando] = useState(false)
   const [historico, setHistorico] = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
+
   const [diagAberto, setDiagAberto] = useState(null)
+  const [carregandoDiag, setCarregandoDiag] = useState(false)
+
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(10)
+
   const [importando, setImportando] = useState(false)
   const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
+
   const inputImportRef = useRef(null)
 
-  useEffect(() => { if (cliente?.id) carregarHistorico() }, [cliente?.id])
+  useEffect(() => {
+    if (cliente?.id) carregarHistorico()
+  }, [cliente?.id])
+
+  function setF(campo, valor) {
+    setForm(prev => ({ ...prev, [campo]: valor }))
+  }
+
+  function limparLancamento() {
+    setForm(FORM_VAZIO)
+    setAtividades([])
+    setDiagAberto(null)
+  }
+
+  function novoLancamento() {
+    limparLancamento()
+    setAba('lancamento')
+  }
+
+  async function carregarHistorico() {
+    if (!cliente?.id) return
+
+    setLoadingHistorico(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('diagnosticos_pgdas')
+        .select('*')
+        .eq('cliente_id', cliente.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setHistorico(data || [])
+      setPagina(1)
+    } catch (e) {
+      console.error('Erro ao carregar historico PGDAS:', e)
+    } finally {
+      setLoadingHistorico(false)
+    }
+  }
 
   async function importarArquivo(e) {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file) return
+
     setImportando(true)
+
     try {
       let textoExtraido = ''
+
       if (file.name.toLowerCase().endsWith('.pdf')) {
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
@@ -111,431 +618,1557 @@ export default function AbaPGDAS({ cliente, regime }) {
           reader.onerror = reject
           reader.readAsDataURL(file)
         })
-        const { data: { session } } = await supabase.auth.getSession()
-        const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            model: 'gemini-3.5-flash',
-            messages: [{ role: 'user', content: [
-              { type: 'inline_data', inline_data: { mime_type: 'application/pdf', data: base64 } },
-              { type: 'text', text: `Extraia os dados do PGDAS-D e retorne JSON com os campos: periodo_apuracao (MM/AAAA), tipo_declaracao, num_declaracao, num_recibo, autenticacao, data_transmissao, rpa, rbt12, rba, rbaa, receita_revenda, receita_industrializacao, receita_servicos, receita_monofasica, receita_st, receita_imune, fator_r, das_total, irpj, csll, cofins, pis, inss_cpp, icms, ipi, iss, irpj_susp, csll_susp, cofins_susp, pis_susp, inss_susp, icms_susp, ipi_susp, iss_susp. Valores numericos sem R$ sem pontos de milhar use ponto decimal. Retorne apenas o JSON.` }
-            ]}]
-          })
-        })
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!session?.access_token) {
+          throw new Error('Sessao expirada. Entre novamente no sistema.')
+        }
+
+        const resp = await fetch(
+          'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              model: 'gemini-3.5-flash',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'inline_data',
+                      inline_data: {
+                        mime_type: 'application/pdf',
+                        data: base64,
+                      },
+                    },
+                    {
+                      type: 'text',
+                      text: PROMPT_PGDAS,
+                    },
+                  ],
+                },
+              ],
+            }),
+          }
+        )
+
+        if (!resp.ok) {
+          const detalhe = await resp.text()
+          throw new Error(
+            `Falha na extracao do PDF (${resp.status}). ${detalhe || ''}`.trim()
+          )
+        }
+
         const data = await resp.json()
-        textoExtraido = data?.resposta ?? data?.resultado ?? data?.content ?? ''
+        textoExtraido =
+          data?.resposta ??
+          data?.resultado ??
+          data?.content ??
+          data?.message ??
+          ''
       } else {
         textoExtraido = await file.text()
       }
-      const jsonMatch = textoExtraido.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0])
-        setForm(prev => ({
-          ...prev,
-          periodo_apuracao:         parsed.periodo_apuracao?.toString()        || prev.periodo_apuracao,
-          tipo_declaracao:          parsed.tipo_declaracao                      || prev.tipo_declaracao,
-          num_declaracao:           parsed.num_declaracao?.toString()           || prev.num_declaracao,
-          num_recibo:               parsed.num_recibo?.toString()               || prev.num_recibo,
-          autenticacao:             parsed.autenticacao?.toString()             || prev.autenticacao,
-          data_transmissao:         parsed.data_transmissao?.toString()         || prev.data_transmissao,
-          rpa:                      parsed.rpa?.toString()                      || prev.rpa,
-          rbt12:                    parsed.rbt12?.toString()                    || prev.rbt12,
-          rba:                      parsed.rba?.toString()                      || prev.rba,
-          rbaa:                     parsed.rbaa?.toString()                     || prev.rbaa,
-          receita_revenda:          parsed.receita_revenda?.toString()          || prev.receita_revenda,
-          receita_industrializacao: parsed.receita_industrializacao?.toString() || prev.receita_industrializacao,
-          receita_servicos:         parsed.receita_servicos?.toString()         || prev.receita_servicos,
-          receita_monofasica:       parsed.receita_monofasica?.toString()       || prev.receita_monofasica,
-          receita_st:               parsed.receita_st?.toString()               || prev.receita_st,
-          receita_imune:            parsed.receita_imune?.toString()            || prev.receita_imune,
-          fator_r:                  parsed.fator_r?.toString()                  || prev.fator_r,
-          das_total:                parsed.das_total?.toString()                || prev.das_total,
-          irpj:                     parsed.irpj?.toString()                     || prev.irpj,
-          csll:                     parsed.csll?.toString()                     || prev.csll,
-          cofins:                   parsed.cofins?.toString()                   || prev.cofins,
-          pis:                      parsed.pis?.toString()                      || prev.pis,
-          inss_cpp:                 parsed.inss_cpp?.toString()                 || prev.inss_cpp,
-          icms:                     parsed.icms?.toString()                     || prev.icms,
-          ipi:                      parsed.ipi?.toString()                      || prev.ipi,
-          iss:                      parsed.iss?.toString()                      || prev.iss,
-          irpj_susp:                parsed.irpj_susp?.toString()                || prev.irpj_susp,
-          csll_susp:                parsed.csll_susp?.toString()                || prev.csll_susp,
-          cofins_susp:              parsed.cofins_susp?.toString()              || prev.cofins_susp,
-          pis_susp:                 parsed.pis_susp?.toString()                 || prev.pis_susp,
-          inss_susp:                parsed.inss_susp?.toString()                || prev.inss_susp,
-          icms_susp:                parsed.icms_susp?.toString()                || prev.icms_susp,
-          ipi_susp:                 parsed.ipi_susp?.toString()                 || prev.ipi_susp,
-          iss_susp:                 parsed.iss_susp?.toString()                 || prev.iss_susp,
-        }))
-        alert('✅ Dados extraidos! Revise os campos antes de salvar.')
-      } else {
-        alert('Nao foi possivel extrair automaticamente. Preencha manualmente.')
+
+      if (typeof textoExtraido !== 'string') {
+        textoExtraido = JSON.stringify(textoExtraido)
       }
+
+      const jsonMatch = textoExtraido.match(/\{[\s\S]*\}/)
+
+      if (!jsonMatch) {
+        throw new Error(
+          'A extracao terminou, mas nao retornou um JSON valido do PGDAS-D.'
+        )
+      }
+
+      const parsed = JSON.parse(jsonMatch[0])
+
+      const atividadesExtraidas = Array.isArray(parsed.atividades)
+        ? parsed.atividades.map(normalizarAtividade)
+        : []
+
+      setAtividades(atividadesExtraidas)
+
+      setForm(prev => ({
+        ...prev,
+
+        periodo_apuracao:
+          str(parsed.periodo_apuracao) || prev.periodo_apuracao,
+        tipo_declaracao:
+          str(parsed.tipo_declaracao) || prev.tipo_declaracao,
+        num_declaracao:
+          str(parsed.num_declaracao) || prev.num_declaracao,
+        num_recibo:
+          str(parsed.num_recibo) || prev.num_recibo,
+        autenticacao:
+          str(parsed.autenticacao) || prev.autenticacao,
+        data_transmissao:
+          str(parsed.data_transmissao) || prev.data_transmissao,
+
+        rpa: str(num(parsed.rpa)),
+        rbt12: str(num(parsed.rbt12)),
+        rba: str(num(parsed.rba)),
+        rbaa: str(num(parsed.rbaa)),
+
+        receita_revenda: str(num(parsed.receita_revenda)),
+        receita_industrializacao: str(
+          num(parsed.receita_industrializacao)
+        ),
+        receita_servicos: str(num(parsed.receita_servicos)),
+        receita_monofasica: str(num(parsed.receita_monofasica)),
+        receita_st: str(num(parsed.receita_st)),
+        receita_imune: str(num(parsed.receita_imune)),
+
+        fator_r: str(parsed.fator_r),
+
+        das_total: str(num(parsed.das_total)),
+
+        irpj: str(num(parsed.irpj)),
+        csll: str(num(parsed.csll)),
+        cofins: str(num(parsed.cofins)),
+        pis: str(num(parsed.pis)),
+        inss_cpp: str(num(parsed.inss_cpp)),
+        icms: str(num(parsed.icms)),
+        ipi: str(num(parsed.ipi)),
+        iss: str(num(parsed.iss)),
+
+        irpj_susp: str(num(parsed.irpj_susp)),
+        csll_susp: str(num(parsed.csll_susp)),
+        cofins_susp: str(num(parsed.cofins_susp)),
+        pis_susp: str(num(parsed.pis_susp)),
+        inss_susp: str(num(parsed.inss_susp)),
+        icms_susp: str(num(parsed.icms_susp)),
+        ipi_susp: str(num(parsed.ipi_susp)),
+        iss_susp: str(num(parsed.iss_susp)),
+      }))
+
+      alert(
+        `Dados extraidos com sucesso.\n\nAtividades identificadas: ${atividadesExtraidas.length}\n\nRevise os dados antes de salvar.`
+      )
     } catch (err) {
-      alert('Erro ao importar: ' + err.message)
+      alert('Erro ao importar PGDAS-D: ' + err.message)
     } finally {
       setImportando(false)
-      e.target.value = ''
+      if (e.target) e.target.value = ''
     }
   }
 
-  async function carregarHistorico() {
-    setLoadingHistorico(true)
-    const { data } = await supabase.from('diagnosticos_pgdas').select('*').eq('cliente_id', cliente.id).order('created_at', { ascending: false })
-    setHistorico(data || [])
-    setLoadingHistorico(false)
-  }
+  const rpa = num(form.rpa)
+  const rbt12 = num(form.rbt12)
+  const receitaMono = num(form.receita_monofasica)
+  const receitaST = num(form.receita_st)
+  const receitaImune = num(form.receita_imune)
+  const dasTotal = num(form.das_total)
 
-  function setF(campo, valor) { setForm(prev => ({ ...prev, [campo]: valor })) }
+  const irpj = num(form.irpj)
+  const csll = num(form.csll)
+  const cofins = num(form.cofins)
+  const pis = num(form.pis)
+  const inss = num(form.inss_cpp)
+  const icms = num(form.icms)
+  const ipi = num(form.ipi)
+  const iss = num(form.iss)
 
-  const rpa          = parseFloat(form.rpa || 0)
-  const receita_mono = parseFloat(form.receita_monofasica || 0)
-  const receita_st   = parseFloat(form.receita_st || 0)
-  const receita_imu  = parseFloat(form.receita_imune || 0)
-  const das_total    = parseFloat(form.das_total || 0)
-  const irpj         = parseFloat(form.irpj || 0)
-  const csll         = parseFloat(form.csll || 0)
-  const cofins       = parseFloat(form.cofins || 0)
-  const pis          = parseFloat(form.pis || 0)
-  const inss         = parseFloat(form.inss_cpp || 0)
-  const icms         = parseFloat(form.icms || 0)
-  const ipi          = parseFloat(form.ipi || 0)
-  const iss          = parseFloat(form.iss || 0)
-  const totalTributos    = irpj + csll + cofins + pis + inss + icms + ipi + iss
-  const baseCorreta      = rpa - receita_mono - receita_st - receita_imu
-  const pctMono          = rpa > 0 ? (receita_mono / rpa * 100) : 0
-  const aliquotaEfetiva  = rpa > 0 ? (das_total / rpa * 100) : 0
-  const aliquotaPIS      = rpa > 0 ? (pis / rpa * 100) : 0
-  const aliquotaCOFINS   = rpa > 0 ? (cofins / rpa * 100) : 0
-  const pisDevido        = baseCorreta > 0 ? baseCorreta * (aliquotaPIS / 100) : 0
-  const cofinsDevido     = baseCorreta > 0 ? baseCorreta * (aliquotaCOFINS / 100) : 0
-  const creditoPIS       = Math.max(0, pis - pisDevido)
-  const creditoCOFINS    = Math.max(0, cofins - cofinsDevido)
-  const diferencaRecuperavel = creditoPIS + creditoCOFINS
+  const totalTributos =
+    irpj + csll + cofins + pis + inss + icms + ipi + iss
+
+  const totalReceitaAtividades = atividades.reduce(
+    (s, a) => s + num(a.receita),
+    0
+  )
+
+  const totalTributosAtividades = atividades.reduce(
+    (s, a) => s + num(a.valor_total_tributos),
+    0
+  )
+
+  const qtdICMSST = atividades.filter(a => a.icms_st).length
+  const qtdMono = atividades.filter(a => a.pis_cofins_monofasico).length
+
+  const divergenciaAtividades =
+    rpa > 0 && totalReceitaAtividades > 0
+      ? totalReceitaAtividades - rpa
+      : 0
 
   async function salvar() {
-    if (!form.periodo_apuracao) return alert('Informe o periodo de apuracao')
+    if (!cliente?.id) {
+      return alert('Selecione um cliente antes de salvar.')
+    }
+
+    if (!form.periodo_apuracao) {
+      return alert('Informe o periodo de apuracao.')
+    }
+
     setSalvando(true)
+
+    let diagnosticoCriado = null
+
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('diagnosticos_pgdas').insert([{
-        usuario_id: user.id, cliente_id: cliente.id,
-        cliente_nome: cliente.razao_social || '', cliente_cnpj: cliente.cnpj || '', regime,
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user?.id) throw new Error('Usuario nao autenticado.')
+
+      const payloadPrincipal = {
+        usuario_id: user.id,
+        cliente_id: cliente.id,
+        cliente_nome: cliente.razao_social || '',
+        cliente_cnpj: cliente.cnpj || '',
+        regime,
+
         competencia: form.periodo_apuracao,
-        num_declaracao: form.num_declaracao, num_recibo: form.num_recibo,
-        autenticacao: form.autenticacao, tipo_declaracao: form.tipo_declaracao,
-        data_transmissao: form.data_transmissao,
-        receita_bruta_total: rpa, rbt12: parseFloat(form.rbt12||0),
-        rba: parseFloat(form.rba||0), rbaa: parseFloat(form.rbaa||0),
-        receita_revenda: parseFloat(form.receita_revenda||0),
-        receita_industrializacao: parseFloat(form.receita_industrializacao||0),
-        receita_servicos: parseFloat(form.receita_servicos||0),
-        receita_monofasica: receita_mono, receita_st, receita_imune: receita_imu,
-        fator_r: form.fator_r,
-        das_recolhido: das_total,
-        das_correto: baseCorreta * (aliquotaEfetiva / 100),
-        diferenca_recuperavel: diferencaRecuperavel,
-        pct_monofasica: pctMono,
-        irpj, csll, cofins, pis, inss_cpp: inss, icms, ipi, iss,
+
+        num_declaracao: form.num_declaracao || null,
+        num_recibo: form.num_recibo || null,
+        autenticacao: form.autenticacao || null,
+        tipo_declaracao: form.tipo_declaracao || 'Original',
+        data_transmissao: form.data_transmissao || null,
+
+        receita_bruta_total: rpa,
+        rbt12,
+        rba: num(form.rba),
+        rbaa: num(form.rbaa),
+
+        receita_revenda: num(form.receita_revenda),
+        receita_industrializacao: num(form.receita_industrializacao),
+        receita_servicos: num(form.receita_servicos),
+
+        receita_monofasica: receitaMono,
+        receita_st: receitaST,
+        receita_imune: receitaImune,
+
+        fator_r: form.fator_r || null,
+
+        das_recolhido: dasTotal,
+
+        /*
+         * Nesta tela registramos fielmente o PGDAS-D.
+         * O valor "correto" e o credito serao calculados somente
+         * no modulo Apuracao do Simples, apos conciliacao com XML/NF-e.
+         */
+        das_correto: dasTotal,
+        diferenca_recuperavel: 0,
+        credito_estimado: 0,
+
+        pct_monofasica:
+          rpa > 0 ? (receitaMono / rpa) * 100 : 0,
+
+        irpj,
+        csll,
+        cofins,
+        pis,
+        inss_cpp: inss,
+        icms,
+        ipi,
+        iss,
+
         total_tributos: totalTributos,
-        irpj_susp: parseFloat(form.irpj_susp||0), csll_susp: parseFloat(form.csll_susp||0),
-        cofins_susp: parseFloat(form.cofins_susp||0), pis_susp: parseFloat(form.pis_susp||0),
-        inss_susp: parseFloat(form.inss_susp||0), icms_susp: parseFloat(form.icms_susp||0),
-        ipi_susp: parseFloat(form.ipi_susp||0), iss_susp: parseFloat(form.iss_susp||0),
-        observacoes: form.observacoes,
-        credito_estimado: diferencaRecuperavel,
+
+        irpj_susp: num(form.irpj_susp),
+        csll_susp: num(form.csll_susp),
+        cofins_susp: num(form.cofins_susp),
+        pis_susp: num(form.pis_susp),
+        inss_susp: num(form.inss_susp),
+        icms_susp: num(form.icms_susp),
+        ipi_susp: num(form.ipi_susp),
+        iss_susp: num(form.iss_susp),
+
+        observacoes: form.observacoes || null,
+
         status: 'concluido',
         created_at: new Date().toISOString(),
-      }])
-      if (error) throw error
+      }
+
+      const {
+        data: diag,
+        error: erroPrincipal,
+      } = await supabase
+        .from('diagnosticos_pgdas')
+        .insert([payloadPrincipal])
+        .select('id')
+        .single()
+
+      if (erroPrincipal) throw erroPrincipal
+
+      diagnosticoCriado = diag
+
+      if (atividades.length > 0) {
+        const atividadesBanco = atividades.map((a, index) => ({
+          diagnostico_id: diag.id,
+          usuario_id: user.id,
+          cliente_id: cliente.id,
+          competencia: form.periodo_apuracao,
+
+          ordem_atividade: Number(a.ordem || index + 1),
+          tipo_atividade: a.tipo_atividade || null,
+          descricao_original:
+            a.texto_original || a.descricao || null,
+          anexo: a.anexo || null,
+
+          receita_bruta: num(a.receita),
+
+          icms_st: !!a.icms_st,
+          pis_cofins_monofasico: !!a.pis_cofins_monofasico,
+          antecipacao_encerramento:
+            !!a.antecipacao_com_encerramento,
+          iss_retido: !!a.iss_retido,
+          imune: !!a.imunidade,
+          exportacao: !!a.exportacao,
+
+          irpj: num(a.irpj),
+          csll: num(a.csll),
+          cofins: num(a.cofins),
+          pis: num(a.pis),
+          inss_cpp: num(a.inss_cpp),
+          icms: num(a.icms),
+          ipi: num(a.ipi),
+          iss: num(a.iss),
+
+          irpj_susp: num(a.irpj_susp),
+          csll_susp: num(a.csll_susp),
+          cofins_susp: num(a.cofins_susp),
+          pis_susp: num(a.pis_susp),
+          inss_susp: num(a.inss_susp),
+          icms_susp: num(a.icms_susp),
+          ipi_susp: num(a.ipi_susp),
+          iss_susp: num(a.iss_susp),
+
+          total_tributos: num(a.valor_total_tributos),
+
+          dados_originais: a,
+        }))
+
+        const TAMANHO_LOTE = 300
+
+        for (
+          let i = 0;
+          i < atividadesBanco.length;
+          i += TAMANHO_LOTE
+        ) {
+          const lote = atividadesBanco.slice(i, i + TAMANHO_LOTE)
+
+          const { error: erroAtividades } = await supabase
+            .from('diagnosticos_pgdas_atividades')
+            .insert(lote)
+
+          if (erroAtividades) throw erroAtividades
+        }
+      }
+
       await carregarHistorico()
-      setForm(FORM_VAZIO); setDiagAberto(null)
-      alert('PGDAS-D salvo com sucesso!')
-    } catch (e) { alert('Erro ao salvar: ' + e.message) }
-    finally { setSalvando(false) }
+      limparLancamento()
+
+      alert(
+        `PGDAS-D salvo com sucesso.\n\nAtividades gravadas: ${atividades.length}`
+      )
+    } catch (e) {
+      if (diagnosticoCriado?.id) {
+        await supabase
+          .from('diagnosticos_pgdas')
+          .delete()
+          .eq('id', diagnosticoCriado.id)
+      }
+
+      alert('Erro ao salvar PGDAS-D: ' + e.message)
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function excluir(id) {
     if (!window.confirm('Excluir este PGDAS-D?')) return
-    await supabase.from('diagnosticos_pgdas').delete().eq('id', id)
-    if (diagAberto?.id === id) { setDiagAberto(null); setForm(FORM_VAZIO) }
-    await carregarHistorico()
+
+    try {
+      const { error } = await supabase
+        .from('diagnosticos_pgdas')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      if (diagAberto?.id === id) {
+        limparLancamento()
+      }
+
+      await carregarHistorico()
+    } catch (e) {
+      alert('Erro ao excluir PGDAS-D: ' + e.message)
+    }
   }
 
-  function abrirDiagnostico(diag) {
-    setDiagAberto(diag)
-    setForm({
-      num_declaracao: diag.num_declaracao || '', num_recibo: diag.num_recibo || '',
-      autenticacao: diag.autenticacao || '', periodo_apuracao: diag.competencia || '',
-      tipo_declaracao: diag.tipo_declaracao || 'Original', data_transmissao: diag.data_transmissao || '',
-      rpa: diag.receita_bruta_total?.toString() || '', rbt12: diag.rbt12?.toString() || '',
-      rba: diag.rba?.toString() || '', rbaa: diag.rbaa?.toString() || '',
-      receita_revenda: diag.receita_revenda?.toString() || '',
-      receita_industrializacao: diag.receita_industrializacao?.toString() || '',
-      receita_servicos: diag.receita_servicos?.toString() || '',
-      receita_monofasica: diag.receita_monofasica?.toString() || '',
-      receita_st: diag.receita_st?.toString() || '', receita_imune: diag.receita_imune?.toString() || '',
-      fator_r: diag.fator_r || '', das_total: diag.das_recolhido?.toString() || '',
-      irpj: diag.irpj?.toString() || '', csll: diag.csll?.toString() || '',
-      cofins: diag.cofins?.toString() || '', pis: diag.pis?.toString() || '',
-      inss_cpp: diag.inss_cpp?.toString() || '', icms: diag.icms?.toString() || '',
-      ipi: diag.ipi?.toString() || '', iss: diag.iss?.toString() || '',
-      irpj_susp: diag.irpj_susp?.toString() || '', csll_susp: diag.csll_susp?.toString() || '',
-      cofins_susp: diag.cofins_susp?.toString() || '', pis_susp: diag.pis_susp?.toString() || '',
-      inss_susp: diag.inss_susp?.toString() || '', icms_susp: diag.icms_susp?.toString() || '',
-      ipi_susp: diag.ipi_susp?.toString() || '', iss_susp: diag.iss_susp?.toString() || '',
-      observacoes: diag.observacoes || '',
-    })
-    setAba('lancamento')
+  async function abrirDiagnostico(diag) {
+    setCarregandoDiag(true)
+
+    try {
+      const { data: atividadesBanco, error } = await supabase
+        .from('diagnosticos_pgdas_atividades')
+        .select('*')
+        .eq('diagnostico_id', diag.id)
+        .order('ordem_atividade', { ascending: true })
+
+      if (error) throw error
+
+      const atividadesCarregadas = (atividadesBanco || []).map(
+        mapAtividadeBanco
+      )
+
+      setDiagAberto(diag)
+      setAtividades(atividadesCarregadas)
+
+      setForm({
+        num_declaracao: diag.num_declaracao || '',
+        num_recibo: diag.num_recibo || '',
+        autenticacao: diag.autenticacao || '',
+        periodo_apuracao: diag.competencia || '',
+        tipo_declaracao: diag.tipo_declaracao || 'Original',
+        data_transmissao: diag.data_transmissao || '',
+
+        rpa: str(diag.receita_bruta_total),
+        rbt12: str(diag.rbt12),
+        rba: str(diag.rba),
+        rbaa: str(diag.rbaa),
+
+        receita_revenda: str(diag.receita_revenda),
+        receita_industrializacao: str(
+          diag.receita_industrializacao
+        ),
+        receita_servicos: str(diag.receita_servicos),
+
+        receita_monofasica: str(diag.receita_monofasica),
+        receita_st: str(diag.receita_st),
+        receita_imune: str(diag.receita_imune),
+
+        fator_r: diag.fator_r || '',
+
+        das_total: str(diag.das_recolhido),
+
+        irpj: str(diag.irpj),
+        csll: str(diag.csll),
+        cofins: str(diag.cofins),
+        pis: str(diag.pis),
+        inss_cpp: str(diag.inss_cpp),
+        icms: str(diag.icms),
+        ipi: str(diag.ipi),
+        iss: str(diag.iss),
+
+        irpj_susp: str(diag.irpj_susp),
+        csll_susp: str(diag.csll_susp),
+        cofins_susp: str(diag.cofins_susp),
+        pis_susp: str(diag.pis_susp),
+        inss_susp: str(diag.inss_susp),
+        icms_susp: str(diag.icms_susp),
+        ipi_susp: str(diag.ipi_susp),
+        iss_susp: str(diag.iss_susp),
+
+        observacoes: diag.observacoes || '',
+      })
+
+      setAba('lancamento')
+    } catch (e) {
+      alert('Erro ao abrir PGDAS-D: ' + e.message)
+    } finally {
+      setCarregandoDiag(false)
+    }
   }
 
-  function novoLancamento() { setForm(FORM_VAZIO); setDiagAberto(null) }
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(historico.length / porPagina)
+  )
 
-  const totalPaginas    = Math.max(1, Math.ceil(historico.length / porPagina))
-  const historicoPagina = historico.length > 0
-    ? historico.slice((pagina - 1) * porPagina, pagina * porPagina)
-    : LINHAS_GHOST
-  const temHistorico = historico.length > 0
+  const historicoPagina = historico.slice(
+    (pagina - 1) * porPagina,
+    pagina * porPagina
+  )
 
-  const kpisForm = [
-    { label: 'Receita do Periodo (RPA)',  valor: rpa > 0 ? fmtR(rpa) : '—',                                                  cor: rpa > 0 ? S.navy : S.ghostText },
-    { label: 'Receita Monofasica',        valor: receita_mono > 0 ? fmtR(receita_mono) : '—',                                cor: receita_mono > 0 ? S.orange : S.ghostText },
-    { label: 'DAS Total Declarado',       valor: das_total > 0 ? fmtR(das_total) : '—',                                      cor: das_total > 0 ? S.red : S.ghostText },
-    { label: 'Aliquota Efetiva',          valor: aliquotaEfetiva > 0 ? aliquotaEfetiva.toFixed(2).replace('.', ',')+'%':'—', cor: aliquotaEfetiva > 0 ? S.blue : S.ghostText },
-    { label: '% Receita Monofasica',      valor: pctMono > 0 ? pctMono.toFixed(2).replace('.', ',')+'%' : '—',               cor: pctMono > 0 ? S.orange : S.ghostText },
-    { label: 'Diferenca Recuperavel',     valor: diferencaRecuperavel > 0 ? fmtR(diferencaRecuperavel) : '—',                cor: diferencaRecuperavel > 0 ? S.green : S.ghostText },
-  ]
+  const dadosIA =
+    rpa > 0
+      ? {
+          periodo: form.periodo_apuracao,
+          receitaBrutaPeriodo: rpa,
+          rbt12,
+          receitaMonofasica: receitaMono,
+          receitaST,
+          receitaImune,
+          dasDeclarado: dasTotal,
+          atividades,
+          tributos: {
+            irpj,
+            csll,
+            cofins,
+            pis,
+            inss,
+            icms,
+            ipi,
+            iss,
+          },
+          regime,
+          observacao:
+            'Tela PGDAS-D registra a declaracao original. O credito e calculado posteriormente na Apuracao do Simples.',
+        }
+      : null
 
-  const dadosIA = rpa > 0 ? {
-    periodo: form.periodo_apuracao, receitaBrutaPeriodo: rpa,
-    receitaMonofasica: receita_mono, receitaST: receita_st, receitaImune: receita_imu,
-    baseCorreta, dasDeclarado: das_total, dasCorreto: baseCorreta * (aliquotaEfetiva / 100),
-    diferencaRecuperavel, aliquotaEfetiva, pctMonofasica: pctMono,
-    fatorR: form.fator_r, tributos: { irpj, csll, cofins, pis, inss, icms, ipi, iss }, regime,
-    baseLegal: 'LC 123/2006 art. 18 §4 — Segregacao de receitas monofasicas no PGDAS-D',
-  } : historico.length > 0 ? {
-    totalDeclaracoes: historico.length,
-    totalDAS: historico.reduce((s,d)=>s+(d.das_recolhido||0),0),
-    totalMonofasico: historico.reduce((s,d)=>s+(d.receita_monofasica||0),0),
-    creditoTotal: historico.reduce((s,d)=>s+(d.credito_estimado||0),0), regime,
-  } : null
+  const secao = (titulo, conteudo, subtitulo = '') => (
+    <div style={{ marginBottom: 20 }}>
+      <div
+        style={{
+          borderBottom: `2px solid ${S.navy}`,
+          paddingBottom: 7,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: S.navy,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+          }}
+        >
+          {titulo}
+        </div>
 
-  const secao = (titulo, conteudo) => (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, borderBottom: `2px solid ${S.navy}`, paddingBottom: 6, marginBottom: 12, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-        {titulo}
+        {subtitulo && (
+          <div
+            style={{
+              fontSize: 11,
+              color: S.muted,
+              marginTop: 3,
+            }}
+          >
+            {subtitulo}
+          </div>
+        )}
       </div>
+
       {conteudo}
     </div>
   )
 
-  return (
-    <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }}>
+  const kpis = [
+    {
+      label: 'Receita do Periodo (RPA)',
+      valor: rpa > 0 ? fmtR(rpa) : '—',
+      cor: rpa > 0 ? S.navy : S.ghostText,
+    },
+    {
+      label: 'Atividades do PGDAS',
+      valor: atividades.length > 0 ? atividades.length : '—',
+      cor: atividades.length > 0 ? S.purple : S.ghostText,
+    },
+    {
+      label: 'Receita das Atividades',
+      valor:
+        totalReceitaAtividades > 0
+          ? fmtR(totalReceitaAtividades)
+          : '—',
+      cor:
+        totalReceitaAtividades > 0 ? S.blue : S.ghostText,
+    },
+    {
+      label: 'DAS Declarado',
+      valor: dasTotal > 0 ? fmtR(dasTotal) : '—',
+      cor: dasTotal > 0 ? S.red : S.ghostText,
+    },
+    {
+      label: 'PIS + COFINS',
+      valor: pis + cofins > 0 ? fmtR(pis + cofins) : '—',
+      cor: pis + cofins > 0 ? S.orange : S.ghostText,
+    },
+    {
+      label: 'Atividades ICMS-ST / Mono',
+      valor:
+        atividades.length > 0
+          ? `${qtdICMSST} / ${qtdMono}`
+          : '—',
+      cor: atividades.length > 0 ? S.green : S.ghostText,
+    },
+  ]
 
+  return (
+    <div
+      style={{
+        fontFamily: 'Inter, Arial, sans-serif',
+        color: S.text,
+      }}
+    >
       {/* HEADER */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
         <div>
-          <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>Motor do Simples / <strong style={{ color: S.text }}>PGDAS-D</strong></div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: S.navy }}>PGDAS-D — Simples Nacional</div>
-          <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>Lance os dados completos do PGDAS-D por competencia para analise de segregacao e recuperacao de creditos.</div>
+          <div
+            style={{
+              fontSize: 13,
+              color: S.muted,
+              marginBottom: 2,
+            }}
+          >
+            Motor do Simples /{' '}
+            <strong style={{ color: S.text }}>PGDAS-D</strong>
+          </div>
+
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: S.navy,
+            }}
+          >
+            PGDAS-D — Declaracao e Atividades
+          </div>
+
+          <div
+            style={{
+              fontSize: 13,
+              color: S.muted,
+              marginTop: 4,
+              maxWidth: 760,
+            }}
+          >
+            Importe a declaracao completa e confira cada atividade,
+            segregacao e tributo antes da conciliacao com os documentos fiscais.
+          </div>
         </div>
-        <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>📎 Importar PGDAS-D</div>
-          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.pdf .xml .txt</strong></div>
-          <input ref={inputImportRef} type="file" accept=".pdf,.xml,.txt" onChange={importarArquivo} style={{ display: 'none' }} />
-          <button onClick={() => inputImportRef.current?.click()} disabled={importando}
-            style={{ width: '100%', padding: '8px 0', background: importando ? '#CBD5E1' : '#4B5563', color: S.white, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: importando ? 'not-allowed' : 'pointer' }}>
-            {importando ? '⏳ Extraindo dados...' : '⬆ Importar e Preencher'}
+
+        <div
+          style={{
+            background: S.white,
+            border: `1px solid ${S.border}`,
+            borderRadius: 10,
+            padding: '14px 18px',
+            minWidth: 270,
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: S.navy,
+              marginBottom: 4,
+            }}
+          >
+            📎 Importar PGDAS-D
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: S.muted,
+              marginBottom: 10,
+            }}
+          >
+            Aceita: <strong style={{ color: S.text }}>.pdf .txt</strong>
+          </div>
+
+          <input
+            ref={inputImportRef}
+            type="file"
+            accept=".pdf,.txt"
+            onChange={importarArquivo}
+            style={{ display: 'none' }}
+          />
+
+          <button
+            onClick={() => inputImportRef.current?.click()}
+            disabled={importando || !!diagAberto}
+            style={{
+              width: '100%',
+              padding: '8px 0',
+              background:
+                importando || diagAberto ? '#CBD5E1' : '#4B5563',
+              color: S.white,
+              border: 'none',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor:
+                importando || diagAberto
+                  ? 'not-allowed'
+                  : 'pointer',
+            }}
+          >
+            {importando
+              ? '⏳ Extraindo declaracao...'
+              : '⬆ Importar e Preencher'}
           </button>
         </div>
       </div>
 
       {/* ABAS */}
-      <div style={{ display: 'flex', borderBottom: `2px solid ${S.border}`, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[{ id: 'lancamento', label: 'Lancamento' }, { id: 'historico', label: `Historico (${historico.length})` }].map(a => (
-          <button key={a.id} onClick={() => setAba(a.id)}
-            style={{ padding: '10px 20px', fontSize: 13, fontWeight: aba===a.id?700:400, color: aba===a.id?S.navy:S.muted, background: 'none', border: 'none', borderBottom: `2px solid ${aba===a.id?S.navy:'transparent'}`, marginBottom: -2, cursor: 'pointer' }}>
+      <div
+        style={{
+          display: 'flex',
+          borderBottom: `2px solid ${S.border}`,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        {[
+          { id: 'lancamento', label: 'Declaracao' },
+          {
+            id: 'historico',
+            label: `Historico (${historico.length})`,
+          },
+        ].map(a => (
+          <button
+            key={a.id}
+            onClick={() => setAba(a.id)}
+            style={{
+              padding: '10px 20px',
+              fontSize: 13,
+              fontWeight: aba === a.id ? 700 : 400,
+              color: aba === a.id ? S.navy : S.muted,
+              background: 'none',
+              border: 'none',
+              borderBottom: `2px solid ${
+                aba === a.id ? S.navy : 'transparent'
+              }`,
+              marginBottom: -2,
+              cursor: 'pointer',
+            }}
+          >
             {a.label}
           </button>
         ))}
       </div>
 
-      {/* ABA LANCAMENTO */}
+      {/* DECLARACAO */}
       {aba === 'lancamento' && (
         <>
-          <AnalisadorIA contexto="PGDAS-D — Segregacao de Receitas Simples Nacional" dados={dadosIA} cliente={cliente} regime={regime} />
+          <AnalisadorIA
+            contexto="PGDAS-D — Declaracao e Atividades do Simples Nacional"
+            dados={dadosIA}
+            cliente={cliente}
+            regime={regime}
+          />
 
           {diagAberto && (
-            <div style={{ background: '#eff6ff', border: `1px solid #bfdbfe`, borderRadius: 8, padding: '10px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, color: '#2563eb' }}>Visualizando PGDAS-D salvo — Competencia: <strong>{diagAberto.competencia}</strong></div>
-              <button onClick={novoLancamento} style={{ background: 'none', border: `1px solid #bfdbfe`, borderRadius: 6, color: '#2563eb', cursor: 'pointer', fontSize: 12, padding: '4px 10px' }}>Novo Lancamento</button>
+            <div
+              style={{
+                background: '#eff6ff',
+                border: `1px solid #bfdbfe`,
+                borderRadius: 8,
+                padding: '10px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#2563eb',
+                }}
+              >
+                Visualizando PGDAS-D salvo — Competencia:{' '}
+                <strong>{diagAberto.competencia}</strong>
+                {carregandoDiag && ' — carregando atividades...'}
+              </div>
+
+              <button
+                onClick={novoLancamento}
+                style={{
+                  background: 'none',
+                  border: `1px solid #bfdbfe`,
+                  borderRadius: 6,
+                  color: '#2563eb',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  padding: '4px 10px',
+                }}
+              >
+                Novo Lancamento
+              </button>
             </div>
           )}
 
           {/* KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
-            {kpisForm.map((k, i) => (
-              <div key={i} style={{ background: S.white, borderRadius: 8, padding: '14px 16px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.valor}</div>
-                <div style={{ fontSize: 12, color: S.muted, marginTop: 5 }}>{k.label}</div>
-                {k.valor === '—' && <div style={{ fontSize: 11, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            {kpis.map((k, i) => (
+              <div
+                key={i}
+                style={{
+                  background: S.white,
+                  borderRadius: 8,
+                  padding: '14px 16px',
+                  border: `1px solid ${S.border}`,
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: k.cor,
+                  }}
+                >
+                  {k.valor}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: S.muted,
+                    marginTop: 5,
+                  }}
+                >
+                  {k.label}
+                </div>
               </div>
             ))}
           </div>
 
+          {/* CONFERENCIA */}
+          {atividades.length > 0 && rpa > 0 && (
+            <div
+              style={{
+                background:
+                  Math.abs(divergenciaAtividades) < 0.01
+                    ? '#f0fdf4'
+                    : '#fff7ed',
+                border: `1px solid ${
+                  Math.abs(divergenciaAtividades) < 0.01
+                    ? '#86efac'
+                    : '#fed7aa'
+                }`,
+                borderRadius: 8,
+                padding: '10px 14px',
+                marginBottom: 16,
+                fontSize: 12,
+                color:
+                  Math.abs(divergenciaAtividades) < 0.01
+                    ? '#166534'
+                    : '#9a3412',
+              }}
+            >
+              <strong>Conferencia das atividades:</strong>{' '}
+              RPA {fmtR(rpa)} | Soma das atividades{' '}
+              {fmtR(totalReceitaAtividades)} | Diferenca{' '}
+              {fmtR(divergenciaAtividades)}.
+              {Math.abs(divergenciaAtividades) >= 0.01 &&
+                ' Revise o documento antes de salvar.'}
+            </div>
+          )}
+
           {/* FORMULARIO */}
-          <div style={{ background: S.white, borderRadius: 10, border: `1px solid ${S.border}`, overflow: 'hidden', marginBottom: 16 }}>
-            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, background: '#f0f9ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>Lancamento do PGDAS-D</div>
-                <div style={{ fontSize: 12, color: S.muted, marginTop: 2 }}>Preencha os campos conforme o documento impresso do PGDAS-D.</div>
+          <div
+            style={{
+              background: S.white,
+              borderRadius: 10,
+              border: `1px solid ${S.border}`,
+              overflow: 'hidden',
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                padding: '12px 16px',
+                borderBottom: `1px solid ${S.border}`,
+                background: '#f0f9ff',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: S.navy,
+                }}
+              >
+                Dados da Declaracao PGDAS-D
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  color: S.muted,
+                  marginTop: 2,
+                }}
+              >
+                Os dados abaixo representam o PGDAS-D original. O credito nao
+                e calculado nesta tela.
               </div>
             </div>
 
             <div style={{ padding: 20 }}>
-              {secao('1. Identificacao da Declaracao', (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  <InputTexto label="Periodo de Apuracao *" value={form.periodo_apuracao} onChange={v => setF('periodo_apuracao', v)} placeholder="MM/AAAA" disabled={!!diagAberto} />
+              {secao(
+                '1. Identificacao da Declaracao',
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <InputTexto
+                    label="Periodo de Apuracao *"
+                    value={form.periodo_apuracao}
+                    onChange={v => setF('periodo_apuracao', v)}
+                    placeholder="MM/AAAA"
+                    disabled={!!diagAberto}
+                  />
+
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Tipo de Declaracao</div>
-                    <select value={form.tipo_declaracao} onChange={e => setF('tipo_declaracao', e.target.value)} disabled={!!diagAberto}
-                      style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: S.text }}>
-                      <option>Original</option><option>Retificadora</option>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: S.muted,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Tipo de Declaracao
+                    </div>
+
+                    <select
+                      value={form.tipo_declaracao}
+                      onChange={e =>
+                        setF('tipo_declaracao', e.target.value)
+                      }
+                      disabled={!!diagAberto}
+                      style={{
+                        width: '100%',
+                        padding: '7px 10px',
+                        border: `1px solid ${S.border}`,
+                        borderRadius: 6,
+                        fontSize: 13,
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        color: S.text,
+                        background: diagAberto ? S.bg : S.white,
+                      }}
+                    >
+                      <option>Original</option>
+                      <option>Retificadora</option>
                     </select>
                   </div>
-                  <InputTexto label="No. da Declaracao" value={form.num_declaracao} onChange={v => setF('num_declaracao', v)} placeholder="01562151202605001" disabled={!!diagAberto} />
-                  <InputTexto label="Numero do Recibo" value={form.num_recibo} onChange={v => setF('num_recibo', v)} placeholder="01.07.26166.0014697-9" disabled={!!diagAberto} />
-                  <InputTexto label="Autenticacao" value={form.autenticacao} onChange={v => setF('autenticacao', v)} placeholder="01127.56631.21558.51216" disabled={!!diagAberto} />
-                  <InputTexto label="Data de Transmissao" value={form.data_transmissao} onChange={v => setF('data_transmissao', v)} placeholder="DD/MM/AAAA HH:MM:SS" disabled={!!diagAberto} />
-                </div>
-              ))}
 
-              {secao('2.1 Discriminativo de Receitas', (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  <InputMoeda label="RPA — Receita Bruta do Periodo *" value={form.rpa} onChange={v => setF('rpa', v)} disabled={!!diagAberto} />
-                  <InputMoeda label="RBT12 — Receita 12 Meses Anteriores" value={form.rbt12} onChange={v => setF('rbt12', v)} disabled={!!diagAberto} />
-                  <InputMoeda label="RBA — Receita Ano-Calendario Corrente" value={form.rba} onChange={v => setF('rba', v)} disabled={!!diagAberto} />
-                  <InputMoeda label="RBAA — Receita Ano-Calendario Anterior" value={form.rbaa} onChange={v => setF('rbaa', v)} disabled={!!diagAberto} />
-                </div>
-              ))}
+                  <InputTexto
+                    label="No. da Declaracao"
+                    value={form.num_declaracao}
+                    onChange={v => setF('num_declaracao', v)}
+                    disabled={!!diagAberto}
+                  />
 
-              {secao('2.7 Receitas por Atividade', (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  <InputMoeda label="Receita Revenda de Mercadorias" value={form.receita_revenda} onChange={v => setF('receita_revenda', v)} disabled={!!diagAberto} />
-                  <InputMoeda label="Receita Industrializacao" value={form.receita_industrializacao} onChange={v => setF('receita_industrializacao', v)} disabled={!!diagAberto} />
-                  <InputMoeda label="Receita Prestacao de Servicos" value={form.receita_servicos} onChange={v => setF('receita_servicos', v)} disabled={!!diagAberto} />
-                </div>
-              ))}
+                  <InputTexto
+                    label="Numero do Recibo"
+                    value={form.num_recibo}
+                    onChange={v => setF('num_recibo', v)}
+                    disabled={!!diagAberto}
+                  />
 
-              {secao('Segregacao de Receitas', (
+                  <InputTexto
+                    label="Autenticacao"
+                    value={form.autenticacao}
+                    onChange={v => setF('autenticacao', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputTexto
+                    label="Data de Transmissao"
+                    value={form.data_transmissao}
+                    onChange={v => setF('data_transmissao', v)}
+                    disabled={!!diagAberto}
+                  />
+                </div>
+              )}
+
+              {secao(
+                '2. Discriminativo de Receitas',
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <InputMoeda
+                    label="RPA — Receita do Periodo *"
+                    value={form.rpa}
+                    onChange={v => setF('rpa', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="RBT12 — 12 Meses Anteriores"
+                    value={form.rbt12}
+                    onChange={v => setF('rbt12', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="RBA — Ano-Calendario Corrente"
+                    value={form.rba}
+                    onChange={v => setF('rba', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="RBAA — Ano-Calendario Anterior"
+                    value={form.rbaa}
+                    onChange={v => setF('rbaa', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Revenda de Mercadorias"
+                    value={form.receita_revenda}
+                    onChange={v => setF('receita_revenda', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Industrializacao"
+                    value={form.receita_industrializacao}
+                    onChange={v =>
+                      setF('receita_industrializacao', v)
+                    }
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Prestacao de Servicos"
+                    value={form.receita_servicos}
+                    onChange={v => setF('receita_servicos', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Receita Monofasica PIS/COFINS"
+                    value={form.receita_monofasica}
+                    onChange={v => setF('receita_monofasica', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Receita com ICMS-ST"
+                    value={form.receita_st}
+                    onChange={v => setF('receita_st', v)}
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="Receita Imune"
+                    value={form.receita_imune}
+                    onChange={v => setF('receita_imune', v)}
+                    disabled={!!diagAberto}
+                  />
+                </div>,
+                'Nesta etapa os valores sao transcritos do PGDAS-D, sem recalculo.'
+              )}
+
+              {secao(
+                '3. Fator R e DAS',
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <InputTexto
+                    label="Fator R"
+                    value={form.fator_r}
+                    onChange={v => setF('fator_r', v)}
+                    placeholder="Conforme PGDAS-D"
+                    disabled={!!diagAberto}
+                  />
+
+                  <InputMoeda
+                    label="DAS Total Declarado"
+                    value={form.das_total}
+                    onChange={v => setF('das_total', v)}
+                    disabled={!!diagAberto}
+                  />
+                </div>
+              )}
+
+              {secao(
+                '4. Total do Debito por Tributo',
                 <>
-                  <div style={{ background: '#fff7ed', border: `1px solid #fed7aa`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#92400e' }}>
-                    ⚠️ Informe as receitas que devem ser segregadas da base de calculo do DAS. Monofasicos, ST e imunes reduzem o DAS devido.
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                    <InputMoeda label="Receita Monofasica (PIS/COFINS)" value={form.receita_monofasica} onChange={v => setF('receita_monofasica', v)} disabled={!!diagAberto} />
-                    <InputMoeda label="Receita c/ Substituicao Tributaria" value={form.receita_st} onChange={v => setF('receita_st', v)} disabled={!!diagAberto} />
-                    <InputMoeda label="Receita Imune / Isenta" value={form.receita_imune} onChange={v => setF('receita_imune', v)} disabled={!!diagAberto} />
-                  </div>
-                  {rpa > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 12 }}>
-                      {[
-                        { label: 'Base Tributavel Correta',  valor: fmtR(baseCorreta),                             cor: S.navy },
-                        { label: '% Receita Monofasica',     valor: pctMono.toFixed(2).replace('.', ',')+'%',      cor: S.orange },
-                        { label: 'Reducao de Base Possivel', valor: fmtR(receita_mono + receita_st + receita_imu), cor: S.green },
-                      ].map((k, i) => (
-                        <div key={i} style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: k.cor }}>{k.valor}</div>
-                          <div style={{ fontSize: 11, color: S.muted, marginTop: 2 }}>{k.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ))}
-
-              {secao('2.4 Fator R', (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  <InputTexto label="Fator R (conforme PGDAS-D)" value={form.fator_r} onChange={v => setF('fator_r', v)} placeholder="Ex: 0,2800 ou Nao se aplica" disabled={!!diagAberto} />
-                </div>
-              ))}
-
-              {secao('2.6 Resumo da Declaracao', (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  <InputMoeda label="Valor Total do DAS (Debito Declarado) *" value={form.das_total} onChange={v => setF('das_total', v)} disabled={!!diagAberto} />
-                </div>
-              ))}
-
-              {secao('2.7 Total do Debito por Tributo (R$)', (
-                <>
-                  <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Total do Debito Declarado (exigivel + suspenso)</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 16 }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: 10,
+                      marginBottom: 14,
+                    }}
+                  >
                     {[
-                      { label: 'IRPJ', key: 'irpj' }, { label: 'CSLL', key: 'csll' },
-                      { label: 'COFINS', key: 'cofins' }, { label: 'PIS/Pasep', key: 'pis' },
-                      { label: 'INSS/CPP', key: 'inss_cpp' }, { label: 'ICMS', key: 'icms' },
-                      { label: 'IPI', key: 'ipi' }, { label: 'ISS', key: 'iss' },
-                    ].map(({ label, key }) => (
-                      <InputMoeda key={key} label={label} value={form[key]} onChange={v => setF(key, v)} disabled={!!diagAberto} />
+                      ['IRPJ', 'irpj'],
+                      ['CSLL', 'csll'],
+                      ['COFINS', 'cofins'],
+                      ['PIS/Pasep', 'pis'],
+                      ['INSS/CPP', 'inss_cpp'],
+                      ['ICMS', 'icms'],
+                      ['IPI', 'ipi'],
+                      ['ISS', 'iss'],
+                    ].map(([label, key]) => (
+                      <InputMoeda
+                        key={key}
+                        label={label}
+                        value={form[key]}
+                        onChange={v => setF(key, v)}
+                        disabled={!!diagAberto}
+                      />
                     ))}
                   </div>
 
-                  {totalTributos > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                      <div style={{ background: S.bg, borderRadius: 6, padding: '10px 14px', border: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: S.muted }}>Total calculado (soma dos tributos):</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: S.navy }}>{fmtR(totalTributos)}</span>
-                      </div>
-                      {(pis > 0 || cofins > 0) && (
-                        <div style={{ background: '#FEF2F2', borderRadius: 6, padding: '10px 14px', border: `2px solid ${S.red}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                          <div>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: S.red }}>PIS + COFINS recolhidos</span>
-                            <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>PIS: {fmtR(pis)} &nbsp;|&nbsp; COFINS: {fmtR(cofins)}</div>
-                          </div>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: S.red }}>{fmtR(pis + cofins)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      background: S.bg,
+                      border: `1px solid ${S.border}`,
+                      borderRadius: 7,
+                      padding: '10px 14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: S.muted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Soma dos tributos informados
+                    </span>
 
-                  <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Total do Debito com Exigibilidade Suspensa (R$)</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-                    {[
-                      { label: 'IRPJ Susp.', key: 'irpj_susp' }, { label: 'CSLL Susp.', key: 'csll_susp' },
-                      { label: 'COFINS Susp.', key: 'cofins_susp' }, { label: 'PIS Susp.', key: 'pis_susp' },
-                      { label: 'INSS Susp.', key: 'inss_susp' }, { label: 'ICMS Susp.', key: 'icms_susp' },
-                      { label: 'IPI Susp.', key: 'ipi_susp' }, { label: 'ISS Susp.', key: 'iss_susp' },
-                    ].map(({ label, key }) => (
-                      <InputMoeda key={key} label={label} value={form[key]} onChange={v => setF(key, v)} disabled={!!diagAberto} />
-                    ))}
+                    <strong style={{ color: S.navy }}>
+                      {fmtR(totalTributos)}
+                    </strong>
                   </div>
                 </>
-              ))}
+              )}
 
-              {secao('Observacoes', (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Observacoes</div>
-                  <textarea value={form.observacoes || ''} onChange={e => setF('observacoes', e.target.value)}
-                    disabled={!!diagAberto} placeholder="Anotacoes sobre esta declaracao, pendencias, etc." rows={3}
-                    style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'vertical', color: S.text, background: diagAberto ? S.bg : S.white }} />
+              {secao(
+                '5. Debito com Exigibilidade Suspensa',
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: 10,
+                  }}
+                >
+                  {[
+                    ['IRPJ Susp.', 'irpj_susp'],
+                    ['CSLL Susp.', 'csll_susp'],
+                    ['COFINS Susp.', 'cofins_susp'],
+                    ['PIS Susp.', 'pis_susp'],
+                    ['INSS Susp.', 'inss_susp'],
+                    ['ICMS Susp.', 'icms_susp'],
+                    ['IPI Susp.', 'ipi_susp'],
+                    ['ISS Susp.', 'iss_susp'],
+                  ].map(([label, key]) => (
+                    <InputMoeda
+                      key={key}
+                      label={label}
+                      value={form[key]}
+                      onChange={v => setF(key, v)}
+                      disabled={!!diagAberto}
+                    />
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {secao(
+                `6. Atividades e Segregacoes (${atividades.length})`,
+                atividades.length === 0 ? (
+                  <div
+                    style={{
+                      background: S.bg,
+                      border: `1px dashed ${S.border}`,
+                      borderRadius: 8,
+                      padding: 18,
+                      textAlign: 'center',
+                      color: S.ghostText,
+                      fontSize: 12,
+                    }}
+                  >
+                    Nenhuma atividade carregada. Importe o PDF completo para
+                    preencher automaticamente esta estrutura.
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        overflowX: 'auto',
+                        border: `1px solid ${S.border}`,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <table
+                        style={{
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          fontSize: 11,
+                          minWidth: 1100,
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: S.thBg }}>
+                            {[
+                              '#',
+                              'Atividade',
+                              'Anexo',
+                              'Receita',
+                              'Tratamentos',
+                              'IRPJ',
+                              'CSLL',
+                              'PIS',
+                              'COFINS',
+                              'CPP',
+                              'ICMS',
+                              'IPI',
+                              'ISS',
+                              'Total',
+                            ].map(h => (
+                              <th
+                                key={h}
+                                style={{
+                                  color: S.thText,
+                                  textAlign: 'left',
+                                  padding: '8px 9px',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {atividades.map((a, index) => (
+                            <tr
+                              key={`${a.ordem}-${index}`}
+                              style={{
+                                borderBottom: `1px solid ${S.border}`,
+                              }}
+                            >
+                              <td
+                                style={{
+                                  padding: '8px 9px',
+                                  fontWeight: 700,
+                                  color: S.navy,
+                                }}
+                              >
+                                {a.ordem || index + 1}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: '8px 9px',
+                                  minWidth: 260,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: S.text,
+                                  }}
+                                >
+                                  {a.descricao ||
+                                    a.tipo_atividade ||
+                                    'Atividade'}
+                                </div>
+
+                                {a.texto_original &&
+                                  a.texto_original !== a.descricao && (
+                                    <div
+                                      style={{
+                                        fontSize: 10,
+                                        color: S.ghostText,
+                                        marginTop: 3,
+                                      }}
+                                    >
+                                      {a.texto_original}
+                                    </div>
+                                  )}
+                              </td>
+
+                              <td style={{ padding: '8px 9px' }}>
+                                {a.anexo || '—'}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: '8px 9px',
+                                  fontWeight: 700,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {fmtR(a.receita)}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: '8px 9px',
+                                  minWidth: 190,
+                                }}
+                              >
+                                <Flag
+                                  ativo={a.icms_st}
+                                  texto="ICMS-ST"
+                                  cor={S.purple}
+                                />
+                                <Flag
+                                  ativo={a.pis_cofins_monofasico}
+                                  texto="PIS/COFINS Mono"
+                                  cor={S.orange}
+                                />
+                                <Flag
+                                  ativo={
+                                    a.antecipacao_com_encerramento
+                                  }
+                                  texto="Antecipacao"
+                                  cor={S.red}
+                                />
+                                <Flag
+                                  ativo={a.iss_retido}
+                                  texto="ISS Retido"
+                                  cor={S.blue}
+                                />
+                                <Flag
+                                  ativo={a.imunidade}
+                                  texto="Imune"
+                                  cor={S.green}
+                                />
+                                <Flag
+                                  ativo={a.exportacao}
+                                  texto="Exportacao"
+                                  cor={S.green}
+                                />
+
+                                {!a.icms_st &&
+                                  !a.pis_cofins_monofasico &&
+                                  !a.antecipacao_com_encerramento &&
+                                  !a.iss_retido &&
+                                  !a.imunidade &&
+                                  !a.exportacao && (
+                                    <span
+                                      style={{
+                                        color: S.ghostText,
+                                      }}
+                                    >
+                                      Normal
+                                    </span>
+                                  )}
+                              </td>
+
+                              {[
+                                'irpj',
+                                'csll',
+                                'pis',
+                                'cofins',
+                                'inss_cpp',
+                                'icms',
+                                'ipi',
+                                'iss',
+                              ].map(campo => (
+                                <td
+                                  key={campo}
+                                  style={{
+                                    padding: '8px 9px',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {fmtR(a[campo])}
+                                </td>
+                              ))}
+
+                              <td
+                                style={{
+                                  padding: '8px 9px',
+                                  fontWeight: 700,
+                                  whiteSpace: 'nowrap',
+                                  color: S.navy,
+                                }}
+                              >
+                                {fmtR(a.valor_total_tributos)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+
+                        <tfoot>
+                          <tr style={{ background: S.bg }}>
+                            <td
+                              colSpan={3}
+                              style={{
+                                padding: '9px',
+                                fontWeight: 700,
+                                color: S.navy,
+                              }}
+                            >
+                              Totais das atividades
+                            </td>
+
+                            <td
+                              style={{
+                                padding: '9px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {fmtR(totalReceitaAtividades)}
+                            </td>
+
+                            <td />
+
+                            <td colSpan={8} />
+
+                            <td
+                              style={{
+                                padding: '9px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {fmtR(totalTributosAtividades)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 10,
+                        fontSize: 11,
+                        color: S.muted,
+                      }}
+                    >
+                      ICMS-ST e PIS/COFINS monofasico sao tratados como
+                      classificacoes independentes.
+                    </div>
+                  </>
+                ),
+                'Esta tabela reproduz a estrutura interna do PGDAS-D. Nao consolide atividades diferentes.'
+              )}
+
+              {secao(
+                '7. Observacoes',
+                <textarea
+                  value={form.observacoes || ''}
+                  onChange={e =>
+                    setF('observacoes', e.target.value)
+                  }
+                  disabled={!!diagAberto}
+                  placeholder="Anotacoes sobre a declaracao, inconsistencias ou pendencias."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: `1px solid ${S.border}`,
+                    borderRadius: 6,
+                    fontSize: 13,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    resize: 'vertical',
+                    color: S.text,
+                    background: diagAberto ? S.bg : S.white,
+                  }}
+                />
+              )}
 
               {!diagAberto && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={salvar} disabled={salvando}
-                    style={{ padding: '9px 24px', background: S.navy, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
-                    {salvando ? 'Salvando...' : 'Salvar PGDAS-D'}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <button
+                    onClick={salvar}
+                    disabled={salvando}
+                    style={{
+                      padding: '9px 24px',
+                      background: S.navy,
+                      color: S.white,
+                      border: 'none',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: salvando
+                        ? 'not-allowed'
+                        : 'pointer',
+                      opacity: salvando ? 0.7 : 1,
+                    }}
+                  >
+                    {salvando
+                      ? 'Salvando declaracao e atividades...'
+                      : 'Salvar PGDAS-D'}
                   </button>
+
                   {historico.length > 0 && (
-                    <button onClick={() => setMostrarRelatorio(true)}
-                      style={{ padding: '9px 20px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      📄 Gerar Relatório
+                    <button
+                      onClick={() => setMostrarRelatorio(true)}
+                      style={{
+                        padding: '9px 20px',
+                        background: S.green,
+                        color: S.white,
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      📄 Gerar Relatorio
                     </button>
                   )}
-                  <button onClick={() => setForm(FORM_VAZIO)}
-                    style={{ padding: '9px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: S.muted }}>
+
+                  <button
+                    onClick={limparLancamento}
+                    style={{
+                      padding: '9px 16px',
+                      background: 'none',
+                      border: `1px solid ${S.border}`,
+                      borderRadius: 8,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      color: S.muted,
+                    }}
+                  >
                     Limpar
                   </button>
                 </div>
@@ -545,109 +2178,398 @@ export default function AbaPGDAS({ cliente, regime }) {
         </>
       )}
 
-      {/* ABA HISTORICO */}
+      {/* HISTORICO */}
       {aba === 'historico' && (
-        <div style={{ background: S.white, borderRadius: 10, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: S.text }}>Historico de PGDAS-D Lancados</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={carregarHistorico} style={{ padding: '6px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>Atualizar</button>
+        <div
+          style={{
+            background: S.white,
+            borderRadius: 10,
+            border: `1px solid ${S.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${S.border}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: S.text,
+                }}
+              >
+                Historico de PGDAS-D
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  color: S.muted,
+                  marginTop: 2,
+                }}
+              >
+                Declaracoes originais e retificadoras registradas para o
+                cliente.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                onClick={carregarHistorico}
+                disabled={loadingHistorico}
+                style={{
+                  padding: '6px 12px',
+                  background: 'none',
+                  border: `1px solid ${S.border}`,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  color: S.muted,
+                }}
+              >
+                {loadingHistorico ? 'Carregando...' : 'Atualizar'}
+              </button>
+
               {historico.length > 0 && (
-                <button onClick={() => setMostrarRelatorio(true)}
-                  style={{ padding: '6px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  📄 Gerar Relatório
+                <button
+                  onClick={() => setMostrarRelatorio(true)}
+                  style={{
+                    padding: '6px 14px',
+                    background: S.green,
+                    color: S.white,
+                    border: 'none',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  📄 Gerar Relatorio
                 </button>
               )}
-              <button onClick={() => { setAba('lancamento'); novoLancamento() }}
-                style={{ padding: '6px 14px', background: S.blue, color: S.white, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+
+              <button
+                onClick={novoLancamento}
+                style={{
+                  padding: '6px 14px',
+                  background: S.blue,
+                  color: S.white,
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
                 + Novo Lancamento
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, padding: 16, borderBottom: `1px solid ${S.border}` }}>
-            {[
-              { label: 'Declaracoes lancadas', valor: temHistorico ? historico.length : '—',                                                         cor: temHistorico ? S.navy   : S.ghostText },
-              { label: 'Total DAS declarado',  valor: temHistorico ? fmtR(historico.reduce((s,d)=>s+(d.das_recolhido||0),0)) : 'R$ —,——',           cor: temHistorico ? S.red    : S.ghostText },
-              { label: 'Total monofasico',     valor: temHistorico ? fmtR(historico.reduce((s,d)=>s+(d.receita_monofasica||0),0)) : 'R$ —,——',      cor: temHistorico ? S.orange : S.ghostText },
-              { label: 'Credito estimado',     valor: temHistorico ? fmtR(historico.reduce((s,d)=>s+(d.credito_estimado||0),0)) : 'R$ —,——',        cor: temHistorico ? S.green  : S.ghostText },
-            ].map((k, i) => (
-              <div key={i} style={{ background: S.bg, borderRadius: 8, padding: '12px 14px', border: `1px solid ${S.border}`, textAlign: 'center' }}>
-                <div style={{ fontSize: i===0?20:14, fontWeight: 700, color: k.cor }}>{k.valor}</div>
-                <div style={{ fontSize: 11, color: S.muted, marginTop: 2 }}>{k.label}</div>
-                {!temHistorico && <div style={{ fontSize: 10, color: S.ghostText, marginTop: 2 }}>Aguardando lancamento</div>}
-              </div>
-            ))}
-          </div>
-
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 12,
+                minWidth: 1200,
+              }}
+            >
               <thead>
                 <tr style={{ background: S.thBg }}>
-                  {['Competencia','Tipo','No. Declaracao','RPA','Rec. Monofasica','DAS Total','IRPJ','CSLL','COFINS','PIS','INSS','ICMS','ISS','Credito Est.','Status','Acoes'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
+                  {[
+                    'Competencia',
+                    'Tipo',
+                    'Declaracao',
+                    'RPA',
+                    'RBT12',
+                    'DAS',
+                    'PIS',
+                    'COFINS',
+                    'ICMS',
+                    'Total Tributos',
+                    'Status',
+                    'Criado em',
+                    'Acoes',
+                  ].map(h => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: '8px 10px',
+                        textAlign: 'left',
+                        color: S.thText,
+                        fontWeight: 600,
+                        fontSize: 11,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
+
               <tbody>
-                {historicoPagina.map((diag, i) => {
-                  const isGhost = diag.ghost
-                  return (
-                    <tr key={i} style={{ borderBottom: `1px solid ${S.border}`, background: isGhost ? S.ghost : i%2===0 ? S.white : '#FAFAFA' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: 700, color: isGhost ? S.ghostText : S.navy, whiteSpace: 'nowrap' }}>{diag.periodo_apuracao || diag.competencia || '—'}</td>
-                      <td style={{ padding: '8px 10px' }}>{isGhost ? <span style={{ color: S.ghostText }}>Original</span> : <Badge tipo={diag.tipo_declaracao?.toLowerCase()==='retificadora'?'retificadora':'original'} />}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.muted, fontSize: 11 }}>{isGhost ? '—' : (diag.num_declaracao || '—')}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? 'R$ —,——' : fmtR(diag.receita_bruta_total)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.orange, fontWeight: isGhost?400:600 }}>{isGhost ? 'R$ —,——' : fmtR(diag.receita_monofasica)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.red, fontWeight: isGhost?400:700 }}>{isGhost ? 'R$ —,——' : fmtR(diag.das_recolhido)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.irpj)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.csll)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.cofins)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.pis)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.inss_cpp)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.icms)}</td>
-                      <td style={{ padding: '8px 10px', color: isGhost ? S.ghostText : S.text }}>{isGhost ? '—' : fmtR(diag.iss)}</td>
-                      <td style={{ padding: '8px 10px', fontWeight: 700, color: isGhost ? S.ghostText : S.green }}>{isGhost ? 'R$ —,——' : fmtR(diag.credito_estimado)}</td>
-                      <td style={{ padding: '8px 10px' }}>{isGhost ? <span style={{ color: S.ghostText }}>—</span> : <Badge tipo={diag.status||'concluido'} />}</td>
-                      <td style={{ padding: '8px 10px' }}>
-                        {!isGhost && (
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button onClick={() => { abrirDiagnostico(diag); setAba('lancamento') }}
-                              style={{ padding: '4px 10px', background: S.navy, color: S.white, border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Abrir</button>
-                            <button onClick={() => excluir(diag.id)}
-                              style={{ padding: '4px 10px', background: '#fef2f2', color: S.red, border: `1px solid #fecaca`, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>🗑</button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {historicoPagina.map((diag, i) => (
+                  <tr
+                    key={diag.id}
+                    style={{
+                      borderBottom: `1px solid ${S.border}`,
+                      background:
+                        i % 2 === 0 ? S.white : '#FAFAFA',
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: '8px 10px',
+                        fontWeight: 700,
+                        color: S.navy,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {diag.competencia || '—'}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      <Badge
+                        tipo={
+                          diag.tipo_declaracao
+                            ?.toLowerCase()
+                            .includes('retific')
+                            ? 'retificadora'
+                            : 'original'
+                        }
+                      />
+                    </td>
+
+                    <td
+                      style={{
+                        padding: '8px 10px',
+                        color: S.muted,
+                      }}
+                    >
+                      {diag.num_declaracao || '—'}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      {fmtR(diag.receita_bruta_total)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      {fmtR(diag.rbt12)}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: '8px 10px',
+                        color: S.red,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {fmtR(diag.das_recolhido)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      {fmtR(diag.pis)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      {fmtR(diag.cofins)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      {fmtR(diag.icms)}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: '8px 10px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {fmtR(diag.total_tributos)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      <Badge tipo={diag.status || 'concluido'} />
+                    </td>
+
+                    <td
+                      style={{
+                        padding: '8px 10px',
+                        color: S.muted,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {fmtData(diag.created_at)}
+                    </td>
+
+                    <td style={{ padding: '8px 10px' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 4,
+                        }}
+                      >
+                        <button
+                          onClick={() => abrirDiagnostico(diag)}
+                          disabled={carregandoDiag}
+                          style={{
+                            padding: '4px 10px',
+                            background: S.navy,
+                            color: S.white,
+                            border: 'none',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Abrir
+                        </button>
+
+                        <button
+                          onClick={() => excluir(diag.id)}
+                          style={{
+                            padding: '4px 10px',
+                            background: '#fef2f2',
+                            color: S.red,
+                            border: `1px solid #fecaca`,
+                            borderRadius: 4,
+                            fontSize: 11,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {!loadingHistorico && historico.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={13}
+                      style={{
+                        padding: 24,
+                        textAlign: 'center',
+                        color: S.ghostText,
+                      }}
+                    >
+                      Nenhum PGDAS-D salvo para este cliente.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
 
-          {!temHistorico && (
-            <div style={{ padding: '16px 20px', borderTop: `1px solid ${S.border}`, textAlign: 'center', fontSize: 12, color: S.ghostText }}>
-              Lance o primeiro PGDAS-D clicando em "Novo Lancamento"
+          {historico.length > 0 && (
+            <div
+              style={{
+                padding: '10px 16px',
+                borderTop: `1px solid ${S.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                color: S.muted,
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              <span>
+                {historico.length} declaracao(es) — Pagina {pagina} de{' '}
+                {totalPaginas}
+              </span>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  alignItems: 'center',
+                }}
+              >
+                <button
+                  onClick={() => setPagina(1)}
+                  disabled={pagina === 1}
+                >
+                  «
+                </button>
+
+                <button
+                  onClick={() =>
+                    setPagina(p => Math.max(1, p - 1))
+                  }
+                  disabled={pagina === 1}
+                >
+                  &lt;
+                </button>
+
+                <button
+                  onClick={() =>
+                    setPagina(p =>
+                      Math.min(totalPaginas, p + 1)
+                    )
+                  }
+                  disabled={pagina === totalPaginas}
+                >
+                  &gt;
+                </button>
+
+                <button
+                  onClick={() => setPagina(totalPaginas)}
+                  disabled={pagina === totalPaginas}
+                >
+                  »
+                </button>
+
+                <select
+                  value={porPagina}
+                  onChange={e => {
+                    setPorPagina(Number(e.target.value))
+                    setPagina(1)
+                  }}
+                  style={{
+                    marginLeft: 8,
+                    padding: '3px 8px',
+                    border: `1px solid ${S.border}`,
+                    borderRadius: 4,
+                    fontSize: 12,
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {[10, 25, 50, 100].map(n => (
+                    <option key={n} value={n}>
+                      {n} por pagina
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
-
-          <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: S.muted, flexWrap: 'wrap', gap: 8 }}>
-            <span>{temHistorico ? `${historico.length} declaracao(es) — Pagina ${pagina} de ${totalPaginas}` : 'Aguardando lancamentos'}</span>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              {[['«',()=>setPagina(1),pagina===1||!temHistorico],['<',()=>setPagina(p=>Math.max(1,p-1)),pagina===1||!temHistorico],['>',()=>setPagina(p=>Math.min(totalPaginas,p+1)),pagina===totalPaginas||!temHistorico],['»',()=>setPagina(totalPaginas),pagina===totalPaginas||!temHistorico]].map(([l,fn,dis],i)=>(
-                <button key={i} onClick={fn} disabled={dis} style={{ padding: '4px 8px', border: `1px solid ${S.border}`, borderRadius: 4, background: 'none', cursor: dis?'not-allowed':'pointer', color: dis?'#CBD5E1':S.text }}>{l}</button>
-              ))}
-              <select value={porPagina} onChange={e=>{setPorPagina(Number(e.target.value));setPagina(1)}}
-                style={{ marginLeft: 8, padding: '3px 8px', border: `1px solid ${S.border}`, borderRadius: 4, fontSize: 12, outline: 'none', cursor: 'pointer' }}>
-                {[10,25,50,100].map(n=><option key={n} value={n}>{n} por pagina</option>)}
-              </select>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* MODAL RELATORIO */}
+      {/* RELATORIO */}
       {mostrarRelatorio && (
         <RelatorioRecuperacaoPGDAS
           historico={historico}
@@ -655,7 +2577,6 @@ export default function AbaPGDAS({ cliente, regime }) {
           onFechar={() => setMostrarRelatorio(false)}
         />
       )}
-
     </div>
   )
 }
