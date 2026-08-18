@@ -498,6 +498,35 @@ export default function AbaMonofasicos({ cliente, regime }) {
      gtin: item.gtin || null,
      ex_tipi: item.ex || null,
      cest: item.cest || null,
+	 cfop: item.cfop || null,
+
+cst_pis: item.cstPIS || null,
+cst_cofins: item.cstCOFINS || null,
+cst_icms: item.cstICMS || null,
+csosn: item.csosn || null,
+
+chave_nfe: item.chaveNFe || null,
+data_emissao: item.dataEmissao || null,
+
+emitente_cnpj: item.emitenteCNPJ || null,
+destinatario_cnpj: item.destinatarioCNPJ || null,
+
+tipo_operacao: item.tipoOperacao || null,
+natureza_operacao: item.naturezaOperacao || null,
+
+quantidade: item.quantidade || 0,
+valor_desconto: item.valorDesconto || 0,
+valor_frete: item.valorFrete || 0,
+
+valor_icms: item.valorICMS || 0,
+valor_icms_st: item.valorICMSST || 0,
+valor_ipi: item.valorIPI || 0,
+
+considera_receita: item.consideraReceita ?? true,
+motivo_nao_considerar_receita: item.motivoNaoConsiderarReceita || null,
+
+classificacao_revisada: item.classificacaoRevisada ?? false,
+classificacao_origem: item.classificacaoOrigem || 'xml',
     }))
 	const TAMANHO_LOTE = 500
 
@@ -696,15 +725,64 @@ export default function AbaMonofasicos({ cliente, regime }) {
               ;(nfe.itens || []).forEach(item => {
                 const mono = isMonofasico(item.ncm)
                 todosItens.push({
-                  nNF: nfe.nNF||'-', competencia: nfe.competencia, emitente: nfe.emitNome||'-',
-                  ncm: item.ncm||'-', descricao: item.xProd||'-', vProd: item.vProd||0,
-                  vItemPIS: item.vItemPIS||0, vItemCOFINS: item.vItemCOFINS||0,
-                  monofasico: mono,
-                  credito: mono && regime !== 'Simples Nacional' ? (item.vItemPIS||0)+(item.vItemCOFINS||0) : 0,
-                  pendentePGDAS: mono && regime === 'Simples Nacional',
-                  arquivo: arq.nome, codigo: item.cProd || '',
-                  gtin: item.cEAN || null, ex: item.EXTIPI || null, cest: item.CEST || null,
-                })
+  nNF: nfe.nNF || '-',
+  competencia: nfe.competencia,
+  emitente: nfe.emitNome || '-',
+
+  ncm: item.ncm || '-',
+  descricao: item.xProd || '-',
+  vProd: item.vProd || 0,
+
+  vItemPIS: item.vItemPIS || 0,
+  vItemCOFINS: item.vItemCOFINS || 0,
+
+  monofasico: mono,
+
+  credito:
+    mono && regime !== 'Simples Nacional'
+      ? (item.vItemPIS || 0) + (item.vItemCOFINS || 0)
+      : 0,
+
+  pendentePGDAS:
+    mono && regime === 'Simples Nacional',
+
+  arquivo: arq.nome,
+  codigo: item.cProd || '',
+  gtin: item.cEAN || null,
+  ex: item.EXTIPI || null,
+  cest: item.CEST || null,
+
+  // Dados fiscais completos da NF-e
+  cfop: item.cfop || null,
+  cstPIS: item.cstPIS || null,
+  cstCOFINS: item.cstCOFINS || null,
+  cstICMS: item.cstICMS || null,
+  csosn: item.csosn || null,
+
+  chaveNFe: nfe.chNFe || null,
+  dataEmissao: nfe.dataEmissao || null,
+
+  emitenteCNPJ: nfe.emitCNPJ || null,
+  destinatarioCNPJ: nfe.destCNPJ || null,
+
+  tipoOperacao: nfe.tipoOperacao || nfe.tipo || null,
+  naturezaOperacao: nfe.naturezaOperacao || null,
+
+  quantidade: item.qCom || 0,
+  valorDesconto: item.vDesc || 0,
+  valorFrete: item.vFrete || 0,
+
+  valorICMS: item.vICMS || 0,
+  valorICMSST: item.vICMSST || 0,
+  valorIPI: item.vIPI || 0,
+
+  // Será refinado depois pelas regras de CFOP
+  consideraReceita: true,
+  motivoNaoConsiderarReceita: null,
+
+  classificacaoRevisada: false,
+  classificacaoOrigem: 'xml',
+})
                 qtd++
               })
             } catch {}
