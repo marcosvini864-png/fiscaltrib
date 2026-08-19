@@ -419,14 +419,16 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [permissoesModulos, setPermissoesModulos] = useState(null)
   const contentRef = useRef(null)
 
-  useEffect(()=>{ carregarClientes(); if(!onAdmin) carregarPermissoesModulos() },[])
+  useEffect(() => {
+  carregarClientes()
+  carregarPermissoesModulos()
+}, [])
   useEffect(()=>{
     registrarPresenca()
     const interval = setInterval(registrarPresenca, 60000)
     return ()=>clearInterval(interval)
   },[])
   useEffect(() => {
-    if (onAdmin) return
     if (!permissoesModulos) return
     if (module === 'admin' || module === 'dev' || module === 'painel') return
     if (permissoesModulos[module] === false) {
@@ -439,14 +441,13 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   async function carregarPermissoesModulos() {
     const { data:{ user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('modulos_permissoes').select('*').eq('usuario_id', user.id).single()
+    const { data, error } = await supabase.from('modulos_permissoes').select('*').eq('usuario_id', user.id).single()
     setPermissoesModulos(data || {})
   }
   function moduloPermitido(key) {
-    if (onAdmin) return true
-    if (!permissoesModulos) return true
-    return permissoesModulos[key] !== false
-  }
+  if (!permissoesModulos) return true
+  return permissoesModulos[key] !== false
+}
   async function registrarPresenca() {
     try {
       const { data:{ user } } = await supabase.auth.getUser()
