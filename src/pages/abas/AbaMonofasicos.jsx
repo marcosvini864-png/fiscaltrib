@@ -1684,42 +1684,65 @@ let competenciasPGDAS = [
   )
 ].sort(ordenarCompetencias)
 
-// Se o PGDAS foi informado manualmente na tela,
-// so podemos associa-lo automaticamente quando existe
-// uma unica competencia na analise.
-if (
-  pgdasResult &&
-  competenciasAnalisadas.length === 1 &&
-  !competenciasPGDAS.includes(competenciasAnalisadas[0])
-) {
-  competenciasPGDAS = [
-    ...competenciasPGDAS,
-    competenciasAnalisadas[0],
-  ]
-}
+const temPGDASDocumental =
+  competenciasPGDAS.length > 0
 
+const temPGDASManual =
+  !!pgdasResult &&
+  competenciasAnalisadas.length === 1 &&
+  !temPGDASDocumental
+
+const competenciaPGDASManual =
+  temPGDASManual
+    ? competenciasAnalisadas[0]
+    : null
+
+const competenciasCobertasPGDAS =
+  new Set([
+    ...competenciasPGDAS,
+    ...(competenciaPGDASManual
+      ? [competenciaPGDASManual]
+      : [])
+  ])
 
 const competenciasPendentes =
   competenciasAnalisadas.filter(
     competencia =>
-      !competenciasPGDAS.includes(competencia)
+      !competenciasCobertasPGDAS.has(competencia)
   )
-
 
 const pgdasConciliacaoCompleta =
   competenciasAnalisadas.length > 0 &&
   competenciasPendentes.length === 0
 
+const pgdasVinculado =
+  temPGDASDocumental || temPGDASManual
+
+const fontePGDAS =
+  temPGDASDocumental
+    ? 'diagnosticos_pgdas'
+    : temPGDASManual
+      ? 'calculo_tela'
+      : 'nao_vinculado'
+
+const tipoVinculoPGDAS =
+  temPGDASDocumental
+    ? 'documental'
+    : temPGDASManual
+      ? 'manual'
+      : 'pendente'
 
 const valorPGDASVinculado =
-  registrosPGDAS.length > 0
+  temPGDASDocumental
     ? registrosPGDAS.reduce(
         (total, p) =>
           total +
           Number(p.diferenca_recuperavel || 0),
         0
       )
-    : Number(pgdasResult?.diferenca || 0)
+    : temPGDASManual
+      ? Number(pgdasResult?.diferenca || 0)
+      : 0
 
 
 const itensSnapshot =
@@ -1787,14 +1810,18 @@ const itensSnapshot =
         false,
 
       pgdas_vinculado:
-  competenciasPGDAS.length > 0,
+  pgdasVinculado,
 
 fonte_pgdas:
-  pgdasResult
-    ? 'calculo_tela'
-    : registrosPGDAS.length > 0
-      ? 'diagnosticos_pgdas'
-      : 'nao_vinculado',
+  fontePGDAS,
+
+tipo_vinculo_pgdas:
+  tipoVinculoPGDAS,
+
+competencias_pgdas_manuais:
+  competenciaPGDASManual
+    ? [competenciaPGDASManual]
+    : [],
 
 competencias_analisadas:
   competenciasAnalisadas,
@@ -1936,13 +1963,29 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
    resumo.competencias_analisadas || []
 
   const competenciasPGDAS =
-   resumo.competencias_pgdas_encontradas || []
+  resumo.competencias_pgdas_encontradas || []
 
-  const competenciasPendentes =
-   resumo.competencias_pgdas_pendentes || []
+const competenciasPGDASManuais =
+  resumo.competencias_pgdas_manuais || []
 
- const conciliacaoCompleta =
-   resumo.pgdas_conciliacao_completa === true
+const competenciasPendentes =
+  resumo.competencias_pgdas_pendentes || []
+
+const fontePGDASMemoria =
+  resumo.fonte_pgdas || 'nao_vinculado'
+
+const tipoVinculoPGDASMemoria =
+  resumo.tipo_vinculo_pgdas ||
+  (
+    fontePGDASMemoria === 'diagnosticos_pgdas'
+      ? 'documental'
+      : fontePGDASMemoria === 'calculo_tela'
+        ? 'manual'
+        : 'pendente'
+  )
+
+const conciliacaoCompleta =
+  resumo.pgdas_conciliacao_completa === true
 
   const linhas = lista.map(item => `
     <tr>
@@ -2322,18 +2365,36 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
    <br>
 
-    <strong>PGDAS-D encontrados:</strong>
+    <strong>PGDAS-D encontrados no sistema:</strong>
+${
+competenciasPGDAS.length
+  ? competenciasPGDAS
+      .map(escHTML)
+      .join(', ')
+  : 'Nenhum'
+}
+
+<br>
+
+${
+tipoVinculoPGDASMemoria === 'manual'
+  ? `
+    <strong>PGDAS-D informado manualmente:</strong>
     ${
-    competenciasPGDAS.length
-      ? competenciasPGDAS
-          .map(escHTML)
-          .join(', ')
-      : 'Nenhum'
+      competenciasPGDASManuais.length
+        ? competenciasPGDASManuais
+            .map(escHTML)
+            .join(', ')
+        : competenciasAnalisadas.length === 1
+          ? escHTML(competenciasAnalisadas[0])
+          : 'Sim'
     }
-
     <br>
+  `
+  : ''
+}
 
-    <strong>Competencias pendentes:</strong>
+<strong>Competencias pendentes:</strong>
     ${
     competenciasPendentes.length
       ? competenciasPendentes
@@ -2377,16 +2438,26 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
     ${
   conciliacaoCompleta
-    ? `CONCILIACAO PGDAS-D COMPLETA.
-       Potencial identificado nesta etapa: ${fmtR(
-         resumo.valor_pgdas_vinculado || 0
-       )}.
-       O credito definitivo permanece pendente da Apuracao do Simples.`
+    ? (
+        tipoVinculoPGDASMemoria === 'documental'
+          ? `CONCILIACAO DOCUMENTAL PGDAS-D COMPLETA.
+             O PGDAS-D foi localizado no sistema e vinculado a competencia analisada.
+             Potencial identificado nesta etapa: ${fmtR(
+               resumo.valor_pgdas_vinculado || 0
+             )}.
+             O credito definitivo permanece pendente da Apuracao do Simples.`
+          : `CONCILIACAO PGDAS-D REALIZADA COM DADOS INFORMADOS MANUALMENTE.
+             Os valores do PGDAS-D utilizados nesta etapa foram informados pelo usuario.
+             Potencial identificado nesta etapa: ${fmtR(
+               resumo.valor_pgdas_vinculado || 0
+             )}.
+             O credito definitivo permanece pendente da Apuracao do Simples.`
+      )
     : `CONCILIACAO PGDAS-D PENDENTE.
        Existem ${competenciasPendentes.length}
-       competencia(s) sem PGDAS-D vinculado.
+       competencia(s) sem PGDAS-D documental ou manual vinculado.
        O credito definitivo ainda nao esta consolidado.`
-    }}
+}
 
       </div>
 	  
@@ -2449,6 +2520,10 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
         FONTE_PGDAS:
         ${escHTML(resumo.fonte_pgdas || '')}
+        <br>
+
+        TIPO_VINCULO_PGDAS:
+        ${escHTML(String(tipoVinculoPGDASMemoria || 'pendente').toUpperCase())}
         <br>
 
         GERADO_EM:
