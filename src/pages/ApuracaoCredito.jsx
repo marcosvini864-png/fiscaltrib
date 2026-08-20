@@ -629,19 +629,21 @@ const dataInicio = `${ano}-${mes}-01`;
             }}>
               <div>
                 <div style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Total de crédito a recuperar de PIS/COFINS
-                </div>
-                <div style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
-                  {fmtBRL(selic?.totalCorrigido || dados.creditoTotal)}
-                </div>
-                <div style={{ color: '#FFFFFF', fontSize: 12, marginTop: 8 }}>
-                  Crédito original: {fmtBRL(dados.creditoTotal)}
-                  {selic && !selic.erro && (
-                    <span style={{ marginLeft: 8 }}>
-                      + Selic ({selic.taxaAcumulada?.toFixed(2)}%): {fmtBRL(selic.valorCorrecao)}
-                    </span>
-                  )}
-                </div>
+              Crédito principal apurado de PIS/COFINS
+             </div>
+
+             <div style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
+             {fmtBRL(dados.creditoTotal)}
+             </div>
+
+             <div style={{ color: '#FFFFFF', fontSize: 12, marginTop: 8 }}>
+             Valor principal sem atualização monetária.
+             {selic && !selic.erro && (
+             <span style={{ marginLeft: 8 }}>
+             Selic estimada separadamente: {fmtBRL(selic.valorCorrecao)}
+              </span>
+               )}
+               </div>
                 {loadingSelic && (
                   <div style={{ color: '#FFFFFF', fontSize: 11, marginTop: 6 }}>
                     Calculando correcao Selic...
