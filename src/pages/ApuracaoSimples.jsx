@@ -212,6 +212,60 @@ function calcularApuracaoBaseAnexoI(rbt12, receitaCompetencia) {
   }
 }
 
+// ============================================================
+// REPARTIÇÃO DO ANEXO I — COMÉRCIO
+// Percentuais oficiais de repartição do DAS
+// Neste momento, faixas 1 a 5.
+// Faixa 6 será tratada separadamente.
+// ============================================================
+
+const REPARTICAO_ANEXO_I = {
+  1: {
+    irpj: 0.055,
+    csll: 0.035,
+    cofins: 0.1274,
+    pis: 0.0276,
+    cpp: 0.415,
+    icms: 0.34,
+  },
+
+  2: {
+    irpj: 0.055,
+    csll: 0.035,
+    cofins: 0.1274,
+    pis: 0.0276,
+    cpp: 0.415,
+    icms: 0.34,
+  },
+
+  3: {
+    irpj: 0.055,
+    csll: 0.035,
+    cofins: 0.1274,
+    pis: 0.0276,
+    cpp: 0.42,
+    icms: 0.335,
+  },
+
+  4: {
+    irpj: 0.055,
+    csll: 0.035,
+    cofins: 0.1274,
+    pis: 0.0276,
+    cpp: 0.42,
+    icms: 0.335,
+  },
+
+  5: {
+    irpj: 0.055,
+    csll: 0.035,
+    cofins: 0.1274,
+    pis: 0.0276,
+    cpp: 0.42,
+    icms: 0.335,
+  },
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
