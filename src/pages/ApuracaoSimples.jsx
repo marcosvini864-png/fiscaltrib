@@ -1204,6 +1204,82 @@ function definirPoliticaRecuperacaoPisCofins({
 }
 
 // ============================================================
+// RECEITAS COM TRATAMENTO ESPECÍFICO — PIS/COFINS
+//
+// Usa exclusivamente a dimensão classificacaoPisCofins.
+// ICMS permanece independente e não participa deste cálculo.
+//
+// Classificações vigentes do FiscalTribe:
+// - monofasico
+// - st_pis_cofins
+//
+// Receita "tributado" não integra a capacidade de redução.
+// ============================================================
+
+const CLASSIFICACOES_PIS_COFINS_TRATAMENTO_ESPECIFICO =
+  new Set([
+    'monofasico',
+    'st_pis_cofins',
+  ])
+
+function apurarReceitaPisCofinsTratamentoEspecifico(
+  parcelas,
+  politica
+) {
+  if (
+    !Array.isArray(parcelas) ||
+    !politica ||
+    typeof politica !== 'object' ||
+    !politica.permiteAjustePisCofins
+  ) {
+    return null
+  }
+
+  const parcelasElegiveis = []
+  let receitaElegivelCentavos = 0
+
+  for (const parcelaOriginal of parcelas) {
+    const parcela =
+      normalizarParcelaReceitaQualificada(
+        parcelaOriginal
+      )
+
+    if (!parcela) {
+      return null
+    }
+
+    if (
+      !CLASSIFICACOES_PIS_COFINS_TRATAMENTO_ESPECIFICO
+        .has(parcela.classificacaoPisCofins)
+    ) {
+      continue
+    }
+
+    const valorCentavos =
+      Math.round(parcela.valor * 100)
+
+    receitaElegivelCentavos +=
+      valorCentavos
+
+    parcelasElegiveis.push({
+      ...parcela,
+      valor:
+        valorCentavos / 100,
+    })
+  }
+
+  return {
+    receitaTratamentoEspecificoDisponivel:
+      receitaElegivelCentavos / 100,
+
+    quantidadeParcelasElegiveis:
+      parcelasElegiveis.length,
+
+    parcelasElegiveis,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
