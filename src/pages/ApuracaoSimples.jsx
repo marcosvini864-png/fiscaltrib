@@ -437,6 +437,82 @@ function segregarReceitaPisCofinsMonofasica(
   }
 }
 
+// ============================================================
+// TRATAMENTO MONOFÁSICO — PIS/COFINS
+// PIS e Cofins incidem somente sobre a receita normal.
+// Os demais tributos permanecem sobre a receita total.
+// Ainda sem arredondamento monetário.
+// ============================================================
+
+function calcularTributosComTratamentoMonofasico(
+  segregacao,
+  aliquotasTributos
+) {
+  if (
+    !segregacao ||
+    !aliquotasTributos
+  ) {
+    return null
+  }
+
+  const total = Number(segregacao.receitaTotal)
+  const normal = Number(segregacao.receitaNormal)
+  const monofasica = Number(segregacao.receitaMonofasica)
+
+  const aliquotaPis = Number(aliquotasTributos.pis)
+  const aliquotaCofins = Number(aliquotasTributos.cofins)
+
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(normal) ||
+    !Number.isFinite(monofasica) ||
+    !Number.isFinite(aliquotaPis) ||
+    !Number.isFinite(aliquotaCofins) ||
+    total < 0 ||
+    normal < 0 ||
+    monofasica < 0 ||
+    aliquotaPis < 0 ||
+    aliquotaCofins < 0
+  ) {
+    return null
+  }
+
+  const valoresBase = calcularValoresTributosTeoricosBase(
+    total,
+    aliquotasTributos
+  )
+
+  if (!valoresBase) {
+    return null
+  }
+
+  const pisDesconsiderado =
+    monofasica * aliquotaPis
+
+  const cofinsDesconsiderado =
+    monofasica * aliquotaCofins
+
+  return {
+    valoresTributos: {
+      ...valoresBase,
+
+      pis:
+        normal * aliquotaPis,
+
+      cofins:
+        normal * aliquotaCofins,
+    },
+
+    valoresDesconsideradosMonofasico: {
+      pis: pisDesconsiderado,
+      cofins: cofinsDesconsiderado,
+      total:
+        pisDesconsiderado +
+        cofinsDesconsiderado,
+    },
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
