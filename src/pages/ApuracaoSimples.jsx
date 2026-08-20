@@ -397,6 +397,66 @@ function calcularValoresTributosTeoricosBase(
 }
 
 // ============================================================
+// PARCELA DE RECEITA QUALIFICADA
+// Estrutura-base conforme o fluxo do Motor do Simples:
+// estabelecimento → mercado → atividade → qualificações tributárias.
+// PIS/COFINS e ICMS permanecem dimensões independentes.
+// Ainda não realiza cálculo tributário.
+// ============================================================
+
+function normalizarParcelaReceitaQualificada(parcela) {
+  if (
+    !parcela ||
+    typeof parcela !== 'object'
+  ) {
+    return null
+  }
+
+  const estabelecimento = String(
+    parcela.estabelecimento ?? ''
+  ).trim()
+
+  const mercado = String(
+    parcela.mercado ?? ''
+  ).trim()
+
+  const atividade = String(
+    parcela.atividade ?? ''
+  ).trim()
+
+  const classificacaoPisCofins = String(
+    parcela.classificacaoPisCofins ?? ''
+  ).trim()
+
+  const classificacaoIcms = String(
+    parcela.classificacaoIcms ?? ''
+  ).trim()
+
+  const valor = Number(parcela.valor)
+
+  if (
+    !estabelecimento ||
+    !mercado ||
+    !atividade ||
+    !classificacaoPisCofins ||
+    !classificacaoIcms ||
+    !Number.isFinite(valor) ||
+    valor < 0
+  ) {
+    return null
+  }
+
+  return {
+    estabelecimento,
+    mercado,
+    atividade,
+    classificacaoPisCofins,
+    classificacaoIcms,
+    valor,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
