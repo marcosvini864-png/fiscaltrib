@@ -876,6 +876,76 @@ function resolverDivergenciaReceita(
 }
 
 // ============================================================
+// PLANO DE AJUSTE CONSERVADOR DA RECEITA
+// Espelha a regra do e-Recuperador sem ainda redistribuir
+// valores entre parcelas ou qualificações específicas.
+//
+// diferença = receita declarada PGDAS - receita apurada
+//
+// diferença positiva:
+//   acrescenta às receitas integralmente tributadas.
+//
+// diferença negativa:
+//   reduz receitas submetidas a tratamento específico
+//   (ST / monofásico / antecipação com encerramento).
+//
+// A distribuição entre qualificações será tratada depois,
+// somente quando houver regra segura para essa distribuição.
+// ============================================================
+
+function planejarAjusteConservadorReceita(conciliacao) {
+  if (
+    !conciliacao ||
+    typeof conciliacao !== 'object'
+  ) {
+    return null
+  }
+
+  const diferenca = Number(conciliacao.diferenca)
+
+  if (!Number.isFinite(diferenca)) {
+    return null
+  }
+
+  if (diferenca === 0) {
+    return {
+      necessario: false,
+      valorAjuste: 0,
+      tipoAjuste: 'nenhum',
+
+      adicionarReceitaIntegralmenteTributada: 0,
+      reduzirReceitaComTratamentoEspecifico: 0,
+    }
+  }
+
+  if (diferenca > 0) {
+    return {
+      necessario: true,
+      valorAjuste: diferenca,
+      tipoAjuste: 'adicionar_tributacao_integral',
+
+      adicionarReceitaIntegralmenteTributada:
+        diferenca,
+
+      reduzirReceitaComTratamentoEspecifico:
+        0,
+    }
+  }
+
+  return {
+    necessario: true,
+    valorAjuste: Math.abs(diferenca),
+    tipoAjuste: 'reduzir_tratamento_especifico',
+
+    adicionarReceitaIntegralmenteTributada:
+      0,
+
+    reduzirReceitaComTratamentoEspecifico:
+      Math.abs(diferenca),
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
