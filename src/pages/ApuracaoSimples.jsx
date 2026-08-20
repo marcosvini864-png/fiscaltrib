@@ -295,6 +295,72 @@ function calcularAliquotasEfetivasPorTributo(faixa, aliquotaEfetiva) {
   }
 }
 
+// ============================================================
+// VALORES TEÓRICOS POR TRIBUTO — ANEXO I
+// Receita da competência × alíquota efetiva de cada tributo
+// Ainda sem segregações específicas
+// ============================================================
+
+function calcularValoresTributosTeoricosBase(
+  receitaCompetencia,
+  aliquotasTributos
+) {
+  if (
+    receitaCompetencia === null ||
+    receitaCompetencia === undefined ||
+    String(receitaCompetencia).trim() === '' ||
+    !aliquotasTributos
+  ) {
+    return null
+  }
+
+  const receita = Number(receitaCompetencia)
+
+  if (
+    !Number.isFinite(receita) ||
+    receita < 0
+  ) {
+    return null
+  }
+
+  const {
+    irpj,
+    csll,
+    cofins,
+    pis,
+    cpp,
+    icms,
+  } = aliquotasTributos
+
+  const aliquotas = [
+    irpj,
+    csll,
+    cofins,
+    pis,
+    cpp,
+    icms,
+  ]
+
+  if (
+    aliquotas.some(
+      valor =>
+        !Number.isFinite(Number(valor)) ||
+        Number(valor) < 0
+    )
+  ) {
+    return null
+  }
+
+  return {
+    irpj: receita * Number(irpj),
+    csll: receita * Number(csll),
+    cofins: receita * Number(cofins),
+    pis: receita * Number(pis),
+    cpp: receita * Number(cpp),
+    icms: receita * Number(icms),
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
