@@ -205,10 +205,31 @@ function calcularApuracaoBaseAnexoI(rbt12, receitaCompetencia) {
     return null
   }
 
+  const aliquotasTributos = calcularAliquotasEfetivasPorTributo(
+    parametros.faixa,
+    parametros.aliquotaEfetiva
+  )
+
+  const valoresTributosTeoricosBase = aliquotasTributos
+    ? calcularValoresTributosTeoricosBase(
+        receitaCompetencia,
+        aliquotasTributos
+      )
+    : null
+
   return {
     ...parametros,
+
     receitaCompetencia: Number(receitaCompetencia),
     dasTeoricoBase,
+
+    reparticaoDisponivel: Boolean(
+      aliquotasTributos &&
+      valoresTributosTeoricosBase
+    ),
+
+    aliquotasTributos,
+    valoresTributosTeoricosBase,
   }
 }
 
