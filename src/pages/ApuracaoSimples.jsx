@@ -515,6 +515,104 @@ function consolidarParcelasReceitaQualificada(parcelas) {
 }
 
 // ============================================================
+// ESTRUTURA HIERÁRQUICA DA APURAÇÃO
+// estabelecimento → mercado → atividade → parcelas qualificadas
+// Espelha o detalhamento operacional do Motor do Simples.
+// Ainda não calcula tributos.
+// ============================================================
+
+function organizarDetalhamentoApuracao(parcelas) {
+  if (!Array.isArray(parcelas)) {
+    return null
+  }
+
+  const mapaEstabelecimentos = new Map()
+
+  for (const parcelaOriginal of parcelas) {
+    const parcela =
+      normalizarParcelaReceitaQualificada(parcelaOriginal)
+
+    if (!parcela) {
+      return null
+    }
+
+    if (!mapaEstabelecimentos.has(parcela.estabelecimento)) {
+      mapaEstabelecimentos.set(parcela.estabelecimento, {
+        estabelecimento: parcela.estabelecimento,
+        receitaTotal: 0,
+        mercados: new Map(),
+      })
+    }
+
+    const estabelecimento =
+      mapaEstabelecimentos.get(parcela.estabelecimento)
+
+    estabelecimento.receitaTotal += parcela.valor
+
+    if (!estabelecimento.mercados.has(parcela.mercado)) {
+      estabelecimento.mercados.set(parcela.mercado, {
+        mercado: parcela.mercado,
+        receitaTotal: 0,
+        atividades: new Map(),
+      })
+    }
+
+    const mercado =
+      estabelecimento.mercados.get(parcela.mercado)
+
+    mercado.receitaTotal += parcela.valor
+
+    if (!mercado.atividades.has(parcela.atividade)) {
+      mercado.atividades.set(parcela.atividade, {
+        atividade: parcela.atividade,
+        receitaTotal: 0,
+        parcelas: [],
+      })
+    }
+
+    const atividade =
+      mercado.atividades.get(parcela.atividade)
+
+    atividade.receitaTotal += parcela.valor
+
+    atividade.parcelas.push({
+      classificacaoPisCofins:
+        parcela.classificacaoPisCofins,
+
+      classificacaoIcms:
+        parcela.classificacaoIcms,
+
+      valor:
+        parcela.valor,
+    })
+  }
+
+  return Array.from(mapaEstabelecimentos.values()).map(
+    estabelecimento => ({
+      estabelecimento:
+        estabelecimento.estabelecimento,
+
+      receitaTotal:
+        estabelecimento.receitaTotal,
+
+      mercados: Array.from(
+        estabelecimento.mercados.values()
+      ).map(mercado => ({
+        mercado:
+          mercado.mercado,
+
+        receitaTotal:
+          mercado.receitaTotal,
+
+        atividades: Array.from(
+          mercado.atividades.values()
+        ),
+      })),
+    })
+  )
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
