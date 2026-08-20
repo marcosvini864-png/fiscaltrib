@@ -726,6 +726,76 @@ function prepararMovimentacaoApuracao(parcelas) {
 }
 
 // ============================================================
+// CONCILIAÇÃO DE RECEITA — MOVIMENTAÇÃO × PGDAS ORIGINAL
+// Primeiro portão do fluxo de conferência.
+// Havendo divergência, nenhuma apuração de crédito deve seguir
+// automaticamente.
+// ============================================================
+
+function conciliarReceitaApuradaComPgdas(
+  receitaApurada,
+  receitaDeclaradaPgdas
+) {
+  if (
+    receitaApurada === null ||
+    receitaApurada === undefined ||
+    String(receitaApurada).trim() === '' ||
+    receitaDeclaradaPgdas === null ||
+    receitaDeclaradaPgdas === undefined ||
+    String(receitaDeclaradaPgdas).trim() === ''
+  ) {
+    return null
+  }
+
+  const apurada = Number(receitaApurada)
+  const declarada = Number(receitaDeclaradaPgdas)
+
+  if (
+    !Number.isFinite(apurada) ||
+    !Number.isFinite(declarada) ||
+    apurada < 0 ||
+    declarada < 0
+  ) {
+    return null
+  }
+
+  // A comparação é monetária, em centavos.
+  // Não é arredondamento de cálculo tributário.
+  const apuradaCentavos =
+    Math.round(apurada * 100)
+
+  const declaradaCentavos =
+    Math.round(declarada * 100)
+
+  const diferencaCentavos =
+    declaradaCentavos - apuradaCentavos
+
+  const receitasCoincidem =
+    diferencaCentavos === 0
+
+  return {
+    receitaApurada:
+      apuradaCentavos / 100,
+
+    receitaDeclaradaPgdas:
+      declaradaCentavos / 100,
+
+    diferenca:
+      diferencaCentavos / 100,
+
+    receitasCoincidem,
+
+    status:
+      receitasCoincidem
+        ? 'conciliada'
+        : 'divergente',
+
+    requerDecisao:
+      !receitasCoincidem,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
