@@ -1059,6 +1059,115 @@ function aplicarAjusteConservadorPositivo(
 }
 
 // ============================================================
+// PREPARAÇÃO DO AJUSTE CONSERVADOR NEGATIVO
+//
+// Quando a receita declarada no PGDAS é MENOR que a receita
+// apurada pelos documentos, a diferença deve reduzir receitas
+// submetidas a tratamento específico.
+//
+// Nesta etapa:
+// - NÃO escolhe monofásico, ST ou antecipação;
+// - NÃO distribui valores entre parcelas;
+// - apenas verifica se existe receita beneficiada suficiente
+//   para suportar a redução.
+// ============================================================
+
+function prepararAjusteConservadorNegativo(
+  resolucao,
+  plano,
+  receitaTratamentoEspecificoDisponivel
+) {
+  if (
+    !resolucao ||
+    typeof resolucao !== 'object' ||
+    !plano ||
+    typeof plano !== 'object' ||
+    receitaTratamentoEspecificoDisponivel === null ||
+    receitaTratamentoEspecificoDisponivel === undefined ||
+    String(receitaTratamentoEspecificoDisponivel).trim() === ''
+  ) {
+    return null
+  }
+
+  if (
+    resolucao.decisao !== 'usar_receita_declarada' ||
+    !resolucao.requerAjusteConservador
+  ) {
+    return null
+  }
+
+  if (
+    plano.tipoAjuste !==
+      'reduzir_tratamento_especifico'
+  ) {
+    return null
+  }
+
+  const valorAjuste =
+    Number(
+      plano.reduzirReceitaComTratamentoEspecifico
+    )
+
+  const receitaDisponivel =
+    Number(
+      receitaTratamentoEspecificoDisponivel
+    )
+
+  if (
+    !Number.isFinite(valorAjuste) ||
+    !Number.isFinite(receitaDisponivel) ||
+    valorAjuste <= 0 ||
+    receitaDisponivel < 0
+  ) {
+    return null
+  }
+
+  const valorAjusteCentavos =
+    Math.round(valorAjuste * 100)
+
+  const receitaDisponivelCentavos =
+    Math.round(receitaDisponivel * 100)
+
+  const capacidadeSuficiente =
+    receitaDisponivelCentavos >=
+    valorAjusteCentavos
+
+  const saldoCentavos =
+    receitaDisponivelCentavos -
+    valorAjusteCentavos
+
+  return {
+    status:
+      capacidadeSuficiente
+        ? 'ajuste_negativo_aguardando_distribuicao'
+        : 'ajuste_negativo_sem_capacidade',
+
+    valorAjuste:
+      valorAjusteCentavos / 100,
+
+    receitaTratamentoEspecificoDisponivel:
+      receitaDisponivelCentavos / 100,
+
+    capacidadeSuficiente,
+
+    saldoTratamentoEspecificoAposAjuste:
+      capacidadeSuficiente
+        ? saldoCentavos / 100
+        : null,
+
+    valorNaoAbsorvido:
+      capacidadeSuficiente
+        ? 0
+        : Math.abs(saldoCentavos) / 100,
+
+    requerDistribuicaoEntreQualificacoes:
+      capacidadeSuficiente,
+
+    podeProsseguirApuracao: false,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
