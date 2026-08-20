@@ -88,11 +88,20 @@ const ANEXO_I_2018_2026 = [
 ]
 
 function identificarFaixaAnexoI(rbt12) {
+  // Dado ausente não pode ser interpretado como RBT12 zero.
+  if (
+    rbt12 === null ||
+    rbt12 === undefined ||
+    String(rbt12).trim() === ''
+  ) {
+    return null
+  }
+
   const receita12 = Number(rbt12)
 
   if (
     !Number.isFinite(receita12) ||
-    receita12 <= 0 ||
+    receita12 < 0 ||
     receita12 > 4800000
   ) {
     return null
