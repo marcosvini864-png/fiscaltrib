@@ -25,7 +25,8 @@ const fmtPct = v => parseFloat(v || 0).toFixed(2).replace('.', ',') + '%'
 // ============================================================
 
 function calcularAliquotaEfetiva(rbt12, aliquotaNominal, parcelaDeduzir) {
-  const receita12 = Number(rbt12)
+  const rbt12Informado = Number(rbt12)
+  const receita12 = rbt12Informado === 0 ? 1 : rbt12Informado
   const aliquota = Number(aliquotaNominal)
   const deducao = Number(parcelaDeduzir)
 
@@ -33,7 +34,7 @@ function calcularAliquotaEfetiva(rbt12, aliquotaNominal, parcelaDeduzir) {
     !Number.isFinite(receita12) ||
     !Number.isFinite(aliquota) ||
     !Number.isFinite(deducao) ||
-    receita12 <= 0
+    receita12 < 0
   ) {
     return null
   }
