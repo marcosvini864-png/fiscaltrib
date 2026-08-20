@@ -104,6 +104,38 @@ function identificarFaixaAnexoI(rbt12) {
   )
 }
 
+// ============================================================
+// PARÂMETROS AUTOMÁTICOS DO ANEXO I
+// RBT12 → faixa → alíquota nominal → PD → alíquota efetiva
+// ============================================================
+
+function calcularParametrosAnexoI(rbt12) {
+  const faixa = identificarFaixaAnexoI(rbt12)
+
+  if (!faixa) {
+    return null
+  }
+
+  const aliquotaEfetiva = calcularAliquotaEfetiva(
+    rbt12,
+    faixa.aliquotaNominal,
+    faixa.parcelaDeduzir
+  )
+
+  if (aliquotaEfetiva == null) {
+    return null
+  }
+
+  return {
+    anexo: 'I',
+    faixa: faixa.faixa,
+    rbt12: Number(rbt12),
+    aliquotaNominal: faixa.aliquotaNominal,
+    parcelaDeduzir: faixa.parcelaDeduzir,
+    aliquotaEfetiva,
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
