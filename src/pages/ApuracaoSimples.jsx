@@ -189,15 +189,28 @@ function calcularDasTeoricoBase(receitaCompetencia, aliquotaEfetiva) {
 // Consolida as etapas matemáticas já validadas
 // ============================================================
 
-function calcularApuracaoBaseAnexoI(rbt12, receitaCompetencia) {
+function calcularApuracaoBaseAnexoI(
+  rbt12,
+  receitaCompetencia,
+  receitaMonofasica
+) {
   const parametros = calcularParametrosAnexoI(rbt12)
 
   if (!parametros) {
     return null
   }
 
-  const dasTeoricoBase = calcularDasTeoricoBase(
+  const segregacao = segregarReceitaPisCofinsMonofasica(
     receitaCompetencia,
+    receitaMonofasica
+  )
+
+  if (!segregacao) {
+    return null
+  }
+
+  const dasTeoricoBase = calcularDasTeoricoBase(
+    segregacao.receitaTotal,
     parametros.aliquotaEfetiva
   )
 
@@ -212,15 +225,16 @@ function calcularApuracaoBaseAnexoI(rbt12, receitaCompetencia) {
 
   const valoresTributosTeoricosBase = aliquotasTributos
     ? calcularValoresTributosTeoricosBase(
-        receitaCompetencia,
+        segregacao.receitaTotal,
         aliquotasTributos
       )
     : null
 
   return {
     ...parametros,
+    ...segregacao,
 
-    receitaCompetencia: Number(receitaCompetencia),
+    receitaCompetencia: segregacao.receitaTotal,
     dasTeoricoBase,
 
     reparticaoDisponivel: Boolean(
