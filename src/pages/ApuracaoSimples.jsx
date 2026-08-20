@@ -184,6 +184,34 @@ function calcularDasTeoricoBase(receitaCompetencia, aliquotaEfetiva) {
   return receita * aliquota
 }
 
+// ============================================================
+// APURAÇÃO-BASE — ANEXO I
+// Consolida as etapas matemáticas já validadas
+// ============================================================
+
+function calcularApuracaoBaseAnexoI(rbt12, receitaCompetencia) {
+  const parametros = calcularParametrosAnexoI(rbt12)
+
+  if (!parametros) {
+    return null
+  }
+
+  const dasTeoricoBase = calcularDasTeoricoBase(
+    receitaCompetencia,
+    parametros.aliquotaEfetiva
+  )
+
+  if (dasTeoricoBase == null) {
+    return null
+  }
+
+  return {
+    ...parametros,
+    receitaCompetencia: Number(receitaCompetencia),
+    dasTeoricoBase,
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
