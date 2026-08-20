@@ -154,6 +154,36 @@ function calcularParametrosAnexoI(rbt12) {
   }
 }
 
+// ============================================================
+// DAS TEÓRICO-BASE
+// Receita da competência × alíquota efetiva
+// Ainda sem segregações ou tratamentos específicos
+// ============================================================
+
+function calcularDasTeoricoBase(receitaCompetencia, aliquotaEfetiva) {
+  if (
+    receitaCompetencia === null ||
+    receitaCompetencia === undefined ||
+    String(receitaCompetencia).trim() === ''
+  ) {
+    return null
+  }
+
+  const receita = Number(receitaCompetencia)
+  const aliquota = Number(aliquotaEfetiva)
+
+  if (
+    !Number.isFinite(receita) ||
+    !Number.isFinite(aliquota) ||
+    receita < 0 ||
+    aliquota < 0
+  ) {
+    return null
+  }
+
+  return receita * aliquota
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
