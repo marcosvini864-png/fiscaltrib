@@ -266,6 +266,35 @@ const REPARTICAO_ANEXO_I = {
   },
 }
 
+// ============================================================
+// ALÍQUOTAS EFETIVAS POR TRIBUTO — ANEXO I
+// Alíquota efetiva × percentual de repartição da faixa
+// ============================================================
+
+function calcularAliquotasEfetivasPorTributo(faixa, aliquotaEfetiva) {
+  const numeroFaixa = Number(faixa)
+  const aliquota = Number(aliquotaEfetiva)
+
+  const reparticao = REPARTICAO_ANEXO_I[numeroFaixa]
+
+  if (
+    !reparticao ||
+    !Number.isFinite(aliquota) ||
+    aliquota < 0
+  ) {
+    return null
+  }
+
+  return {
+    irpj: aliquota * reparticao.irpj,
+    csll: aliquota * reparticao.csll,
+    cofins: aliquota * reparticao.cofins,
+    pis: aliquota * reparticao.pis,
+    cpp: aliquota * reparticao.cpp,
+    icms: aliquota * reparticao.icms,
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
