@@ -613,6 +613,72 @@ function organizarDetalhamentoApuracao(parcelas) {
 }
 
 // ============================================================
+// RESUMO POR DIMENSÃO TRIBUTÁRIA
+// Mantém PIS/COFINS e ICMS independentes.
+// Não calcula tributos.
+// ============================================================
+
+function resumirReceitasPorDimensaoTributaria(parcelas) {
+  if (!Array.isArray(parcelas)) {
+    return null
+  }
+
+  const porPisCofins = new Map()
+  const porIcms = new Map()
+
+  let receitaTotal = 0
+
+  for (const parcelaOriginal of parcelas) {
+    const parcela =
+      normalizarParcelaReceitaQualificada(parcelaOriginal)
+
+    if (!parcela) {
+      return null
+    }
+
+    receitaTotal += parcela.valor
+
+    const totalPisCofins =
+      porPisCofins.get(
+        parcela.classificacaoPisCofins
+      ) || 0
+
+    porPisCofins.set(
+      parcela.classificacaoPisCofins,
+      totalPisCofins + parcela.valor
+    )
+
+    const totalIcms =
+      porIcms.get(
+        parcela.classificacaoIcms
+      ) || 0
+
+    porIcms.set(
+      parcela.classificacaoIcms,
+      totalIcms + parcela.valor
+    )
+  }
+
+  return {
+    receitaTotal,
+
+    pisCofins: Array.from(
+      porPisCofins.entries()
+    ).map(([classificacao, valor]) => ({
+      classificacao,
+      valor,
+    })),
+
+    icms: Array.from(
+      porIcms.entries()
+    ).map(([classificacao, valor]) => ({
+      classificacao,
+      valor,
+    })),
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
