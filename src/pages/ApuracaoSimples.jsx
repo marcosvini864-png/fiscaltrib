@@ -382,6 +382,47 @@ function calcularValoresTributosTeoricosBase(
   }
 }
 
+// ============================================================
+// SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
+// Mantém a receita total e separa apenas a parcela monofásica.
+// ICMS-ST será tratado em dimensão independente.
+// ============================================================
+
+function segregarReceitaPisCofinsMonofasica(
+  receitaTotal,
+  receitaMonofasica
+) {
+  if (
+    receitaTotal === null ||
+    receitaTotal === undefined ||
+    String(receitaTotal).trim() === '' ||
+    receitaMonofasica === null ||
+    receitaMonofasica === undefined ||
+    String(receitaMonofasica).trim() === ''
+  ) {
+    return null
+  }
+
+  const total = Number(receitaTotal)
+  const monofasica = Number(receitaMonofasica)
+
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(monofasica) ||
+    total < 0 ||
+    monofasica < 0 ||
+    monofasica > total
+  ) {
+    return null
+  }
+
+  return {
+    receitaTotal: total,
+    receitaMonofasica: monofasica,
+    receitaNormal: total - monofasica,
+  }
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
