@@ -199,28 +199,67 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
       .limit(1)
       .maybeSingle();
 
-    const pgdas = diag?.pgdas_json || {};
-    const receitaTotal = diag?.receita_total || 85000;
-    const receitaMono = diag?.receita_monofasica || 38250;
-    const receitaNormal = receitaTotal - receitaMono;
-    const pisPago = pgdas.pis_recolhido || 329.48;
-    const cofinsPago = pgdas.cofins_recolhido || 1520.28;
-    const aliquota = pgdas.aliquota_efetiva || 0.0219;
-    const pisDevido = receitaNormal * 0.0065;
-    const cofinsDevido = receitaNormal * 0.03;
-    const creditoPIS = Math.max(0, pisPago - pisDevido);
-    const creditoCOFINS = Math.max(0, cofinsPago - cofinsDevido);
+    // ============================================================
+// BLINDAGEM — SOMENTE DADOS REAIS
+// Nunca gerar apuração/crédito usando valores fictícios
+// ============================================================
 
-    const dadosCarregados = {
-      receitaTotal, receitaMono, receitaNormal,
-      pisPago, cofinsPago, pisDevido, cofinsDevido,
-      creditoPIS, creditoCOFINS,
-      creditoTotal: creditoPIS + creditoCOFINS,
-      aliquota,
-      processadoEm: comp?.processado_em,
-      totalNfs: comp?.total_nfs || 20,
-      itens: diag?.itens_json || [],
-    };
+if (!diag) {
+  setDados(null);
+  setErro(
+    'Não foi encontrado diagnóstico monofásico para esta empresa e competência. ' +
+    'A apuração foi bloqueada para evitar geração de crédito com dados inexistentes.'
+  );
+  setLoading(false);
+  return;
+}
+
+const pgdas = diag?.pgdas_json || {};
+
+const receitaTotal = Number(diag?.receita_total ?? 0);
+const receitaMono = Number(diag?.receita_monofasica ?? 0);
+const receitaNormal = Math.max(0, receitaTotal - receitaMono);
+
+const pisPago = Number(pgdas?.pis_recolhido ?? 0);
+const cofinsPago = Number(pgdas?.cofins_recolhido ?? 0);
+const aliquota = Number(pgdas?.aliquota_efetiva ?? 0);
+
+// IMPORTANTE:
+// O cálculo correto de PIS/COFINS devido será feito pelo
+// Motor do Simples Nacional.
+// Até esse motor estar concluído, não gerar crédito estimado
+// utilizando alíquotas fixas de 0,65% e 3%.
+
+const pisDevido = null;
+const cofinsDevido = null;
+
+const creditoPIS = 0;
+const creditoCOFINS = 0;
+
+const dadosCarregados = {
+  receitaTotal,
+  receitaMono,
+  receitaNormal,
+
+  pisPago,
+  cofinsPago,
+
+  pisDevido,
+  cofinsDevido,
+
+  creditoPIS,
+  creditoCOFINS,
+  creditoTotal: 0,
+
+  aliquota,
+
+  processadoEm: comp?.processado_em || null,
+  totalNfs: Number(comp?.total_nfs ?? 0),
+
+  itens: Array.isArray(diag?.itens_json)
+    ? diag.itens_json
+    : [],
+};
 
     setDados(dadosCarregados);
     setLoading(false);
