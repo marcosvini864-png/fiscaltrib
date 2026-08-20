@@ -180,24 +180,86 @@ export default function ApuracaoCredito({ competencia, clienteId, clienteNome, o
     setLoading(true);
     setErro('');
 
-    const { data: comp } = await supabase
-      .from('empresa_competencias')
-      .select('*')
-      .eq('cliente_id', clienteId)
-      .eq('competencia', competencia)
-      .maybeSingle();
+    // ============================================================
+// BLINDAGEM DE COMPETÊNCIA
+// Aceita diferentes formatos e compara por mês/ano
+// ============================================================
 
-    const periodoInicio = `${competencia}-01`;
-    const periodoFim = `${competencia}-31`;
-    const { data: diag } = await supabase
-      .from('diagnosticos_monofasicos')
-      .select('*')
-      .eq('cliente_id', clienteId)
-      .gte('periodo_inicio', periodoInicio)
-      .lte('periodo_inicio', periodoFim)
-      .order('periodo_inicio')
-      .limit(1)
-      .maybeSingle();
+function normalizarCompetencia(valor) {
+  if (!valor) return null;
+
+  const s = String(valor).trim();
+
+  // 01/05/2026 ou 01/05/2026 a 31/05/2026
+  let m = s.match(/\b\d{1,2}\/(\d{1,2})\/(\d{4})\b/);
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`;
+  }
+
+  // 05/2026
+  m = s.match(/\b(\d{1,2})\/(\d{4})\b/);
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`;
+  }
+
+  // 05-2026
+  m = s.match(/\b(\d{1,2})-(\d{4})\b/);
+  if (m) {
+    return `${String(m[1]).padStart(2, '0')}/${m[2]}`;
+  }
+
+  // 2026-05 ou 2026-05-01
+  m = s.match(/\b(\d{4})-(\d{1,2})(?:-\d{1,2})?\b/);
+  if (m) {
+    return `${String(m[2]).padStart(2, '0')}/${m[1]}`;
+  }
+
+  // 202605
+  m = s.match(/\b(\d{4})(0[1-9]|1[0-2])\b/);
+  if (m) {
+    return `${m[2]}/${m[1]}`;
+  }
+
+  return null;
+}
+
+const competenciaNormalizada = normalizarCompetencia(competencia);
+
+if (!competenciaNormalizada) {
+  setDados(null);
+  setErro(
+    `Competência inválida ou não reconhecida: ${competencia}`
+  );
+  setLoading(false);
+  return;
+}
+
+// Busca as competências da empresa e compara já normalizadas.
+// Assim não dependemos do formato em que a competência foi gravada.
+const { data: competenciasEmpresa } = await supabase
+  .from('empresa_competencias')
+  .select('*')
+  .eq('cliente_id', clienteId);
+
+const comp =
+  (competenciasEmpresa || []).find(
+    registro =>
+      normalizarCompetencia(registro?.competencia) === competenciaNormalizada
+  ) || null;
+
+// Mesmo tratamento para os diagnósticos monofásicos.
+// Não usamos mais "-31", evitando datas inválidas como 2026-02-31.
+const { data: diagnosticosEmpresa } = await supabase
+  .from('diagnosticos_monofasicos')
+  .select('*')
+  .eq('cliente_id', clienteId)
+  .order('periodo_inicio');
+
+const diag =
+  (diagnosticosEmpresa || []).find(
+    registro =>
+      normalizarCompetencia(registro?.periodo_inicio) === competenciaNormalizada
+  ) || null;
 
     // ============================================================
 // BLINDAGEM — SOMENTE DADOS REAIS
