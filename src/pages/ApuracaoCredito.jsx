@@ -331,8 +331,46 @@ const dadosCarregados = {
   async function calcularSelic(creditoTotal) {
     setLoadingSelic(true);
     try {
-      const [ano, mes] = competencia.split('-');
-      const dataInicio = `${ano}-${mes}-01`;
+      const competenciaNormalizada = (() => {
+  const s = String(competencia || '').trim();
+
+  let m = s.match(/\b(\d{1,2})\/(\d{4})\b/);
+  if (m) {
+    return {
+      ano: m[2],
+      mes: String(m[1]).padStart(2, '0'),
+    };
+  }
+
+  m = s.match(/\b(\d{4})-(\d{1,2})(?:-\d{1,2})?\b/);
+  if (m) {
+    return {
+      ano: m[1],
+      mes: String(m[2]).padStart(2, '0'),
+    };
+  }
+
+  m = s.match(/\b(\d{4})(0[1-9]|1[0-2])\b/);
+  if (m) {
+    return {
+      ano: m[1],
+      mes: m[2],
+    };
+  }
+
+  return null;
+})();
+
+if (!competenciaNormalizada) {
+  setSelic({
+    erro: `Competência inválida para cálculo da Selic: ${competencia}`,
+  });
+  setLoadingSelic(false);
+  return;
+}
+
+const { ano, mes } = competenciaNormalizada;
+const dataInicio = `${ano}-${mes}-01`;
       const hoje = new Date();
       const dataFim = hoje.toISOString().split('T')[0];
       const taxas = await buscarSelic(dataInicio, dataFim);
