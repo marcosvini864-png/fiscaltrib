@@ -457,6 +457,64 @@ function normalizarParcelaReceitaQualificada(parcela) {
 }
 
 // ============================================================
+// CONSOLIDAÇÃO DAS PARCELAS QUALIFICADAS
+// Agrupa somente parcelas com a mesma combinação de:
+// estabelecimento + mercado + atividade +
+// classificação PIS/COFINS + classificação ICMS.
+// Ainda não calcula tributos.
+// ============================================================
+
+function consolidarParcelasReceitaQualificada(parcelas) {
+  if (!Array.isArray(parcelas)) {
+    return null
+  }
+
+  const mapa = new Map()
+
+  for (const parcelaOriginal of parcelas) {
+    const parcela =
+      normalizarParcelaReceitaQualificada(parcelaOriginal)
+
+    // Item/parcela sem qualificação válida bloqueia a consolidação.
+    if (!parcela) {
+      return null
+    }
+
+    const chave = JSON.stringify([
+      parcela.estabelecimento,
+      parcela.mercado,
+      parcela.atividade,
+      parcela.classificacaoPisCofins,
+      parcela.classificacaoIcms,
+    ])
+
+    const existente = mapa.get(chave)
+
+    if (existente) {
+      existente.valor += parcela.valor
+    } else {
+      mapa.set(chave, {
+        ...parcela,
+      })
+    }
+  }
+
+  const parcelasConsolidadas =
+    Array.from(mapa.values())
+
+  const receitaTotal =
+    parcelasConsolidadas.reduce(
+      (total, parcela) => total + parcela.valor,
+      0
+    )
+
+  return {
+    parcelas: parcelasConsolidadas,
+    receitaTotal,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
