@@ -41,6 +41,69 @@ function calcularAliquotaEfetiva(rbt12, aliquotaNominal, parcelaDeduzir) {
   return ((receita12 * aliquota) - deducao) / receita12
 }
 
+// ============================================================
+// ANEXO I — COMÉRCIO
+// Vigência utilizada para competências de 01/2018 a 12/2026
+// LC 123/2006 — Anexo I
+// ============================================================
+
+const ANEXO_I_2018_2026 = [
+  {
+    faixa: 1,
+    limiteAte: 180000,
+    aliquotaNominal: 0.04,
+    parcelaDeduzir: 0,
+  },
+  {
+    faixa: 2,
+    limiteAte: 360000,
+    aliquotaNominal: 0.073,
+    parcelaDeduzir: 5940,
+  },
+  {
+    faixa: 3,
+    limiteAte: 720000,
+    aliquotaNominal: 0.095,
+    parcelaDeduzir: 13860,
+  },
+  {
+    faixa: 4,
+    limiteAte: 1800000,
+    aliquotaNominal: 0.107,
+    parcelaDeduzir: 22500,
+  },
+  {
+    faixa: 5,
+    limiteAte: 3600000,
+    aliquotaNominal: 0.143,
+    parcelaDeduzir: 87300,
+  },
+  {
+    faixa: 6,
+    limiteAte: 4800000,
+    aliquotaNominal: 0.19,
+    parcelaDeduzir: 378000,
+  },
+]
+
+function identificarFaixaAnexoI(rbt12) {
+  const receita12 = Number(rbt12)
+
+  if (
+    !Number.isFinite(receita12) ||
+    receita12 <= 0 ||
+    receita12 > 4800000
+  ) {
+    return null
+  }
+
+  return (
+    ANEXO_I_2018_2026.find(
+      faixa => receita12 <= faixa.limiteAte
+    ) || null
+  )
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
