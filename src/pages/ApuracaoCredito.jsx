@@ -325,7 +325,9 @@ const dadosCarregados = {
 
     setDados(dadosCarregados);
     setLoading(false);
-    calcularSelic(dadosCarregados.creditoTotal);
+    // A atualização pela Selic não integra automaticamente o crédito principal.
+    // Restituição e compensação possuem regras e momentos próprios de atualização.
+   setSelic(null);
   }
 
   async function calcularSelic(creditoTotal) {
