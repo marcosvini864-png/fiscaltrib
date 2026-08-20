@@ -946,6 +946,119 @@ function planejarAjusteConservadorReceita(conciliacao) {
 }
 
 // ============================================================
+// APLICAÇÃO DO AJUSTE CONSERVADOR POSITIVO
+//
+// Quando a receita declarada no PGDAS é MAIOR que a receita
+// encontrada nos documentos, a diferença é considerada receita
+// sem tratamento monofásico, sem ICMS-ST e sem antecipação com
+// encerramento.
+//
+// O ajuste fica separado das parcelas documentais para manter
+// rastreabilidade e não inventar estabelecimento/atividade.
+// ============================================================
+
+function aplicarAjusteConservadorPositivo(
+  movimentacao,
+  conciliacao,
+  resolucao,
+  plano
+) {
+  if (
+    !movimentacao ||
+    typeof movimentacao !== 'object' ||
+    !conciliacao ||
+    typeof conciliacao !== 'object' ||
+    !resolucao ||
+    typeof resolucao !== 'object' ||
+    !plano ||
+    typeof plano !== 'object'
+  ) {
+    return null
+  }
+
+  if (
+    resolucao.decisao !== 'usar_receita_declarada' ||
+    !resolucao.requerAjusteConservador
+  ) {
+    return null
+  }
+
+  if (
+    plano.tipoAjuste !== 'adicionar_tributacao_integral'
+  ) {
+    return null
+  }
+
+  const receitaDocumentos =
+    Number(movimentacao.receitaTotal)
+
+  const receitaDeclarada =
+    Number(conciliacao.receitaDeclaradaPgdas)
+
+  const valorAjuste =
+    Number(
+      plano.adicionarReceitaIntegralmenteTributada
+    )
+
+  if (
+    !Number.isFinite(receitaDocumentos) ||
+    !Number.isFinite(receitaDeclarada) ||
+    !Number.isFinite(valorAjuste) ||
+    receitaDocumentos < 0 ||
+    receitaDeclarada < 0 ||
+    valorAjuste <= 0
+  ) {
+    return null
+  }
+
+  const receitaDocumentosCentavos =
+    Math.round(receitaDocumentos * 100)
+
+  const receitaDeclaradaCentavos =
+    Math.round(receitaDeclarada * 100)
+
+  const valorAjusteCentavos =
+    Math.round(valorAjuste * 100)
+
+  if (
+    receitaDocumentosCentavos +
+      valorAjusteCentavos !==
+    receitaDeclaradaCentavos
+  ) {
+    return null
+  }
+
+  return {
+    status: 'ajuste_conservador_aplicado',
+
+    receitaTotalDocumentos:
+      receitaDocumentosCentavos / 100,
+
+    receitaTotalConsiderada:
+      receitaDeclaradaCentavos / 100,
+
+    ajusteConservador: {
+      origem: 'conciliacao_pgdas',
+
+      tipo:
+        'adicao_tributacao_integral',
+
+      valor:
+        valorAjusteCentavos / 100,
+
+      classificacaoPisCofins:
+        'sem_monofasico',
+
+      classificacaoIcms:
+        'sem_st_sem_antecipacao_encerramento',
+    },
+
+    movimentacaoOriginal:
+      movimentacao,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
