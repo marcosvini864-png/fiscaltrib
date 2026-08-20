@@ -1168,6 +1168,42 @@ function prepararAjusteConservadorNegativo(
 }
 
 // ============================================================
+// POLÍTICA DO ESCOPO DA RECUPERAÇÃO
+//
+// No fluxo de recuperação de PIS/COFINS monofásico,
+// o ICMS originalmente declarado deve ser preservado,
+// salvo opção expressa em sentido contrário.
+//
+// Essa política impede que o ajuste conservador altere
+// automaticamente dimensões tributárias fora do escopo.
+// ============================================================
+
+function definirPoliticaRecuperacaoPisCofins({
+  alterarIcms = false,
+} = {}) {
+  return {
+    tributosEmRecuperacao: [
+      'pis',
+      'cofins',
+    ],
+
+    preservarReceitaBrutaDeclarada: true,
+
+    preservarIcmsDeclarado:
+      !alterarIcms,
+
+    alterarIcms:
+      Boolean(alterarIcms),
+
+    permiteAjustePisCofins:
+      true,
+
+    permiteAjusteIcms:
+      Boolean(alterarIcms),
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
