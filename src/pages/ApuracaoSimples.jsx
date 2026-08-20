@@ -679,6 +679,53 @@ function resumirReceitasPorDimensaoTributaria(parcelas) {
 }
 
 // ============================================================
+// PREPARAÇÃO DA MOVIMENTAÇÃO PARA APURAÇÃO
+// Consolida e organiza a receita antes de qualquer cálculo.
+// Segue o fluxo operacional do Motor do Simples:
+// parcelas qualificadas → consolidação → detalhamento → resumo.
+// Ainda não calcula DAS nem crédito.
+// ============================================================
+
+function prepararMovimentacaoApuracao(parcelas) {
+  const consolidacao =
+    consolidarParcelasReceitaQualificada(parcelas)
+
+  if (!consolidacao) {
+    return null
+  }
+
+  const detalhamento =
+    organizarDetalhamentoApuracao(
+      consolidacao.parcelas
+    )
+
+  if (!detalhamento) {
+    return null
+  }
+
+  const resumoTributario =
+    resumirReceitasPorDimensaoTributaria(
+      consolidacao.parcelas
+    )
+
+  if (!resumoTributario) {
+    return null
+  }
+
+  return {
+    receitaTotal:
+      consolidacao.receitaTotal,
+
+    parcelas:
+      consolidacao.parcelas,
+
+    detalhamento,
+
+    resumoTributario,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
