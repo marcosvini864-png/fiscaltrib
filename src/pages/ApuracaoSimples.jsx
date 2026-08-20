@@ -796,6 +796,86 @@ function conciliarReceitaApuradaComPgdas(
 }
 
 // ============================================================
+// DECISÃO DIANTE DE DIVERGÊNCIA DE RECEITA
+// Fluxo espelhado do e-Recuperador:
+// 1) interromper;
+// 2) manter divergência sem gerar resultado automático;
+// 3) usar receita declarada e aplicar ajuste conservador.
+// Nesta etapa ainda NÃO realiza o ajuste conservador.
+// ============================================================
+
+function resolverDivergenciaReceita(
+  conciliacao,
+  decisao = null
+) {
+  if (
+    !conciliacao ||
+    typeof conciliacao !== 'object'
+  ) {
+    return null
+  }
+
+  if (conciliacao.receitasCoincidem) {
+    return {
+      status: 'conciliada',
+      decisao: 'seguir',
+      interrompida: false,
+      podeProsseguirApuracao: true,
+      podeGerarResultadoAutomatico: true,
+      requerAjusteConservador: false,
+    }
+  }
+
+  const decisoesPermitidas = [
+    'interromper',
+    'manter_divergencia',
+    'usar_receita_declarada',
+  ]
+
+  if (!decisoesPermitidas.includes(decisao)) {
+    return {
+      status: 'aguardando_decisao',
+      decisao: null,
+      interrompida: false,
+      podeProsseguirApuracao: false,
+      podeGerarResultadoAutomatico: false,
+      requerAjusteConservador: false,
+    }
+  }
+
+  if (decisao === 'interromper') {
+    return {
+      status: 'interrompida',
+      decisao,
+      interrompida: true,
+      podeProsseguirApuracao: false,
+      podeGerarResultadoAutomatico: false,
+      requerAjusteConservador: false,
+    }
+  }
+
+  if (decisao === 'manter_divergencia') {
+    return {
+      status: 'divergencia_mantida',
+      decisao,
+      interrompida: false,
+      podeProsseguirApuracao: false,
+      podeGerarResultadoAutomatico: false,
+      requerAjusteConservador: false,
+    }
+  }
+
+  return {
+    status: 'ajuste_conservador_pendente',
+    decisao: 'usar_receita_declarada',
+    interrompida: false,
+    podeProsseguirApuracao: false,
+    podeGerarResultadoAutomatico: false,
+    requerAjusteConservador: true,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
