@@ -19,6 +19,28 @@ const S = {
 const fmtR   = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 const fmtPct = v => parseFloat(v || 0).toFixed(2).replace('.', ',') + '%'
 
+// ============================================================
+// MOTOR DO SIMPLES NACIONAL
+// Fórmula oficial da alíquota efetiva — LC 123/2006, art. 18
+// ============================================================
+
+function calcularAliquotaEfetiva(rbt12, aliquotaNominal, parcelaDeduzir) {
+  const receita12 = Number(rbt12)
+  const aliquota = Number(aliquotaNominal)
+  const deducao = Number(parcelaDeduzir)
+
+  if (
+    !Number.isFinite(receita12) ||
+    !Number.isFinite(aliquota) ||
+    !Number.isFinite(deducao) ||
+    receita12 <= 0
+  ) {
+    return null
+  }
+
+  return ((receita12 * aliquota) - deducao) / receita12
+}
+
 function Badge({ label, tipo }) {
   const map = {
     aguardando:   { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
