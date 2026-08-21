@@ -1345,6 +1345,106 @@ function prepararReducaoConservadoraPisCofins(
 }
 
 // ============================================================
+// CANDIDATAS À REDUÇÃO CONSERVADORA — PIS/COFINS
+//
+// Prepara as parcelas elegíveis para uma futura distribuição.
+//
+// NÃO escolhe critério de rateio.
+// NÃO altera valores.
+// NÃO toca na dimensão de ICMS.
+// ============================================================
+
+function prepararCandidatasReducaoPisCofins(
+  preparacao
+) {
+  if (
+    !preparacao ||
+    typeof preparacao !== 'object' ||
+    !Array.isArray(preparacao.parcelasElegiveis)
+  ) {
+    return null
+  }
+
+  const candidatas = []
+
+  for (
+    const parcelaOriginal
+    of preparacao.parcelasElegiveis
+  ) {
+    const parcela =
+      normalizarParcelaReceitaQualificada(
+        parcelaOriginal
+      )
+
+    if (!parcela) {
+      return null
+    }
+
+    const valorCentavos =
+      Math.round(parcela.valor * 100)
+
+    const chaveParcela =
+      JSON.stringify([
+        parcela.estabelecimento,
+        parcela.mercado,
+        parcela.atividade,
+        parcela.classificacaoPisCofins,
+        parcela.classificacaoIcms,
+      ])
+
+    candidatas.push({
+      chaveParcela,
+
+      estabelecimento:
+        parcela.estabelecimento,
+
+      mercado:
+        parcela.mercado,
+
+      atividade:
+        parcela.atividade,
+
+      classificacaoPisCofins:
+        parcela.classificacaoPisCofins,
+
+      classificacaoIcms:
+        parcela.classificacaoIcms,
+
+      valorDisponivel:
+        valorCentavos / 100,
+
+      reducaoMaxima:
+        valorCentavos / 100,
+    })
+  }
+
+  const capacidadeTotalCentavos =
+    candidatas.reduce(
+      (total, parcela) =>
+        total +
+        Math.round(
+          parcela.valorDisponivel * 100
+        ),
+      0
+    )
+
+  return {
+    valorReducaoNecessario:
+      Number(preparacao.valorAjuste),
+
+    capacidadeTotal:
+      capacidadeTotalCentavos / 100,
+
+    quantidadeCandidatas:
+      candidatas.length,
+
+    candidatas,
+
+    distribuicaoAplicada: false,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
