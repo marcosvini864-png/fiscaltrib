@@ -3842,6 +3842,244 @@ function compararPgdasOriginalComDasConferido({
   }
 }
 
+function verificarPagamentoDasOriginal({
+  comparacao,
+  pagamento
+} = {}) {
+  /*
+   * VERIFICAÇÃO DO PAGAMENTO DO DAS
+   *
+   * Esta etapa não calcula crédito.
+   *
+   * Apenas confirma que a apuração original
+   * comparada foi efetivamente recolhida.
+   *
+   * O objeto "pagamento" deverá vir,
+   * futuramente, da camada de importação/
+   * consulta do comprovante ou extrato.
+   */
+
+  if (
+    !comparacao ||
+    typeof comparacao !== 'object' ||
+    comparacao.status !==
+      'comparacao_concluida' ||
+    !comparacao.podeConcluirDiferenca
+  ) {
+    return null
+  }
+
+  /*
+   * Não presumimos pagamento simplesmente
+   * porque existe um PGDAS ou um DAS emitido.
+   */
+  if (
+    !pagamento ||
+    typeof pagamento !== 'object'
+  ) {
+    return {
+      status:
+        'aguardando_comprovacao_pagamento',
+
+      pagamentoConfirmado:
+        false,
+
+      pagamentoIntegral:
+        false,
+
+      podeAnalisarIndebito:
+        false,
+
+      creditoCalculado:
+        false
+    }
+  }
+
+  if (pagamento.confirmado !== true) {
+    return {
+      status:
+        'pagamento_nao_confirmado',
+
+      pagamentoConfirmado:
+        false,
+
+      pagamentoIntegral:
+        false,
+
+      podeAnalisarIndebito:
+        false,
+
+      creditoCalculado:
+        false,
+
+      pagamento
+    }
+  }
+
+  const paraCentavos = (valor) => {
+    if (
+      valor === null ||
+      valor === undefined ||
+      String(valor).trim() === ''
+    ) {
+      return null
+    }
+
+    const numero =
+      Number(valor)
+
+    if (
+      !Number.isFinite(numero) ||
+      numero < 0
+    ) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) =>
+    valor / 100
+
+  /*
+   * Usamos o PRINCIPAL pago.
+   *
+   * Multa e juros eventualmente existentes
+   * no pagamento em atraso não são usados
+   * para criar artificialmente diferença
+   * tributária.
+   */
+  const principalPagoCentavos =
+    paraCentavos(
+      pagamento.valorPrincipal
+    )
+
+  const dasOriginalCentavos =
+    paraCentavos(
+      comparacao.dasOriginal
+    )
+
+  if (
+    principalPagoCentavos === null ||
+    dasOriginalCentavos === null
+  ) {
+    return {
+      status:
+        'pagamento_sem_principal_identificado',
+
+      pagamentoConfirmado:
+        true,
+
+      pagamentoIntegral:
+        false,
+
+      podeAnalisarIndebito:
+        false,
+
+      creditoCalculado:
+        false,
+
+      pagamento
+    }
+  }
+
+  const diferencaPrincipalCentavos =
+    principalPagoCentavos -
+    dasOriginalCentavos
+
+  /*
+   * Nesta primeira versão do motor,
+   * somente avançamos automaticamente
+   * quando o principal efetivamente pago
+   * coincide com o DAS original apurado.
+   *
+   * Pagamento divergente exige análise
+   * própria e não será "forçado".
+   */
+  if (diferencaPrincipalCentavos !== 0) {
+    return {
+      status:
+        'pagamento_principal_divergente',
+
+      pagamentoConfirmado:
+        true,
+
+      pagamentoIntegral:
+        false,
+
+      podeAnalisarIndebito:
+        false,
+
+      dasOriginal:
+        deCentavos(
+          dasOriginalCentavos
+        ),
+
+      valorPrincipalPago:
+        deCentavos(
+          principalPagoCentavos
+        ),
+
+      diferencaPrincipal:
+        deCentavos(
+          diferencaPrincipalCentavos
+        ),
+
+      creditoCalculado:
+        false,
+
+      pagamento
+    }
+  }
+
+  return {
+    status:
+      'pagamento_original_confirmado',
+
+    pagamentoConfirmado:
+      true,
+
+    pagamentoIntegral:
+      true,
+
+    dasOriginal:
+      deCentavos(
+        dasOriginalCentavos
+      ),
+
+    valorPrincipalPago:
+      deCentavos(
+        principalPagoCentavos
+      ),
+
+    dataPagamento:
+      pagamento.dataPagamento || null,
+
+    identificadorPagamento:
+      pagamento.identificador || null,
+
+    origemPagamento:
+      pagamento.origem || null,
+
+    /*
+     * Agora existe lastro para a próxima etapa:
+     * analisar se a diferença de apuração
+     * corresponde a pagamento indevido/a maior.
+     */
+    podeAnalisarIndebito:
+      true,
+
+    pagamentoAMaiorConfirmado:
+      false,
+
+    creditoCalculado:
+      false,
+
+    comparacao,
+    pagamento
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
