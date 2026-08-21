@@ -3842,6 +3842,400 @@ function compararPgdasOriginalComDasConferido({
   }
 }
 
+function identificarCreditoMonofasicoPisCofins({
+  comparacao
+} = {}) {
+  /*
+   * CRÉDITO MONOFÁSICO — PIS / COFINS
+   *
+   * Parte diretamente da comparação:
+   *
+   * PGDAS original
+   * ×
+   * apuração conferida
+   *
+   * Não exige comprovante de pagamento.
+   *
+   * Divergências em outros tributos
+   * geram ALERTAS, mas não bloqueiam
+   * a identificação do crédito de
+   * PIS e COFINS.
+   */
+
+  if (
+    !comparacao ||
+    typeof comparacao !== 'object' ||
+    comparacao.status !==
+      'comparacao_concluida' ||
+    comparacao.podeConcluirDiferenca !== true ||
+    !comparacao.comparacaoTributos
+  ) {
+    return null
+  }
+
+  const tributos =
+    comparacao.comparacaoTributos
+
+  const paraCentavos = (valor) => {
+    const numero = Number(valor)
+
+    if (!Number.isFinite(numero)) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) =>
+    valor / 100
+
+  const alertas = []
+
+  /*
+   * -------------------------------------------------
+   * 1. ALERTAS DE TRIBUTOS FORA DA TESE
+   * -------------------------------------------------
+   *
+   * Não bloqueiam a auditoria.
+   */
+  const tributosForaDaTese = [
+    'irpj',
+    'csll',
+    'cpp',
+    'icms'
+  ]
+
+  for (const tributo of tributosForaDaTese) {
+    const dados =
+      tributos[tributo]
+
+    if (!dados) {
+      continue
+    }
+
+    const diferencaCentavos =
+      paraCentavos(
+        dados.diferenca
+      )
+
+    if (
+      diferencaCentavos !== null &&
+      diferencaCentavos !== 0
+    ) {
+      alertas.push({
+        tipo:
+          'divergencia_fora_escopo_pis_cofins',
+
+        tributo,
+
+        original:
+          dados.original,
+
+        conferido:
+          dados.conferido,
+
+        diferenca:
+          deCentavos(
+            diferencaCentavos
+          ),
+
+        mensagem:
+          `Foi identificada divergência em ${tributo.toUpperCase()} fora da tese de PIS/COFINS.`
+      })
+    }
+  }
+
+  /*
+   * -------------------------------------------------
+   * 2. PIS
+   * -------------------------------------------------
+   */
+
+  const pis =
+    tributos.pis
+
+  if (!pis) {
+    return null
+  }
+
+  const pisOriginalCentavos =
+    paraCentavos(
+      pis.original
+    )
+
+  const pisConferidoCentavos =
+    paraCentavos(
+      pis.conferido
+    )
+
+  const pisDiferencaCentavos =
+    paraCentavos(
+      pis.diferenca
+    )
+
+  if (
+    pisOriginalCentavos === null ||
+    pisConferidoCentavos === null ||
+    pisDiferencaCentavos === null
+  ) {
+    return null
+  }
+
+  /*
+   * Crédito somente quando:
+   *
+   * original > conferido.
+   *
+   * Se ocorrer o inverso,
+   * não abatemos automaticamente
+   * de outro tributo.
+   */
+  const creditoPisCentavos =
+    Math.max(
+      pisDiferencaCentavos,
+      0
+    )
+
+  if (pisDiferencaCentavos < 0) {
+    alertas.push({
+      tipo:
+        'pis_conferido_superior_original',
+
+      tributo:
+        'pis',
+
+      original:
+        deCentavos(
+          pisOriginalCentavos
+        ),
+
+      conferido:
+        deCentavos(
+          pisConferidoCentavos
+        ),
+
+      diferenca:
+        deCentavos(
+          pisDiferencaCentavos
+        ),
+
+      mensagem:
+        'O PIS conferido ficou superior ao PIS originalmente apurado.'
+    })
+  }
+
+  /*
+   * -------------------------------------------------
+   * 3. COFINS
+   * -------------------------------------------------
+   */
+
+  const cofins =
+    tributos.cofins
+
+  if (!cofins) {
+    return null
+  }
+
+  const cofinsOriginalCentavos =
+    paraCentavos(
+      cofins.original
+    )
+
+  const cofinsConferidoCentavos =
+    paraCentavos(
+      cofins.conferido
+    )
+
+  const cofinsDiferencaCentavos =
+    paraCentavos(
+      cofins.diferenca
+    )
+
+  if (
+    cofinsOriginalCentavos === null ||
+    cofinsConferidoCentavos === null ||
+    cofinsDiferencaCentavos === null
+  ) {
+    return null
+  }
+
+  const creditoCofinsCentavos =
+    Math.max(
+      cofinsDiferencaCentavos,
+      0
+    )
+
+  if (cofinsDiferencaCentavos < 0) {
+    alertas.push({
+      tipo:
+        'cofins_conferida_superior_original',
+
+      tributo:
+        'cofins',
+
+      original:
+        deCentavos(
+          cofinsOriginalCentavos
+        ),
+
+      conferido:
+        deCentavos(
+          cofinsConferidoCentavos
+        ),
+
+      diferenca:
+        deCentavos(
+          cofinsDiferencaCentavos
+        ),
+
+      mensagem:
+        'A COFINS conferida ficou superior à COFINS originalmente apurada.'
+    })
+  }
+
+  /*
+   * -------------------------------------------------
+   * 4. CRÉDITO MONOFÁSICO TOTAL
+   * -------------------------------------------------
+   *
+   * Não há compensação automática
+   * entre diferença negativa de um tributo
+   * e crédito positivo de outro.
+   */
+
+  const creditoTotalCentavos =
+    creditoPisCentavos +
+    creditoCofinsCentavos
+
+  const creditoIdentificado =
+    creditoTotalCentavos > 0
+
+  /*
+   * Diferença global do DAS é mantida
+   * apenas como informação de auditoria.
+   *
+   * O crédito monofásico é formado
+   * exclusivamente por PIS + COFINS.
+   */
+  const diferencaDasCentavos =
+    paraCentavos(
+      comparacao.diferencaApuracao
+    )
+
+  if (
+    diferencaDasCentavos !== null &&
+    diferencaDasCentavos !==
+      creditoTotalCentavos
+  ) {
+    alertas.push({
+      tipo:
+        'diferenca_das_nao_corresponde_credito_pis_cofins',
+
+      diferencaDas:
+        deCentavos(
+          diferencaDasCentavos
+        ),
+
+      creditoPisCofins:
+        deCentavos(
+          creditoTotalCentavos
+        ),
+
+      mensagem:
+        'A diferença total do DAS não corresponde exclusivamente ao crédito de PIS/COFINS.'
+    })
+  }
+
+  return {
+    status:
+      creditoIdentificado
+        ? 'credito_monofasico_pis_cofins_identificado'
+        : 'sem_credito_monofasico_pis_cofins',
+
+    creditoIdentificado,
+
+    creditoCalculado:
+      true,
+
+    valorCreditoMonofasico:
+      deCentavos(
+        creditoTotalCentavos
+      ),
+
+    valoresPorTributo: {
+      pis: {
+        original:
+          deCentavos(
+            pisOriginalCentavos
+          ),
+
+        conferido:
+          deCentavos(
+            pisConferidoCentavos
+          ),
+
+        diferenca:
+          deCentavos(
+            pisDiferencaCentavos
+          ),
+
+        credito:
+          deCentavos(
+            creditoPisCentavos
+          )
+      },
+
+      cofins: {
+        original:
+          deCentavos(
+            cofinsOriginalCentavos
+          ),
+
+        conferido:
+          deCentavos(
+            cofinsConferidoCentavos
+          ),
+
+        diferenca:
+          deCentavos(
+            cofinsDiferencaCentavos
+          ),
+
+        credito:
+          deCentavos(
+            creditoCofinsCentavos
+          )
+      }
+    },
+
+    das: {
+      original:
+        comparacao.dasOriginal,
+
+      conferido:
+        comparacao.dasConferido,
+
+      diferenca:
+        comparacao.diferencaApuracao
+    },
+
+    possuiAlertas:
+      alertas.length > 0,
+
+    alertas,
+
+    /*
+     * A auditoria não depende
+     * de comprovação de pagamento.
+     */
+    comprovacaoPagamentoExigida:
+      false,
+
+    comparacao
+  }
+}
+
 function analisarIndebitoPotencialPisCofins({
   verificacaoPagamento
 } = {}) {
