@@ -2486,6 +2486,203 @@ function executarApuracaoSimples({
   }
 }
 
+function prepararBasePisCofinsConferida(
+  resultadoConferencia
+) {
+  if (
+    !resultadoConferencia ||
+    typeof resultadoConferencia !== 'object' ||
+    !resultadoConferencia.prontoParaCalculo
+  ) {
+    return null
+  }
+
+  const movimentacao =
+    resultadoConferencia.movimentacaoConsiderada
+
+  if (
+    !movimentacao ||
+    typeof movimentacao !== 'object' ||
+    !movimentacao.resumoTributario
+  ) {
+    return null
+  }
+
+  const receitaTotalConsiderada =
+    Number(
+      resultadoConferencia.receitaTotalConsiderada
+    )
+
+  const receitaMovimentacao =
+    Number(movimentacao.receitaTotal)
+
+  if (
+    !Number.isFinite(receitaTotalConsiderada) ||
+    !Number.isFinite(receitaMovimentacao) ||
+    receitaTotalConsiderada < 0 ||
+    receitaMovimentacao < 0
+  ) {
+    return null
+  }
+
+  const resumoPisCofins =
+    Array.isArray(
+      movimentacao.resumoTributario.pisCofins
+    )
+      ? movimentacao.resumoTributario.pisCofins
+      : []
+
+  const paraCentavos = (valor) => {
+    const numero = Number(valor)
+
+    if (!Number.isFinite(numero)) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) =>
+    valor / 100
+
+  const receitaTotalCentavos =
+    paraCentavos(receitaTotalConsiderada)
+
+  const receitaMovimentacaoCentavos =
+    paraCentavos(receitaMovimentacao)
+
+  const receitaResumoCentavos =
+    paraCentavos(
+      movimentacao.resumoTributario.receitaTotal
+    )
+
+  if (
+    receitaTotalCentavos === null ||
+    receitaMovimentacaoCentavos === null ||
+    receitaResumoCentavos === null
+  ) {
+    return null
+  }
+
+  /*
+   * Trava de consistência.
+   * O resumo tributário precisa continuar
+   * reconciliado com as parcelas da movimentação.
+   */
+  if (
+    receitaMovimentacaoCentavos !==
+    receitaResumoCentavos
+  ) {
+    return null
+  }
+
+  let tratamentoEspecificoCentavos = 0
+
+  const tratamentosEspecificos = []
+
+  for (const item of resumoPisCofins) {
+    const classificacao = String(
+      item?.classificacao ?? ''
+    ).trim()
+
+    const valorCentavos =
+      paraCentavos(item?.valor)
+
+    if (
+      !classificacao ||
+      valorCentavos === null ||
+      valorCentavos < 0
+    ) {
+      return null
+    }
+
+    if (
+      !CLASSIFICACOES_PIS_COFINS_TRATAMENTO_ESPECIFICO
+        .has(classificacao)
+    ) {
+      continue
+    }
+
+    tratamentoEspecificoCentavos +=
+      valorCentavos
+
+    tratamentosEspecificos.push({
+      classificacao,
+      valor:
+        deCentavos(valorCentavos)
+    })
+  }
+
+  if (
+    tratamentoEspecificoCentavos >
+    receitaTotalCentavos
+  ) {
+    return null
+  }
+
+  /*
+   * No ajuste positivo do e-Recuperador,
+   * a diferença PGDAS > documentos é
+   * integralmente tributada.
+   *
+   * Por isso ela aumenta a receita total
+   * considerada, mas não aumenta a receita
+   * com tratamento específico.
+   */
+  const ajusteIntegralCentavos =
+    Math.max(
+      receitaTotalCentavos -
+      receitaMovimentacaoCentavos,
+      0
+    )
+
+  const receitaTributadaCentavos =
+    receitaTotalCentavos -
+    tratamentoEspecificoCentavos
+
+  return {
+    status:
+      'base_pis_cofins_conferida',
+
+    receitaTotalConsiderada:
+      deCentavos(receitaTotalCentavos),
+
+    receitaMovimentacao:
+      deCentavos(
+        receitaMovimentacaoCentavos
+      ),
+
+    receitaTratamentoEspecifico:
+      deCentavos(
+        tratamentoEspecificoCentavos
+      ),
+
+    receitaTributadaPisCofins:
+      deCentavos(
+        receitaTributadaCentavos
+      ),
+
+    receitaAjusteIntegralmenteTributada:
+      deCentavos(
+        ajusteIntegralCentavos
+      ),
+
+    tratamentosEspecificos,
+
+    classificacoesTratamentoEspecifico:
+      Array.from(
+        CLASSIFICACOES_PIS_COFINS_TRATAMENTO_ESPECIFICO
+      ),
+
+    /*
+     * ICMS continua independente.
+     * Nenhuma classificação de ICMS é
+     * alterada nesta etapa.
+     */
+    icmsPreservado: true
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
