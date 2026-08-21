@@ -3177,6 +3177,152 @@ function calcularTributosFederaisConferidosAnexoI({
   }
 }
 
+function prepararIcmsPreservadoPgdas({
+  valorIcmsOriginalPgdas,
+  politica = null
+} = {}) {
+  /*
+   * DIMENSÃO DO ICMS — ESCOPO PIS/COFINS
+   *
+   * Espelha a política do e-Recuperador:
+   * em uma recuperação de PIS/COFINS,
+   * o ICMS originalmente declarado é preservado.
+   *
+   * Não recalcula ICMS.
+   * Não infere sublimite pelo RBT12.
+   * Não altera classificação de ICMS.
+   */
+
+  const politicaAplicada =
+    politica ||
+    definirPoliticaRecuperacaoPisCofins({
+      alterarIcms: false
+    })
+
+  if (
+    !politicaAplicada ||
+    typeof politicaAplicada !== 'object'
+  ) {
+    return null
+  }
+
+  if (
+    !politicaAplicada.preservarIcmsDeclarado ||
+    politicaAplicada.alterarIcms
+  ) {
+    return {
+      status:
+        'icms_fora_do_escopo_de_preservacao',
+
+      podeComporDasConferido:
+        false,
+
+      preservado:
+        false,
+
+      recalculado:
+        false,
+
+      alterado:
+        false,
+
+      valorIcms:
+        null,
+
+      politica:
+        politicaAplicada
+    }
+  }
+
+  /*
+   * Ausência de ICMS no PGDAS não pode
+   * ser interpretada automaticamente como zero.
+   */
+  if (
+    valorIcmsOriginalPgdas === null ||
+    valorIcmsOriginalPgdas === undefined ||
+    String(valorIcmsOriginalPgdas).trim() === ''
+  ) {
+    return {
+      status:
+        'aguardando_icms_original_pgdas',
+
+      podeComporDasConferido:
+        false,
+
+      preservado:
+        false,
+
+      recalculado:
+        false,
+
+      alterado:
+        false,
+
+      valorIcms:
+        null,
+
+      politica:
+        politicaAplicada
+    }
+  }
+
+  const valorIcms =
+    Number(valorIcmsOriginalPgdas)
+
+  if (
+    !Number.isFinite(valorIcms) ||
+    valorIcms < 0
+  ) {
+    return null
+  }
+
+  /*
+   * Normalização monetária.
+   * Valor zero é válido:
+   * pode refletir situação originalmente
+   * declarada no PGDAS.
+   */
+  const valorIcmsCentavos =
+    Math.round(valorIcms * 100)
+
+  return {
+    status:
+      'icms_original_preservado',
+
+    origem:
+      'pgdas_original',
+
+    valorIcms:
+      valorIcmsCentavos / 100,
+
+    preservado:
+      true,
+
+    recalculado:
+      false,
+
+    alterado:
+      false,
+
+    /*
+     * O motor não deduz situação de sublimite
+     * apenas pelo RBT12.
+     */
+    sublimiteInferidoAutomaticamente:
+      false,
+
+    classificacaoIcmsAlterada:
+      false,
+
+    podeComporDasConferido:
+      true,
+
+    politica:
+      politicaAplicada
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
