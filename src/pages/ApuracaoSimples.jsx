@@ -3842,96 +3842,60 @@ function compararPgdasOriginalComDasConferido({
   }
 }
 
-function verificarPagamentoDasOriginal({
-  comparacao,
-  pagamento
+function analisarIndebitoPotencialPisCofins({
+  verificacaoPagamento
 } = {}) {
   /*
-   * VERIFICAÇÃO DO PAGAMENTO DO DAS
+   * ANÁLISE DE INDÉBITO POTENCIAL
+   * PIS / COFINS
    *
-   * Esta etapa não calcula crédito.
+   * Pré-requisitos:
    *
-   * Apenas confirma que a apuração original
-   * comparada foi efetivamente recolhida.
+   * 1. PGDAS original conferido;
+   * 2. DAS correto calculado;
+   * 3. diferença demonstrada;
+   * 4. pagamento integral do DAS original confirmado.
    *
-   * O objeto "pagamento" deverá vir,
-   * futuramente, da camada de importação/
-   * consulta do comprovante ou extrato.
+   * Esta função:
+   * - NÃO atualiza pela Selic;
+   * - NÃO gera pedido de restituição;
+   * - NÃO gera compensação;
+   * - NÃO gera retificação;
+   * - NÃO chama o valor de crédito definitivo.
    */
+
+  if (
+    !verificacaoPagamento ||
+    typeof verificacaoPagamento !== 'object' ||
+    verificacaoPagamento.status !==
+      'pagamento_original_confirmado' ||
+    verificacaoPagamento.pagamentoConfirmado !== true ||
+    verificacaoPagamento.pagamentoIntegral !== true ||
+    verificacaoPagamento.podeAnalisarIndebito !== true
+  ) {
+    return null
+  }
+
+  const comparacao =
+    verificacaoPagamento.comparacao
 
   if (
     !comparacao ||
     typeof comparacao !== 'object' ||
     comparacao.status !==
       'comparacao_concluida' ||
-    !comparacao.podeConcluirDiferenca
+    !comparacao.comparacaoTributos
   ) {
     return null
   }
 
-  /*
-   * Não presumimos pagamento simplesmente
-   * porque existe um PGDAS ou um DAS emitido.
-   */
-  if (
-    !pagamento ||
-    typeof pagamento !== 'object'
-  ) {
-    return {
-      status:
-        'aguardando_comprovacao_pagamento',
-
-      pagamentoConfirmado:
-        false,
-
-      pagamentoIntegral:
-        false,
-
-      podeAnalisarIndebito:
-        false,
-
-      creditoCalculado:
-        false
-    }
-  }
-
-  if (pagamento.confirmado !== true) {
-    return {
-      status:
-        'pagamento_nao_confirmado',
-
-      pagamentoConfirmado:
-        false,
-
-      pagamentoIntegral:
-        false,
-
-      podeAnalisarIndebito:
-        false,
-
-      creditoCalculado:
-        false,
-
-      pagamento
-    }
-  }
+  const comparacaoTributos =
+    comparacao.comparacaoTributos
 
   const paraCentavos = (valor) => {
-    if (
-      valor === null ||
-      valor === undefined ||
-      String(valor).trim() === ''
-    ) {
-      return null
-    }
+    const numero = Number(valor)
 
-    const numero =
-      Number(valor)
-
-    if (
-      !Number.isFinite(numero) ||
-      numero < 0
-    ) {
+    if (!Number.isFinite(numero)) {
       return null
     }
 
@@ -3942,141 +3906,288 @@ function verificarPagamentoDasOriginal({
     valor / 100
 
   /*
-   * Usamos o PRINCIPAL pago.
-   *
-   * Multa e juros eventualmente existentes
-   * no pagamento em atraso não são usados
-   * para criar artificialmente diferença
-   * tributária.
+   * Nesta tese, somente PIS e COFINS
+   * podem produzir indébito potencial
+   * automaticamente.
    */
-  const principalPagoCentavos =
-    paraCentavos(
-      pagamento.valorPrincipal
-    )
+  const tributosDaTese = [
+    'pis',
+    'cofins'
+  ]
 
-  const dasOriginalCentavos =
-    paraCentavos(
-      comparacao.dasOriginal
-    )
+  const tributosForaDaTese = [
+    'irpj',
+    'csll',
+    'cpp',
+    'icms'
+  ]
 
-  if (
-    principalPagoCentavos === null ||
-    dasOriginalCentavos === null
-  ) {
-    return {
-      status:
-        'pagamento_sem_principal_identificado',
+  /*
+   * TRAVA DE AUDITORIA
+   *
+   * Se outro tributo mudou, não presumimos
+   * que a diferença pertence à recuperação
+   * de PIS/COFINS.
+   */
+  const divergenciasForaDaTese = []
 
-      pagamentoConfirmado:
-        true,
+  for (const tributo of tributosForaDaTese) {
+    const dados =
+      comparacaoTributos[tributo]
 
-      pagamentoIntegral:
-        false,
+    if (!dados) {
+      return null
+    }
 
-      podeAnalisarIndebito:
-        false,
+    const diferencaCentavos =
+      paraCentavos(dados.diferenca)
 
-      creditoCalculado:
-        false,
+    if (diferencaCentavos === null) {
+      return null
+    }
 
-      pagamento
+    if (diferencaCentavos !== 0) {
+      divergenciasForaDaTese.push({
+        tributo,
+
+        original:
+          dados.original,
+
+        conferido:
+          dados.conferido,
+
+        diferenca:
+          deCentavos(
+            diferencaCentavos
+          )
+      })
     }
   }
 
-  const diferencaPrincipalCentavos =
-    principalPagoCentavos -
-    dasOriginalCentavos
-
-  /*
-   * Nesta primeira versão do motor,
-   * somente avançamos automaticamente
-   * quando o principal efetivamente pago
-   * coincide com o DAS original apurado.
-   *
-   * Pagamento divergente exige análise
-   * própria e não será "forçado".
-   */
-  if (diferencaPrincipalCentavos !== 0) {
+  if (
+    divergenciasForaDaTese.length > 0
+  ) {
     return {
       status:
-        'pagamento_principal_divergente',
+        'divergencia_fora_escopo_pis_cofins',
+
+      podeConcluirIndebito:
+        false,
+
+      exigeAnaliseManual:
+        true,
+
+      divergenciasForaDaTese,
 
       pagamentoConfirmado:
         true,
 
-      pagamentoIntegral:
+      creditoCalculado:
         false,
 
-      podeAnalisarIndebito:
+      retificacaoGerada:
+        false
+    }
+  }
+
+  const detalhamento = {}
+
+  let totalIndebitoPotencialCentavos = 0
+
+  let existeDiferencaNegativa = false
+
+  for (const tributo of tributosDaTese) {
+    const dados =
+      comparacaoTributos[tributo]
+
+    if (!dados) {
+      return null
+    }
+
+    const originalCentavos =
+      paraCentavos(dados.original)
+
+    const conferidoCentavos =
+      paraCentavos(dados.conferido)
+
+    const diferencaCentavos =
+      paraCentavos(dados.diferenca)
+
+    if (
+      originalCentavos === null ||
+      conferidoCentavos === null ||
+      diferencaCentavos === null
+    ) {
+      return null
+    }
+
+    /*
+     * Diferença positiva:
+     *
+     * valor originalmente apurado
+     * >
+     * valor correto conferido.
+     */
+    const indebitoPotencialCentavos =
+      Math.max(
+        diferencaCentavos,
+        0
+      )
+
+    if (diferencaCentavos < 0) {
+      existeDiferencaNegativa = true
+    }
+
+    totalIndebitoPotencialCentavos +=
+      indebitoPotencialCentavos
+
+    detalhamento[tributo] = {
+      original:
+        deCentavos(
+          originalCentavos
+        ),
+
+      conferido:
+        deCentavos(
+          conferidoCentavos
+        ),
+
+      diferenca:
+        deCentavos(
+          diferencaCentavos
+        ),
+
+      indebitoPotencial:
+        deCentavos(
+          indebitoPotencialCentavos
+        ),
+
+      situacao:
+        diferencaCentavos === 0
+          ? 'sem_diferenca'
+          : diferencaCentavos > 0
+            ? 'original_superior'
+            : 'original_inferior'
+    }
+  }
+
+  /*
+   * Na recuperação monofásica esperada,
+   * PIS e/ou COFINS devem reduzir.
+   *
+   * Se qualquer um deles aumentar,
+   * o motor não compensa diferenças entre
+   * tributos automaticamente.
+   */
+  if (existeDiferencaNegativa) {
+    return {
+      status:
+        'composicao_pis_cofins_exige_analise',
+
+      podeConcluirIndebito:
         false,
 
-      dasOriginal:
-        deCentavos(
-          dasOriginalCentavos
-        ),
+      exigeAnaliseManual:
+        true,
 
-      valorPrincipalPago:
-        deCentavos(
-          principalPagoCentavos
-        ),
+      detalhamento,
 
-      diferencaPrincipal:
-        deCentavos(
-          diferencaPrincipalCentavos
-        ),
+      pagamentoConfirmado:
+        true,
 
       creditoCalculado:
         false,
 
-      pagamento
+      retificacaoGerada:
+        false
+    }
+  }
+
+  if (
+    totalIndebitoPotencialCentavos === 0
+  ) {
+    return {
+      status:
+        'sem_indebito_potencial_pis_cofins',
+
+      podeConcluirIndebito:
+        true,
+
+      indebitoPotencialIdentificado:
+        false,
+
+      valorTotalIndebitoPotencial:
+        0,
+
+      detalhamento,
+
+      pagamentoConfirmado:
+        true,
+
+      creditoCalculado:
+        false,
+
+      retificacaoGerada:
+        false
     }
   }
 
   return {
     status:
-      'pagamento_original_confirmado',
+      'indebito_potencial_pis_cofins_identificado',
+
+    podeConcluirIndebito:
+      true,
+
+    indebitoPotencialIdentificado:
+      true,
+
+    valorTotalIndebitoPotencial:
+      deCentavos(
+        totalIndebitoPotencialCentavos
+      ),
+
+    valoresPorTributo: {
+      pis:
+        detalhamento.pis
+          .indebitoPotencial,
+
+      cofins:
+        detalhamento.cofins
+          .indebitoPotencial
+    },
+
+    detalhamento,
+
+    dasOriginal:
+      comparacao.dasOriginal,
+
+    dasConferido:
+      comparacao.dasConferido,
 
     pagamentoConfirmado:
       true,
 
-    pagamentoIntegral:
-      true,
-
-    dasOriginal:
-      deCentavos(
-        dasOriginalCentavos
-      ),
-
-    valorPrincipalPago:
-      deCentavos(
-        principalPagoCentavos
-      ),
-
-    dataPagamento:
-      pagamento.dataPagamento || null,
-
-    identificadorPagamento:
-      pagamento.identificador || null,
-
-    origemPagamento:
-      pagamento.origem || null,
-
     /*
-     * Agora existe lastro para a próxima etapa:
-     * analisar se a diferença de apuração
-     * corresponde a pagamento indevido/a maior.
+     * O valor ainda é POTENCIAL.
+     *
+     * Antes de virar crédito apto à
+     * restituição/compensação, ainda haverá
+     * memória da retificação e validações.
      */
-    podeAnalisarIndebito:
-      true,
-
-    pagamentoAMaiorConfirmado:
-      false,
-
     creditoCalculado:
       false,
 
-    comparacao,
-    pagamento
+    creditoDefinitivo:
+      false,
+
+    retificacaoGerada:
+      false,
+
+    selicCalculada:
+      false,
+
+    verificacaoPagamento
   }
 }
 
