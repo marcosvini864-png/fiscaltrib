@@ -2930,6 +2930,253 @@ function calcularPisCofinsConferidosAnexoI({
   }
 }
 
+function calcularTributosFederaisConferidosAnexoI({
+  rbt12,
+  basePisCofins
+} = {}) {
+  if (
+    !basePisCofins ||
+    typeof basePisCofins !== 'object' ||
+    basePisCofins.status !==
+      'base_pis_cofins_conferida'
+  ) {
+    return null
+  }
+
+  const pisCofins =
+    calcularPisCofinsConferidosAnexoI({
+      rbt12,
+      basePisCofins
+    })
+
+  if (!pisCofins) {
+    return null
+  }
+
+  /*
+   * Repartição federal do Anexo I.
+   *
+   * PIS/Cofins já foram tratados
+   * separadamente sobre a base conferida.
+   *
+   * ICMS NÃO participa desta etapa.
+   */
+  const reparticaoFederalPorFaixa = {
+    1: {
+      irpj: 0.055,
+      csll: 0.035,
+      cpp: 0.415
+    },
+
+    2: {
+      irpj: 0.055,
+      csll: 0.035,
+      cpp: 0.415
+    },
+
+    3: {
+      irpj: 0.055,
+      csll: 0.035,
+      cpp: 0.42
+    },
+
+    4: {
+      irpj: 0.055,
+      csll: 0.035,
+      cpp: 0.42
+    },
+
+    5: {
+      irpj: 0.055,
+      csll: 0.035,
+      cpp: 0.42
+    },
+
+    6: {
+      irpj: 0.135,
+      csll: 0.10,
+      cpp: 0.421
+    }
+  }
+
+  const reparticao =
+    reparticaoFederalPorFaixa[
+      pisCofins.faixa
+    ]
+
+  if (!reparticao) {
+    return null
+  }
+
+  const receitaTotal =
+    Number(
+      basePisCofins.receitaTotalConsiderada
+    )
+
+  const aliquotaEfetiva =
+    Number(
+      pisCofins.aliquotaEfetiva
+    )
+
+  if (
+    !Number.isFinite(receitaTotal) ||
+    !Number.isFinite(aliquotaEfetiva) ||
+    receitaTotal < 0 ||
+    aliquotaEfetiva < 0
+  ) {
+    return null
+  }
+
+  const aliquotaEfetivaIrpj =
+    aliquotaEfetiva *
+    reparticao.irpj
+
+  const aliquotaEfetivaCsll =
+    aliquotaEfetiva *
+    reparticao.csll
+
+  const aliquotaEfetivaCpp =
+    aliquotaEfetiva *
+    reparticao.cpp
+
+  /*
+   * IRPJ, CSLL e CPP permanecem
+   * calculados sobre a receita total
+   * considerada.
+   *
+   * O tratamento específico desta etapa
+   * afeta somente PIS/Cofins.
+   */
+  const irpj =
+    receitaTotal *
+    aliquotaEfetivaIrpj
+
+  const csll =
+    receitaTotal *
+    aliquotaEfetivaCsll
+
+  const cpp =
+    receitaTotal *
+    aliquotaEfetivaCpp
+
+  const pis =
+    Number(
+      pisCofins.valoresConferidos.pis
+    )
+
+  const cofins =
+    Number(
+      pisCofins.valoresConferidos.cofins
+    )
+
+  if (
+    !Number.isFinite(pis) ||
+    !Number.isFinite(cofins)
+  ) {
+    return null
+  }
+
+  const totalFederal =
+    irpj +
+    csll +
+    pis +
+    cofins +
+    cpp
+
+  return {
+    status:
+      'tributos_federais_conferidos',
+
+    anexo:
+      pisCofins.anexo,
+
+    faixa:
+      pisCofins.faixa,
+
+    rbt12:
+      pisCofins.rbt12,
+
+    aliquotaNominal:
+      pisCofins.aliquotaNominal,
+
+    parcelaDeduzir:
+      pisCofins.parcelaDeduzir,
+
+    aliquotaEfetiva:
+      pisCofins.aliquotaEfetiva,
+
+    receitaTotalConsiderada:
+      receitaTotal,
+
+    percentualReparticao: {
+      irpj:
+        reparticao.irpj,
+
+      csll:
+        reparticao.csll,
+
+      pis:
+        pisCofins
+          .percentualReparticao
+          .pis,
+
+      cofins:
+        pisCofins
+          .percentualReparticao
+          .cofins,
+
+      cpp:
+        reparticao.cpp
+    },
+
+    aliquotasEfetivas: {
+      irpj:
+        aliquotaEfetivaIrpj,
+
+      csll:
+        aliquotaEfetivaCsll,
+
+      pis:
+        pisCofins
+          .aliquotasEfetivas
+          .pis,
+
+      cofins:
+        pisCofins
+          .aliquotasEfetivas
+          .cofins,
+
+      cpp:
+        aliquotaEfetivaCpp
+    },
+
+    valoresConferidos: {
+      irpj,
+      csll,
+      pis,
+      cofins,
+      cpp,
+
+      totalFederal
+    },
+
+    pisCofins,
+
+    /*
+     * Ainda NÃO é o DAS final.
+     * Falta a dimensão do ICMS.
+     */
+    icmsIncluido:
+      false,
+
+    dasCompleto:
+      false,
+
+    creditoCalculado:
+      false
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
