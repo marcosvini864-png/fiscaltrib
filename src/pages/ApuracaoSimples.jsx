@@ -3545,6 +3545,303 @@ function calcularDasConferidoAnexoI({
   }
 }
 
+function compararPgdasOriginalComDasConferido({
+  pgdasOriginal,
+  dasConferido
+} = {}) {
+  /*
+   * COMPARAÇÃO DA APURAÇÃO
+   *
+   * Espelha a conferência do e-Auditoria/e-Recuperador:
+   *
+   * PGDAS original
+   * ×
+   * apuração conferida
+   *
+   * Nesta etapa:
+   * - NÃO calcula crédito;
+   * - NÃO afirma pagamento a maior;
+   * - NÃO gera retificação;
+   * - apenas identifica e demonstra diferenças.
+   */
+
+  if (
+    !pgdasOriginal ||
+    typeof pgdasOriginal !== 'object' ||
+    !dasConferido ||
+    typeof dasConferido !== 'object' ||
+    dasConferido.status !== 'das_conferido'
+  ) {
+    return null
+  }
+
+  const conferidos =
+    dasConferido.valoresConferidos
+
+  if (
+    !conferidos ||
+    typeof conferidos !== 'object'
+  ) {
+    return null
+  }
+
+  const paraCentavos = (valor) => {
+    if (
+      valor === null ||
+      valor === undefined ||
+      String(valor).trim() === ''
+    ) {
+      return null
+    }
+
+    const numero = Number(valor)
+
+    if (
+      !Number.isFinite(numero) ||
+      numero < 0
+    ) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) =>
+    valor / 100
+
+  const tributos = [
+    'irpj',
+    'csll',
+    'pis',
+    'cofins',
+    'cpp',
+    'icms'
+  ]
+
+  const comparacaoTributos = {}
+
+  let totalOriginalCalculadoCentavos = 0
+  let totalConferidoCalculadoCentavos = 0
+
+  for (const tributo of tributos) {
+    const originalCentavos =
+      paraCentavos(
+        pgdasOriginal[tributo]
+      )
+
+    const conferidoCentavos =
+      paraCentavos(
+        conferidos[tributo]
+      )
+
+    /*
+     * Não interpreta ausência de informação
+     * do PGDAS como zero.
+     */
+    if (
+      originalCentavos === null ||
+      conferidoCentavos === null
+    ) {
+      return {
+        status:
+          'comparacao_incompleta',
+
+        podeConcluirDiferenca:
+          false,
+
+        tributoPendente:
+          tributo,
+
+        diferencaApuracaoCalculada:
+          false,
+
+        creditoCalculado:
+          false
+      }
+    }
+
+    const diferencaCentavos =
+      originalCentavos -
+      conferidoCentavos
+
+    totalOriginalCalculadoCentavos +=
+      originalCentavos
+
+    totalConferidoCalculadoCentavos +=
+      conferidoCentavos
+
+    comparacaoTributos[tributo] = {
+      original:
+        deCentavos(originalCentavos),
+
+      conferido:
+        deCentavos(conferidoCentavos),
+
+      diferenca:
+        deCentavos(diferencaCentavos),
+
+      situacao:
+        diferencaCentavos === 0
+          ? 'sem_diferenca'
+          : diferencaCentavos > 0
+            ? 'original_superior'
+            : 'original_inferior'
+    }
+  }
+
+  const dasOriginalInformadoCentavos =
+    paraCentavos(pgdasOriginal.das)
+
+  const dasConferidoCentavos =
+    paraCentavos(conferidos.das)
+
+  if (
+    dasOriginalInformadoCentavos === null ||
+    dasConferidoCentavos === null
+  ) {
+    return {
+      status:
+        'comparacao_incompleta',
+
+      podeConcluirDiferenca:
+        false,
+
+      tributoPendente:
+        'das',
+
+      diferencaApuracaoCalculada:
+        false,
+
+      creditoCalculado:
+        false
+    }
+  }
+
+  /*
+   * Trava de consistência do PGDAS original:
+   * o total informado deve coincidir com a
+   * composição dos tributos recebida.
+   */
+  if (
+    totalOriginalCalculadoCentavos !==
+    dasOriginalInformadoCentavos
+  ) {
+    return {
+      status:
+        'pgdas_original_inconsistente',
+
+      podeConcluirDiferenca:
+        false,
+
+      dasOriginalInformado:
+        deCentavos(
+          dasOriginalInformadoCentavos
+        ),
+
+      somaTributosOriginais:
+        deCentavos(
+          totalOriginalCalculadoCentavos
+        ),
+
+      diferencaApuracaoCalculada:
+        false,
+
+      creditoCalculado:
+        false
+    }
+  }
+
+  /*
+   * A composição conferida também precisa
+   * fechar com o DAS conferido.
+   */
+  if (
+    totalConferidoCalculadoCentavos !==
+    dasConferidoCentavos
+  ) {
+    return {
+      status:
+        'das_conferido_inconsistente',
+
+      podeConcluirDiferenca:
+        false,
+
+      dasConferidoInformado:
+        deCentavos(
+          dasConferidoCentavos
+        ),
+
+      somaTributosConferidos:
+        deCentavos(
+          totalConferidoCalculadoCentavos
+        ),
+
+      diferencaApuracaoCalculada:
+        false,
+
+      creditoCalculado:
+        false
+    }
+  }
+
+  const diferencaTotalCentavos =
+    dasOriginalInformadoCentavos -
+    dasConferidoCentavos
+
+  const situacao =
+    diferencaTotalCentavos === 0
+      ? 'sem_diferenca'
+      : diferencaTotalCentavos > 0
+        ? 'apuracao_original_superior'
+        : 'apuracao_original_inferior'
+
+  return {
+    status:
+      'comparacao_concluida',
+
+    podeConcluirDiferenca:
+      true,
+
+    situacao,
+
+    dasOriginal:
+      deCentavos(
+        dasOriginalInformadoCentavos
+      ),
+
+    dasConferido:
+      deCentavos(
+        dasConferidoCentavos
+      ),
+
+    diferencaApuracao:
+      deCentavos(
+        diferencaTotalCentavos
+      ),
+
+    comparacaoTributos,
+
+    /*
+     * Diferença de apuração não é,
+     * por si só, pagamento a maior.
+     *
+     * A etapa seguinte deverá verificar
+     * o DAS efetivamente pago.
+     */
+    pagamentoVerificado:
+      false,
+
+    pagamentoAMaiorConfirmado:
+      false,
+
+    creditoCalculado:
+      false,
+
+    retificacaoGerada:
+      false
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
