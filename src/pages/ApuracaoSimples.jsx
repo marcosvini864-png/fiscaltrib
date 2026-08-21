@@ -1280,6 +1280,71 @@ function apurarReceitaPisCofinsTratamentoEspecifico(
 }
 
 // ============================================================
+// PREPARAÇÃO INTEGRADA DO AJUSTE NEGATIVO — PIS/COFINS
+//
+// Liga:
+// 1) parcelas classificadas;
+// 2) política da recuperação;
+// 3) plano conservador;
+// 4) capacidade disponível.
+//
+// Ainda NÃO altera nenhuma parcela.
+// ============================================================
+
+function prepararReducaoConservadoraPisCofins(
+  movimentacao,
+  politica,
+  resolucao,
+  plano
+) {
+  if (
+    !movimentacao ||
+    typeof movimentacao !== 'object' ||
+    !Array.isArray(movimentacao.parcelas)
+  ) {
+    return null
+  }
+
+  const receitaElegivel =
+    apurarReceitaPisCofinsTratamentoEspecifico(
+      movimentacao.parcelas,
+      politica
+    )
+
+  if (!receitaElegivel) {
+    return null
+  }
+
+  const preparacao =
+    prepararAjusteConservadorNegativo(
+      resolucao,
+      plano,
+      receitaElegivel
+        .receitaTratamentoEspecificoDisponivel
+    )
+
+  if (!preparacao) {
+    return null
+  }
+
+  return {
+    ...preparacao,
+
+    receitaPisCofinsElegivel:
+      receitaElegivel
+        .receitaTratamentoEspecificoDisponivel,
+
+    quantidadeParcelasElegiveis:
+      receitaElegivel
+        .quantidadeParcelasElegiveis,
+
+    parcelasElegiveis:
+      receitaElegivel
+        .parcelasElegiveis,
+  }
+}
+
+// ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
 // ICMS-ST será tratado em dimensão independente.
