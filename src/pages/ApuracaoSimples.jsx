@@ -1652,6 +1652,263 @@ function validarDistribuicaoReducaoPisCofins(
   }
 }
 
+function aplicarDistribuicaoReducaoPisCofins(
+  movimentacao,
+  validacaoDistribuicao
+) {
+  if (!validacaoDistribuicao?.valida) {
+    return {
+      aplicado: false,
+      motivo: 'distribuicao_nao_validada',
+      movimentacaoAjustada: movimentacao,
+      valorAplicado: 0,
+      quantidadeParcelasAjustadas: 0,
+      ajustes: [],
+      erros: [
+        'A distribuição precisa estar validada antes de ser aplicada.'
+      ]
+    }
+  }
+
+  const parcelas = Array.isArray(movimentacao?.parcelas)
+    ? movimentacao.parcelas
+    : []
+
+  const distribuicao = Array.isArray(
+    validacaoDistribuicao?.distribuicao
+  )
+    ? validacaoDistribuicao.distribuicao
+    : []
+
+  const paraCentavos = (valor) => {
+    const numero = Number(valor)
+
+    if (!Number.isFinite(numero)) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) => valor / 100
+
+  const reducoesPorChave = new Map()
+
+  for (const item of distribuicao) {
+    const chaveParcela = String(
+      item?.chaveParcela ?? ''
+    ).trim()
+
+    const valorReducaoCentavos =
+      paraCentavos(item?.valorReducao)
+
+    if (
+      !chaveParcela ||
+      valorReducaoCentavos === null ||
+      valorReducaoCentavos <= 0
+    ) {
+      continue
+    }
+
+    reducoesPorChave.set(
+      chaveParcela,
+      valorReducaoCentavos
+    )
+  }
+
+  const erros = []
+
+  /*
+   * Primeira passagem:
+   * confirma que a distribuição validada continua
+   * compatível com a movimentação atual.
+   *
+   * Isso evita aplicar uma validação antiga sobre
+   * uma movimentação que tenha sido reprocessada.
+   */
+  const parcelasPorChave = new Map()
+
+  for (const parcela of parcelas) {
+    const chaveParcela = JSON.stringify([
+      parcela.estabelecimento,
+      parcela.mercado,
+      parcela.atividade,
+      parcela.classificacaoPisCofins,
+      parcela.classificacaoIcms,
+    ])
+
+    parcelasPorChave.set(
+      chaveParcela,
+      parcela
+    )
+  }
+
+  for (const [
+    chaveParcela,
+    valorReducaoCentavos
+  ] of reducoesPorChave) {
+    const parcela = parcelasPorChave.get(
+      chaveParcela
+    )
+
+    if (!parcela) {
+      erros.push(
+        `A parcela ${chaveParcela} não existe mais na movimentação atual.`
+      )
+      continue
+    }
+
+    const valorOriginalCentavos =
+      paraCentavos(parcela?.valor)
+
+    if (valorOriginalCentavos === null) {
+      erros.push(
+        `O valor atual da parcela ${chaveParcela} é inválido.`
+      )
+      continue
+    }
+
+    if (
+      valorReducaoCentavos >
+      valorOriginalCentavos
+    ) {
+      erros.push(
+        `A redução da parcela ${chaveParcela} ultrapassa o valor atualmente disponível.`
+      )
+    }
+  }
+
+  /*
+   * Se a movimentação mudou depois da validação,
+   * não aplica redução parcial.
+   *
+   * A movimentação original permanece intacta.
+   */
+  if (erros.length > 0) {
+    return {
+      aplicado: false,
+      motivo: 'movimentacao_incompativel_com_validacao',
+      movimentacaoAjustada: movimentacao,
+      valorAplicado: 0,
+      quantidadeParcelasAjustadas: 0,
+      ajustes: [],
+      erros
+    }
+  }
+
+  let valorAplicadoCentavos = 0
+
+  const ajustes = []
+
+  const parcelasAjustadas = parcelas.map(
+    (parcela) => {
+      const chaveParcela = JSON.stringify([
+        parcela.estabelecimento,
+        parcela.mercado,
+        parcela.atividade,
+        parcela.classificacaoPisCofins,
+        parcela.classificacaoIcms,
+      ])
+
+      const valorReducaoCentavos =
+        reducoesPorChave.get(chaveParcela) ?? 0
+
+      /*
+       * Parcela não contemplada pela distribuição:
+       * apenas copia, sem alteração.
+       */
+      if (valorReducaoCentavos <= 0) {
+        return {
+          ...parcela
+        }
+      }
+
+      const valorOriginalCentavos =
+        paraCentavos(parcela.valor) ?? 0
+
+      const valorAjustadoCentavos =
+        valorOriginalCentavos -
+        valorReducaoCentavos
+
+      valorAplicadoCentavos +=
+        valorReducaoCentavos
+
+      ajustes.push({
+        chaveParcela,
+
+        estabelecimento:
+          parcela.estabelecimento,
+
+        mercado:
+          parcela.mercado,
+
+        atividade:
+          parcela.atividade,
+
+        classificacaoPisCofins:
+          parcela.classificacaoPisCofins,
+
+        /*
+         * ICMS é preservado.
+         * Não é reclassificado nem alterado.
+         */
+        classificacaoIcms:
+          parcela.classificacaoIcms,
+
+        valorAntes:
+          deCentavos(valorOriginalCentavos),
+
+        valorReducao:
+          deCentavos(valorReducaoCentavos),
+
+        valorDepois:
+          deCentavos(valorAjustadoCentavos)
+      })
+
+      return {
+        ...parcela,
+
+        /*
+         * Somente o valor da parcela é reduzido.
+         * Todas as dimensões permanecem intactas.
+         */
+        valor:
+          deCentavos(valorAjustadoCentavos)
+      }
+    }
+  )
+
+  return {
+    aplicado: true,
+
+    tipo:
+      'reducao_conservadora_pis_cofins',
+
+    distribuicaoAplicada: true,
+
+    valorReducaoNecessario:
+      Number(
+        validacaoDistribuicao
+          ?.valorReducaoNecessario ?? 0
+      ),
+
+    valorAplicado:
+      deCentavos(valorAplicadoCentavos),
+
+    quantidadeParcelasAjustadas:
+      ajustes.length,
+
+    ajustes,
+
+    movimentacaoAjustada: {
+      ...movimentacao,
+      parcelas: parcelasAjustadas
+    },
+
+    erros: []
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
