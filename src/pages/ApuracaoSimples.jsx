@@ -1444,6 +1444,214 @@ function prepararCandidatasReducaoPisCofins(
   }
 }
 
+function validarDistribuicaoReducaoPisCofins(
+  preparacaoCandidatas,
+  distribuicao = []
+) {
+  const erros = []
+
+  const candidatas = Array.isArray(preparacaoCandidatas?.candidatas)
+    ? preparacaoCandidatas.candidatas
+    : []
+
+  const valorReducaoNecessario = Number(
+    preparacaoCandidatas?.valorReducaoNecessario ?? 0
+  )
+
+  const paraCentavos = (valor) => {
+    const numero = Number(valor)
+
+    if (!Number.isFinite(numero)) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) => valor / 100
+
+  const valorReducaoNecessarioCentavos =
+    paraCentavos(valorReducaoNecessario)
+
+  if (
+    valorReducaoNecessarioCentavos === null ||
+    valorReducaoNecessarioCentavos < 0
+  ) {
+    erros.push(
+      'O valor da redução necessária é inválido.'
+    )
+  }
+
+  if (!Array.isArray(distribuicao)) {
+    return {
+      valida: false,
+      valorReducaoNecessario,
+      valorDistribuido: 0,
+      saldoPendente: valorReducaoNecessario,
+      quantidadeCandidatasUtilizadas: 0,
+      distribuicao: [],
+      erros: ['A distribuição informada é inválida.']
+    }
+  }
+
+  const candidatasPorChave = new Map()
+
+  for (const candidata of candidatas) {
+    const chaveParcela = String(
+      candidata?.chaveParcela ?? ''
+    ).trim()
+
+    if (!chaveParcela) {
+      continue
+    }
+
+    candidatasPorChave.set(chaveParcela, candidata)
+  }
+
+  const chavesUtilizadas = new Set()
+  const distribuicaoNormalizada = []
+
+  let valorDistribuidoCentavos = 0
+
+  for (const item of distribuicao) {
+    const chaveParcela = String(
+      item?.chaveParcela ?? ''
+    ).trim()
+
+    if (!chaveParcela) {
+      erros.push(
+        'Existe uma distribuição sem chaveParcela.'
+      )
+      continue
+    }
+
+    if (chavesUtilizadas.has(chaveParcela)) {
+      erros.push(
+        `A parcela ${chaveParcela} foi informada mais de uma vez na distribuição.`
+      )
+      continue
+    }
+
+    chavesUtilizadas.add(chaveParcela)
+
+    const candidata = candidatasPorChave.get(chaveParcela)
+
+    if (!candidata) {
+      erros.push(
+        `A parcela ${chaveParcela} não pertence às candidatas elegíveis para redução.`
+      )
+      continue
+    }
+
+    const valorReducaoCentavos =
+      paraCentavos(item?.valorReducao)
+
+    if (valorReducaoCentavos === null) {
+      erros.push(
+        `O valor de redução da parcela ${chaveParcela} é inválido.`
+      )
+      continue
+    }
+
+    if (valorReducaoCentavos < 0) {
+      erros.push(
+        `A redução da parcela ${chaveParcela} não pode ser negativa.`
+      )
+      continue
+    }
+
+    const reducaoMaximaCentavos =
+      paraCentavos(
+        candidata?.reducaoMaxima ??
+        candidata?.valorDisponivel ??
+        0
+      ) ?? 0
+
+    const valorDisponivelCentavos =
+      paraCentavos(
+        candidata?.valorDisponivel ?? 0
+      ) ?? 0
+
+    if (valorReducaoCentavos > reducaoMaximaCentavos) {
+      erros.push(
+        `A redução da parcela ${chaveParcela} ultrapassa a redução máxima permitida.`
+      )
+      continue
+    }
+
+    if (
+      valorDisponivelCentavos -
+      valorReducaoCentavos <
+      0
+    ) {
+      erros.push(
+        `A redução da parcela ${chaveParcela} deixaria seu valor abaixo de zero.`
+      )
+      continue
+    }
+
+    valorDistribuidoCentavos += valorReducaoCentavos
+
+    distribuicaoNormalizada.push({
+      chaveParcela,
+      estabelecimento: candidata.estabelecimento,
+      mercado: candidata.mercado,
+      atividade: candidata.atividade,
+      classificacaoPisCofins:
+        candidata.classificacaoPisCofins,
+      classificacaoIcms:
+        candidata.classificacaoIcms,
+      valorDisponivel:
+        deCentavos(valorDisponivelCentavos),
+      reducaoMaxima:
+        deCentavos(reducaoMaximaCentavos),
+      valorReducao:
+        deCentavos(valorReducaoCentavos),
+      valorAposReducao:
+        deCentavos(
+          valorDisponivelCentavos -
+          valorReducaoCentavos
+        )
+    })
+  }
+
+  if (
+    valorReducaoNecessarioCentavos !== null &&
+    valorDistribuidoCentavos !==
+      valorReducaoNecessarioCentavos
+  ) {
+    erros.push(
+      'A soma das reduções deve ser exatamente igual ao valor da redução necessária.'
+    )
+  }
+
+  const saldoPendenteCentavos =
+    valorReducaoNecessarioCentavos === null
+      ? 0
+      : valorReducaoNecessarioCentavos -
+        valorDistribuidoCentavos
+
+  return {
+    valida: erros.length === 0,
+    valorReducaoNecessario:
+      valorReducaoNecessarioCentavos === null
+        ? valorReducaoNecessario
+        : deCentavos(
+            valorReducaoNecessarioCentavos
+          ),
+    valorDistribuido:
+      deCentavos(valorDistribuidoCentavos),
+    saldoPendente:
+      deCentavos(saldoPendenteCentavos),
+    quantidadeCandidatasUtilizadas:
+      distribuicaoNormalizada.filter(
+        (item) => item.valorReducao > 0
+      ).length,
+    distribuicao: distribuicaoNormalizada,
+    erros
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
