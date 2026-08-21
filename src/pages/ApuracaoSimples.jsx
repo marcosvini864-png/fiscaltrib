@@ -3323,6 +3323,228 @@ function prepararIcmsPreservadoPgdas({
   }
 }
 
+function calcularDasConferidoAnexoI({
+  tributosFederais,
+  icmsPreservado
+} = {}) {
+  /*
+   * DAS CONFERIDO — ANEXO I
+   *
+   * Espelha o fluxo de conferência do
+   * e-Auditoria/e-Recuperador:
+   *
+   * tributos federais conferidos
+   * + ICMS original preservado
+   * = DAS conferido.
+   *
+   * Ainda NÃO calcula crédito recuperável
+   * e NÃO gera retificação.
+   */
+
+  if (
+    !tributosFederais ||
+    typeof tributosFederais !== 'object' ||
+    tributosFederais.status !==
+      'tributos_federais_conferidos'
+  ) {
+    return null
+  }
+
+  if (
+    !icmsPreservado ||
+    typeof icmsPreservado !== 'object'
+  ) {
+    return null
+  }
+
+  if (
+    !icmsPreservado.podeComporDasConferido ||
+    !icmsPreservado.preservado
+  ) {
+    return {
+      status:
+        'das_aguardando_icms',
+
+      dasConferido:
+        null,
+
+      podeCompararComDasOriginal:
+        false,
+
+      creditoCalculado:
+        false,
+
+      tributosFederais,
+      icmsPreservado
+    }
+  }
+
+  const valores =
+    tributosFederais.valoresConferidos
+
+  if (
+    !valores ||
+    typeof valores !== 'object'
+  ) {
+    return null
+  }
+
+  const paraCentavos = (valor) => {
+    const numero = Number(valor)
+
+    if (
+      !Number.isFinite(numero) ||
+      numero < 0
+    ) {
+      return null
+    }
+
+    return Math.round(numero * 100)
+  }
+
+  const deCentavos = (valor) =>
+    valor / 100
+
+  const irpjCentavos =
+    paraCentavos(valores.irpj)
+
+  const csllCentavos =
+    paraCentavos(valores.csll)
+
+  const pisCentavos =
+    paraCentavos(valores.pis)
+
+  const cofinsCentavos =
+    paraCentavos(valores.cofins)
+
+  const cppCentavos =
+    paraCentavos(valores.cpp)
+
+  const icmsCentavos =
+    paraCentavos(
+      icmsPreservado.valorIcms
+    )
+
+  if (
+    irpjCentavos === null ||
+    csllCentavos === null ||
+    pisCentavos === null ||
+    cofinsCentavos === null ||
+    cppCentavos === null ||
+    icmsCentavos === null
+  ) {
+    return null
+  }
+
+  /*
+   * O subtotal federal é recomposto a partir
+   * dos valores monetários normalizados.
+   *
+   * Isso evita carregar diferenças residuais
+   * de ponto flutuante para o DAS.
+   */
+  const totalFederalCentavos =
+    irpjCentavos +
+    csllCentavos +
+    pisCentavos +
+    cofinsCentavos +
+    cppCentavos
+
+  const dasConferidoCentavos =
+    totalFederalCentavos +
+    icmsCentavos
+
+  return {
+    status:
+      'das_conferido',
+
+    anexo:
+      tributosFederais.anexo,
+
+    faixa:
+      tributosFederais.faixa,
+
+    rbt12:
+      tributosFederais.rbt12,
+
+    aliquotaNominal:
+      tributosFederais.aliquotaNominal,
+
+    parcelaDeduzir:
+      tributosFederais.parcelaDeduzir,
+
+    aliquotaEfetiva:
+      tributosFederais.aliquotaEfetiva,
+
+    receitaTotalConsiderada:
+      tributosFederais
+        .receitaTotalConsiderada,
+
+    valoresConferidos: {
+      irpj:
+        deCentavos(irpjCentavos),
+
+      csll:
+        deCentavos(csllCentavos),
+
+      pis:
+        deCentavos(pisCentavos),
+
+      cofins:
+        deCentavos(cofinsCentavos),
+
+      cpp:
+        deCentavos(cppCentavos),
+
+      icms:
+        deCentavos(icmsCentavos),
+
+      totalFederal:
+        deCentavos(
+          totalFederalCentavos
+        ),
+
+      das:
+        deCentavos(
+          dasConferidoCentavos
+        )
+    },
+
+    icms: {
+      origem:
+        icmsPreservado.origem,
+
+      preservado:
+        true,
+
+      recalculado:
+        false,
+
+      valor:
+        deCentavos(icmsCentavos)
+    },
+
+    tributosFederais,
+    icmsPreservado,
+
+    /*
+     * A existência de um DAS conferido
+     * ainda NÃO significa crédito.
+     *
+     * A próxima etapa será confrontá-lo
+     * com o DAS original efetivamente apurado.
+     */
+    podeCompararComDasOriginal:
+      true,
+
+    comparacaoComDasOriginal:
+      false,
+
+    creditoCalculado:
+      false
+  }
+}
+
 // ============================================================
 // SEGREGAÇÃO — PIS/COFINS MONOFÁSICO
 // Mantém a receita total e separa apenas a parcela monofásica.
