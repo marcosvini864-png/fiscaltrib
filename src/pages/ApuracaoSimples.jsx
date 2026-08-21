@@ -1877,6 +1877,25 @@ function aplicarDistribuicaoReducaoPisCofins(
       }
     }
   )
+  
+  const movimentacaoReprocessada =
+  prepararMovimentacaoApuracao(
+    parcelasAjustadas
+  )
+
+if (!movimentacaoReprocessada) {
+  return {
+    aplicado: false,
+    motivo: 'falha_reprocessamento_movimentacao',
+    movimentacaoAjustada: movimentacao,
+    valorAplicado: 0,
+    quantidadeParcelasAjustadas: 0,
+    ajustes: [],
+    erros: [
+      'Não foi possível reprocessar a movimentação após a aplicação da redução.'
+    ]
+  }
+}
 
   return {
     aplicado: true,
@@ -1901,8 +1920,8 @@ function aplicarDistribuicaoReducaoPisCofins(
     ajustes,
 
     movimentacaoAjustada: {
-      ...movimentacao,
-      parcelas: parcelasAjustadas
+    ...movimentacao,
+    ...movimentacaoReprocessada
     },
 
     erros: []
