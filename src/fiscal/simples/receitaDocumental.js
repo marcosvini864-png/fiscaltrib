@@ -4,6 +4,47 @@ const TIPOS_DECISAO_RECEITA_DOCUMENTAL = new Set([
   "reduzir",
 ])
 
+function criarChaveItemDocumental(item) {
+  if (!item || typeof item !== 'object') {
+    return null
+  }
+
+  const chaveNfe = String(
+    item.chave_nfe ?? ''
+  ).trim()
+
+  const numeroItem = String(
+    item.numero_item_nfe ??
+    item.ordem_item ??
+    ''
+  ).trim()
+
+  if (chaveNfe && numeroItem) {
+    return chaveNfe + ':' + numeroItem
+  }
+
+  const id = String(
+    item.id ?? ''
+  ).trim()
+
+  if (id) {
+    return 'id:' + id
+  }
+
+  const diagnosticoId = String(
+    item.diagnostico_id ?? ''
+  ).trim()
+
+  const ordemItem = String(
+    item.ordem_item ?? ''
+  ).trim()
+
+  if (diagnosticoId && ordemItem) {
+    return 'diagnostico:' + diagnosticoId + ':' + ordemItem
+  }
+
+  return null
+}
 function numeroDocumento(valor) {
   const numero = Number(valor ?? 0)
 
@@ -26,6 +67,7 @@ function extrairDadosReceitaDocumento(item) {
   }
 
   return {
+    chaveItem: criarChaveItemDocumental(item),
     nf: item.nf || null,
     chaveNfe: item.chave_nfe || null,
     numeroItem: item.numero_item_nfe || null,
@@ -262,6 +304,7 @@ function prepararReceitaDocumental(entradas) {
 
 export {
   TIPOS_DECISAO_RECEITA_DOCUMENTAL,
+  criarChaveItemDocumental,
   extrairDadosReceitaDocumento,
   normalizarDecisaoReceitaDocumental,
   prepararReceitaDocumentalItem,
