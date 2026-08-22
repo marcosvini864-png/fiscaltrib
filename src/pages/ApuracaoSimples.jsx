@@ -109,17 +109,34 @@ const fmtPct = v => parseFloat(v || 0).toFixed(2).replace('.', ',') + '%'
 
 
 function numeroCompetenciaMotor(valor) {
-  const m = String(valor || '').trim().match(/^(\d{1,2})\/(\d{4})$/)
-  if (!m) return null
+  const s = String(valor || '').trim()
 
-  const mes = Number(m[1])
-  const ano = Number(m[2])
+  let m = s.match(/^(\d{1,2})\/(\d{4})$/)
 
-  if (mes < 1 || mes > 12) return null
+  if (m) {
+    const mes = Number(m[1])
+    const ano = Number(m[2])
+    if (mes >= 1 && mes <= 12) return ano * 100 + mes
+  }
 
-  return ano * 100 + mes
+  m = s.match(/^(\d{4})-(\d{1,2})$/)
+
+  if (m) {
+    const ano = Number(m[1])
+    const mes = Number(m[2])
+    if (mes >= 1 && mes <= 12) return ano * 100 + mes
+  }
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+
+  if (m) {
+    const mes = Number(m[2])
+    const ano = Number(m[3])
+    if (mes >= 1 && mes <= 12) return ano * 100 + mes
+  }
+
+  return null
 }
-
 function competenciaDentroPeriodoMotor(competencia, inicio, fim) {
   const c = numeroCompetenciaMotor(competencia)
   const i = numeroCompetenciaMotor(inicio)
@@ -282,23 +299,30 @@ export default function ApuracaoSimples() {
         .from('diagnosticos_pgdas')
         .select('*')
         .eq('cliente_id', motorClienteId)
-        .eq('competencia', motorCompetencia)
         .order('created_at', { ascending: false })
 
       if (erroPgdas) throw erroPgdas
 
-      if (!pgdasLista || pgdasLista.length === 0) {
+      const competenciaMotorNumero =
+        numeroCompetenciaMotor(motorCompetencia)
+
+      const pgdasCompativeis = (pgdasLista || []).filter(diag =>
+        numeroCompetenciaMotor(diag.competencia) ===
+        competenciaMotorNumero
+      )
+
+      if (pgdasCompativeis.length === 0) {
         throw new Error('Nenhum PGDAS-D encontrado para esta competencia.')
       }
 
-      if (pgdasLista.length > 1) {
+      if (pgdasCompativeis.length > 1) {
         throw new Error(
-          'Existem ' + pgdasLista.length +
+          'Existem ' + pgdasCompativeis.length +
           ' PGDAS-D para esta competencia. O sistema nao vai escolher um automaticamente.'
         )
       }
 
-      const pgdas = pgdasLista[0]
+      const pgdas = pgdasCompativeis[0]
 
       const { data: atividadesPgdas, error: erroAtividades } = await supabase
         .from('diagnosticos_pgdas_atividades')
