@@ -78,7 +78,7 @@ const S = {
   red: '#dc2626', orange: '#ea580c', muted: '#64748B',
   border: '#E2E8F0', bg: '#F8FAFC', white: '#FFFFFF',
   text: '#1E293B', thBg: '#4B5563', thText: '#FFFFFF',
-  ghost: '#F1F5F9', ghostText: '#CBD5E1',
+  ghost: '#F8FAFC', ghostText: '#94A3B8',
 }
 
 const fmtR   = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -554,7 +554,7 @@ export default function ApuracaoSimples() {
             ].map((k, i) => (
               <div key={i} style={{ padding: '16px 24px', borderRight: i < 2 ? `1px solid ${S.border}` : 'none' }}>
                 <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, marginBottom: 6 }}>{k.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: k.color }}>{k.value}</div>
               </div>
             ))}
           </div>
@@ -590,47 +590,174 @@ export default function ApuracaoSimples() {
   // ── TELA LISTA ────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }}>
+      <style>{'/* retrofit-tabela-apuracao */ .apuracao-table th,.apuracao-table td{border-right:1px solid #E7EDF4;} .apuracao-table th:last-child,.apuracao-table td:last-child{border-right:none;} .apuracao-table tbody td,.apuracao-table tbody td *{font-weight:400!important;}'}</style>
 
-      {/* HEADER */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: S.muted, marginBottom: 2 }}>
-          Motor do Simples / <strong style={{ color: S.text }}>Apuracao do Simples Nacional</strong>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: S.navy, flex: 1 }}>Apuracao do Simples Nacional</div>
-          {temDados && (
-            <button onClick={excluirTodos} disabled={excluindo || filtradas.length === 0}
-              style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: S.red }}>
-              {excluindo ? 'Excluindo...' : `Excluir todos (${filtradas.length})`}
+      {/* HEADER RETROFIT */}
+      <div
+        style={{
+          background: S.white,
+          border: '1px solid ' + S.border,
+          borderRadius: 12,
+          padding: '18px 20px',
+          marginBottom: 14,
+          boxShadow: '0 4px 18px rgba(15,23,42,0.06)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 260, flex: 1 }}>
+            <div style={{ fontSize: 11, color: S.blue, fontWeight: 600, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 5 }}>
+              Motor do Simples
+            </div>
+
+            <div style={{ fontSize: 22, fontWeight: 600, color: S.navy, lineHeight: 1.2 }}>
+              Apuracao do Simples Nacional
+            </div>
+
+            <div style={{ fontSize: 12, color: S.muted, marginTop: 6, maxWidth: 720, lineHeight: 1.5 }}>
+              Conferencia integrada de PGDAS-D, documentos fiscais, classificacao tributaria e apuracao do Simples Nacional.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {temDados && (
+              <button
+                onClick={excluirTodos}
+                disabled={excluindo || filtradas.length === 0}
+                style={{
+                  padding: '8px 13px',
+                  background: S.white,
+                  border: '1px solid #FCA5A5',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  color: S.red,
+                }}
+              >
+                {excluindo ? 'Excluindo...' : 'Excluir filtradas'}
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setMotorClienteId('')
+                setMotorCompetencia('')
+                setMotorErro('')
+                setModalMotor(true)
+              }}
+              style={{
+                padding: '8px 14px',
+                background: S.green,
+                color: S.white,
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 3px 10px rgba(22,163,74,0.18)',
+              }}
+            >
+              Conferir pelo Motor
             </button>
-          )}
-          <button
-            onClick={() => {
-              setMotorClienteId('')
-              setMotorCompetencia('')
-              setMotorErro('')
-              setModalMotor(true)
-            }}
-            style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            Conferir pelo Motor
-          </button>
-          <button onClick={() => { setForm(VAZIO); setModalNova(true) }}
-            style={{ padding: '7px 14px', background: S.blue, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            + Nova Apuracao
-          </button>
-        </div>
-        <div style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>
-          Gerencie as apuracoes do Simples Nacional de todos os clientes.
+
+            <button
+              onClick={() => { setForm(VAZIO); setModalNova(true) }}
+              style={{
+                padding: '8px 14px',
+                background: S.blue,
+                color: S.white,
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 3px 10px rgba(37,99,235,0.18)',
+              }}
+            >
+              + Nova Apuracao
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* KPIS EXECUTIVOS */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        {[
+          {
+            label: 'Apuracoes cadastradas',
+            valor: apuracoes.length,
+            detalhe: 'Total registrado no sistema',
+            cor: S.navy,
+          },
+          {
+            label: 'Aguardando',
+            valor: apuracoes.filter(a => a.status_apuracao === 'Aguardando').length,
+            detalhe: 'Competencias pendentes',
+            cor: S.orange,
+          },
+          {
+            label: 'Transmitidas',
+            valor: apuracoes.filter(a => a.status_apuracao === 'Transmitida').length,
+            detalhe: 'Apuracoes concluidas',
+            cor: S.green,
+          },
+          {
+            label: 'Em atraso',
+            valor: apuracoes.filter(a => a.status_apuracao === 'Em atraso').length,
+            detalhe: 'Requerem atencao',
+            cor: S.red,
+          },
+        ].map((kpi, i) => (
+          <div
+            key={i}
+            style={{
+              background: S.white,
+              border: '1px solid ' + S.border,
+              borderRadius: 10,
+              padding: '14px 16px',
+              boxShadow: '0 3px 12px rgba(15,23,42,0.045)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 4,
+                height: '100%',
+                background: kpi.cor,
+              }}
+            />
+
+            <div style={{ fontSize: 10, color: S.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {kpi.label}
+            </div>
+
+            <div style={{ fontSize: 25, fontWeight: 600, color: kpi.cor, marginTop: 5, lineHeight: 1 }}>
+              {kpi.valor}
+            </div>
+
+            <div style={{ fontSize: 10, color: S.muted, marginTop: 6 }}>
+              {kpi.detalhe}
+            </div>
+          </div>
+        ))}
+      </div>
       {motorAnalise && (
         <div style={{ background: S.white, border: '1px solid ' + S.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 11, color: S.muted, fontWeight: 700 }}>Resultado da conferencia do motor</div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: S.navy, marginTop: 2 }}>
+              <div style={{ fontSize: 17, fontWeight: 600, color: S.navy, marginTop: 2 }}>
                 {motorAnalise.cliente?.razao_social} — {motorAnalise.competencia}
               </div>
               <div style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>
@@ -684,14 +811,14 @@ export default function ApuracaoSimples() {
             ].map((k, i) => (
               <div key={i} style={{ border: '1px solid ' + S.border, borderRadius: 8, padding: '12px 14px', background: S.bg }}>
                 <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, marginBottom: 4 }}>{k.label}</div>
-                <div style={{ fontSize: 15, color: k.cor, fontWeight: 800, wordBreak: 'break-word' }}>{k.valor}</div>
+                <div style={{ fontSize: 15, color: k.cor, fontWeight: 600, wordBreak: 'break-word' }}>{k.valor}</div>
               </div>
             ))}
           </div>
 
           {(motorAnalise.base?.pendencias?.length || 0) > 0 && (
             <div style={{ marginTop: 14, padding: '10px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: S.orange, marginBottom: 6 }}>Pendencias da base</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: S.orange, marginBottom: 6 }}>Pendencias da base</div>
               {(motorAnalise.base.pendencias || []).slice(0, 12).map((p, i) => (
                 <div key={i} style={{ fontSize: 11, color: S.text, marginBottom: 3 }}>
                   {p.tipo}
@@ -735,7 +862,7 @@ export default function ApuracaoSimples() {
 
         {/* TABELA */}
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <table className='apuracao-table' style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: S.thBg }}>
                 {['Empresa', 'Competencia', 'Receita Apurada', 'Imposto Apurado', 'Aliquota', 'Tipo', 'Status Apuracao', 'Status Declaracao', 'Transmissao', 'Acoes'].map(h => (
@@ -840,7 +967,7 @@ export default function ApuracaoSimples() {
       {modalMotor && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: S.white, borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: S.navy }}>Conferencia automatizada da base</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: S.navy }}>Conferencia automatizada da base</div>
             <div style={{ fontSize: 12, color: S.muted, marginTop: 5, marginBottom: 18, lineHeight: 1.5 }}>
               O FiscalTribe vai cruzar PGDAS-D, lote XML e classificacao vigente antes de liberar a apuracao.
             </div>
