@@ -332,51 +332,52 @@ export default function ApuracaoSimples() {
 
       if (erroAtividades) throw erroAtividades
 
-      const { data: diagnosticosMono, error: erroMono } = await supabase
-        .from('diagnosticos_monofasicos')
-        .select('*')
-        .eq('cliente_id', motorClienteId)
-        .order('created_at', { ascending: false })
-
-      if (erroMono) throw erroMono
-
-      const lotesCompativeis = (diagnosticosMono || []).filter(diag =>
-        competenciaDentroPeriodoMotor(
-          motorCompetencia,
-          diag.periodo_inicio,
-          diag.periodo_fim
-        )
-      )
-
-      if (lotesCompativeis.length === 0) {
-        throw new Error(
-          'Nenhum lote de documentos fiscais cobre esta competencia.'
-        )
-      }
-
-      if (lotesCompativeis.length > 1) {
-        throw new Error(
-          'Existem ' + lotesCompativeis.length +
-          ' lotes de documentos que cobrem esta competencia. O sistema nao vai escolher um automaticamente.'
-        )
-      }
-
-      const diagnosticoMono = lotesCompativeis[0]
-
-      const { data: itensDocumentais, error: erroItens } = await supabase
+      const { data: itensDaCompetencia, error: erroItens } = await supabase
         .from('diagnostico_monofasico_itens')
         .select('*')
-        .eq('diagnostico_id', diagnosticoMono.id)
+        .eq('cliente_id', motorClienteId)
         .eq('competencia', motorCompetencia)
         .order('ordem_item', { ascending: true })
 
       if (erroItens) throw erroItens
 
-      if (!itensDocumentais || itensDocumentais.length === 0) {
+      const itensDocumentais = itensDaCompetencia || []
+
+      if (itensDocumentais.length === 0) {
         throw new Error(
-          'O lote selecionado nao possui itens para esta competencia.'
+          'Nenhum item XML salvo foi encontrado para esta empresa e competencia.'
         )
       }
+
+      const diagnosticosIds = [
+        ...new Set(
+          itensDocumentais
+            .map(item => item.diagnostico_id)
+            .filter(Boolean)
+        ),
+      ]
+
+      if (diagnosticosIds.length === 0) {
+        throw new Error(
+          'Os itens XML existem, mas nao possuem vinculo com um diagnostico salvo.'
+        )
+      }
+
+      if (diagnosticosIds.length > 1) {
+        throw new Error(
+          'Existem ' + diagnosticosIds.length +
+          ' diagnosticos XML com itens nesta competencia. O sistema nao vai escolher um automaticamente.'
+        )
+      }
+
+      const { data: diagnosticoMono, error: erroDiagnosticoMono } = await supabase
+        .from('diagnosticos_monofasicos')
+        .select('*')
+        .eq('id', diagnosticosIds[0])
+        .single()
+
+      if (erroDiagnosticoMono) throw erroDiagnosticoMono
+
 
       const { data: itensFiscais, error: erroCadastro } = await supabase
         .from('itens_fiscais')
