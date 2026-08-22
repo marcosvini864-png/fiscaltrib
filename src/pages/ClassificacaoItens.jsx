@@ -15,22 +15,46 @@ const S = {
   ghost: '#F1F5F9', ghostText: '#94A3B8',
 }
 
-const NCM_PREFIXOS_MONO = [
-  '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
-  '3001','3002','3003','3004','3005','3006',
-  '3303','3304','3305','3306','3307','3401','9603','9619',
-  '2201','2202','2203','2204','2205','2206','2207','2208','2209','2106',
-  '8701','8702','8703','8704','8705','8706','8711',
-  '4011','4012','4013',
-  '8407','8408','8409','8413','8414','8415','8421','8431','8481','8482','8483','8484',
-  '8501','8505','8507','8511','8512','8519','8527','8536','8539','8544','8708','8714','9032','9401',
-]
+function resultadoMotorSalvo(item) {
+  const classificacao = item?.class_pis_cofins_econsulta
 
-function motorNCM(ncm) {
-  if (!ncm) return { class: 'nao_encontrada', label: 'NCM nao encontrada', cor: 'red' }
-  const n = ncm.replace(/\D/g, '')
-  if (NCM_PREFIXOS_MONO.some(p => n.startsWith(p))) return { class: 'monofasico', label: 'Monofasico', cor: 'orange' }
-  return { class: 'tributado', label: 'Tributado', cor: 'green' }
+  if (classificacao === 'monofasico') {
+    return {
+      class: 'monofasico',
+      label: 'Monofasico',
+      cor: 'orange',
+    }
+  }
+
+  if (classificacao === 'tributado') {
+    return {
+      class: 'tributado',
+      label: 'Tributado',
+      cor: 'green',
+    }
+  }
+
+  if (classificacao === 'st_pis_cofins') {
+    return {
+      class: 'st_pis_cofins',
+      label: 'ST PIS/COFINS',
+      cor: 'blue',
+    }
+  }
+
+  if (item?.status_ncm === 'nao_encontrada') {
+    return {
+      class: 'nao_encontrada',
+      label: 'NCM nao encontrada',
+      cor: 'red',
+    }
+  }
+
+  return {
+    class: 'pendente',
+    label: 'Pendente',
+    cor: 'muted',
+  }
 }
 
 function Badge({ tipo, label }) {
@@ -164,6 +188,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [menuAberto, setMenuAberto] = useState(null)
   const [modalAberto, setModalAberto] = useState(false)
   const [aprovando, setAprovando] = useState(false)
+  const [confirmandoDemais, setConfirmandoDemais] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
@@ -233,7 +258,11 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   }
 
   async function aprovarTodosMonofasicos() {
-    const monofasicos = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado)
+    const monofasicos = itens.filter(
+  i =>
+    i.class_pis_cofins_econsulta === 'monofasico' &&
+    !i.class_pis_cofins_considerado
+)
     if (monofasicos.length === 0) { alert('Nenhum item monofasico pendente de confirmacao.'); return }
     if (!window.confirm(`Confirmar ${monofasicos.length} itens como Monofasico?`)) return
     setAprovando(true)
@@ -255,6 +284,90 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     finally { setAprovando(false) }
   }
 
+  async function confirmarDemaisSugestoesEmLote() {
+    const pendentes = itens.filter(item =>
+      !item.class_pis_cofins_considerado &&
+      (
+        item.class_pis_cofins_econsulta === 'tributado' ||
+        item.class_pis_cofins_econsulta === 'st_pis_cofins'
+      )
+    )
+
+    if (pendentes.length === 0) {
+      alert('Nenhuma outra sugestao do Motor pendente de confirmacao.')
+      return
+    }
+
+    const totalTributados = pendentes.filter(
+      item => item.class_pis_cofins_econsulta === 'tributado'
+    ).length
+
+    const totalSt = pendentes.filter(
+      item => item.class_pis_cofins_econsulta === 'st_pis_cofins'
+    ).length
+
+    const mensagem =
+      'Confirmar ' + pendentes.length + ' sugestoes do Motor NCM?' +
+      '\n\nTributados: ' + totalTributados +
+      '\nST PIS/COFINS: ' + totalSt +
+      '\n\nOs itens monofasicos nao serao alterados por esta acao.'
+
+    if (!window.confirm(mensagem)) return
+
+    setConfirmandoDemais(true)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user?.id) {
+        throw new Error('Usuario nao identificado.')
+      }
+
+      for (const item of pendentes) {
+        const classificacaoMotor =
+          item.class_pis_cofins_econsulta
+
+        const considerarReceita =
+          item.considerar_receita !== false
+
+        const { error: erroItem } = await supabase
+          .from('itens_fiscais')
+          .update({
+            class_pis_cofins_considerado:
+              classificacaoMotor,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
+
+        if (erroItem) throw erroItem
+
+        const { error: erroHistorico } = await supabase
+          .from('itens_classificacoes')
+          .insert({
+            item_id: item.id,
+            usuario_id: user.id,
+            classificacao: classificacaoMotor,
+            considerar_receita: considerarReceita,
+            fonte: 'motor_ncm',
+            data_inicio: null,
+            data_fim: null,
+          })
+
+        if (erroHistorico) throw erroHistorico
+      }
+
+      await carregar()
+
+      alert(
+        pendentes.length +
+        ' sugestoes do Motor confirmadas com sucesso.'
+      )
+    } catch (e) {
+      alert('Erro: ' + e.message)
+    } finally {
+      setConfirmandoDemais(false)
+    }
+  }
   async function confirmarConforme() {
     if (selecionados.length === 0) return
     if (!window.confirm(`Confirmar ${selecionados.length} item(s) conforme Motor NCM?`)) return
@@ -263,46 +376,171 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
       const { data: { user } } = await supabase.auth.getUser()
       const itensSelecionados = itens.filter(i => selecionados.includes(i.id))
       for (const item of itensSelecionados) {
-        const r = motorNCM(item.ncm)
-        await supabase.from('itens_fiscais')
-          .update({ class_pis_cofins_considerado: r.class, updated_at: new Date().toISOString() })
-          .eq('id', item.id)
-        await supabase.from('itens_classificacoes').insert({
-          item_id: item.id, usuario_id: user.id,
-          classificacao: r.class, considerar_receita: true,
-          fonte: 'motor_ncm', data_inicio: null, data_fim: null,
-        })
-      }
+  const classificacaoMotor = item.class_pis_cofins_econsulta
+
+  if (!classificacaoMotor) continue
+
+  await supabase.from('itens_fiscais')
+    .update({
+      class_pis_cofins_considerado: classificacaoMotor,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', item.id)
+
+  await supabase.from('itens_classificacoes').insert({
+    item_id: item.id,
+    usuario_id: user.id,
+    classificacao: classificacaoMotor,
+    considerar_receita: item.considerar_receita !== false,
+    fonte: 'motor_ncm',
+    data_inicio: null,
+    data_fim: null,
+  })
+}
       await carregar()
     } catch (e) { alert('Erro: ' + e.message) }
     finally { setSalvando(false) }
   }
 
-  async function salvarClassificacaoManual({ classificacao, considerarReceita, periodos }) {
-    if (selecionados.length === 0) return
-    setSalvando(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const itensSelecionados = itens.filter(i => selecionados.includes(i.id))
-      for (const item of itensSelecionados) {
-        await supabase.from('itens_fiscais')
-          .update({ class_pis_cofins_considerado: classificacao, considerar_receita: considerarReceita, updated_at: new Date().toISOString() })
-          .eq('id', item.id)
-        for (const p of periodos) {
-          await supabase.from('itens_classificacoes').insert({
-            item_id: item.id, usuario_id: user.id,
-            classificacao, considerar_receita: considerarReceita,
-            fonte: 'manual',
-            data_inicio: p.data_inicio ? p.data_inicio + '-01' : null,
-            data_fim: p.data_fim ? p.data_fim + '-01' : null,
-          })
-        }
-      }
-      await carregar()
-      setModalAberto(false)
-    } catch (e) { alert('Erro: ' + e.message) }
-    finally { setSalvando(false) }
+  async function salvarClassificacaoManual({
+  classificacao,
+  considerarReceita,
+  periodos
+}) {
+  if (selecionados.length === 0) return
+
+  const periodoInvalido = periodos.some(
+    p =>
+      p.data_inicio &&
+      p.data_fim &&
+      p.data_inicio > p.data_fim
+  )
+
+  if (periodoInvalido) {
+    alert('A data inicial não pode ser posterior à data final.')
+    return
   }
+
+  setSalvando(true)
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const itensSelecionados = itens.filter(i =>
+      selecionados.includes(i.id)
+    )
+
+    const agora = new Date()
+    const mesAtual =
+      `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
+
+    const possuiVigenciaAtual = periodos.some(p => {
+      const inicioValido =
+        !p.data_inicio || p.data_inicio <= mesAtual
+
+      const fimValido =
+        !p.data_fim || p.data_fim >= mesAtual
+
+      return inicioValido && fimValido
+    })
+
+    for (const item of itensSelecionados) {
+
+      const atualizacaoItem = {
+        updated_at: new Date().toISOString(),
+      }
+
+      if (possuiVigenciaAtual) {
+        atualizacaoItem.class_pis_cofins_considerado = classificacao
+        atualizacaoItem.considerar_receita = considerarReceita
+      }
+
+      const { error: erroItem } = await supabase
+        .from('itens_fiscais')
+        .update(atualizacaoItem)
+        .eq('id', item.id)
+
+      if (erroItem) throw erroItem
+
+      for (const p of periodos) {
+        const { error: erroHistorico } = await supabase
+          .from('itens_classificacoes')
+          .insert({
+            item_id: item.id,
+            usuario_id: user.id,
+            classificacao,
+            considerar_receita: considerarReceita,
+            fonte: 'manual',
+            data_inicio: p.data_inicio
+              ? p.data_inicio + '-01'
+              : null,
+            data_fim: p.data_fim
+              ? p.data_fim + '-01'
+              : null,
+          })
+
+        if (erroHistorico) throw erroHistorico
+      }
+    }
+
+    await carregar()
+    setModalAberto(false)
+
+  } catch (e) {
+    alert('Erro: ' + e.message)
+  } finally {
+    setSalvando(false)
+  }
+}
+
+async function removerClassificacao(item) {
+  if (!item?.class_pis_cofins_considerado) return
+
+  const classificacaoAnterior = item.class_pis_cofins_considerado
+
+  if (!window.confirm(
+    `Remover a classificação vigente "${classificacaoAnterior}" deste item?`
+  )) return
+
+  setSalvando(true)
+
+  try {
+    const agora = new Date()
+
+    const mesAtual =
+      `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`
+
+    const { error: erroHistorico } = await supabase
+      .from('itens_classificacoes')
+      .update({
+        data_fim: mesAtual,
+      })
+      .eq('item_id', item.id)
+      .eq('classificacao', classificacaoAnterior)
+      .is('data_fim', null)
+      .or(`data_inicio.is.null,data_inicio.lte.${mesAtual}`)
+
+    if (erroHistorico) throw erroHistorico
+
+    const { error: erroItem } = await supabase
+      .from('itens_fiscais')
+      .update({
+        class_pis_cofins_considerado: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.id)
+
+    if (erroItem) throw erroItem
+
+    setMenuAberto(null)
+    await carregar()
+
+  } catch (e) {
+    alert('Erro ao remover classificação: ' + e.message)
+  } finally {
+    setSalvando(false)
+  }
+}
 
   async function excluirItem(id) {
     if (!window.confirm('Excluir este item do cadastro?')) return
@@ -332,8 +570,20 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   )
 
   const itensSelecionadosObj = itens.filter(i => selecionados.includes(i.id))
-  const monofasicosPendentes = itens.filter(i => motorNCM(i.ncm).class === 'monofasico' && !i.class_pis_cofins_considerado).length
+  const monofasicosPendentes = itens.filter(
+  i =>
+    i.class_pis_cofins_econsulta === 'monofasico' &&
+    !i.class_pis_cofins_considerado
+).length
 
+  const demaisSugestoesPendentes = itens.filter(
+    item =>
+      !item.class_pis_cofins_considerado &&
+      (
+        item.class_pis_cofins_econsulta === 'tributado' ||
+        item.class_pis_cofins_econsulta === 'st_pis_cofins'
+      )
+  ).length
   // Linhas a exibir: skeleton se loading, ghost se vazio, dados se tem
   const linhasExibir = loading ? null : (temDados ? itensPagina : GHOST_ROWS)
 
@@ -359,14 +609,184 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
             Revise, ajuste e confirme a classificacao fiscal dos itens de PIS/COFINS.
           </div>
         </div>
-        {monofasicosPendentes > 0 && (
-          <button onClick={aprovarTodosMonofasicos} disabled={aprovando}
-            style={{ padding: '9px 18px', background: '#fff7ed', color: '#ea580c', border: '2px solid #fed7aa', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: aprovando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Aprovar {monofasicosPendentes} monofasico(s) em 1 clique
-          </button>
-        )}
       </div>
 
+      {(monofasicosPendentes > 0 || demaisSugestoesPendentes > 0) && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'stretch',
+            gap: 16,
+            flexWrap: 'wrap',
+            marginBottom: 16,
+          }}
+        >
+
+          {monofasicosPendentes > 0 && (
+            <div
+              style={{
+                width: 500,
+                minHeight: 66,
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                background: '#FFFFFF',
+                border: '1px solid #D7DEE8',
+                borderRadius: 10,
+                padding: '8px 14px',
+                boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
+              }}
+            >
+              <div style={{ textAlign: 'center', width: 52, flexShrink: 0 }}>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    color: '#0B1F4D',
+                  }}
+                >
+                  {monofasicosPendentes}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: '#475569',
+                    textTransform: 'uppercase',
+                    marginTop: 4,
+                  }}
+                >
+                  itens
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#475569',
+                    marginBottom: 3,
+                  }}
+                >
+                  Monofásicos aguardando confirmação
+                </div>
+
+                <div style={{ fontSize: 11, color: '#64748B' }}>
+                  Classificação sugerida pelo Motor
+                </div>
+              </div>
+
+              <button
+                onClick={aprovarTodosMonofasicos}
+                disabled={aprovando}
+                style={{
+                  width: 112,
+                  height: 32,
+                  flexShrink: 0,
+                  background: '#0B1F4D',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 7,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: aprovando ? 'not-allowed' : 'pointer',
+                  opacity: aprovando ? 0.7 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {aprovando ? 'Aprovando...' : 'Aprovar em lote'}
+              </button>
+            </div>
+          )}
+
+          {demaisSugestoesPendentes > 0 && (
+            <div
+              style={{
+                width: 500,
+                minHeight: 66,
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                background: '#FFFFFF',
+                border: '1px solid #D7DEE8',
+                borderRadius: 10,
+                padding: '8px 14px',
+                boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
+              }}
+            >
+              <div style={{ textAlign: 'center', width: 52, flexShrink: 0 }}>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    color: '#0B1F4D',
+                  }}
+                >
+                  {demaisSugestoesPendentes}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: '#475569',
+                    textTransform: 'uppercase',
+                    marginTop: 4,
+                  }}
+                >
+                  itens
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#475569',
+                    marginBottom: 3,
+                  }}
+                >
+                  Itens tributados e sujeitos à ST de PIS/Cofins aguardando confirmação
+                </div>
+
+                <div style={{ fontSize: 11, color: '#64748B' }}>
+                  Classificação sugerida pelo Motor
+                </div>
+              </div>
+
+              <button
+                onClick={confirmarDemaisSugestoesEmLote}
+                disabled={confirmandoDemais}
+                style={{
+                  width: 112,
+                  height: 32,
+                  flexShrink: 0,
+                  background: '#0B1F4D',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 7,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: confirmandoDemais ? 'not-allowed' : 'pointer',
+                  opacity: confirmandoDemais ? 0.7 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {confirmandoDemais ? 'Confirmando...' : 'Confirmar em lote'}
+              </button>
+            </div>
+          )}
+
+        </div>
+      )}
       {/* EMPRESA */}
       <div style={{ background: S.white, borderRadius: 8, border: `1px solid ${S.border}`, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 12, color: S.muted }}>Empresa selecionada:</span>
@@ -473,7 +893,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                 <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>NCM</th>
                 <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>CEST</th>
                 <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#374151', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Motor NCM</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Trib. Vigente</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', color: S.thText, fontWeight: 600, fontSize: 11, background: '#1f2937', borderLeft: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>Tributação Vigente</th>
                 <th style={{ padding: '8px 10px', textAlign: 'left', color: S.thText, fontWeight: 600, fontSize: 11 }}>Acoes</th>
               </tr>
             </thead>
@@ -484,7 +904,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                 linhasExibir.map((item, i) => {
                   const isGhost = item.ghost
                   const sel     = !isGhost && selecionados.includes(item.id)
-                  const motor   = motorNCM(item.ncm)
+                  const motor = resultadoMotorSalvo(item)
                   const temConf = !isGhost && !!item.class_pis_cofins_considerado
                   return (
                     <tr key={item.id} style={{ borderBottom: `1px solid ${S.border}`, background: isGhost ? S.ghost : sel ? '#eff6ff' : i % 2 === 0 ? S.white : '#FAFAFA' }}>
@@ -527,8 +947,8 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                             </button>
                             <button onClick={e => { e.stopPropagation(); excluirItem(item.id) }}
                               title="Excluir item"
-                              style={{ background: 'none', border: `1px solid #fecaca`, borderRadius: 4, cursor: 'pointer', padding: '2px 7px', fontSize: 12, color: S.red }}>
-                              X
+                              style={{ background: 'none', border: `1px solid #fecaca`, borderRadius: 4, cursor: 'pointer', padding: '2px 7px', fontSize: 16, color: '#8B5E3C' }}>
+                              🗑
                             </button>
                           </div>
                         )}
@@ -544,14 +964,23 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
                               Classificar manualmente
                             </button>
                             {temConf && (
-                              <button onClick={async () => {
-                                await supabase.from('itens_fiscais').update({ class_pis_cofins_considerado: null }).eq('id', item.id)
-                                setMenuAberto(null)
-                                await carregar()
-                              }}
-                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.orange, borderBottom: `1px solid ${S.border}` }}>
-                                Remover classificacao
-                              </button>
+                             <button
+							 onClick={() => removerClassificacao(item)} 
+                             style={{
+                             display: 'block',
+                             width: '100%',
+                             padding: '8px 14px',
+                             background: 'none',
+                             border: 'none',
+                             textAlign: 'left',
+                             fontSize: 12,
+                             cursor: 'pointer',
+                             color: S.orange,
+                             borderBottom: `1px solid ${S.border}`,
+                             }}
+                              >
+                             Remover classificacao
+                             </button>
                             )}
                             <button onClick={() => excluirItem(item.id)}
                               style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.red }}>
