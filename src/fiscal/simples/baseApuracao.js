@@ -1,4 +1,8 @@
 import {
+  criarChaveItemDocumental,
+  prepararReceitaDocumentalItem,
+} from './receitaDocumental'
+import {
   qualificarItensApuracao,
 } from './qualificacaoApuracao'
 function normalizarCompetenciaApuracao(valor) {
@@ -152,6 +156,7 @@ function prepararBaseApuracaoSimples({
   classificacoesHistoricas = [],
   clienteCnpj = null,
   alterarIcms = false,
+  decisoesReceitaDocumental = [],
 } = {}) {
   const pendencias = []
 
@@ -188,6 +193,32 @@ function prepararBaseApuracaoSimples({
 
   const atividadeUnica =
     identificarAtividadeUnicaPgdas(atividadesPgdas)
+
+  const mapaDecisoesReceita = new Map()
+
+  if (!Array.isArray(decisoesReceitaDocumental)) {
+    pendencias.push({
+      tipo: 'decisoes_receita_documental_invalidas',
+    })
+  } else {
+    for (const decisao of decisoesReceitaDocumental) {
+      const chaveItem = String(
+        decisao?.chaveItem ?? ''
+      ).trim()
+
+      if (!chaveItem) continue
+
+      if (mapaDecisoesReceita.has(chaveItem)) {
+        pendencias.push({
+          tipo: 'decisao_receita_documental_duplicada',
+          chaveItem,
+        })
+        continue
+      }
+
+      mapaDecisoesReceita.set(chaveItem, decisao)
+    }
+  }
 
   const mapaItensFiscais = new Map()
 
@@ -233,6 +264,63 @@ function prepararBaseApuracaoSimples({
       continue
     }
 
+    const chaveItem = criarChaveItemDocumental(item)
+
+    if (!chaveItem) {
+      pendencias.push({
+        tipo: 'chave_item_documental_ausente',
+        codigo,
+        nf: item?.nf || null,
+      })
+      continue
+    }
+
+    const decisaoReceita =
+      mapaDecisoesReceita.get(chaveItem) || null
+
+    const receitaDocumental =
+      prepararReceitaDocumentalItem({
+        item,
+        decisao: decisaoReceita,
+      })
+
+    if (!receitaDocumental.pronto) {
+      for (const pendencia of receitaDocumental.pendencias) {
+        pendencias.push({
+          ...pendencia,
+          chaveItem,
+          codigo,
+          nf: item?.nf || null,
+          origem: 'receita_documental',
+        })
+      }
+
+      continue
+    }
+
+    if (receitaDocumental.movimento?.tipo === 'exclusao') {
+      itensIgnorados.push({
+        item,
+        receitaDocumental,
+        motivo: 'excluido_da_receita_documental',
+      })
+      continue
+    }
+
+    if (receitaDocumental.movimento?.tipo !== 'receita') {
+      pendencias.push({
+        tipo: 'reducao_documental_exige_vinculo',
+        chaveItem,
+        codigo,
+        nf: item?.nf || null,
+        origem: 'receita_documental',
+      })
+      continue
+    }
+
+    const valorReceita = Number(
+      receitaDocumental.movimento.valor
+    )
     const itemFiscal = mapaItensFiscais.get(codigo)
 
     if (!itemFiscal) {
@@ -275,13 +363,14 @@ function prepararBaseApuracaoSimples({
       item,
       itemFiscal,
       classificacao,
+      receitaDocumental,
       qualificacao: {
         estabelecimento: null,
         mercado: null,
         atividade: atividadeUnica,
         classificacaoPisCofins: classificacao.classificacao,
         classificacaoIcms: null,
-        valor,
+        valor: valorReceita,
       },
       pronta: false,
     })
@@ -298,25 +387,6 @@ function prepararBaseApuracaoSimples({
     pendencias.push({
       ...pendencia,
       origem: "qualificacao",
-    })
-  }
-
-  /*
-   * PORTAO DOCUMENTAL TEMPORARIO
-   *
-   * Os XMLs ainda entram inicialmente com
-   * consideraReceita = true.
-   *
-   * Enquanto a regra segura de CFOP / entrada /
-   * devolucao / composicao da receita nao estiver
-   * implementada, a base NAO pode ser liberada
-   * para o orquestrador.
-   */
-  if (itensPreparados.length > 0) {
-    pendencias.push({
-      tipo: "regra_receita_cfop_pendente",
-      mensagem:
-        "A composicao documental da receita por CFOP ainda precisa ser validada.",
     })
   }
 
