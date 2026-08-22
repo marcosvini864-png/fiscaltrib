@@ -1,3 +1,6 @@
+import {
+  qualificarItensApuracao,
+} from './qualificacaoApuracao'
 function normalizarCompetenciaApuracao(valor) {
   if (!valor) return null
 
@@ -147,6 +150,8 @@ function prepararBaseApuracaoSimples({
   itensDocumentais = [],
   itensFiscais = [],
   classificacoesHistoricas = [],
+  clienteCnpj = null,
+  alterarIcms = false,
 } = {}) {
   const pendencias = []
 
@@ -183,23 +188,6 @@ function prepararBaseApuracaoSimples({
 
   const atividadeUnica =
     identificarAtividadeUnicaPgdas(atividadesPgdas)
-
-  const camposQualificacaoPendentes = [
-    "estabelecimento",
-    "mercado",
-    "classificacaoIcms",
-  ]
-
-  if (!atividadeUnica) {
-    camposQualificacaoPendentes.push("atividade")
-  }
-
-  pendencias.push({
-    tipo: "qualificacoes_a_definir",
-    campos: camposQualificacaoPendentes,
-    mensagem:
-      "Ainda faltam regras seguras para qualificar integralmente as parcelas.",
-  })
 
   const mapaItensFiscais = new Map()
 
@@ -299,9 +287,40 @@ function prepararBaseApuracaoSimples({
     })
   }
 
-  const parcelas = itensPreparados
-    .filter(item => item.pronta)
-    .map(item => item.qualificacao)
+  const qualificacao =
+    qualificarItensApuracao({
+      itensPreparados,
+      clienteCnpj,
+      alterarIcms,
+    })
+
+  for (const pendencia of qualificacao.pendencias) {
+    pendencias.push({
+      ...pendencia,
+      origem: "qualificacao",
+    })
+  }
+
+  /*
+   * PORTAO DOCUMENTAL TEMPORARIO
+   *
+   * Os XMLs ainda entram inicialmente com
+   * consideraReceita = true.
+   *
+   * Enquanto a regra segura de CFOP / entrada /
+   * devolucao / composicao da receita nao estiver
+   * implementada, a base NAO pode ser liberada
+   * para o orquestrador.
+   */
+  if (itensPreparados.length > 0) {
+    pendencias.push({
+      tipo: "regra_receita_cfop_pendente",
+      mensagem:
+        "A composicao documental da receita por CFOP ainda precisa ser validada.",
+    })
+  }
+
+  const parcelas = qualificacao.parcelas
 
   return {
     competencia: competenciaNormalizada,
@@ -310,10 +329,12 @@ function prepararBaseApuracaoSimples({
     itensDocumentais: itensDaCompetencia,
     itensPreparados,
     itensIgnorados,
+    qualificacao,
     parcelas,
     pendencias,
     prontaParaConferencia:
-      pendencias.length === 0 && parcelas.length > 0,
+      pendencias.length === 0 &&
+      parcelas.length > 0,
   }
 }
 
