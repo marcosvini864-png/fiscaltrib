@@ -66,6 +66,13 @@ import {
 } from '../fiscal/simples/resultadoRecuperacao'
 
 
+import {
+  prepararBaseApuracaoSimples,
+} from '../fiscal/simples/baseApuracao'
+import {
+  criarChaveItemDocumental,
+} from '../fiscal/simples/receitaDocumental'
+
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
   red: '#dc2626', orange: '#ea580c', muted: '#64748B',
@@ -100,6 +107,42 @@ const fmtPct = v => parseFloat(v || 0).toFixed(2).replace('.', ',') + '%'
 
 
 
+
+function numeroCompetenciaMotor(valor) {
+  const m = String(valor || '').trim().match(/^(\d{1,2})\/(\d{4})$/)
+  if (!m) return null
+
+  const mes = Number(m[1])
+  const ano = Number(m[2])
+
+  if (mes < 1 || mes > 12) return null
+
+  return ano * 100 + mes
+}
+
+function competenciaDentroPeriodoMotor(competencia, inicio, fim) {
+  const c = numeroCompetenciaMotor(competencia)
+  const i = numeroCompetenciaMotor(inicio)
+  const f = numeroCompetenciaMotor(fim)
+
+  if (!c || !i || !f) return false
+
+  return c >= i && c <= f
+}
+
+function competenciaParaInputMes(valor) {
+  const m = String(valor || '').trim().match(/^(\d{1,2})\/(\d{4})$/)
+  if (!m) return ''
+
+  return m[2] + '-' + String(m[1]).padStart(2, '0')
+}
+
+function inputMesParaCompetencia(valor) {
+  const m = String(valor || '').trim().match(/^(\d{4})-(\d{2})$/)
+  if (!m) return ''
+
+  return m[2] + '/' + m[1]
+}
 
 function Badge({ label, tipo }) {
   const map = {
@@ -164,6 +207,12 @@ export default function ApuracaoSimples() {
   const [form, setForm]               = useState(VAZIO)
   const [salvando, setSalvando]       = useState(false)
   const [excluindo, setExcluindo]     = useState(false)
+  const [modalMotor, setModalMotor] = useState(false)
+  const [motorClienteId, setMotorClienteId] = useState('')
+  const [motorCompetencia, setMotorCompetencia] = useState('')
+  const [motorCarregando, setMotorCarregando] = useState(false)
+  const [motorAnalise, setMotorAnalise] = useState(null)
+  const [motorErro, setMotorErro] = useState('')
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -185,6 +234,216 @@ export default function ApuracaoSimples() {
     ;(cls || []).forEach(c => { mapa[c.id] = c })
     setClientes(mapa)
     setLoading(false)
+  }
+
+  async function carregarClassificacoesMotor(itemIds) {
+    if (!Array.isArray(itemIds) || itemIds.length === 0) return []
+
+    const resultado = []
+    const tamanhoLote = 200
+
+    for (let i = 0; i < itemIds.length; i += tamanhoLote) {
+      const lote = itemIds.slice(i, i + tamanhoLote)
+
+      const { data, error } = await supabase
+        .from('itens_classificacoes')
+        .select('*')
+        .in('item_id', lote)
+
+      if (error) throw error
+
+      resultado.push(...(data || []))
+    }
+
+    return resultado
+  }
+
+  async function executarConferenciaMotor() {
+    if (!motorClienteId) {
+      return alert('Selecione a empresa.')
+    }
+
+    if (!numeroCompetenciaMotor(motorCompetencia)) {
+      return alert('Informe a competencia no formato MM/AAAA.')
+    }
+
+    const cliente = clientes[motorClienteId]
+
+    if (!cliente) {
+      return alert('Empresa nao localizada.')
+    }
+
+    setMotorCarregando(true)
+    setMotorErro('')
+    setMotorAnalise(null)
+
+    try {
+      const { data: pgdasLista, error: erroPgdas } = await supabase
+        .from('diagnosticos_pgdas')
+        .select('*')
+        .eq('cliente_id', motorClienteId)
+        .eq('competencia', motorCompetencia)
+        .order('created_at', { ascending: false })
+
+      if (erroPgdas) throw erroPgdas
+
+      if (!pgdasLista || pgdasLista.length === 0) {
+        throw new Error('Nenhum PGDAS-D encontrado para esta competencia.')
+      }
+
+      if (pgdasLista.length > 1) {
+        throw new Error(
+          'Existem ' + pgdasLista.length +
+          ' PGDAS-D para esta competencia. O sistema nao vai escolher um automaticamente.'
+        )
+      }
+
+      const pgdas = pgdasLista[0]
+
+      const { data: atividadesPgdas, error: erroAtividades } = await supabase
+        .from('diagnosticos_pgdas_atividades')
+        .select('*')
+        .eq('diagnostico_id', pgdas.id)
+        .order('ordem_atividade', { ascending: true })
+
+      if (erroAtividades) throw erroAtividades
+
+      const { data: diagnosticosMono, error: erroMono } = await supabase
+        .from('diagnosticos_monofasicos')
+        .select('*')
+        .eq('cliente_id', motorClienteId)
+        .order('created_at', { ascending: false })
+
+      if (erroMono) throw erroMono
+
+      const lotesCompativeis = (diagnosticosMono || []).filter(diag =>
+        competenciaDentroPeriodoMotor(
+          motorCompetencia,
+          diag.periodo_inicio,
+          diag.periodo_fim
+        )
+      )
+
+      if (lotesCompativeis.length === 0) {
+        throw new Error(
+          'Nenhum lote de documentos fiscais cobre esta competencia.'
+        )
+      }
+
+      if (lotesCompativeis.length > 1) {
+        throw new Error(
+          'Existem ' + lotesCompativeis.length +
+          ' lotes de documentos que cobrem esta competencia. O sistema nao vai escolher um automaticamente.'
+        )
+      }
+
+      const diagnosticoMono = lotesCompativeis[0]
+
+      const { data: itensDocumentais, error: erroItens } = await supabase
+        .from('diagnostico_monofasico_itens')
+        .select('*')
+        .eq('diagnostico_id', diagnosticoMono.id)
+        .eq('competencia', motorCompetencia)
+        .order('ordem_item', { ascending: true })
+
+      if (erroItens) throw erroItens
+
+      if (!itensDocumentais || itensDocumentais.length === 0) {
+        throw new Error(
+          'O lote selecionado nao possui itens para esta competencia.'
+        )
+      }
+
+      const { data: itensFiscais, error: erroCadastro } = await supabase
+        .from('itens_fiscais')
+        .select('*')
+        .eq('cliente_id', motorClienteId)
+
+      if (erroCadastro) throw erroCadastro
+
+      const itemIds = (itensFiscais || [])
+        .map(item => item.id)
+        .filter(Boolean)
+
+      const classificacoesHistoricas =
+        await carregarClassificacoesMotor(itemIds)
+
+      const confirmaReceita = window.confirm(
+        'ATENCAO: o FiscalTribe ainda nao aplica automaticamente todas as regras de CFOP, devolucoes e descontos. ' +
+        'Confirma que os itens desta competencia que NAO estao marcados como exclusao compoem a receita documental pelo valor do produto salvo no XML?'
+      )
+
+      if (!confirmaReceita) {
+        setMotorCarregando(false)
+        return
+      }
+
+      const decisoesReceitaDocumental =
+        itensDocumentais
+          .map(item => {
+            const chaveItem = criarChaveItemDocumental(item)
+
+            if (!chaveItem) return null
+
+            if (item.considera_receita === false) {
+              return {
+                chaveItem,
+                tipo: 'excluir',
+                origem: 'marcacao_documental_existente',
+                motivo:
+                  item.motivo_nao_considerar_receita ||
+                  'Item marcado para nao considerar receita',
+              }
+            }
+
+            return {
+              chaveItem,
+              tipo: 'incluir',
+              valor: Number(item.valor_produto || 0),
+              origem: 'confirmacao_usuario_apuracao',
+              motivo: 'Composicao documental confirmada na apuracao',
+            }
+          })
+          .filter(Boolean)
+
+      const base = prepararBaseApuracaoSimples({
+        competencia: motorCompetencia,
+        pgdas,
+        atividadesPgdas: atividadesPgdas || [],
+        itensDocumentais,
+        itensFiscais: itensFiscais || [],
+        classificacoesHistoricas,
+        clienteCnpj: cliente.cnpj,
+        alterarIcms: false,
+        decisoesReceitaDocumental,
+      })
+
+      let conferencia = null
+
+      if (base.prontaParaConferencia) {
+        conferencia = executarApuracaoSimples({
+          parcelas: base.parcelas,
+          receitaDeclaradaPgdas: Number(pgdas.receita_bruta_total || 0),
+          alterarIcms: false,
+        })
+      }
+
+      setMotorAnalise({
+        cliente,
+        competencia: motorCompetencia,
+        pgdas,
+        diagnosticoMono,
+        itensDocumentais,
+        base,
+        conferencia,
+      })
+
+      setModalMotor(false)
+    } catch (e) {
+      setMotorErro(e.message || 'Erro ao preparar a conferencia.')
+    } finally {
+      setMotorCarregando(false)
+    }
   }
 
   async function salvar() {
@@ -345,6 +604,17 @@ export default function ApuracaoSimples() {
               {excluindo ? 'Excluindo...' : `Excluir todos (${filtradas.length})`}
             </button>
           )}
+          <button
+            onClick={() => {
+              setMotorClienteId('')
+              setMotorCompetencia('')
+              setMotorErro('')
+              setModalMotor(true)
+            }}
+            style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Conferir pelo Motor
+          </button>
           <button onClick={() => { setForm(VAZIO); setModalNova(true) }}
             style={{ padding: '7px 14px', background: S.blue, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             + Nova Apuracao
@@ -355,6 +625,90 @@ export default function ApuracaoSimples() {
         </div>
       </div>
 
+      {motorAnalise && (
+        <div style={{ background: S.white, border: '1px solid ' + S.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, color: S.muted, fontWeight: 700 }}>Resultado da conferencia do motor</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: S.navy, marginTop: 2 }}>
+                {motorAnalise.cliente?.razao_social} — {motorAnalise.competencia}
+              </div>
+              <div style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>
+                PGDAS: {motorAnalise.pgdas?.num_declaracao || motorAnalise.pgdas?.id}
+                {' · '}Lote XML: {motorAnalise.diagnosticoMono?.nome_diagnostico || motorAnalise.diagnosticoMono?.id}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setMotorAnalise(null)}
+              style={{ border: '1px solid ' + S.border, background: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: S.muted }}
+            >
+              Fechar
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+            {[
+              {
+                label: 'Receita PGDAS',
+                valor: fmtR(motorAnalise.pgdas?.receita_bruta_total),
+                cor: S.navy,
+              },
+              {
+                label: 'Receita documental',
+                valor: fmtR(
+                  (motorAnalise.base?.parcelas || []).reduce(
+                    (s, parcela) => s + Number(parcela.valor || 0),
+                    0
+                  )
+                ),
+                cor: S.blue,
+              },
+              {
+                label: 'Pendencias',
+                valor: String(motorAnalise.base?.pendencias?.length || 0),
+                cor: motorAnalise.base?.pendencias?.length ? S.orange : S.green,
+              },
+              {
+                label: 'Status da conferencia',
+                valor:
+                  motorAnalise.conferencia?.status ||
+                  (motorAnalise.base?.prontaParaConferencia
+                    ? 'base_pronta'
+                    : 'base_pendente'),
+                cor:
+                  motorAnalise.conferencia?.prontoParaCalculo
+                    ? S.green
+                    : S.orange,
+              },
+            ].map((k, i) => (
+              <div key={i} style={{ border: '1px solid ' + S.border, borderRadius: 8, padding: '12px 14px', background: S.bg }}>
+                <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, marginBottom: 4 }}>{k.label}</div>
+                <div style={{ fontSize: 15, color: k.cor, fontWeight: 800, wordBreak: 'break-word' }}>{k.valor}</div>
+              </div>
+            ))}
+          </div>
+
+          {(motorAnalise.base?.pendencias?.length || 0) > 0 && (
+            <div style={{ marginTop: 14, padding: '10px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: S.orange, marginBottom: 6 }}>Pendencias da base</div>
+              {(motorAnalise.base.pendencias || []).slice(0, 12).map((p, i) => (
+                <div key={i} style={{ fontSize: 11, color: S.text, marginBottom: 3 }}>
+                  {p.tipo}
+                  {p.codigo ? ' · Produto ' + p.codigo : ''}
+                  {p.nf ? ' · NF ' + p.nf : ''}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {motorAnalise.conferencia?.prontoParaCalculo && (
+            <div style={{ marginTop: 14, padding: '10px 12px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, color: '#166534', fontSize: 12, fontWeight: 700 }}>
+              Conferencia concluida. A movimentacao esta liberada pelo motor para o calculo tributario.
+            </div>
+          )}
+        </div>
+      )}
       {/* TABELA */}
       <div style={{ background: S.white, borderRadius: 10, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
 
@@ -483,6 +837,67 @@ export default function ApuracaoSimples() {
         </div>
       </div>
 
+      {modalMotor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: S.white, borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: S.navy }}>Conferencia automatizada da base</div>
+            <div style={{ fontSize: 12, color: S.muted, marginTop: 5, marginBottom: 18, lineHeight: 1.5 }}>
+              O FiscalTribe vai cruzar PGDAS-D, lote XML e classificacao vigente antes de liberar a apuracao.
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, marginBottom: 4 }}>Empresa</div>
+              <select
+                value={motorClienteId}
+                onChange={e => setMotorClienteId(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid ' + S.border, borderRadius: 6, fontSize: 13 }}
+              >
+                <option value=''>Selecione...</option>
+                {Object.values(clientes).map(c => (
+                  <option key={c.id} value={c.id}>{c.razao_social}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, marginBottom: 4 }}>Competencia</div>
+              <input
+                type='month'
+                value={competenciaParaInputMes(motorCompetencia)}
+                onChange={e => setMotorCompetencia(inputMesParaCompetencia(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid ' + S.border, borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {motorErro && (
+              <div style={{ padding: '9px 11px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 7, color: S.red, fontSize: 12, marginBottom: 12 }}>
+                {motorErro}
+              </div>
+            )}
+
+            <div style={{ padding: '9px 11px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, color: '#1e40af', fontSize: 11, lineHeight: 1.5, marginBottom: 16 }}>
+              Se houver mais de um PGDAS ou mais de um lote XML para a mesma competencia, o sistema vai parar em vez de escolher sozinho.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setModalMotor(false)}
+                disabled={motorCarregando}
+                style={{ padding: '7px 15px', border: '1px solid ' + S.border, background: 'none', borderRadius: 7, cursor: 'pointer', color: S.muted }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executarConferenciaMotor}
+                disabled={motorCarregando}
+                style={{ padding: '7px 15px', border: 'none', background: S.green, color: S.white, borderRadius: 7, cursor: motorCarregando ? 'not-allowed' : 'pointer', fontWeight: 700 }}
+              >
+                {motorCarregando ? 'Conferindo...' : 'Montar e conferir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* MODAL NOVA / EDITAR */}
       {(modalNova || modalEditar) && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
