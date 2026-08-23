@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabase'
-import AnalisadorIA from '../../AnalisadorIA'
+import DiagnosticoIAGerenciado from '../../DiagnosticoIAGerenciado'
 import RelatorioRecuperacaoPGDAS from './RelatorioRecuperacaoPGDAS'
 
 const fmtR = v =>
@@ -1080,6 +1080,45 @@ export default function AbaPGDAS({ cliente, regime }) {
     }
   }
 
+  async function restaurarSnapshotAnalise(snapshot) {
+    if (!snapshot?.declaracao) {
+      throw new Error('O diagnóstico salvo não possui o snapshot completo do PGDAS-D.')
+    }
+
+    const declaracao = snapshot.declaracao || {}
+
+    const atividadesRestauradas =
+      Array.isArray(snapshot.atividades)
+        ? snapshot.atividades.map((atividade, index) =>
+            normalizarAtividade(atividade, index)
+          )
+        : []
+
+    setForm({
+      ...FORM_VAZIO,
+      ...declaracao,
+      periodo_apuracao:
+        snapshot.competencia ||
+        declaracao.periodo_apuracao ||
+        '',
+    })
+
+    setAtividades(atividadesRestauradas)
+
+    const referenciaId =
+      snapshot.referencia_pgdas_id
+        ? String(snapshot.referencia_pgdas_id)
+        : null
+
+    const pgdasOriginal = referenciaId
+      ? historico.find(
+          item => String(item.id) === referenciaId
+        )
+      : null
+
+    setDiagAberto(pgdasOriginal || null)
+    setAba('lancamento')
+  }
   const totalPaginas = Math.max(
     1,
     Math.ceil(historico.length / porPagina)
@@ -1100,7 +1139,28 @@ export default function AbaPGDAS({ cliente, regime }) {
           receitaST,
           receitaImune,
           dasDeclarado: dasTotal,
-          atividades,
+          atividades: atividades.map(a => ({
+            ordem: a.ordem,
+            descricao: a.descricao,
+            anexo: a.anexo,
+            tipo_atividade: a.tipo_atividade,
+            receita: a.receita,
+            icms_st: a.icms_st,
+            pis_cofins_monofasico: a.pis_cofins_monofasico,
+            antecipacao_com_encerramento: a.antecipacao_com_encerramento,
+            iss_retido: a.iss_retido,
+            imunidade: a.imunidade,
+            exportacao: a.exportacao,
+            irpj: a.irpj,
+            csll: a.csll,
+            cofins: a.cofins,
+            pis: a.pis,
+            inss_cpp: a.inss_cpp,
+            icms: a.icms,
+            ipi: a.ipi,
+            iss: a.iss,
+            valor_total_tributos: a.valor_total_tributos,
+          })),
           tributos: {
             irpj,
             csll,
@@ -1117,6 +1177,92 @@ export default function AbaPGDAS({ cliente, regime }) {
         }
       : null
 
+  const snapshotCompletoPGDAS = {
+    versao_snapshot: 1,
+    tipo: 'pgdas_d',
+
+    cliente: {
+      id: cliente?.id || null,
+      razao_social: cliente?.razao_social || '',
+      cnpj: cliente?.cnpj || '',
+    },
+
+    regime: regime || '',
+
+    competencia:
+      diagAberto?.competencia ||
+      form.periodo_apuracao ||
+      '',
+
+    referencia_pgdas_id: diagAberto?.id || null,
+
+    declaracao: {
+      ...form,
+    },
+
+    atividades: atividades.map(a => ({
+      ...a,
+    })),
+
+    resumo: {
+      rpa,
+      rbt12,
+      rba: num(form.rba),
+      rbaa: num(form.rbaa),
+
+      receita_revenda: num(form.receita_revenda),
+      receita_industrializacao: num(form.receita_industrializacao),
+      receita_servicos: num(form.receita_servicos),
+      receita_monofasica: receitaMono,
+      receita_st: receitaST,
+      receita_imune: receitaImune,
+
+      fator_r: form.fator_r || '',
+      das_total: dasTotal,
+
+      total_tributos: totalTributos,
+      total_receita_atividades: totalReceitaAtividades,
+      total_tributos_atividades: totalTributosAtividades,
+      divergencia_atividades: divergenciaAtividades,
+
+      atividades_icms_st: qtdICMSST,
+      atividades_monofasicas: qtdMono,
+    },
+
+    tributos: {
+      irpj,
+      csll,
+      cofins,
+      pis,
+      inss_cpp: inss,
+      icms,
+      ipi,
+      iss,
+    },
+
+    tributos_suspensos: {
+      irpj: num(form.irpj_susp),
+      csll: num(form.csll_susp),
+      cofins: num(form.cofins_susp),
+      pis: num(form.pis_susp),
+      inss_cpp: num(form.inss_susp),
+      icms: num(form.icms_susp),
+      ipi: num(form.ipi_susp),
+      iss: num(form.iss_susp),
+    },
+
+    conferencia: {
+      rpa,
+      soma_atividades: totalReceitaAtividades,
+      diferenca: divergenciaAtividades,
+      conferido:
+        Math.abs(divergenciaAtividades) < 0.01,
+    },
+
+    observacoes: form.observacoes || '',
+
+    dados_ia: dadosIA,
+  }
   const secao = (titulo, conteudo, subtitulo = '') => (
     <div style={{ marginBottom: 20 }}>
       <div
@@ -1406,7 +1552,7 @@ export default function AbaPGDAS({ cliente, regime }) {
           { id: 'lancamento', label: 'Declaracao' },
           {
             id: 'historico',
-            label: `Historico (${historico.length})`,
+            label: `Historico PGDAS-D (${historico.length})`,
           },
         ].map(a => (
           <button
@@ -1434,13 +1580,77 @@ export default function AbaPGDAS({ cliente, regime }) {
       {/* DECLARACAO */}
       {aba === 'lancamento' && (
         <>
-          <AnalisadorIA
-            contexto="PGDAS-D — Declaracao e Atividades do Simples Nacional"
+          <DiagnosticoIAGerenciado
+            contexto={`PGDAS-D — Declaração e Atividades do Simples Nacional
+
+Sua única função nesta análise é produzir um DIAGNÓSTICO DOCUMENTAL do PGDAS-D apresentado.
+
+Analise exclusivamente os dados que constam no documento e nos dados fornecidos.
+
+REGRAS:
+
+- Descreva o período de apuração.
+- Informe o RPA.
+- Informe o RBT12 separadamente.
+- RPA e RBT12 representam grandezas distintas. Não compare os dois como se devessem ser iguais.
+- Descreva as atividades declaradas.
+- Descreva as receitas e segregações efetivamente informadas.
+- Descreva os tributos declarados e o DAS declarado.
+- Informe valores com exigibilidade suspensa quando existirem.
+- Pode apontar diferenças matemáticas objetivamente verificáveis dentro do próprio documento.
+- Não atribua uma diferença a arredondamento sem evidência.
+- Quando uma atividade estiver sem tributos individualizados, apenas registre esse fato documental. Não distribua nem rateie valores.
+- Receita monofásica de PIS/COFINS e ICMS-ST são institutos distintos.
+- Não conclua crédito tributário.
+- Não conclua restituição ou compensação.
+- Não conclua crédito de ICMS.
+- Não proponha mudança de Anexo.
+- Não proponha reenquadramento ou migração de regime.
+- Não calcule economia tributária.
+- Não homologue o DAS.
+- Não cite número de lei, artigo, parágrafo, inciso ou solução de consulta.
+
+FORMATO OBRIGATÓRIO:
+
+## DIAGNÓSTICO DOCUMENTAL
+
+Apresente somente o diagnóstico documental.
+
+NÃO crie as seções:
+OPORTUNIDADES
+PONTOS PARA VALIDAÇÃO
+PRÓXIMOS PASSOS
+CRÉDITOS
+RECUPERAÇÃO
+ECONOMIA TRIBUTÁRIA
+
+Essas etapas são controladas pelo próprio FiscalTribe.`}
             dados={dadosIA}
+            snapshotCompleto={snapshotCompletoPGDAS}
             cliente={cliente}
             regime={regime}
-          />
+            modelo="groq"
+            modulo="pgdas_d"
+            referenciaId={diagAberto?.id || null}
+            competencia={
+              diagAberto?.competencia ||
+              form.periodo_apuracao ||
+              ''
+            }
+            onVoltar={() => setAba('historico')}
+            onRestaurarSnapshot={restaurarSnapshotAnalise}
+            onLimparTudo={limparLancamento}
+            onAbrirReferencia={async referenciaId => {
+              const registro = historico.find(
+                item =>
+                  String(item.id) === String(referenciaId)
+              )
 
+              if (registro) {
+                await abrirDiagnostico(registro)
+              }
+            }}
+          />
           {diagAberto && (
             <div
               style={{
