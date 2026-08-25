@@ -86,10 +86,45 @@ function resolverMercadoDocumento(item) {
     }
   }
 
+  // Se indDest foi informado, mas nao possui valor reconhecido,
+  // nao sobrescrever a informacao com inferencia pelo CFOP.
+  if (indicadorDestino) {
+    return {
+      status: "mercado_nao_identificado",
+      mercado: null,
+      indicadorDestino,
+    }
+  }
+
+  // Fallback documental quando indDest esta ausente.
+  // Grupos 1, 2, 5 e 6 pertencem ao mercado interno.
+  // Grupos 3 e 7 representam operacoes com o exterior.
+  const cfop = String(item?.cfop ?? "")
+    .replace(/\D/g, "")
+    .trim()
+
+  const grupoCfop = cfop.charAt(0)
+
+  if (["1", "2", "5", "6"].includes(grupoCfop)) {
+    return {
+      status: "ok",
+      mercado: "mercado_interno",
+      indicadorDestino: null,
+    }
+  }
+
+  if (["3", "7"].includes(grupoCfop)) {
+    return {
+      status: "ok",
+      mercado: "mercado_externo",
+      indicadorDestino: null,
+    }
+  }
+
   return {
     status: "mercado_nao_identificado",
     mercado: null,
-    indicadorDestino: indicadorDestino || null,
+    indicadorDestino: null,
   }
 }
 

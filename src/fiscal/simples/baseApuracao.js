@@ -147,6 +147,65 @@ function identificarAtividadeUnicaPgdas(atividadesPgdas = []) {
   ).trim() || null
 }
 
+function resolverAtividadePgdasPorClassificacao({
+  atividadesPgdas = [],
+  classificacaoPisCofins = null,
+} = {}) {
+
+  const atividadeUnica =
+    identificarAtividadeUnicaPgdas(atividadesPgdas)
+
+  if (atividadeUnica) {
+    return atividadeUnica
+  }
+
+  if (!Array.isArray(atividadesPgdas)) {
+    return null
+  }
+
+  const classificacao = String(
+    classificacaoPisCofins ?? ""
+  ).trim()
+
+  let exigeTratamentoEspecifico = null
+
+  if (
+    classificacao === "monofasico" ||
+    classificacao === "st_pis_cofins"
+  ) {
+    exigeTratamentoEspecifico = true
+  } else if (classificacao === "tributado") {
+    exigeTratamentoEspecifico = false
+  } else {
+    return null
+  }
+
+  const compativeis = atividadesPgdas.filter(atividade => {
+    const receita = Number(
+      atividade?.receita_bruta || 0
+    )
+
+    if (!(receita > 0)) return false
+
+    return (
+      Boolean(atividade?.pis_cofins_monofasico) ===
+      exigeTratamentoEspecifico
+    )
+  })
+
+  if (compativeis.length !== 1) {
+    return null
+  }
+
+  const atividade = compativeis[0]
+
+  return String(
+    atividade.tipo_atividade ||
+    atividade.descricao_original ||
+    ""
+  ).trim() || null
+}
+
 function prepararBaseApuracaoSimples({
   competencia,
   pgdas,
@@ -191,8 +250,6 @@ function prepararBaseApuracaoSimples({
     })
   }
 
-  const atividadeUnica =
-    identificarAtividadeUnicaPgdas(atividadesPgdas)
 
   const mapaDecisoesReceita = new Map()
 
@@ -367,7 +424,10 @@ function prepararBaseApuracaoSimples({
       qualificacao: {
         estabelecimento: null,
         mercado: null,
-        atividade: atividadeUnica,
+        atividade: resolverAtividadePgdasPorClassificacao({
+          atividadesPgdas,
+          classificacaoPisCofins: classificacao.classificacao,
+        }),
         classificacaoPisCofins: classificacao.classificacao,
         classificacaoIcms: null,
         valor: valorReceita,
