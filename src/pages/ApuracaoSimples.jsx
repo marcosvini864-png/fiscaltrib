@@ -1899,11 +1899,18 @@ export default function ApuracaoSimples({
   }
 
   function statusTipo(s) {
-    if (!s) return 'aguardando'
-    if (s === 'Transmitida') return 'transmitida'
-    if (s === 'Em atraso') return 'em_atraso'
-    return 'aguardando'
-  }
+  if (!s) return 'aguardando'
+  if (s === 'Transmitida') return 'transmitida'
+  if (s === 'Concluida' || s === 'Concluída') return 'transmitida'
+  if (s === 'Em atraso') return 'em_atraso'
+  return 'aguardando'
+}
+
+function rotuloStatusApuracao(status) {
+  if (!status) return 'Aguardando'
+  if (status === 'Concluida') return 'Concluída'
+  return status
+}
 
   const filtradas = apuracoes.filter(a => {
     if (filtroStatus !== 'todos' && a.status_apuracao?.toLowerCase().replace(' ', '_') !== filtroStatus) return false
@@ -2408,7 +2415,7 @@ export default function ApuracaoSimples({
       competencia:
         detalhe.competencia,
       statusApuracao:
-        detalhe.status_apuracao || 'Aguardando',
+        rotuloStatusApuracao(detalhe.status_apuracao),
       statusDeclaracao:
         detalhe.status_declaracao || 'Aguardando',
       tipoDeclaracao:
@@ -2812,7 +2819,7 @@ export default function ApuracaoSimples({
               }}
             >
               <Badge
-                label={detalhe.status_apuracao || 'Aguardando'}
+                label={rotuloStatusApuracao(detalhe.status_apuracao)}
                 tipo={statusTipo(detalhe.status_apuracao)}
               />
               <span
@@ -3031,7 +3038,7 @@ export default function ApuracaoSimples({
                   [
                     'Status da apuração',
                     <Badge
-                      label={detalhe.status_apuracao || 'Aguardando'}
+                      label={rotuloStatusApuracao(detalhe.status_apuracao)}
                       tipo={statusTipo(detalhe.status_apuracao)}
                     />,
                   ],
@@ -5397,7 +5404,7 @@ export default function ApuracaoSimples({
                             <td style={{ padding: '8px 10px', color: S.navy }}>{fmtR(a.imposto_apurado)}</td>
                             <td style={{ padding: '8px 10px' }}><Badge label={fmtPct(a.aliquota_efetiva)} tipo="original" /></td>
                             <td style={{ padding: '8px 10px', color: S.muted }}>{a.tipo_declaracao || '—'}</td>
-                            <td style={{ padding: '8px 10px' }}><Badge label={a.status_apuracao || 'Aguardando'} tipo={statusTipo(a.status_apuracao)} /></td>
+                            <td style={{ padding: '8px 10px' }}><Badge label={rotuloStatusApuracao(a.status_apuracao)} tipo={statusTipo(a.status_apuracao)} /></td>
                             <td style={{ padding: '8px 10px' }}><Badge label={a.status_declaracao || 'Aguardando'} tipo={statusTipo(a.status_declaracao)} /></td>
                             <td style={{ padding: '8px 10px', color: S.muted, fontSize: 10 }}>{a.data_transmissao || '—'}</td>
                             <td style={{ padding: '8px 10px' }}>
