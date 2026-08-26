@@ -216,6 +216,8 @@ function rotuloStatusMotor(status) {
 
     resultado_inconsistente_segregacao_receitas:
       'Segregação de receitas inconsistente',
+	  apuracao_original_superior:
+      'Apuração original superior ao valor conferido',
   }
 
   if (mapa[s]) return mapa[s]
@@ -1475,8 +1477,10 @@ export default function ApuracaoSimples({
         numeroRelatorio(resultado.credito?.total),
       decisaoDivergencia:
         rotuloDecisao,
-      situacaoComparacao:
-        comparacao.situacao || '—',
+        situacaoComparacao:
+        comparacao.situacao
+        ? rotuloStatusMotor(comparacao.situacao)
+        : '—',
       etapas: [
         {
           label: 'Conferência da receita',
@@ -2472,7 +2476,9 @@ export default function ApuracaoSimples({
       decisaoDivergencia:
         decisaoDetalhe,
       situacaoComparacao:
-        comparacaoDetalhe.situacao || '—',
+        comparacaoDetalhe.situacao
+      ? rotuloStatusMotor(comparacaoDetalhe.situacao)
+      : '—',
       etapas:
         temMemoriaCompleta
           ? [
