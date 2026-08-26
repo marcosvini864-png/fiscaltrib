@@ -51,6 +51,20 @@ const num = v => {
 
 const str = v => (v === null || v === undefined ? '' : String(v))
 
+const normalizarTipoDeclaracao = v => {
+  const s = str(v)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+  if (!s) return ''
+  if (s.includes('retific')) return 'Retificadora'
+  if (s.includes('original')) return 'Original'
+
+  return ''
+}
+
 const bool = v => {
   if (typeof v === 'boolean') return v
   const s = String(v ?? '').trim().toLowerCase()
@@ -703,7 +717,7 @@ export default function AbaPGDAS({ cliente, regime }) {
         periodo_apuracao:
           str(parsed.periodo_apuracao) || prev.periodo_apuracao,
         tipo_declaracao:
-          str(parsed.tipo_declaracao) || prev.tipo_declaracao,
+        normalizarTipoDeclaracao(parsed.tipo_declaracao) || prev.tipo_declaracao,
         num_declaracao:
           str(parsed.num_declaracao) || prev.num_declaracao,
         num_recibo:
