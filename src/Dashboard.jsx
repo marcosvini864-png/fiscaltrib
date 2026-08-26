@@ -26,10 +26,13 @@ import PainelSimples from './pages/PainelSimples'
 import AbaMonofasicos from './pages/abas/AbaMonofasicos'
 import AbaPGDAS from './pages/abas/AbaPGDAS'
 import ApuracaoSimples from './pages/ApuracaoSimples'
+import EspelhoRetificacaoPGDAS from './pages/EspelhoRetificacaoPGDAS'
 import AbaRecuperacaoMonofasicos from './pages/AbaRecuperacaoMonofasicos'
 import AbaICMSST from './pages/abas/AbaICMSST'
 import ExclusaoICMS from './pages/ExclusaoICMS'
 import PainelRecuperacao from './pages/PainelRecuperacao'
+import ProntuarioEmpresa from './pages/ProntuarioEmpresa'
+import CentralConsultas from './pages/CentralConsultas'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -69,6 +72,7 @@ const MODULES = {
   dados_complementares: { label:'Dados Complementares',     tabs:[] },
   classificacao_itens:  { label:'Classificação de Itens',   tabs:[] },
   apuracao_simples:     { label:'Apuração do Simples',      tabs:[] },
+  central_consultas: { label:'Central de Consultas', tabs:[] },
   recuperacao:          { label:'Recuperacao',              tabs:['Gestao','PER/DCOMP'] },
   sped:                 { label:'Auditor de SPED',          tabs:[] },
   analise:              { label:'Analise Fiscal',           tabs:['Diagnostico','Analise IA','Teses Tributarias','Simuladores','Calculadoras'] },
@@ -114,6 +118,7 @@ const MENU_SECOES = [
       { label:'Dados Complementares',  module:'dados_complementares', tab:0, icon:'📋' },
       { label:'Classificação de Itens',module:'classificacao_itens',  tab:0, icon:'📋' },
       { label:'Apuração do Simples',   module:'apuracao_simples',     tab:0, icon:'📅' },
+	  { label:'Central de Consultas', module:'central_consultas', tab:0, icon:'🔎' },
     ],
   },
   {
@@ -412,12 +417,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [salvando, setSalvando] = useState(false)
   const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
   const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
+  const [apuracaoEspelho, setApuracaoEspelho] = useState(null)
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
   const [cRbt,setCRbt]=useState(''); const [cAtv2,setCAtv2]=useState('8'); const [cDtpag,setCDtpag]=useState('')
   const [permissoesModulos, setPermissoesModulos] = useState(null)
   const contentRef = useRef(null)
+  const [clienteProntuario, setClienteProntuario] = useState(null)
+  const [origemProntuario, setOrigemProntuario] = useState('clientes')
 
   useEffect(() => {
   carregarClientes()
@@ -692,6 +700,23 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                       <div style={{fontSize:10,color:C.muted,marginBottom:8}}>potencial</div>
                       <div style={{display:'flex',gap:6,justifyContent:'flex-end',flexWrap:'wrap'}}>
                         <button onClick={()=>{setNovoCliente({...c});setModoNovoCliente('manual');setActiveTab(1)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Editar</button>
+						<button
+                        onClick={() => {
+                        setActiveId(c.id.toString())
+                        setClienteProntuario(c)
+						setOrigemProntuario('clientes')
+                        setModule('prontuario_empresa')
+                        setActiveTab(0)
+                        setSidebarAtiva('clientes:0')
+                        }}
+                        style={{
+                        ...btnOutline,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        }}
+                        >
+                        Prontuário
+                        </button>
                         <button onClick={()=>{setActiveId(c.id.toString());navigateTo('analise',0)}} style={{...btnPrimary,padding:'4px 10px',fontSize:11}}>Analisar</button>
                         <button onClick={()=>excluirCliente(c)} style={btnDanger}>Excluir</button>
                       </div>
@@ -787,6 +812,32 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               </div>
               <button onClick={()=>navigateTo('analise',0)} style={btnOutline}>Ir para diagnóstico</button>
             </>}
+			
+			{module === 'prontuario_empresa' && clienteProntuario && (
+  <ProntuarioEmpresa
+    cliente={clienteProntuario}
+    onVoltar={() => {
+  setClienteProntuario(null)
+
+  if (origemProntuario === 'central_consultas') {
+    setModule('central_consultas')
+    setActiveTab(0)
+    setSidebarAtiva('central_consultas:0')
+  } else {
+    setModule('clientes')
+    setActiveTab(0)
+    setSidebarAtiva('clientes:0')
+  }
+}}
+    onEditarCliente={(cliente) => {
+      setNovoCliente({ ...cliente })
+      setModoNovoCliente('manual')
+      setModule('clientes')
+      setActiveTab(1)
+      setSidebarAtiva('clientes:1')
+    }}
+  />
+)}
 
             {module==='gestao_empresas' && (
               <GestaoEmpresas onSelecionarCliente={(emp)=>{ setActiveId(emp.id); navigateTo('diagnostico',0) }} />
@@ -851,7 +902,56 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               <DadosComplementares clienteId={activeId} cliente={active} onDadosSalvos={(dados)=>console.log('Dados salvos:',dados)} />
             )}
             {module==='classificacao_itens' && <ClassificacaoItens clienteId={activeId} cliente={active} />}
-            {module==='apuracao_simples' && <ApuracaoSimples />}
+            {module==='apuracao_simples' && (
+            apuracaoEspelho ? (
+            <EspelhoRetificacaoPGDAS
+            apuracao={apuracaoEspelho}
+            onVoltar={() => setApuracaoEspelho(null)}
+            />
+            ) : (
+            <ApuracaoSimples
+            onGerarEspelho={setApuracaoEspelho}
+            />
+            )
+            )}
+			
+{module === 'central_consultas' && (
+  <CentralConsultas
+    onAbrirProntuario={(cliente) => {
+      if (!cliente) return
+      setActiveId(cliente.id.toString())
+      setClienteProntuario(cliente)
+	  setOrigemProntuario('central_consultas')
+      setModule('prontuario_empresa')
+      setActiveTab(0)
+      setSidebarAtiva('clientes:0')
+    }}
+    onAbrirOrigem={(tipo, registro, cliente) => {
+      if (cliente?.id) {
+        setActiveId(cliente.id.toString())
+      }
+
+      if (
+        tipo === 'apuracoes' ||
+        tipo === 'memorias' ||
+        tipo === 'resultados' ||
+        tipo === 'espelhos'
+      ) {
+        navigateTo('apuracao_simples', 0)
+        return
+      }
+
+      if (tipo === 'pgdas') {
+        navigateTo('pgdas', 0)
+        return
+      }
+
+      if (tipo === 'diagnosticos') {
+        navigateTo('monofasicos', 0)
+      }
+    }}
+  />
+)}
 
             {module==='recuperacao' && activeTab===0 && <GestaoRecuperacoes />}
             {module==='recuperacao' && activeTab===1 && <PerdComp />}

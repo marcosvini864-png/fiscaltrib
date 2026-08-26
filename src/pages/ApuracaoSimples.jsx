@@ -349,7 +349,9 @@ const VAZIO = {
   data_transmissao: '', transmitido_por: ''
 }
 
-export default function ApuracaoSimples() {
+export default function ApuracaoSimples({
+  onGerarEspelho,
+}) {
   const [apuracoes, setApuracoes]     = useState([])
   const [clientes, setClientes]       = useState({})
   const [loading, setLoading]         = useState(false)
@@ -550,20 +552,45 @@ export default function ApuracaoSimples() {
     setClientes(mapa)
     setLoading(false)
   }
+  
+  async function consultaMotorComTimeout(consulta, etapa, ms = 20000) {
+  let timer
+
+  try {
+    return await Promise.race([
+      consulta,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              'Tempo excedido ao ' + etapa +
+              '. Verifique a conexão com o Supabase e tente novamente.'
+            )
+          )
+        }, ms)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
   async function carregarClassificacoesMotor(itemIds) {
     if (!Array.isArray(itemIds) || itemIds.length === 0) return []
 
     const resultado = []
-    const tamanhoLote = 200
+    const tamanhoLote = 50
 
     for (let i = 0; i < itemIds.length; i += tamanhoLote) {
       const lote = itemIds.slice(i, i + tamanhoLote)
 
-      const { data, error } = await supabase
-        .from('itens_classificacoes')
-        .select('*')
-        .in('item_id', lote)
+      const { data, error } = await consultaMotorComTimeout(
+        supabase
+          .from('itens_classificacoes')
+          .select('*')
+          .in('item_id', lote),
+        'buscar as classificações dos itens'
+      )
 
       if (error) throw error
 
@@ -593,11 +620,15 @@ export default function ApuracaoSimples() {
     setMotorAnalise(null)
 
     try {
-      const { data: pgdasLista, error: erroPgdas } = await supabase
-        .from('diagnosticos_pgdas')
-        .select('*')
-        .eq('cliente_id', motorClienteId)
-        .order('created_at', { ascending: false })
+      const { data: pgdasLista, error: erroPgdas } =
+        await consultaMotorComTimeout(
+          supabase
+            .from('diagnosticos_pgdas')
+            .select('*')
+            .eq('cliente_id', motorClienteId)
+            .order('created_at', { ascending: false }),
+          'buscar o PGDAS-D'
+        )
 
       if (erroPgdas) throw erroPgdas
 
@@ -622,20 +653,28 @@ export default function ApuracaoSimples() {
 
       const pgdas = pgdasCompativeis[0]
 
-      const { data: atividadesPgdas, error: erroAtividades } = await supabase
-        .from('diagnosticos_pgdas_atividades')
-        .select('*')
-        .eq('diagnostico_id', pgdas.id)
-        .order('ordem_atividade', { ascending: true })
+      const { data: atividadesPgdas, error: erroAtividades } =
+        await consultaMotorComTimeout(
+          supabase
+            .from('diagnosticos_pgdas_atividades')
+            .select('*')
+            .eq('diagnostico_id', pgdas.id)
+            .order('ordem_atividade', { ascending: true }),
+          'buscar as atividades do PGDAS-D'
+        )
 
       if (erroAtividades) throw erroAtividades
 
-      const { data: itensDaCompetencia, error: erroItens } = await supabase
-        .from('diagnostico_monofasico_itens')
-        .select('*')
-        .eq('cliente_id', motorClienteId)
-        .eq('competencia', motorCompetencia)
-        .order('ordem_item', { ascending: true })
+      const { data: itensDaCompetencia, error: erroItens } =
+        await consultaMotorComTimeout(
+          supabase
+            .from('diagnostico_monofasico_itens')
+            .select('*')
+            .eq('cliente_id', motorClienteId)
+            .eq('competencia', motorCompetencia)
+            .order('ordem_item', { ascending: true }),
+          'buscar os itens XML da competência'
+        )
 
       if (erroItens) throw erroItens
 
@@ -668,11 +707,15 @@ export default function ApuracaoSimples() {
         )
       }
 
-      const { data: diagnosticoMono, error: erroDiagnosticoMono } = await supabase
-        .from('diagnosticos_monofasicos')
-        .select('*')
-        .eq('id', diagnosticosIds[0])
-        .single()
+      const { data: diagnosticoMono, error: erroDiagnosticoMono } =
+        await consultaMotorComTimeout(
+          supabase
+            .from('diagnosticos_monofasicos')
+            .select('*')
+            .eq('id', diagnosticosIds[0])
+            .single(),
+          'buscar o diagnóstico monofásico'
+        )
 
       if (erroDiagnosticoMono) throw erroDiagnosticoMono
 
@@ -685,13 +728,17 @@ export default function ApuracaoSimples() {
         const fimItensFiscais =
           inicioItensFiscais + tamanhoLoteItensFiscais - 1
 
-        const { data: loteItensFiscais, error: erroCadastro } = await supabase
-          .from('itens_fiscais')
-          .select('*')
-          .eq('cliente_id', motorClienteId)
-          .order('descricao', { ascending: true })
-          .order('id', { ascending: true })
-          .range(inicioItensFiscais, fimItensFiscais)
+        const { data: loteItensFiscais, error: erroCadastro } =
+          await consultaMotorComTimeout(
+            supabase
+              .from('itens_fiscais')
+              .select('*')
+              .eq('cliente_id', motorClienteId)
+              .order('descricao', { ascending: true })
+              .order('id', { ascending: true })
+              .range(inicioItensFiscais, fimItensFiscais),
+            'buscar o cadastro de itens fiscais'
+          )
 
         if (erroCadastro) throw erroCadastro
 
@@ -2592,6 +2639,34 @@ export default function ApuracaoSimples() {
                 }}
               >
                 Exportar PDF
+              </button>
+			  
+			  <button
+             onClick={() => {
+             if (!detalhe?.memoria_calculo) {
+             alert(
+             'Esta apuração não possui memória técnica salva e não pode gerar o Espelho de Retificação.'
+             )
+             return
+             }
+
+             if (typeof onGerarEspelho === 'function') {
+              onGerarEspelho(detalhe)
+              }
+              }}
+              style={{
+              minHeight: 34,
+              padding: '0 13px',
+              background: S.navy,
+              color: S.white,
+              border: 'none',
+              borderRadius: 7,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+              }}
+              >
+              Gerar Espelho de Retificação 
               </button>
 
               <button
@@ -5101,15 +5176,15 @@ export default function ApuracaoSimples() {
                 boxShadow: '0 3px 12px rgba(15,23,42,0.035)',
                 minHeight: 152,
                 display: 'grid',
-                gridTemplateColumns: '94px 1fr',
+                gridTemplateColumns: '108px 1fr',
                 gap: 13,
                 alignItems: 'center',
               }}
             >
               <div
                 style={{
-                  width: 82,
-                  height: 82,
+                  width: 96,
+                  height: 96,
                   borderRadius: '50%',
                   background: apuracoes.length
                     ? `conic-gradient(${S.green} 0 ${pctConcluidas}%, ${S.orange} ${pctConcluidas}% ${pctConcluidas + pctAguardando}%, ${S.red} ${pctConcluidas + pctAguardando}% 100%)`
@@ -5121,8 +5196,8 @@ export default function ApuracaoSimples() {
               >
                 <div
                   style={{
-                    width: 68,
-                    height: 68,
+                    width: 80,
+                    height: 80,
                     borderRadius: '50%',
                     background: S.white,
                     display: 'flex',
@@ -5134,7 +5209,7 @@ export default function ApuracaoSimples() {
                   <div style={{ fontSize: 18, fontWeight: 800, color: S.navy }}>{apuracoes.length}</div>
                   <div
                     style={{
-                      fontSize: apuracoes.length === 0 ? 9 : 10,
+                      fontSize: apuracoes.length === 0 ? 8.5 : 9,
                       color: S.muted,
                       textTransform: 'uppercase',
                       fontWeight: apuracoes.length === 0 ? 600 : 700,
