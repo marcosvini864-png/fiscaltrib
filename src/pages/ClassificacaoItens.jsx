@@ -190,6 +190,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [aprovando, setAprovando] = useState(false)
   const [confirmandoDemais, setConfirmandoDemais] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [limpandoTodos, setLimpandoTodos] = useState(false)
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -592,6 +593,78 @@ async function removerClassificacao(item) {
     } catch (e) { alert('Erro: ' + e.message) }
     finally { setSalvando(false) }
   }
+  
+  async function limparTodosItens() {
+  if (!clienteId || itens.length === 0) return
+
+  const total = itens.length
+  const nomeEmpresa =
+    cliente?.razao_social ||
+    'a empresa selecionada'
+
+  const confirmar = window.confirm(
+    `ATENÇÃO!\n\n` +
+    `Você está prestes a excluir TODOS os ${total} itens cadastrados de:\n\n` +
+    `${nomeEmpresa}\n\n` +
+    `Esta ação também removerá o histórico de classificação desses itens.\n\n` +
+    `Deseja continuar?`
+  )
+
+  if (!confirmar) return
+
+  setLimpandoTodos(true)
+
+  try {
+    const ids = itens
+      .map(item => item.id)
+      .filter(Boolean)
+
+    // Remove primeiro o histórico das classificações
+    // para evitar conflito de chave estrangeira.
+    const tamanhoLote = 200
+
+    for (let i = 0; i < ids.length; i += tamanhoLote) {
+      const loteIds = ids.slice(i, i + tamanhoLote)
+
+      const { error: erroHistorico } = await supabase
+        .from('itens_classificacoes')
+        .delete()
+        .in('item_id', loteIds)
+
+      if (erroHistorico) throw erroHistorico
+    }
+
+    // Remove TODOS os itens do cliente ativo diretamente no banco.
+    // Não depende de página, busca, filtro ou seleção.
+    const { error: erroItens } = await supabase
+      .from('itens_fiscais')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroItens) throw erroItens
+
+    setItens([])
+    setSelecionados([])
+    setBusca('')
+    setFiltro('todos')
+    setPagina(1)
+    setMenuAberto(null)
+
+    alert(
+      `${total} item(s) excluído(s) com sucesso de ${nomeEmpresa}.`
+    )
+
+  } catch (e) {
+    console.error('Erro ao limpar todos os itens:', e)
+
+    alert(
+      'Erro ao limpar todos os itens: ' +
+      (e.message || 'falha desconhecida')
+    )
+  } finally {
+    setLimpandoTodos(false)
+  }
+}
 
   if (!clienteId) return (
     <div style={{ textAlign: 'center', padding: 60, color: S.muted }}>
@@ -927,6 +1000,31 @@ async function removerClassificacao(item) {
                 <button onClick={selecionarTodos} disabled={!temDados || loading}
                   style={{ padding: '6px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: temDados ? 'pointer' : 'not-allowed', color: S.muted, opacity: temDados ? 1 : 0.5 }}>
                   Selecionar todos ({temDados ? itensFiltrados.length : '—'})
+                </button>
+				<button
+                onClick={limparTodosItens}
+                disabled={!temDados || loading || limpandoTodos}
+                style={{
+                padding: '6px 14px',
+                background: '#fef2f2',
+                color: S.red,
+                border: '1px solid #fecaca',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor:
+                !temDados || loading || limpandoTodos
+                ? 'not-allowed'
+                : 'pointer',
+                opacity:
+                !temDados || loading
+                ? 0.5
+                : 1,
+                }}
+                >
+                {limpandoTodos
+                ? '⏳ Limpando...'
+                : '🗑 Limpar todos os itens'}
                 </button>
                 <button onClick={() => carregar()}
                   style={{ padding: '6px 12px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: S.muted }}>
