@@ -386,29 +386,177 @@ export default function DadosComplementares({ clienteId, cliente, onDadosSalvos 
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
 
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #0B1F4D, #163B8C)', borderRadius: 16, padding: '20px 28px', marginBottom: 20, color: '#fff' }}>
-        <div style={{ fontSize: 10, color: '#7CC4FF', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>e-FISCALTRIBE — MOTOR DE INTELIGÊNCIA TRIBUTÁRIA</div>
-        <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>📋 Dados Complementares</div>
-        <div style={{ fontSize: 13, color: '#93c5fd' }}>
-          {cliente?.razao_social} · {regime} · Preencha uma vez — o Motor usa automaticamente em toda análise
-        </div>
+<div
+  style={{
+    background: C.white,
+    border: `1px solid ${C.border}`,
+    borderRadius: 10,
+    padding: '14px 18px',
+    marginBottom: 16,
+  }}
+>
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 16,
+      flexWrap: 'wrap',
+    }}
+  >
+    <div>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: C.text,
+          marginBottom: 4,
+        }}
+      >
+        Dados Complementares
       </div>
 
-      {/* Status dos módulos */}
-      <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Status dos módulos do Motor</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {MODULOS_STATUS.filter(m => m.regime.includes(regime)).map(m => {
-            const st = statusModulo(m.id)
-            return (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${st.ok === true ? '#86efac' : st.ok === false ? '#fed7aa' : C.border}`, background: st.ok === true ? '#f0fdf4' : st.ok === false ? '#fff7ed' : C.bg }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: st.ok === true ? C.verde : st.ok === false ? C.orange : C.muted }}>{m.nome}</span>
-                <span style={{ fontSize: 11, color: st.ok === true ? C.verde : st.ok === false ? C.orange : C.muted }}>{st.label}</span>
-              </div>
-            )
-          })}
-        </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: C.muted,
+        }}
+      >
+        Informações adicionais utilizadas automaticamente pelos módulos de análise tributária.
       </div>
+    </div>
+
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+      }}
+    >
+      <span
+        style={{
+          padding: '4px 8px',
+          borderRadius: 6,
+          background: '#F1F5F9',
+          border: `1px solid ${C.border}`,
+          fontSize: 11,
+          fontWeight: 600,
+          color: C.text,
+        }}
+      >
+        {cliente?.razao_social || 'Cliente'}
+      </span>
+
+      <span
+        style={{
+          padding: '4px 8px',
+          borderRadius: 6,
+          background: '#F8FAFC',
+          border: `1px solid ${C.border}`,
+          fontSize: 11,
+          fontWeight: 600,
+          color: C.muted,
+        }}
+      >
+        {regime}
+      </span>
+    </div>
+  </div>
+</div>
+
+      {/* Status dos módulos */}
+<div
+  style={{
+    background: C.white,
+    borderRadius: 10,
+    border: `1px solid ${C.border}`,
+    padding: '10px 14px',
+    marginBottom: 16,
+  }}
+>
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap',
+    }}
+  >
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: C.muted,
+        marginRight: 4,
+      }}
+    >
+      Status dos módulos
+    </span>
+
+    {MODULOS_STATUS
+      .filter(m => m.regime.includes(regime))
+      .map(m => {
+        const st = statusModulo(m.id)
+
+        return (
+          <div
+            key={m.id}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: `1px solid ${
+                st.ok === true
+                  ? '#86efac'
+                  : st.ok === false
+                    ? '#fed7aa'
+                    : C.border
+              }`,
+              background:
+                st.ok === true
+                  ? '#f0fdf4'
+                  : st.ok === false
+                    ? '#fff7ed'
+                    : '#F8FAFC',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color:
+                  st.ok === true
+                    ? C.verde
+                    : st.ok === false
+                      ? C.orange
+                      : C.muted,
+              }}
+            >
+              {m.nome}
+            </span>
+
+            <span
+              style={{
+                fontSize: 10,
+                color:
+                  st.ok === true
+                    ? C.verde
+                    : st.ok === false
+                      ? C.orange
+                      : C.muted,
+              }}
+            >
+              {st.label}
+            </span>
+          </div>
+        )
+      })}
+  </div>
+</div>
 
       {/* Seção por regime */}
       {regime === 'Simples Nacional' && (
@@ -584,17 +732,66 @@ export default function DadosComplementares({ clienteId, cliente, onDadosSalvos 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button onClick={salvar} disabled={salvando}
-          style={{ flex: 1, padding: '14px 0', background: salvando ? C.border : C.navy, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: salvando ? 'not-allowed' : 'pointer' }}>
-          {salvando ? 'Salvando...' : '💾 Salvar Dados Complementares'}
-        </button>
-        {salvo && (
-          <div style={{ padding: '10px 16px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, fontSize: 13, fontWeight: 700, color: C.verde }}>
-            ✅ Dados salvos!
-          </div>
-        )}
-      </div>
+      <div
+  style={{
+    display: 'flex',
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  }}
+>
+  <button
+    onClick={salvar}
+    disabled={salvando}
+    style={{
+      padding: '9px 18px',
+      background: salvando ? C.border : C.navy,
+      color: salvando ? C.text : C.white,
+      border: 'none',
+      borderRadius: 6,
+      fontSize: 13,
+      fontWeight: 700,
+      cursor: salvando ? 'not-allowed' : 'pointer',
+      minWidth: 210,
+    }}
+  >
+    {salvando
+      ? 'Salvando...'
+      : '💾 Salvar Dados Complementares'}
+  </button>
+
+  {salvo && (
+    <div
+      style={{
+        padding: '8px 12px',
+        background: '#f0fdf4',
+        border: '1px solid #86efac',
+        borderRadius: 6,
+        fontSize: 12,
+        fontWeight: 700,
+        color: C.verde,
+      }}
+    >
+      ✓ Dados salvos
+    </div>
+  )}
+</div>
+          {erro && (
+  <div
+    style={{
+      background: '#fef2f2',
+      border: '1px solid #fecaca',
+      borderRadius: 8,
+      padding: '10px 14px',
+      color: C.red,
+      fontSize: 13,
+      marginBottom: 12,
+    }}
+  >
+    ⚠️ {erro}
+  </div>
+)}
 
       <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 11, color: '#92400e' }}>
         💡 Esses dados são usados automaticamente pelo Motor de Inteligência Tributária ao rodar o diagnóstico. Atualize sempre que houver mudanças nos dados financeiros do cliente.

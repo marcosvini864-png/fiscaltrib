@@ -33,6 +33,8 @@ import ExclusaoICMS from './pages/ExclusaoICMS'
 import PainelRecuperacao from './pages/PainelRecuperacao'
 import ProntuarioEmpresa from './pages/ProntuarioEmpresa'
 import CentralConsultas from './pages/CentralConsultas'
+import ManualOperacao from './pages/ManualOperacao'
+import ManualFlutuante from './pages/ManualFlutuante'
 
 const REGIME_DOCS = {
   'Simples Nacional': ['Extratos do PGDAS-D','Recibos de transmissao PGDAS-D','DEFIS','DAS pagos','Relacao de receitas segregadas por anexo','Receitas com substituicao tributaria','Receitas monofasicas','Receitas com retencao','Receitas de exportacao','Notas fiscais de entrada','Notas fiscais de saida','XMLs de NF-e/NFS-e/NFC-e','Relatorio de faturamento mensal','Extrato do Simples Nacional','Consulta de debitos','Comprovantes de pagamento'],
@@ -57,6 +59,7 @@ const C = {
 
 const MODULES = {
   painel:               { label:'Painel',                   tabs:[] },
+  manual_operacao:      { label:'Manual de Operação',       tabs:[] },
   clientes:             { label:'Clientes',                 tabs:['Clientes','Novo cliente','Checklist de Documentos'] },
   gestao_empresas:      { label:'Gestao de Empresas',       tabs:[] },
   grupo_empresas:       { label:'Grupo de Empresas',        tabs:[] },
@@ -99,6 +102,19 @@ const MENU_SECOES = [
     ],
   },
   {
+    id: 'motor_simples',
+    titulo: 'MOTOR DO SIMPLES',
+    itens: [
+      { label:'Importar e Analisar XML', module:'monofasicos', tab:0, icon:'📥' },
+      { label:'Importar PGDAS-D', module:'pgdas', tab:0, icon:'📄' },
+      { label:'Painel de Controle',    module:'painel_simples',       tab:0, icon:'📊' },
+      { label:'Dados Complementares',  module:'dados_complementares', tab:0, icon:'📋' },
+      { label:'Classificação e Segregação', module:'classificacao_itens', tab:0, icon:'🏷️' },
+      { label:'Apuração do Simples',   module:'apuracao_simples',     tab:0, icon:'📅' },
+	  { label:'Central de Consultas', module:'central_consultas', tab:0, icon:'🔎' },
+    ],
+  },
+  {
     id: 'diagnostico_tributario',
     titulo: 'DIAGNÓSTICO TRIBUTÁRIO',
     itens: [
@@ -106,19 +122,6 @@ const MENU_SECOES = [
       { label:'Tema 69 — Exclusão ICMS',  module:'exclusao_icms',            tab:0, icon:'🧾' },
       { label:'ICMS-ST Pago a Maior',     module:'icms_st_rec',              tab:0, icon:'📄' },
       { label:'Dívida Ativa',             module:'divida',                   tab:0, icon:'⚠️' },
-    ],
-  },
-  {
-    id: 'motor_simples',
-    titulo: 'MOTOR DO SIMPLES',
-    itens: [
-      { label:'Monofásicos',            module:'monofasicos',          tab:0, icon:'💊' },
-      { label:'PGDAS-D',               module:'pgdas',                tab:0, icon:'📄' },
-      { label:'Painel de Controle',    module:'painel_simples',       tab:0, icon:'📊' },
-      { label:'Dados Complementares',  module:'dados_complementares', tab:0, icon:'📋' },
-      { label:'Classificação de Itens',module:'classificacao_itens',  tab:0, icon:'📋' },
-      { label:'Apuração do Simples',   module:'apuracao_simples',     tab:0, icon:'📅' },
-	  { label:'Central de Consultas', module:'central_consultas', tab:0, icon:'🔎' },
     ],
   },
   {
@@ -268,6 +271,40 @@ function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente
           <span style={{fontSize:18, flexShrink:0}}>📊</span>
           {aberta && <span style={{whiteSpace:'nowrap'}}>Painel</span>}
         </button>
+		<button
+  onClick={() => {
+    onNavigate('manual_operacao', 0)
+    if (isMobile) setMenuAberto(false)
+  }}
+  style={{
+    width:'100%',
+    display:'flex',
+    alignItems:'center',
+    gap:12,
+    padding: aberta ? '13px 16px' : '13px 0',
+    justifyContent: aberta ? 'flex-start' : 'center',
+    background: sidebarAtiva==='manual_operacao:0' ? '#1E293B' : 'none',
+    border:'none',
+    borderLeft: sidebarAtiva==='manual_operacao:0'
+      ? `3px solid ${C.blue}`
+      : '3px solid transparent',
+    cursor:'pointer',
+    color: sidebarAtiva==='manual_operacao:0'
+      ? C.sidebarActiveText
+      : C.sidebarText,
+    fontSize:14,
+    textAlign:'left',
+    fontWeight: sidebarAtiva==='manual_operacao:0' ? 600 : 500,
+  }}
+>
+  <span style={{fontSize:18, flexShrink:0}}>📖</span>
+
+  {aberta && (
+    <span style={{whiteSpace:'nowrap'}}>
+      Manual de Operação
+    </span>
+  )}
+</button>
 
         <nav style={{flex:1, padding:'8px 0'}}>
           {MENU_SECOES.map(secao => {
@@ -404,6 +441,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   useEffect(() => { localStorage.setItem('fiscaltrib_module', module) }, [module])
   const [activeTab, setActiveTab] = useState(0)
   const [sidebarAtiva, setSidebarAtiva] = useState('painel:0')
+  const [manualFlutuanteModo, setManualFlutuanteModo] = useState('recolhido')
   const [clientes, setClientes] = useState([])
   const [entradas, setEntradas] = useState({})
   const [checklist, setChecklist] = useState({})
@@ -615,6 +653,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           setMenuAberto={setMenuAberto}
           moduloPermitido={moduloPermitido}
         />
+		<ManualFlutuante
+        modo={manualFlutuanteModo}
+        onModoChange={setManualFlutuanteModo}
+        />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
@@ -681,7 +723,8 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
               )}
             </>}
 
-            {module==='clientes' && activeTab===0 && <>
+            {module === 'manual_operacao' && <ManualOperacao />}
+			{module==='clientes' && activeTab===0 && <>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
                 <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text}}>Clientes cadastrados</div>
                 <button onClick={()=>handleTab(1)} style={{...btnPrimary,padding:'7px 14px',fontSize:13}}>+ Novo</button>

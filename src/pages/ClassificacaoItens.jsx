@@ -202,14 +202,44 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
 
   async function carregar() {
     setLoading(true)
-    const { data } = await supabase
-      .from('itens_fiscais')
-      .select('*')
-      .eq('cliente_id', clienteId)
-      .order('descricao')
-    setItens(data || [])
-    setLoading(false)
-    setSelecionados([])
+
+    try {
+      const todos = []
+      const tamanhoLote = 1000
+      let inicio = 0
+
+      while (true) {
+        const fim = inicio + tamanhoLote - 1
+
+        const { data, error } = await supabase
+          .from('itens_fiscais')
+          .select('*')
+          .eq('cliente_id', clienteId)
+          .order('descricao', { ascending: true })
+          .order('id', { ascending: true })
+          .range(inicio, fim)
+
+        if (error) throw error
+
+        const lote = data || []
+        todos.push(...lote)
+
+        if (lote.length < tamanhoLote) break
+
+        inicio += tamanhoLote
+      }
+
+      setItens(todos)
+    } catch (e) {
+      console.error('Erro ao carregar itens fiscais:', e)
+      alert(
+        'Erro ao carregar itens fiscais: ' +
+        (e.message || 'falha desconhecida')
+      )
+      setItens([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const totalNaoClassificados = itens.filter(i => !i.class_pis_cofins_considerado).length
@@ -266,6 +296,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     if (monofasicos.length === 0) { alert('Nenhum item monofasico pendente de confirmacao.'); return }
     if (!window.confirm(`Confirmar ${monofasicos.length} itens como Monofasico?`)) return
     setAprovando(true)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     try {
       const { data: { user } } = await supabase.auth.getUser()
       for (const item of monofasicos) {
@@ -315,6 +346,7 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
     if (!window.confirm(mensagem)) return
 
     setConfirmandoDemais(true)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -699,7 +731,27 @@ async function removerClassificacao(item) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {aprovando ? 'Aprovando...' : 'Aprovar em lote'}
+                {aprovando ? (
+  <span
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      minWidth: 100,
+      gap: 3,
+    }}
+  >
+    <span>{"\u23F3"} Aprovando...</span>
+    <progress
+      aria-label="Aprova??o dos itens monof?sicos em andamento"
+      style={{
+        width: '100%',
+        height: 5,
+        display: 'block',
+      }}
+    />
+  </span>
+) : 'Aprovar em lote'}
               </button>
             </div>
           )}
@@ -780,7 +832,27 @@ async function removerClassificacao(item) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {confirmandoDemais ? 'Confirmando...' : 'Confirmar em lote'}
+                {confirmandoDemais ? (
+  <span
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      minWidth: 105,
+      gap: 3,
+    }}
+  >
+    <span>{"\u23F3"} Confirmando...</span>
+    <progress
+      aria-label="Confirma??o dos itens tributados/ST em andamento"
+      style={{
+        width: '100%',
+        height: 5,
+        display: 'block',
+      }}
+    />
+  </span>
+) : 'Confirmar em lote'}
               </button>
             </div>
           )}
