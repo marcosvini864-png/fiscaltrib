@@ -3650,13 +3650,15 @@ function rotuloStatusApuracao(status) {
                 fundo: '#FFF7ED',
               },
               {
-                simbolo: '✓',
-                label: 'Transmitidas',
-                valor: apuracoes.filter(a => a.status_apuracao === 'Transmitida').length,
-                detalhe: 'Apurações concluídas',
-                cor: S.green,
-                fundo: '#F0FDF4',
-              },
+  simbolo: '✓',
+  label: 'Concluídas',
+  valor: apuracoes.filter(a =>
+    ['Concluida', 'Concluída', 'Transmitida'].includes(a.status_apuracao)
+  ).length,
+  detalhe: 'Apurações concluídas',
+  cor: S.green,
+  fundo: '#F0FDF4',
+},
               {
                 simbolo: '!',
                 label: 'Em atenção',
