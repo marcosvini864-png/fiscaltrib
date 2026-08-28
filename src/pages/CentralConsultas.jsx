@@ -44,7 +44,7 @@ const parseJson = value => {
 const first = (...values) =>
   values.find(v => v !== undefined && v !== null && String(v).trim() !== '')
 
-function ActionButton({ children, onClick, primary = false, disabled = false }) {
+function ActionButton({ children, onClick, primary = false, danger = false, disabled = false }) {
   return (
     <button
       type="button"
@@ -53,9 +53,23 @@ function ActionButton({ children, onClick, primary = false, disabled = false }) 
       style={{
         minHeight: 28,
         padding: '0 9px',
-        border: primary ? `1px solid ${S.navy}` : `1px solid ${S.border}`,
-        background: disabled ? '#F8FAFC' : primary ? S.navy : '#FFFFFF',
-        color: disabled ? '#94A3B8' : primary ? '#FFFFFF' : S.text,
+        border: danger
+          ? `1px solid ${S.red}`
+          : primary
+            ? `1px solid ${S.navy}`
+            : `1px solid ${S.border}`,
+        background: disabled
+          ? '#F8FAFC'
+          : danger
+            ? S.red
+            : primary
+              ? S.navy
+              : '#FFFFFF',
+        color: disabled
+          ? '#94A3B8'
+          : danger || primary
+            ? '#FFFFFF'
+            : S.text,
         borderRadius: 7,
         fontSize: 10,
         fontWeight: 700,
@@ -666,6 +680,8 @@ export default function CentralConsultas({
   const [historicoAberto, setHistoricoAberto] = useState(null)
   const [espelhoAberto, setEspelhoAberto] = useState(null)
   const [registroImpressao, setRegistroImpressao] = useState(null)
+  const [selecionadosExclusao, setSelecionadosExclusao] = useState([])
+  const [excluindo, setExcluindo] = useState(false)
 
   useEffect(() => {
     carregar()
@@ -1149,6 +1165,186 @@ export default function CentralConsultas({
   const totalApuracoesConsultaveis =
     apuracoes.length + snapshotsPreservados.length
 
+  function chaveExclusao(item) {
+    if (!item) return ''
+
+    if (item?.preservadoEmSnapshot && item?.grupoEspelho?.chave) {
+      return `espelho:${item.grupoEspelho.chave}`
+    }
+
+    if (item?.tipo === 'espelhos' && item?.grupoEspelho?.chave) {
+      return `espelho:${item.grupoEspelho.chave}`
+    }
+
+    if (['apuracoes', 'memorias', 'resultados'].includes(item?.tipo)) {
+      const apuracaoId = first(
+        item?.apuracao?.id,
+        item?.tipo === 'apuracoes' ? item?.registro?.id : null,
+        ''
+      )
+      return apuracaoId ? `apuracao:${apuracaoId}` : ''
+    }
+
+    if (item?.tipo === 'pgdas' && item?.registro?.id) {
+      return `pgdas:${item.registro.id}`
+    }
+
+    if (item?.tipo === 'diagnosticos' && item?.registro?.id) {
+      return `diagnostico:${item.registro.id}`
+    }
+
+    return ''
+  }
+
+  const chavesFiltradas = useMemo(
+    () => [...new Set(filtrados.map(chaveExclusao).filter(Boolean))],
+    [filtrados]
+  )
+
+  const todosFiltradosSelecionados =
+    chavesFiltradas.length > 0 &&
+    chavesFiltradas.every(chave => selecionadosExclusao.includes(chave))
+
+  const quantidadeLinhasSelecionadas = registros.filter(item =>
+    selecionadosExclusao.includes(chaveExclusao(item))
+  ).length
+
+  function alternarSelecao(item) {
+    const chave = chaveExclusao(item)
+    if (!chave) return
+
+    setSelecionadosExclusao(atual =>
+      atual.includes(chave)
+        ? atual.filter(valor => valor !== chave)
+        : [...atual, chave]
+    )
+  }
+
+  function alternarTodosFiltrados() {
+    setSelecionadosExclusao(atual => {
+      if (todosFiltradosSelecionados) {
+        return atual.filter(chave => !chavesFiltradas.includes(chave))
+      }
+
+      return [...new Set([...atual, ...chavesFiltradas])]
+    })
+  }
+
+  async function executarExclusao(chaves) {
+    const alvos = [...new Set(chaves.filter(Boolean))]
+    if (alvos.length === 0) return
+
+    setExcluindo(true)
+    setErro('')
+
+    try {
+      for (const chave of alvos) {
+        const separador = chave.indexOf(':')
+        const tipoAlvo = chave.slice(0, separador)
+        const identificador = chave.slice(separador + 1)
+
+        if (tipoAlvo === 'espelho') {
+          const grupo = gruposEspelhos.find(item => item.chave === identificador)
+          const ids = (grupo?.versoes || []).map(item => item?.id).filter(Boolean)
+
+          if (ids.length > 0) {
+            const { error } = await supabase
+              .from('espelhos_retificacao_pgdas')
+              .delete()
+              .in('id', ids)
+
+            if (error) throw error
+          }
+
+          continue
+        }
+
+        if (tipoAlvo === 'apuracao') {
+          const { error: erroEspelhos } = await supabase
+            .from('espelhos_retificacao_pgdas')
+            .delete()
+            .eq('apuracao_id', String(identificador))
+
+          if (erroEspelhos) throw erroEspelhos
+
+          const { error: erroApuracao } = await supabase
+            .from('apuracoes_simples')
+            .delete()
+            .eq('id', identificador)
+
+          if (erroApuracao) throw erroApuracao
+          continue
+        }
+
+        if (tipoAlvo === 'pgdas') {
+          const { error } = await supabase
+            .from('diagnosticos_pgdas')
+            .delete()
+            .eq('id', identificador)
+
+          if (error) throw error
+          continue
+        }
+
+        if (tipoAlvo === 'diagnostico') {
+          const { error } = await supabase
+            .from('diagnosticos_monofasicos')
+            .delete()
+            .eq('id', identificador)
+
+          if (error) throw error
+        }
+      }
+
+      setSelecionadosExclusao([])
+      setRegistroAberto(null)
+      setHistoricoAberto(null)
+      await carregar()
+    } catch (e) {
+      const mensagem = e?.message || 'Erro ao excluir registro.'
+      setErro(mensagem)
+      alert('Erro ao excluir: ' + mensagem)
+    } finally {
+      setExcluindo(false)
+    }
+  }
+
+  async function excluirRegistro(item) {
+    const chave = chaveExclusao(item)
+    if (!chave) {
+      alert('Este registro não possui uma origem removível identificada.')
+      return
+    }
+
+    const relacionados = registros.filter(
+      registro => chaveExclusao(registro) === chave
+    )
+
+    const complemento = relacionados.length > 1
+      ? `\n\nEste registro possui ${relacionados.length} visualizações vinculadas na Central, que serão removidas em conjunto.`
+      : ''
+
+    if (!window.confirm(
+      `Excluir "${item?.tipoLabel || 'registro'}" da competência ${item?.competencia || '—'}?` +
+      complemento +
+      '\n\nEsta ação não pode ser desfeita.'
+    )) return
+
+    await executarExclusao([chave])
+  }
+
+  async function excluirSelecionados() {
+    if (selecionadosExclusao.length === 0) return
+
+    if (!window.confirm(
+      `Excluir ${quantidadeLinhasSelecionadas} registro(s) consultável(is) selecionado(s)?` +
+      '\n\nRegistros vinculados da mesma apuração ou do mesmo Espelho serão removidos em conjunto.' +
+      '\n\nEsta ação não pode ser desfeita.'
+    )) return
+
+    await executarExclusao(selecionadosExclusao)
+  }
+
   function limparFiltros() {
     setClienteFiltro('')
     setCompetenciaFiltro('')
@@ -1361,7 +1557,16 @@ export default function CentralConsultas({
             <div style={styles.sectionKicker}>RESULTADOS</div>
             <div style={styles.sectionTitle}>{filtrados.length} registro(s) encontrado(s)</div>
           </div>
-          {loading ? <Badge tone="info">Carregando...</Badge> : <Badge tone="neutral">Consulta somente leitura</Badge>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {selecionadosExclusao.length > 0 ? (
+              <ActionButton danger onClick={excluirSelecionados} disabled={excluindo}>
+                {excluindo ? 'Excluindo...' : `Excluir selecionados (${quantidadeLinhasSelecionadas})`}
+              </ActionButton>
+            ) : null}
+            {loading
+              ? <Badge tone="info">Carregando...</Badge>
+              : <Badge tone="neutral">Consulta e gestão de registros</Badge>}
+          </div>
         </div>
 
         {loading ? (
@@ -1373,6 +1578,14 @@ export default function CentralConsultas({
             <table style={styles.table}>
               <thead>
                 <tr>
+                  <th style={{ ...styles.th, width: 38, textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={todosFiltradosSelecionados}
+                      onChange={alternarTodosFiltrados}
+                      aria-label="Selecionar todos os registros filtrados"
+                    />
+                  </th>
                   <th style={styles.th}>Empresa</th>
                   <th style={styles.th}>Tipo</th>
                   <th style={styles.th}>Competência</th>
@@ -1383,31 +1596,46 @@ export default function CentralConsultas({
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map(item => (
-                  <tr key={item.id}>
-                    <td style={styles.tdStrong}>
-                      <div>{item.empresa}</div>
-                      <div style={styles.subline}>{item.cnpj}</div>
-                    </td>
-                    <td style={styles.td}><Badge tone={item.tipo === 'espelhos' ? 'warning' : item.tipo === 'resultados' ? 'success' : 'info'}>{item.tipoLabel}</Badge></td>
-                    <td style={styles.tdStrong}>{item.competencia}</td>
-                    <td style={styles.td}>{item.status}</td>
-                    <td style={styles.td}>{dateTime(item.data)}</td>
-                    <td style={styles.tdRight}>
-                      {item.tipo === 'resultados' || item.tipo === 'apuracoes' ? money(item.credito) : item.valor ? money(item.valor) : '—'}
-                    </td>
-                    <td style={styles.td}>
-                      <div style={styles.actions}>
-                        <ActionButton primary onClick={() => abrirRegistro(item)}>Abrir</ActionButton>
-                        {item.tipo === 'espelhos' ? <ActionButton onClick={() => setHistoricoAberto(item.grupoEspelho)}>Histórico</ActionButton> : null}
-                        <ActionButton onClick={() => imprimirRegistro(item, false)}>Imprimir</ActionButton>
-                        <ActionButton onClick={() => imprimirRegistro(item, true)}>PDF</ActionButton>
-                        <ActionButton disabled={!item.cliente || typeof onAbrirProntuario !== 'function'} onClick={() => irProntuario(item)}>Prontuário</ActionButton>
-                        <ActionButton disabled={typeof onAbrirOrigem !== 'function'} onClick={() => irOrigem(item)}>Ver origem</ActionButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtrados.map(item => {
+                  const chave = chaveExclusao(item)
+                  const marcado = Boolean(chave && selecionadosExclusao.includes(chave))
+
+                  return (
+                    <tr key={item.id}>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={marcado}
+                          onChange={() => alternarSelecao(item)}
+                          disabled={!chave || excluindo}
+                          aria-label={`Selecionar ${item.tipoLabel} ${item.competencia}`}
+                        />
+                      </td>
+                      <td style={styles.tdStrong}>
+                        <div>{item.empresa}</div>
+                        <div style={styles.subline}>{item.cnpj}</div>
+                      </td>
+                      <td style={styles.td}><Badge tone={item.tipo === 'espelhos' ? 'warning' : item.tipo === 'resultados' ? 'success' : 'info'}>{item.tipoLabel}</Badge></td>
+                      <td style={styles.tdStrong}>{item.competencia}</td>
+                      <td style={styles.td}>{item.status}</td>
+                      <td style={styles.td}>{dateTime(item.data)}</td>
+                      <td style={styles.tdRight}>
+                        {item.tipo === 'resultados' || item.tipo === 'apuracoes' ? money(item.credito) : item.valor ? money(item.valor) : '—'}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={styles.actions}>
+                          <ActionButton primary onClick={() => abrirRegistro(item)}>Abrir</ActionButton>
+                          {item.tipo === 'espelhos' ? <ActionButton onClick={() => setHistoricoAberto(item.grupoEspelho)}>Histórico</ActionButton> : null}
+                          <ActionButton onClick={() => imprimirRegistro(item, false)}>Imprimir</ActionButton>
+                          <ActionButton onClick={() => imprimirRegistro(item, true)}>PDF</ActionButton>
+                          <ActionButton disabled={!item.cliente || typeof onAbrirProntuario !== 'function'} onClick={() => irProntuario(item)}>Prontuário</ActionButton>
+                          <ActionButton disabled={typeof onAbrirOrigem !== 'function'} onClick={() => irOrigem(item)}>Ver origem</ActionButton>
+                          <ActionButton danger disabled={!chave || excluindo} onClick={() => excluirRegistro(item)}>Excluir</ActionButton>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1441,6 +1669,7 @@ export default function CentralConsultas({
             </div>
 
             <div style={{ ...styles.actions, justifyContent: 'flex-end', marginTop: 10 }}>
+              <ActionButton danger disabled={excluindo || !chaveExclusao(registroAberto)} onClick={() => excluirRegistro(registroAberto)}>Excluir</ActionButton>
               <ActionButton onClick={() => imprimirRegistro(registroAberto, false)}>Imprimir</ActionButton>
               <ActionButton primary onClick={() => imprimirRegistro(registroAberto, true)}>Exportar PDF</ActionButton>
               <ActionButton disabled={!registroAberto.cliente || typeof onAbrirProntuario !== 'function'} onClick={() => irProntuario(registroAberto)}>Prontuário</ActionButton>

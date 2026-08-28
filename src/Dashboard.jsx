@@ -522,22 +522,228 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setLoading(false)
   }
   async function excluirCliente(c) {
-    if (!window.confirm(`Excluir "${c.razao_social}" e todos os seus dados?`)) return
-    await supabase.from('entradas').delete().eq('cliente_id', c.id)
-    await supabase.from('recuperacoes').delete().eq('cliente_id', c.id)
-    await supabase.from('acompanhamentos').delete().eq('cliente_id', c.id)
-    await supabase.from('prazos_fiscais').delete().eq('cliente_id', c.id)
-    await supabase.from('checklist').delete().eq('cliente_id', c.id)
-    await supabase.from('scores_fiscais').delete().eq('cliente_id', c.id)
-    await supabase.from('monitor_obrigacoes').delete().eq('cliente_id', c.id)
-    await supabase.from('perdcomp').delete().eq('cliente_id', c.id)
-    await supabase.from('exigencias_fiscais').delete().eq('cliente_id', c.id)
-    await supabase.from('relatorios_importacao').delete().eq('cliente_id', c.id)
-    const { error } = await supabase.from('clientes').delete().eq('id', c.id)
-    if (error) { alert('Erro ao excluir cliente: ' + error.message); return }
-    setClientes(prev => prev.filter(x => x.id !== c.id))
-    const novaEntradas = { ...entradas }; delete novaEntradas[c.id]; setEntradas(novaEntradas)
+  if (
+    !window.confirm(
+      `Excluir "${c.razao_social}" e TODOS os dados vinculados a este cliente?\n\n` +
+      `Serão excluídos XMLs, itens, classificações, PGDAS-D, apurações, ` +
+      `espelhos, diagnósticos e demais registros do cliente.\n\n` +
+      `Esta ação não pode ser desfeita.`
+    )
+  ) return
+
+  try {
+    const clienteId = c.id
+
+    // =========================================================
+    // 1. ITENS FISCAIS + HISTÓRICO DE CLASSIFICAÇÕES
+    // =========================================================
+
+    const idsItens = []
+    const tamanhoLote = 1000
+    let inicio = 0
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('itens_fiscais')
+        .select('id')
+        .eq('cliente_id', clienteId)
+        .range(inicio, inicio + tamanhoLote - 1)
+
+      if (error) throw new Error('Itens fiscais: ' + error.message)
+
+      const lote = data || []
+
+      idsItens.push(
+        ...lote.map(item => item.id).filter(Boolean)
+      )
+
+      if (lote.length < tamanhoLote) break
+
+      inicio += tamanhoLote
+    }
+
+    for (let i = 0; i < idsItens.length; i += 200) {
+      const loteIds = idsItens.slice(i, i + 200)
+
+      const { error } = await supabase
+        .from('itens_classificacoes')
+        .delete()
+        .in('item_id', loteIds)
+
+      if (error) {
+        throw new Error(
+          'Histórico de classificações: ' + error.message
+        )
+      }
+    }
+
+    const { error: erroItens } = await supabase
+      .from('itens_fiscais')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroItens) {
+      throw new Error('Itens fiscais: ' + erroItens.message)
+    }
+
+    // =========================================================
+    // 2. DIAGNÓSTICOS XML / MONOFÁSICOS
+    // =========================================================
+
+    const { error: erroItensMono } = await supabase
+      .from('diagnostico_monofasico_itens')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroItensMono) {
+      throw new Error(
+        'Itens dos diagnósticos XML: ' +
+        erroItensMono.message
+      )
+    }
+
+    const { error: erroMono } = await supabase
+      .from('diagnosticos_monofasicos')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroMono) {
+      throw new Error(
+        'Diagnósticos XML: ' + erroMono.message
+      )
+    }
+
+    // =========================================================
+    // 3. PGDAS-D
+    // =========================================================
+
+    const { data: pgdasCliente, error: erroBuscaPgdas } =
+      await supabase
+        .from('diagnosticos_pgdas')
+        .select('id')
+        .eq('cliente_id', clienteId)
+
+    if (erroBuscaPgdas) {
+      throw new Error(
+        'PGDAS-D: ' + erroBuscaPgdas.message
+      )
+    }
+
+    const idsPgdas = (pgdasCliente || [])
+      .map(item => item.id)
+      .filter(Boolean)
+
+    for (let i = 0; i < idsPgdas.length; i += 200) {
+      const loteIds = idsPgdas.slice(i, i + 200)
+
+      const { error } = await supabase
+        .from('diagnosticos_pgdas_atividades')
+        .delete()
+        .in('diagnostico_id', loteIds)
+
+      if (error) {
+        throw new Error(
+          'Atividades do PGDAS-D: ' + error.message
+        )
+      }
+    }
+
+    const { error: erroPgdas } = await supabase
+      .from('diagnosticos_pgdas')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroPgdas) {
+      throw new Error(
+        'PGDAS-D: ' + erroPgdas.message
+      )
+    }
+
+    // =========================================================
+    // 4. ESPELHOS E APURAÇÕES
+    // =========================================================
+
+    const { error: erroEspelhos } = await supabase
+      .from('espelhos_retificacao_pgdas')
+      .delete()
+      .eq('cliente_id', String(clienteId))
+
+    if (erroEspelhos) {
+      throw new Error(
+        'Espelhos de retificação: ' +
+        erroEspelhos.message
+      )
+    }
+
+    const { error: erroApuracoes } = await supabase
+      .from('apuracoes_simples')
+      .delete()
+      .eq('cliente_id', clienteId)
+
+    if (erroApuracoes) {
+      throw new Error(
+        'Apurações do Simples: ' +
+        erroApuracoes.message
+      )
+    }
+
+    // =========================================================
+    // 5. DEMAIS DADOS JÁ TRATADOS PELO SISTEMA
+    // =========================================================
+
+    await supabase.from('entradas').delete().eq('cliente_id', clienteId)
+    await supabase.from('recuperacoes').delete().eq('cliente_id', clienteId)
+    await supabase.from('acompanhamentos').delete().eq('cliente_id', clienteId)
+    await supabase.from('prazos_fiscais').delete().eq('cliente_id', clienteId)
+    await supabase.from('checklist').delete().eq('cliente_id', clienteId)
+    await supabase.from('scores_fiscais').delete().eq('cliente_id', clienteId)
+    await supabase.from('monitor_obrigacoes').delete().eq('cliente_id', clienteId)
+    await supabase.from('perdcomp').delete().eq('cliente_id', clienteId)
+    await supabase.from('exigencias_fiscais').delete().eq('cliente_id', clienteId)
+    await supabase.from('relatorios_importacao').delete().eq('cliente_id', clienteId)
+
+    // =========================================================
+    // 6. CLIENTE — SEMPRE POR ÚLTIMO
+    // =========================================================
+
+    const { error: erroCliente } = await supabase
+      .from('clientes')
+      .delete()
+      .eq('id', clienteId)
+
+    if (erroCliente) {
+      throw new Error(
+        'Cliente: ' + erroCliente.message
+      )
+    }
+
+    setClientes(prev =>
+      prev.filter(item => item.id !== clienteId)
+    )
+
+    setActiveId(prev =>
+      String(prev) === String(clienteId)
+        ? ''
+        : prev
+    )
+
+    const novasEntradas = { ...entradas }
+    delete novasEntradas[clienteId]
+    setEntradas(novasEntradas)
+
+    alert(
+      `"${c.razao_social}" e os dados vinculados foram excluídos com sucesso.`
+    )
+
+  } catch (e) {
+    console.error('Erro ao excluir cliente:', e)
+
+    alert(
+      'Não foi possível excluir o cliente.\n\n' +
+      (e?.message || 'Erro desconhecido.')
+    )
   }
+}
   async function salvarCliente() {
     if(!novoCliente) return
     setSalvando(true)
@@ -621,18 +827,21 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',width:'100vw',overflow:'hidden',fontFamily:'Inter,system-ui,sans-serif'}}>
 
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:52,gap:10}}>
+        <div style={{display:'flex',alignItems:'center',padding:'0 16px',height:62,gap:10}}>
           {isMobile && (
             <button onClick={() => setMenuAberto(true)} style={{background:'none',border:'none',color:C.text,fontSize:22,cursor:'pointer',padding:'4px 8px',flexShrink:0}}>Menu</button>
           )}
-          <img src="/Logo6.png" alt="e-FiscalTribe" style={{height:30,objectFit:'contain',flexShrink:0,borderRadius:6}} />
-          {!isMobile && <span style={{fontSize:12,color:C.muted,flex:1}}>Sistema de diagnostico e recuperacao tributaria</span>}
-          <div style={{flex:1}} />
+          <div style={{width:263,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <img src="/Logo6.png" alt="e-FiscalTribe" style={{height:54,objectFit:'contain',borderRadius:6}} />
+          </div>
+
+          {!isMobile && <span style={{fontSize:13,color:C.muted,flex:1,marginLeft:18}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>}
+
           {active && !isMobile && (
-            <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,padding:'4px 10px',borderRadius:20,border:`1px solid ${C.border}`}}>
-              <div style={{width:7,height:7,borderRadius:'50%',background:C.green,flexShrink:0}}></div>
-              <span style={{fontSize:11,color:C.text,fontWeight:500,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{active.razao_social}</span>
-            </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,padding:'4px 10px',borderRadius:20,border:`1px solid ${C.border}`}}>
+          <div style={{width:7,height:7,borderRadius:'50%',background:C.green,flexShrink:0}}></div>
+          <span style={{fontSize:11,color:C.text,fontWeight:500,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{active.razao_social}</span>
+          </div>
           )}
           {!isMobile && <span style={{fontSize:12,color:C.muted}}>Usuario: {nomeUsuario||'Usuario'}</span>}
           {onAdmin && !isMobile && <button onClick={onAdmin} style={{background:C.blue,border:'none',color:C.white,padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>Admin</button>}
