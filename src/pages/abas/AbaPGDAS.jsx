@@ -569,7 +569,6 @@ export default function AbaPGDAS({ cliente, regime }) {
   const [porPagina, setPorPagina] = useState(10)
 
   const [importando, setImportando] = useState(false)
-  
   const inputImportRef = useRef(null)
 
   useEffect(() => {
@@ -2735,19 +2734,21 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
                         </button>
 
                         <button
-                          onClick={() => excluir(diag.id)}
-                          style={{
-                            padding: '4px 10px',
-                            background: '#fef2f2',
-                            color: S.red,
-                            border: `1px solid #fecaca`,
-                            borderRadius: 4,
-                            fontSize: 11,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          🗑
-                        </button>
+  onClick={() => excluir(diag.id)}
+  style={{
+    padding: '4px 10px',
+    background: '#fef2f2',
+    color: S.red,
+    border: `1px solid #fecaca`,
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  }}
+>
+  Excluir
+</button>
                       </div>
                     </td>
                   </tr>
