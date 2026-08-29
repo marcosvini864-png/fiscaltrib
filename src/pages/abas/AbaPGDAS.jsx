@@ -17,7 +17,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabase'
 import DiagnosticoIAGerenciado from '../../DiagnosticoIAGerenciado'
-import RelatorioRecuperacaoPGDAS from './RelatorioRecuperacaoPGDAS'
 
 const fmtR = v =>
   'R$ ' +
@@ -570,8 +569,7 @@ export default function AbaPGDAS({ cliente, regime }) {
   const [porPagina, setPorPagina] = useState(10)
 
   const [importando, setImportando] = useState(false)
-  const [mostrarRelatorio, setMostrarRelatorio] = useState(false)
-
+  
   const inputImportRef = useRef(null)
 
   useEffect(() => {
@@ -2445,24 +2443,6 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
                       : 'Salvar PGDAS-D'}
                   </button>
 
-                  {historico.length > 0 && (
-                    <button
-                      onClick={() => setMostrarRelatorio(true)}
-                      style={{
-                        padding: '9px 20px',
-                        background: S.green,
-                        color: S.white,
-                        border: 'none',
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      📄 Gerar Relatorio
-                    </button>
-                  )}
-
                   <button
                     onClick={limparLancamento}
                     style={{
@@ -2551,24 +2531,6 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
                 {loadingHistorico ? 'Carregando...' : 'Atualizar'}
               </button>
 
-              {historico.length > 0 && (
-                <button
-                  onClick={() => setMostrarRelatorio(true)}
-                  style={{
-                    padding: '6px 14px',
-                    background: S.green,
-                    color: S.white,
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  📄 Gerar Relatorio
-                </button>
-              )}
-
               <button
                 onClick={novoLancamento}
                 style={{
@@ -2586,9 +2548,31 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
               </button>
             </div>
           </div>
+		  
+		  <style>{`
+  .pgdas-historico-table {
+    border: 1px solid #E6EBF1;
+  }
+
+  .pgdas-historico-table th {
+    border-right: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid #DDE4EC;
+  }
+
+  .pgdas-historico-table td {
+    border-right: 1px solid #E8EDF3;
+    border-bottom: 1px solid #E8EDF3;
+  }
+
+  .pgdas-historico-table th:last-child,
+  .pgdas-historico-table td:last-child {
+    border-right: none;
+  }
+`}</style>
 
           <div style={{ overflowX: 'auto' }}>
             <table
+			className="pgdas-historico-table"
               style={{
                 width: '100%',
                 borderCollapse: 'collapse',
@@ -2874,15 +2858,6 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
           )}
         </div>
       )}
-
-      {/* RELATORIO */}
-      {mostrarRelatorio && (
-        <RelatorioRecuperacaoPGDAS
-          historico={historico}
-          cliente={cliente}
-          onFechar={() => setMostrarRelatorio(false)}
-        />
-      )}
-    </div>
+      </div>
   )
 }
