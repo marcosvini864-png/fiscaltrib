@@ -355,7 +355,14 @@ export default function Admin({ onVoltar }) {
           {key:'monitor',        label:'👁️ Monitoramento em Tempo Real'},
           {key:'desenvolvimento',label:'🔬 Centro de Desenvolvimento'},
         ].map(a=>(
-          <button key={a.key} onClick={()=>setAbaAtiva(a.key)}
+          <button
+  key={a.key}
+  onClick={() => {
+    if (abaAtiva === 'permissoessite' && a.key !== 'permissoessite') {
+      setBuscaPermSite('')
+    }
+    setAbaAtiva(a.key)
+  }}
             style={{padding:'7px 16px',borderRadius:20,border:`1px solid ${abaAtiva===a.key?C.navy:C.border}`,background:abaAtiva===a.key?C.navy:'transparent',color:abaAtiva===a.key?C.white:C.muted,cursor:'pointer',fontSize:13,fontWeight:abaAtiva===a.key?600:400}}>
             {a.label}
           </button>
@@ -368,9 +375,48 @@ export default function Admin({ onVoltar }) {
           <div style={{fontSize:13,color:C.muted,marginBottom:16}}>
             Controle quais módulos do site cada cliente enxerga. Todos os módulos vêm habilitados por padrão.
           </div>
-          <input
-            style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
-            placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPermSite} onChange={e=>setBuscaPermSite(e.target.value)} />
+          <div
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  }}
+>
+  <input
+    style={{
+      width: '100%',
+      maxWidth: 400,
+      padding: '9px 12px',
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      fontSize: 13,
+      boxSizing: 'border-box',
+    }}
+    placeholder="🔍 Buscar cliente por nome ou e-mail..."
+    value={buscaPermSite}
+    onChange={e => setBuscaPermSite(e.target.value)}
+  />
+
+  {buscaPermSite && (
+    <button
+      onClick={() => setBuscaPermSite('')}
+      style={{
+        padding: '9px 14px',
+        borderRadius: 8,
+        border: `1px solid ${C.border}`,
+        background: C.white,
+        color: C.muted,
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      ← Voltar
+    </button>
+  )}
+</div>
           {(load || loadPermSite) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPermSite.length === 0 ? (
@@ -389,10 +435,20 @@ export default function Admin({ onVoltar }) {
                 <tbody>
                   {listaPermSite.map(u => (
                     <tr key={u.id} style={{borderBottom:`1px solid ${C.border}`}}>
-                      <td style={{padding:'10px 14px',whiteSpace:'nowrap'}}>
-                        <div style={{fontWeight:600,color:C.text}}>{u.nome_completo || <em style={{color:C.muted}}>—</em>}</div>
-                        <div style={{color:C.muted,fontSize:11}}>{u.email}</div>
-                      </td>
+                      <td
+  onClick={() => setBuscaPermSite(u.email || u.nome_completo || '')}
+  title="Clique para selecionar este cliente"
+  style={{
+    padding: '10px 14px',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer'
+  }}
+>
+  <div style={{fontWeight:600,color:C.text}}>
+    {u.nome_completo || <em style={{color:C.muted}}>—</em>}
+  </div>
+  <div style={{color:C.muted,fontSize:11}}>{u.email}</div>
+</td>
                       {MODULOS_SITE.map(m => (
                         <td key={m.id} style={{padding:'10px 10px',textAlign:'center'}}>
                           <Toggle
@@ -418,8 +474,20 @@ export default function Admin({ onVoltar }) {
             Habilite ou bloqueie cada módulo da extensão individualmente por cliente. Todos os módulos vêm habilitados por padrão.
           </div>
           <input
-            style={{width:'100%',maxWidth:400,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,marginBottom:16,boxSizing:'border-box'}}
-            placeholder="🔍 Buscar cliente por nome ou e-mail..." value={buscaPerm} onChange={e=>setBuscaPerm(e.target.value)} />
+  style={{
+    width:'100%',
+    maxWidth:400,
+    padding:'9px 12px',
+    borderRadius:8,
+    border:`1px solid ${C.border}`,
+    fontSize:13,
+    marginBottom:16,
+    boxSizing:'border-box'
+  }}
+  placeholder="🔍 Buscar cliente por nome ou e-mail..."
+  value={buscaPerm}
+  onChange={e=>setBuscaPerm(e.target.value)}
+/>
           {(load || loadPerm) ? (
             <p style={{color:C.muted,textAlign:'center',padding:40}}>Carregando...</p>
           ) : listaPerm.length === 0 ? (

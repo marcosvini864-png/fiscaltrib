@@ -1115,11 +1115,26 @@ async function removerClassificacao(item) {
                               style={{ background: 'none', border: `1px solid ${S.border}`, borderRadius: 4, cursor: 'pointer', padding: '2px 8px', fontSize: 13, color: S.muted }}>
                               ...
                             </button>
-                            <button onClick={e => { e.stopPropagation(); excluirItem(item.id) }}
-                              title="Excluir item"
-                              style={{ background: 'none', border: `1px solid #fecaca`, borderRadius: 4, cursor: 'pointer', padding: '2px 7px', fontSize: 16, color: '#8B5E3C' }}>
-                              🗑
-                            </button>
+                            <button
+  onClick={e => {
+    e.stopPropagation()
+    excluirItem(item.id)
+  }}
+  title="Excluir item"
+  style={{
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: 4,
+    cursor: 'pointer',
+    padding: '4px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#b91c1c',
+    whiteSpace: 'nowrap'
+  }}
+>
+  Excluir
+</button>
                           </div>
                         )}
                         {!isGhost && menuAberto === item.id && (

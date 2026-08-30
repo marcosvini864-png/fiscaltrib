@@ -105,7 +105,7 @@ const MENU_SECOES = [
     id: 'motor_simples',
     titulo: 'MOTOR DO SIMPLES',
     itens: [
-      { label:'Importar e Analisar XML', module:'monofasicos', tab:0, icon:'📥' },
+      { label:'Importar e Analisar XML Monofásico', module:'monofasicos', tab:0, icon:'📥' },
       { label:'Importar PGDAS-D', module:'pgdas', tab:0, icon:'📄' },
       { label:'Painel de Controle',    module:'painel_simples',       tab:0, icon:'📊' },
       { label:'Dados Complementares',  module:'dados_complementares', tab:0, icon:'📋' },
