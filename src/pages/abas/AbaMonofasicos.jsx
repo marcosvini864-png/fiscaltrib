@@ -728,7 +728,15 @@ supabase
   }
 
   async function salvarDiagnostico(nomeDiagnostico) {
-    if (!itens.length || !cliente?.id) return
+    if (!itens.length) {
+  alert('Não existem itens importados para salvar.')
+  return
+}
+
+if (!cliente?.id) {
+  alert('Selecione um Cliente Ativo antes de salvar o diagnóstico.')
+  return
+}
     setSalvando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -2611,6 +2619,92 @@ async function excluirMemoria(id) {
     else { const novos=itensPagina.map((_,i)=>(pagina-1)*porPagina+i); setSelecionados(prev=>[...new Set([...prev,...novos])]) }
   }
   function toggleItem(idx) { setSelecionados(prev=>prev.includes(idx)?prev.filter(i=>i!==idx):[...prev,idx]) }
+  
+  async function excluirItemDaAnalise(item) {
+  if (!item || item.ghost) return
+
+  if (diagAberto) {
+    alert('Este diagnóstico já está salvo. Para preservar o histórico, faça a exclusão pelo Histórico ou inicie uma Nova análise.')
+    return
+  }
+
+  const identificacao =
+    item.descricao ||
+    item.codigo ||
+    item.nNF ||
+    'este item'
+
+  if (!window.confirm(`Excluir "${identificacao}" desta análise?`)) return
+
+  try {
+    const novosItens = itens.filter(i => i !== item)
+
+    // Remove da base de itens fiscais somente se não existir
+    // outra linha da análise com o mesmo código de produto.
+    if (cliente?.id && item.codigo) {
+      const mesmoCodigoPermanece =
+        novosItens.some(i => i.codigo === item.codigo)
+
+      if (!mesmoCodigoPermanece) {
+        const { error } = await supabase
+          .from('itens_fiscais')
+          .delete()
+          .eq('cliente_id', cliente.id)
+          .eq('codigo', item.codigo)
+
+        if (error) throw error
+      }
+    }
+
+    setItens(novosItens)
+
+    // Mantém os totais coerentes após a exclusão
+    if (regime === 'Simples Nacional') {
+      const recTotal =
+        novosItens.reduce(
+          (s, i) => s + Number(i.vProd || 0),
+          0
+        )
+
+      const recMono =
+        novosItens
+          .filter(i => i.monofasico)
+          .reduce(
+            (s, i) => s + Number(i.vProd || 0),
+            0
+          )
+
+      setPgdasForm(prev => ({
+        ...prev,
+        receita_bruta_total: recTotal.toFixed(2),
+        receita_monofasica: recMono.toFixed(2),
+      }))
+    }
+
+    // Atualiza a quantidade de itens do arquivo importado
+    if (item.arquivo) {
+      setProcessados(prev =>
+        prev.map(p =>
+          p.nome === item.arquivo
+            ? {
+                ...p,
+                qtdItens: Math.max(
+                  0,
+                  Number(p.qtdItens || 0) - 1
+                )
+              }
+            : p
+        )
+      )
+    }
+
+    setSelecionados([])
+    setMenuAberto(null)
+
+  } catch (e) {
+    alert('Erro ao excluir item: ' + e.message)
+  }
+}
 
   const dadosIA = temResultado ? {
     totalItens: itens.length, totalMonofasicos: totalMono,
@@ -2810,47 +2904,234 @@ async function excluirMemoria(id) {
                 </button>
               </div>
             </div>
-            <div style={{ overflowX:'auto' }}>
-              {visaoTabela === 'resumida' ? (
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, minWidth:1250 }}>
+            <div
+  style={{
+    display:'flex',
+    alignItems:'center',
+    gap:6,
+    margin:'6px 0 8px',
+    padding:'5px 8px',
+    background:'#F8FAFC',
+    borderRadius:5,
+    color:S.muted,
+    fontSize:10,
+    lineHeight:1.3
+  }}
+>
+  <span style={{ fontSize:11 }}>ⓘ</span>
+
+  <span>
+    Para melhor visualização de todas as colunas, recomendamos utilizar
+    o zoom do navegador em <strong>80%</strong>. Em 90% ou 100%, utilize
+    a barra de rolagem horizontal quando necessário.
+  </span>
+</div>
+
+<div
+  style={{
+    width:'100%',
+    maxWidth:'100%',
+    overflowX:'auto',
+    overflowY:'hidden',
+    paddingBottom:5
+  }}
+>
+  {visaoTabela === 'resumida' ? (
+                <table
+  style={{
+    width: '100%',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+    tableLayout: 'fixed',
+    fontSize: 11,
+    minWidth: 1120
+  }}
+>
                   <thead>
-                    <tr style={{ background:S.thBg }}>
-                      <th style={{ padding:'8px 10px', color:S.thText, borderRight:'1px solid #64748B' }}>
-                        <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos} disabled={!temResultado} style={{ cursor:temResultado?'pointer':'not-allowed' }} />
-                      </th>
-                      {['NF','Data','Emitente','Descricao do Produto','NCM','CFOP','Valor Produto','PIS','COFINS','Classificacao','Acoes'].map(h => (
-                        <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap', borderRight:'1px solid #64748B' }}>{h}</th>
-                      ))}
-                    </tr>
+  <tr style={{ background:S.thBg }}>
+    <th
+      style={{
+        width: 36,
+        minWidth: 36,
+        maxWidth: 36,
+        padding: '8px 4px',
+        color: S.thText,
+        textAlign: 'center',
+        borderRight: '1px solid #64748B',
+        position: 'sticky',
+        left: 0,
+        zIndex: 4,
+        background: S.thBg
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={todosSelecionados}
+        onChange={toggleTodos}
+        disabled={!temResultado}
+        style={{ cursor:temResultado?'pointer':'not-allowed' }}
+      />
+    </th>
+
+    {[
+  ['Nº NF', 52],
+  ['Data', 72],
+  ['Emitente', 125],
+  ['Descrição do Produto', 175],
+  ['NCM', 74],
+  ['CFOP', 52],
+  ['QTD', 52],
+  ['Valor Unitário', 82],
+  ['Valor Total', 80],
+  ['PIS', 54],
+  ['COFINS', 62],
+  ['Classificação', 125],
+  ['Ações', 105]
+].map(([h, largura]) => (
+      <th
+        key={h}
+        style={{
+          width: largura,
+          padding: '8px 6px',
+          textAlign: 'left',
+          color: S.thText,
+          fontWeight: 600,
+          fontSize: 11,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          borderRight: '1px solid #64748B',
+          
+        }}
+      >
+        {h}
+          </th>
+          ))}
+          </tr>
                   </thead>
                   <tbody>
                     {itensPagina.map((item,i) => {
                       const idx=(pagina-1)*porPagina+i
                       const sel=selecionados.includes(idx)
                       const isGhost=item.ghost
-                      const td = { padding:'7px 10px', borderRight:`1px solid ${S.border}` }
+                      const td = {
+  padding: '7px 6px',
+  borderRight: `1px solid ${S.border}`,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
+}
                       return (
                         <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background:isGhost?S.ghost:sel?'#eff6ff':i%2===0?S.white:'#FAFAFA' }}>
-                          <td style={td}>{!isGhost && <input type="checkbox" checked={sel} onChange={()=>toggleItem(idx)} style={{ cursor:'pointer' }} />}</td>
-                          <td style={{ ...td, fontWeight:600, color:isGhost?S.ghostText:S.navy }}>{item.nNF}</td>
+                          <td
+  style={{
+    ...td,
+    width: 36,
+    minWidth: 36,
+    maxWidth: 36,
+    padding: '7px 4px',
+    textAlign: 'center',
+    position: 'sticky',
+    left: 0,
+    zIndex: 2,
+    background: isGhost ? S.ghost : sel ? '#eff6ff' : i%2===0 ? S.white : '#FAFAFA'
+  }}
+>
+  <input
+  type="checkbox"
+  checked={isGhost ? false : sel}
+  disabled={isGhost}
+  onChange={()=>toggleItem(idx)}
+  style={{
+    cursor: isGhost ? 'not-allowed' : 'pointer',
+    opacity: isGhost ? 0.45 : 1
+  }}
+/>
+</td>
+                          <td
+  style={{
+    ...td,
+    width: 72,
+    whiteSpace: 'nowrap',
+    fontWeight: 600,
+    color: isGhost ? S.ghostText : S.navy,
+    position: 'sticky',
+    left: 36,
+    zIndex: 2,
+    background: isGhost ? S.ghost : sel ? '#eff6ff' : i%2===0 ? S.white : '#FAFAFA'
+  }}
+>
+  {item.nNF}
+</td>
                           <td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>{isGhost?'—':(item.dataEmissao || '—')}</td>
                           <td style={{ ...td, maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.emitente}</td>
                           <td style={{ ...td, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.descricao}</td>
                           <td style={{ ...td, color:isGhost?S.ghostText:S.muted }}>{item.ncm}</td>
-                          <td style={{ ...td, fontWeight:600, color:isGhost?S.ghostText:S.text }}>{isGhost?'—':(item.cfop || '—')}</td>
-                          <td style={{ ...td, color:isGhost?S.ghostText:S.text }}>{isGhost?'R$ —,——':fmtR(item.vProd)}</td>
-                          <td style={{ ...td, color:isGhost?S.ghostText:item.vItemPIS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemPIS)}</td>
+                          <td style={{ ...td, fontWeight:600, color:isGhost?S.ghostText:S.text }}>
+  {isGhost ? '—' : (item.cfop || '—')}
+</td>
+
+<td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>
+  {isGhost
+    ? '—'
+    : `${Number(item.quantidade || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4
+      })} ${item.unidadeComercial || ''}`}
+</td>
+
+<td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>
+  {isGhost ? 'R$ —' : fmtR(item.valorUnitario)}
+</td>
+
+<td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>
+  {isGhost ? 'R$ —' : fmtR(item.vProd)}
+</td>
+
+<td style={{ ...td, color:isGhost?S.ghostText:item.vItemPIS>0?S.red:S.muted }}>
+  {isGhost ? 'R$ —' : fmtR(item.vItemPIS)}
+</td>
                           <td style={{ ...td, color:isGhost?S.ghostText:item.vItemCOFINS>0?S.red:S.muted }}>{isGhost?'R$ —,——':fmtR(item.vItemCOFINS)}</td>
                           <td style={td}>
                             {isGhost
                               ? <span style={{ background:S.ghost, color:S.ghostText, border:`1px solid ${S.border}`, borderRadius:99, padding:'2px 10px', fontSize:10, fontWeight:700 }}>Classificacao</span>
                               : <Badge tipo={item.monofasico ? ((item.pendentePGDAS && !pgdasSupabase && !pgdasResult) ? 'pendente' : 'monofasico') : 'nao_monofasico'} />}
                           </td>
-                          <td style={{ ...td, position:'relative' }}>
+                          <td
+  style={{
+    ...td,
+    width: 64,
+    textAlign: 'center',
+    position: 'sticky',
+    right: 0,
+    zIndex: 3,
+    overflow: 'visible',
+    background: isGhost ? S.ghost : sel ? '#eff6ff' : i%2===0 ? S.white : '#FAFAFA'
+  }}
+>
                             {!isGhost && (
                               <>
                                 <button onClick={e=>{e.stopPropagation();setMenuAberto(menuAberto===idx?null:idx)}}
                                   style={{ background:'none', border:`1px solid ${S.border}`, borderRadius:4, cursor:'pointer', padding:'2px 8px', fontSize:13, color:S.muted }}>...</button>
+								  <button
+  onClick={e => {
+    e.stopPropagation()
+    excluirItemDaAnalise(item)
+  }}
+  title="Excluir item"
+  style={{
+    marginLeft: 5,
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: 4,
+    cursor: 'pointer',
+    padding: '3px 8px',
+    fontSize: 10,
+    fontWeight: 600,
+    color: '#b91c1c',
+    whiteSpace: 'nowrap'
+  }}
+>
+  Excluir
+</button>
                                 {menuAberto===idx && (
                                   <div style={{ position:'absolute', right:8, top:30, background:S.white, border:`1px solid ${S.border}`, borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', zIndex:100, minWidth:170 }}>
                                     <button onClick={()=>{setItemDetalhe(item);setMenuAberto(null)}}
@@ -2966,10 +3247,42 @@ async function excluirMemoria(id) {
                     </div>
                   ))}
                 </div>
-                <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer', marginBottom:12 }}>
-                  <input type="checkbox" checked={pgdasForm.segregou} onChange={e=>setPgdasForm(prev=>({...prev,segregou:e.target.checked}))} />
-                  Segregou receitas monofasicas corretamente no PGDAS-D
-                </label>
+                <div style={{ marginBottom:12 }}>
+  <label
+    style={{
+      display:'flex',
+      alignItems:'center',
+      gap:8,
+      fontSize:13,
+      cursor:'pointer'
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={pgdasForm.segregou}
+      onChange={e =>
+        setPgdasForm(prev => ({
+          ...prev,
+          segregou:e.target.checked
+        }))
+      }
+    />
+    Segregou receitas monofásicas corretamente no PGDAS-D
+  </label>
+
+  <div
+    style={{
+      marginTop:5,
+      marginLeft:24,
+      fontSize:11,
+      color:S.muted,
+      lineHeight:1.4
+    }}
+  >
+    Marque somente se o PGDAS-D desta competência já tiver sido importado
+    e você tiver confirmado que a receita monofásica foi segregada corretamente.
+  </div>
+</div>
                 <button onClick={calcularPGDAS} style={{ padding:'8px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   Calcular Credito
                 </button>

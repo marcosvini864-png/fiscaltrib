@@ -226,15 +226,102 @@ function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente
           ...(isMobile ? { position:'fixed', top:0, left:0, height:'100vh', zIndex:100, boxShadow:'4px 0 20px rgba(0,0,0,0.3)' } : {})
         }}>
 
-        {!isMobile && aberta && (
-          <div style={{display:'flex', justifyContent:'flex-end', padding:'8px 10px 0'}}>
-            <button onClick={() => setTravada(t => !t)}
-              title={travada ? 'Desafixar menu' : 'Fixar menu aberto'}
-              style={{ background: travada ? '#1E293B' : 'none', border:'1px solid #334155', borderRadius:6, width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color: travada ? C.blue : C.sidebarText, fontSize:13 }}>
-              📌
-            </button>
-          </div>
-        )}
+        {!isMobile && (
+  <div
+    style={{
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      gap:4,
+      paddingTop:30,
+      paddingBottom:6
+    }}
+  >
+    <span
+      style={{
+        color:'rgba(255,255,255,0.62)',
+        fontSize:10,
+        fontWeight:400,
+        whiteSpace:'nowrap'
+      }}
+    >
+      Fechar
+    </span>
+
+    <button
+      onClick={() => {
+        setTravada(false)
+        setExpandido(false)
+      }}
+      title="Recolher menu lateral"
+      aria-label="Recolher menu lateral"
+      style={{
+        width:18,
+        height:18,
+        padding:0,
+        background:'transparent',
+        border:'none',
+        color:'#FFFFFF',
+        cursor:'pointer',
+        fontSize:19,
+        fontWeight:700,
+        lineHeight:1,
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center'
+      }}
+    >
+      ‹
+    </button>
+
+    <div
+      style={{
+        width:26,
+        height:5,
+        background:'#22C55E',
+        borderRadius:999,
+        boxShadow:'0 0 4px rgba(34,197,94,0.65)'
+      }}
+    />
+
+    <button
+      onClick={() => {
+        setTravada(true)
+        setExpandido(true)
+      }}
+      title="Abrir e fixar menu lateral"
+      aria-label="Abrir e fixar menu lateral"
+      style={{
+        width:18,
+        height:18,
+        padding:0,
+        background:'transparent',
+        border:'none',
+        color:'#FFFFFF',
+        cursor:'pointer',
+        fontSize:19,
+        fontWeight:700,
+        lineHeight:1,
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center'
+      }}
+    >
+      ›
+    </button>
+
+    <span
+      style={{
+        color:'rgba(255,255,255,0.62)',
+        fontSize:10,
+        fontWeight:400,
+        whiteSpace:'nowrap'
+      }}
+    >
+      Abrir
+    </span>
+  </div>
+)}
 
         {isMobile && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom:'1px solid #1E293B' }}>
