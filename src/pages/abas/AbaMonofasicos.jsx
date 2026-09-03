@@ -11,6 +11,8 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
 import AnalisadorIA from '../../AnalisadorIA'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtData = v => v ? new Date(v).toLocaleString('pt-BR') : '-'
@@ -68,6 +70,116 @@ function isMonofasico(ncm) {
   if (!ncm) return false
   const n = ncm.replace(/\D/g, '')
   return NCM_PREFIXOS.some(p => n.startsWith(p))
+}
+
+const EFEITO_RECEITA = Object.freeze({
+  VENDA: 'VENDA',
+  DEVOLUCAO: 'DEVOLUCAO',
+  CANCELAMENTO: 'CANCELAMENTO',
+  NEUTRO: 'NEUTRO',
+  REVISAR: 'REVISAR',
+})
+
+const CFOPS_NEUTROS = new Set([
+  // Remessa / retorno para conserto ou reparo
+  '5915', '6915',
+  '5916', '6916',
+
+  // Industrializacao por encomenda — movimentacoes sem receita da mercadoria
+  '5901', '6901',
+  '5902', '6902',
+])
+
+const CFOPS_DEVOLUCAO_VENDA = new Set([
+  '1201', '1202',
+  '1203', '1204',
+  '1410', '1411',
+  '1660', '1661', '1662',
+
+  '2201', '2202',
+  '2203', '2204',
+  '2410', '2411',
+  '2660', '2661', '2662',
+
+  '3201', '3202',
+  '3211',
+])
+
+function classificarEfeitoReceita({
+  cfop,
+  tipoOperacao,
+  naturezaOperacao,
+  chaveNFeReferenciada,
+  cancelada = false,
+}) {
+  const codigo = String(cfop || '').replace(/\D/g, '')
+const natureza = String(naturezaOperacao || '').toUpperCase()
+const tipo = String(tipoOperacao || '').toLowerCase()
+const temReferencia =
+  Boolean(String(chaveNFeReferenciada || '').trim())
+
+  // Cancelamento fiscal tem precedencia sobre qualquer outra classificacao
+  if (cancelada) {
+    return {
+      efeitoReceita: EFEITO_RECEITA.CANCELAMENTO,
+      fatorReceita: 0,
+      consideraReceita: false,
+      motivoEfeitoReceita: 'NF-e cancelada',
+    }
+  }
+
+  // Movimentacoes documentais que nao representam faturamento
+  if (CFOPS_NEUTROS.has(codigo)) {
+    return {
+      efeitoReceita: EFEITO_RECEITA.NEUTRO,
+      fatorReceita: 0,
+      consideraReceita: false,
+      motivoEfeitoReceita:
+        `CFOP ${codigo} — movimentacao sem composicao de receita`,
+    }
+  }
+  
+  if (CFOPS_DEVOLUCAO_VENDA.has(codigo)) {
+  if (tipo === 'entrada' && temReferencia) {
+    return {
+      efeitoReceita: EFEITO_RECEITA.DEVOLUCAO,
+      fatorReceita: -1,
+      consideraReceita: false,
+      motivoEfeitoReceita:
+        `CFOP ${codigo} — devolucao de venda vinculada a NF-e original`,
+    }
+  }
+
+  return {
+    efeitoReceita: EFEITO_RECEITA.REVISAR,
+    fatorReceita: 0,
+    consideraReceita: false,
+    motivoEfeitoReceita:
+      `CFOP ${codigo} indica devolucao de venda, mas a operacao precisa ser validada`,
+  }
+}
+
+  // Devolucao sera tratada de forma propria.
+  // Nao classificamos apenas pela palavra "devolucao",
+  // pois ainda vamos validar CFOP e documento referenciado.
+  if (natureza.includes('DEVOLU')) {
+    return {
+      efeitoReceita: EFEITO_RECEITA.REVISAR,
+      fatorReceita: 0,
+      consideraReceita: false,
+      motivoEfeitoReceita:
+        'Possivel devolucao — requer validacao do CFOP e da NF-e referenciada',
+    }
+  }
+
+  // Nesta primeira etapa preservamos o comportamento atual
+  // para as demais operacoes ate completar a matriz de CFOPs.
+  return {
+    efeitoReceita: EFEITO_RECEITA.VENDA,
+    fatorReceita: 1,
+    consideraReceita: true,
+    motivoEfeitoReceita: null,
+  }
 }
 
 const S = {
@@ -188,7 +300,6 @@ function ModalNomeDiagnostico({ nomeSugerido, onConfirmar, onCancelar, salvando 
   )
 }
 
-
 function ModalDetalhesFiscais({ item, onFechar }) {
   if (!item) return null
 
@@ -207,6 +318,217 @@ function ModalDetalhesFiscais({ item, onFechar }) {
       {children}
     </div>
   )
+  
+   const secoesDetalhamento = [
+    {
+      titulo: 'NF-e / Operacao',
+      linhas: [
+        ['Chave NF-e', item.chaveNFe || '—'],
+        ['Numero / Serie / Modelo', `${item.nNF || '—'} / ${item.serieNFe || '—'} / ${item.modeloNFe || '—'}`],
+        ['Data de emissao', item.dataEmissao || '—'],
+        ['Tipo de operacao', item.tipoOperacao || '—'],
+        ['Natureza da operacao', item.naturezaOperacao || '—'],
+        ['Finalidade NF-e', item.finalidadeNFe || '—'],
+        ['Destino da operacao', item.indicadorDestino || '—'],
+        ['Consumidor final', item.consumidorFinal || '—'],
+        ['Presenca comprador', item.presencaComprador || '—'],
+        ['Emitente', `${item.emitente || '—'} · ${item.emitenteCNPJ || '—'} · ${item.emitenteUF || '—'}`],
+        ['Destinatario', `${item.destinatarioCNPJ || '—'} · ${item.destinatarioUF || '—'}`],
+      ]
+    },
+    {
+      titulo: 'Produto / Comercial',
+      linhas: [
+        ['Codigo', item.codigo || '—'],
+        ['Descricao', item.descricao || '—'],
+        ['NCM', item.ncm || '—'],
+        ['CEST', item.cest || '—'],
+        ['GTIN/EAN', item.gtin || '—'],
+        ['EX TIPI', item.ex || '—'],
+        ['CFOP', item.cfop || '—'],
+        ['Beneficio fiscal', item.codigoBeneficioFiscal || '—'],
+        ['Quantidade comercial', `${item.quantidade || 0} ${item.unidadeComercial || ''}`],
+        ['Valor unitario', fmtR(item.valorUnitario)],
+        ['Quantidade tributavel', `${item.quantidadeTributavel || 0} ${item.unidadeTributavel || ''}`],
+        ['Valor unit. tributavel', fmtR(item.valorUnitarioTributavel)],
+        ['Valor produto', fmtR(item.vProd)],
+        ['Desconto', fmtR(item.valorDesconto)],
+        ['Frete', fmtR(item.valorFrete)],
+        ['Seguro', fmtR(item.valorSeguro)],
+        ['Outras despesas', fmtR(item.valorOutrasDespesas)],
+      ]
+    },
+    {
+      titulo: 'PIS / COFINS',
+      linhas: [
+        ['CST PIS', item.cstPIS || '—'],
+        ['Base PIS', fmtR(item.basePIS)],
+        ['Aliquota PIS (%)', String(item.aliquotaPIS || 0)],
+        ['Valor PIS', fmtR(item.vItemPIS)],
+        ['PIS-ST', fmtR(item.valorPISST)],
+        ['CST COFINS', item.cstCOFINS || '—'],
+        ['Base COFINS', fmtR(item.baseCOFINS)],
+        ['Aliquota COFINS (%)', String(item.aliquotaCOFINS || 0)],
+        ['Valor COFINS', fmtR(item.vItemCOFINS)],
+        ['COFINS-ST', fmtR(item.valorCOFINSST)],
+      ]
+    },
+    {
+      titulo: 'ICMS / ICMS-ST / FCP',
+      linhas: [
+        ['Origem', item.origemICMS ?? '—'],
+        ['CST / CSOSN', `${item.cstICMS || '—'} / ${item.csosn || '—'}`],
+        ['Modalidade BC', item.modalidadeBCICMS || '—'],
+        ['Base ICMS', fmtR(item.baseICMS)],
+        ['Reducao BC ICMS (%)', String(item.reducaoBCICMS || 0)],
+        ['Aliquota ICMS (%)', String(item.aliquotaICMS || 0)],
+        ['Valor ICMS', fmtR(item.valorICMS)],
+        ['ICMS desonerado', fmtR(item.valorICMSDesonerado)],
+        ['Motivo desoneracao', item.motivoDesoneracaoICMS || '—'],
+        ['Modalidade BC-ST', item.modalidadeBCST || '—'],
+        ['MVA-ST (%)', String(item.mvaST || 0)],
+        ['Reducao BC-ST (%)', String(item.reducaoBCST || 0)],
+        ['Base ICMS-ST', fmtR(item.baseICMSST)],
+        ['Aliquota ICMS-ST (%)', String(item.aliquotaICMSST || 0)],
+        ['Valor ICMS-ST', fmtR(item.valorICMSST)],
+        ['Aliquota FCP (%)', String(item.aliquotaFCP || 0)],
+        ['Valor FCP', fmtR(item.valorFCP)],
+        ['Aliquota FCP-ST (%)', String(item.aliquotaFCPST || 0)],
+        ['Valor FCP-ST', fmtR(item.valorFCPST)],
+      ]
+    },
+    {
+      titulo: 'IPI / Auditoria',
+      linhas: [
+        ['CST IPI', item.cstIPI || '—'],
+        ['Enquadramento IPI', item.enquadramentoIPI || '—'],
+        ['Base IPI', fmtR(item.baseIPI)],
+        ['Aliquota IPI (%)', String(item.aliquotaIPI || 0)],
+        ['Valor IPI', fmtR(item.valorIPI)],
+        ['Monofasico PIS/COFINS', item.monofasico ? 'Sim' : 'Nao'],
+        ['Considera receita', item.consideraReceita ? 'Sim' : 'Nao'],
+        ['Classificacao revisada', item.classificacaoRevisada ? 'Sim' : 'Nao'],
+        ['Origem classificacao', item.classificacaoOrigem || 'xml'],
+        ['Informacao adicional item', item.infoAdicionalProduto || '—'],
+      ]
+    },
+  ]
+
+  function imprimirDetalhamento() {
+    const esc = valor =>
+      String(valor ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+      }[c]))
+
+    const conteudo = secoesDetalhamento.map(secao => `
+      <h2>${esc(secao.titulo)}</h2>
+      <table>
+        ${secao.linhas.map(([label, valor]) => `
+          <tr>
+            <th>${esc(label)}</th>
+            <td>${esc(valor)}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `).join('')
+
+    const janela = window.open('', '_blank', 'width=900,height=700')
+
+    if (!janela) {
+      alert('Nao foi possivel abrir a janela de impressao.')
+      return
+    }
+
+    janela.document.write(`
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Detalhamento Fiscal NF ${item.nNF || ''}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #0F172A; }
+          h1 { font-size: 18px; margin-bottom: 4px; }
+          .sub { font-size: 11px; margin-bottom: 20px; color: #64748B; }
+          h2 { font-size: 13px; margin: 18px 0 5px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #E2E8F0; padding: 6px 8px; font-size: 10px; text-align: left; }
+          th { width: 34%; background: #F8FAFC; }
+        </style>
+      </head>
+      <body>
+        <h1>e-FiscalTribe - Detalhamento Fiscal do Item</h1>
+        <div class="sub">
+          NF ${esc(item.nNF || '—')} · Item ${esc(item.numeroItemNFe || '—')} · ${esc(item.descricao || 'Produto')}
+        </div>
+        ${conteudo}
+      </body>
+      </html>
+    `)
+
+    janela.document.close()
+    janela.focus()
+
+    setTimeout(() => {
+      janela.print()
+    }, 500)
+  }
+
+  function exportarPDFDetalhamento() {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    doc.setFontSize(15)
+    doc.text('e-FiscalTribe - Detalhamento Fiscal do Item', 14, 14)
+
+    doc.setFontSize(9)
+    doc.text(
+      `NF ${item.nNF || '—'} - Item ${item.numeroItemNFe || '—'} - ${item.descricao || 'Produto'}`,
+      14,
+      20
+    )
+
+    let y = 27
+
+    secoesDetalhamento.forEach(secao => {
+      if (y > 265) {
+        doc.addPage()
+        y = 15
+      }
+
+      doc.setFontSize(10)
+      doc.text(secao.titulo, 14, y)
+
+      autoTable(doc, {
+        startY: y + 3,
+        margin: { left: 14, right: 14 },
+        theme: 'grid',
+        body: secao.linhas,
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: {
+            fontStyle: 'bold',
+            cellWidth: 58
+          }
+        }
+      })
+
+      y = (doc.lastAutoTable?.finalY || y) + 7
+    })
+
+    doc.save(
+      `FiscalTribe_Detalhamento_NF_${item.nNF || 'sem-nf'}_Item_${item.numeroItemNFe || '1'}.pdf`
+    )
+  } 
 
   return (
     <div onClick={onFechar} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.55)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -216,7 +538,56 @@ function ModalDetalhesFiscais({ item, onFechar }) {
             <div style={{ fontSize:15, fontWeight:700, color:S.navy }}>Detalhamento Fiscal do Item</div>
             <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>NF {item.nNF || '—'} · Item {item.numeroItemNFe || '—'} · {item.descricao || 'Produto'}</div>
           </div>
-          <button onClick={onFechar} style={{ border:`1px solid ${S.border}`, background:'none', borderRadius:6, padding:'5px 10px', cursor:'pointer', color:S.muted }}>Fechar</button>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+
+  <button
+    onClick={imprimirDetalhamento}
+    style={{
+      border:'none',
+      background:S.navy,
+      color:S.white,
+      borderRadius:6,
+      padding:'6px 12px',
+      cursor:'pointer',
+      fontSize:12,
+      fontWeight:600
+    }}
+  >
+    Imprimir
+  </button>
+
+  <button
+    onClick={exportarPDFDetalhamento}
+    style={{
+      border:'none',
+      background:S.blue,
+      color:S.white,
+      borderRadius:6,
+      padding:'6px 12px',
+      cursor:'pointer',
+      fontSize:12,
+      fontWeight:600
+    }}
+  >
+    Exportar PDF
+  </button>
+
+  <button
+    onClick={onFechar}
+    style={{
+      border:`1px solid ${S.border}`,
+      background:'none',
+      borderRadius:6,
+      padding:'6px 12px',
+      cursor:'pointer',
+      color:S.muted,
+      fontSize:12
+    }}
+  >
+    Fechar
+  </button>
+
+</div>
         </div>
 
         <div style={{ padding:18, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))', gap:14 }}>
@@ -224,7 +595,14 @@ function ModalDetalhesFiscais({ item, onFechar }) {
             <Secao titulo="NF-e / Operacao">
               <Linha label="Chave NF-e" valor={item.chaveNFe} />
               <Linha label="Numero / Serie / Modelo" valor={`${item.nNF || '—'} / ${item.serieNFe || '—'} / ${item.modeloNFe || '—'}`} />
-              <Linha label="Data de emissao" valor={item.dataEmissao} />
+              <Linha
+  label="Data de emissao"
+  valor={
+    item.dataEmissao
+      ? item.dataEmissao.split('-').reverse().join('/')
+      : '—'
+  }
+/>
               <Linha label="Tipo de operacao" valor={item.tipoOperacao} />
               <Linha label="Natureza da operacao" valor={item.naturezaOperacao} />
               <Linha label="Finalidade NF-e" valor={item.finalidadeNFe} />
@@ -300,6 +678,11 @@ function ModalDetalhesFiscais({ item, onFechar }) {
               <Linha label="Valor IPI" valor={item.valorIPI} moeda />
               <Linha label="Monofasico PIS/COFINS" valor={item.monofasico ? 'Sim' : 'Nao'} />
               <Linha label="Considera receita" valor={item.consideraReceita ? 'Sim' : 'Nao'} />
+			  <Linha label="Efeito na receita" valor={item.efeitoReceita || '—'} />
+<Linha label="Fator da receita" valor={item.fatorReceita ?? (item.consideraReceita ? 1 : 0)} />
+<Linha label="Valor do efeito na receita" valor={Number(item.vProd || 0) * Number(item.fatorReceita ?? (item.consideraReceita ? 1 : 0))} moeda />
+<Linha label="Motivo do efeito" valor={item.motivoNaoConsiderarReceita || '—'} />
+<Linha label="NF-e referenciada" valor={item.chaveNFeReferenciada || '—'} />
               <Linha label="Classificacao revisada" valor={item.classificacaoRevisada ? 'Sim' : 'Nao'} />
               <Linha label="Origem classificacao" valor={item.classificacaoOrigem} />
               <Linha label="Informacao adicional item" valor={item.infoAdicionalProduto} />
@@ -332,6 +715,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [pgdasSupabase, setPgdasSupabase] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [historico, setHistorico] = useState([])
+  const [diagnosticosSelecionados, setDiagnosticosSelecionados] = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [diagAberto, setDiagAberto] = useState(null)
   const [porPagina, setPorPagina] = useState(10)
@@ -344,6 +728,29 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [salvandoMemoria, setSalvandoMemoria] = useState(false)
   const inputRef = useRef(null)
   const diagAbertoRef = useRef(null)
+  const nfeCanceladasRef = useRef(new Set())
+  
+  function toggleDiagnosticoSelecionado(id) {
+  setDiagnosticosSelecionados(prev =>
+    prev.includes(id)
+      ? prev.filter(item => item !== id)
+      : [...prev, id]
+  )
+}
+
+function toggleTodosDiagnosticos() {
+  const ids = historico
+    .filter(diag => !diag.ghost)
+    .map(diag => diag.id)
+
+  const todosMarcados =
+    ids.length > 0 &&
+    ids.every(id => diagnosticosSelecionados.includes(id))
+
+  setDiagnosticosSelecionados(
+    todosMarcados ? [] : ids
+  )
+}
 
   const competenciasKey = [...new Set(
     itens.map(i => i.competencia).filter(Boolean)
@@ -483,53 +890,1269 @@ supabase
     return `Diagnostico ${new Date().toLocaleDateString('pt-BR')}`
   }
 
-  function exportarCSV() {
-    if (!itens.length) return
+  async function exportarExcel() {
+  if (!itens.length) return
 
-    const headers = [
-      'NF','Serie','Data Emissao','Competencia','Chave NFe','Tipo Operacao','Natureza Operacao',
-      'Emitente','CNPJ Emitente','UF Emitente','CNPJ Destinatario','UF Destinatario',
-      'Item','Codigo','Descricao','NCM','CEST','GTIN','EX TIPI','CFOP',
-      'Unidade','Quantidade','Valor Unitario','Valor Produto','Desconto','Frete','Seguro','Outras Despesas',
-      'CST PIS','Base PIS','Aliquota PIS','Valor PIS','PIS ST',
-      'CST COFINS','Base COFINS','Aliquota COFINS','Valor COFINS','COFINS ST',
-      'Origem ICMS','CST ICMS','CSOSN','Base ICMS','Aliquota ICMS','Valor ICMS',
-      'Base ICMS ST','Aliquota ICMS ST','Valor ICMS ST','Valor ICMS Desonerado',
-      'CST IPI','Base IPI','Aliquota IPI','Valor IPI',
-      'Monofasico','Considera Receita','Classificacao Revisada','Origem Classificacao'
-    ]
+  try {
+    const exceljsModule = await import('exceljs')
+    const ExcelJS = exceljsModule.default || exceljsModule
 
-    const csvCell = v => {
-      const s = v === null || v === undefined ? '' : String(v)
-      return `"${s.replace(/"/g, '""')}"`
+    const workbook = new ExcelJS.Workbook()
+
+    workbook.creator = 'e-FiscalTribe'
+    workbook.lastModifiedBy = 'e-FiscalTribe'
+    workbook.created = new Date()
+    workbook.modified = new Date()
+    workbook.title = 'Auditoria NF-e'
+    workbook.subject = 'Auditoria fiscal de NF-e'
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+
+    const texto = v =>
+      v === null || v === undefined
+        ? ''
+        : String(v)
+
+    const numero = v => {
+      const n = Number(v)
+      return Number.isFinite(n) ? n : 0
     }
 
-    const rows = itens.map(i => [
-      i.nNF, i.serieNFe, i.dataEmissao, i.competencia, i.chaveNFe, i.tipoOperacao, i.naturezaOperacao,
-      i.emitente, i.emitenteCNPJ, i.emitenteUF, i.destinatarioCNPJ, i.destinatarioUF,
-      i.numeroItemNFe, i.codigo, i.descricao, i.ncm, i.cest, i.gtin, i.ex, i.cfop,
-      i.unidadeComercial, i.quantidade, i.valorUnitario, i.vProd, i.valorDesconto, i.valorFrete, i.valorSeguro, i.valorOutrasDespesas,
-      i.cstPIS, i.basePIS, i.aliquotaPIS, i.vItemPIS, i.valorPISST,
-      i.cstCOFINS, i.baseCOFINS, i.aliquotaCOFINS, i.vItemCOFINS, i.valorCOFINSST,
-      i.origemICMS, i.cstICMS, i.csosn, i.baseICMS, i.aliquotaICMS, i.valorICMS,
-      i.baseICMSST, i.aliquotaICMSST, i.valorICMSST, i.valorICMSDesonerado,
-      i.cstIPI, i.baseIPI, i.aliquotaIPI, i.valorIPI,
-      i.monofasico ? 'Sim' : 'Nao',
-      i.consideraReceita ? 'Sim' : 'Nao',
-      i.classificacaoRevisada ? 'Sim' : 'Nao',
-      i.classificacaoOrigem || ''
-    ])
+    const formatarCNPJ = v => {
+      const s = texto(v).replace(/\D/g, '')
 
-    const csv = [headers, ...rows].map(r => r.map(csvCell).join(';')).join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `auditoria_nfe_${cliente?.cnpj || 'cliente'}_${new Date().toISOString().slice(0,10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+      if (s.length !== 14) return texto(v)
+
+      return s.replace(
+        /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+        '$1.$2.$3/$4-$5'
+      )
+    }
+
+    const dataExcel = v => {
+      if (!v) return ''
+
+      const s = texto(v).trim()
+
+      // yyyy-mm-dd
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const [ano, mes, dia] =
+          s.slice(0, 10).split('-').map(Number)
+
+        return new Date(ano, mes - 1, dia)
+      }
+
+      // dd/mm/yyyy
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const [dia, mes, ano] =
+          s.split('/').map(Number)
+
+        return new Date(ano, mes - 1, dia)
+      }
+
+      // ddmmyyyy
+      if (/^\d{8}$/.test(s)) {
+        const dia = Number(s.slice(0, 2))
+        const mes = Number(s.slice(2, 4))
+        const ano = Number(s.slice(4, 8))
+
+        return new Date(ano, mes - 1, dia)
+      }
+
+      const d = new Date(v)
+
+      return Number.isNaN(d.getTime())
+        ? texto(v)
+        : d
+    }
+
+    const formatarCompetencia = v => {
+      const s = texto(v).trim()
+
+      if (/^\d{4}-\d{2}$/.test(s)) {
+        return `${s.slice(5, 7)}/${s.slice(0, 4)}`
+      }
+
+      if (/^\d{2}\/\d{4}$/.test(s)) {
+        return s
+      }
+
+      return s
+    }
+
+    const classificacaoItem = item => {
+      if (!item.monofasico) return 'Não monofásico'
+
+      if (
+        item.pendentePGDAS &&
+        !pgdasSupabase &&
+        !pgdasResult
+      ) {
+        return 'Pendente PGDAS'
+      }
+
+      return 'Monofásico'
+    }
+
+    const periodos = [
+      ...new Set(
+        itens
+          .map(i => formatarCompetencia(i.competencia))
+          .filter(Boolean)
+      )
+    ]
+
+    const periodoTexto =
+      periodos.length === 0
+        ? '—'
+        : periodos.length === 1
+          ? periodos[0]
+          : `${periodos[0]} a ${periodos[periodos.length - 1]}`
+
+    const empresa =
+      cliente?.razao_social ||
+      cliente?.nome_fantasia ||
+      '—'
+
+    const cnpj =
+      formatarCNPJ(cliente?.cnpj)
+
+    const totalItens = itens.length
+
+    const totalMonofasicos =
+      itens.filter(i => i.monofasico).length
+
+    const receitaMonofasica =
+  itens
+    .filter(i => i.monofasico)
+    .reduce(
+      (s, i) =>
+        s +
+        numero(i.vProd) *
+          Number(
+            i.fatorReceita ??
+            (i.consideraReceita ? 1 : 0)
+          ),
+      0
+    )
+
+    // ============================================================
+    // ESTILOS / FUNÇÕES DAS ABAS
+    // ============================================================
+
+    const COR_NAVY = 'FF0B1F4D'
+    const COR_HEADER = 'FF334155'
+    const COR_BRANCO = 'FFFFFFFF'
+    const COR_TEXTO = 'FF0F172A'
+    const COR_MUTED = 'FF64748B'
+    const COR_BORDA = 'FFE2E8F0'
+    const COR_ZEBRA = 'FFF8FAFC'
+    const COR_VERDE = 'FF166534'
+    const COR_VERDE_BG = 'FFDCFCE7'
+    const COR_LARANJA = 'FFEA580C'
+    const COR_LARANJA_BG = 'FFFFF7ED'
+
+    function configurarCabecalhoRelatorio(
+  ws,
+  tituloAba,
+  totalColunas
+) {
+  const ultimaColuna =
+    Math.min(totalColunas, 8)
+
+  ws.mergeCells(
+    1,
+    1,
+    1,
+    ultimaColuna
+  )
+
+  const titulo = ws.getCell(1, 1)
+
+  titulo.value =
+    `e-FiscalTribe® — ${tituloAba}`
+
+  titulo.font = {
+    bold:true,
+    size:16,
+    color:{ argb:COR_NAVY }
   }
 
+  titulo.alignment = {
+    vertical:'middle',
+    horizontal:'left'
+  }
+
+  ws.getRow(1).height = 28
+
+  // EMPRESA
+  ws.getCell('A2').value = 'Empresa'
+  ws.getCell('B2').value = empresa
+
+  if (totalColunas >= 3) {
+    ws.mergeCells('B2:C2')
+  }
+
+  // PERÍODO
+  ws.getCell('D2').value = 'Período'
+  ws.getCell('E2').value = periodoTexto
+
+  if (totalColunas >= 6) {
+    ws.mergeCells('E2:F2')
+  }
+
+  // CNPJ
+  ws.getCell('A3').value = 'CNPJ'
+  ws.getCell('B3').value = cnpj
+
+  if (totalColunas >= 3) {
+    ws.mergeCells('B3:C3')
+  }
+
+  // DATA DE GERAÇÃO
+  ws.getCell('D3').value = 'Gerado em'
+  ws.getCell('E3').value =
+    new Date().toLocaleString('pt-BR')
+
+  if (totalColunas >= 6) {
+    ws.mergeCells('E3:F3')
+  }
+
+  // RÓTULOS
+  ;['A2', 'D2', 'A3', 'D3'].forEach(ref => {
+    const cell = ws.getCell(ref)
+
+    cell.font = {
+      bold:true,
+      size:10,
+      color:{ argb:'FF334155' }
+    }
+
+    cell.alignment = {
+      vertical:'middle',
+      horizontal:'left'
+    }
+  })
+
+  // EMPRESA — esquerda
+  ws.getCell('B2').font = {
+    size:10,
+    color:{ argb:COR_TEXTO }
+  }
+
+  ws.getCell('B2').alignment = {
+    vertical:'middle',
+    horizontal:'left'
+  }
+
+  // PERÍODO — centralizado
+  ws.getCell('E2').font = {
+    size:10,
+    color:{ argb:COR_TEXTO }
+  }
+
+  ws.getCell('E2').alignment = {
+    vertical:'middle',
+    horizontal:'center'
+  }
+
+  // CNPJ — centralizado
+  ws.getCell('B3').font = {
+    size:10,
+    color:{ argb:COR_TEXTO }
+  }
+
+  ws.getCell('B3').alignment = {
+    vertical:'middle',
+    horizontal:'center'
+  }
+
+  // DATA DE GERAÇÃO — centralizada
+  ws.getCell('E3').font = {
+    size:10,
+    color:{ argb:COR_TEXTO }
+  }
+
+  ws.getCell('E3').alignment = {
+    vertical:'middle',
+    horizontal:'center'
+  }
+}
+
+
+function formatarTabela(
+  ws,
+  colunas,
+  linhaCabecalho,
+  dados,
+  opcoes = {}
+) {
+
+  // ------------------------------------------------------------
+  // AJUSTES AUTOMÁTICOS DE LARGURA
+  // ------------------------------------------------------------
+
+  const largurasMinimas = {
+    'UF Emitente':12,
+    'UF Destinatário':13,
+    'Tipo Operação':16,
+    'Natureza Operação':26,
+    'CNPJ Emitente':20,
+    'CNPJ Destinatário':20,
+    'Descrição':36,
+    'Valor Unitário':16,
+    'Valor Produto':16,
+    'Valor Total':16,
+    'Outras Despesas':17,
+    'Alíquota PIS':14,
+    'Alíquota COFINS':16,
+    'Alíquota ICMS':15,
+    'Alíquota ICMS ST':17,
+    'Alíquota IPI':14,
+    'Classificação':19,
+    'Considera Receita':18,
+    'Classificação Revisada':22,
+    'Origem Classificação':22,
+    'ICMS Desonerado':17
+  }
+
+  ws.columns =
+    colunas.map((c, index) => ({
+      key:`c${index + 1}`,
+      width:Math.max(
+        Number(c.width || 10),
+        Number(largurasMinimas[c.header] || 0)
+      )
+    }))
+
+  // ------------------------------------------------------------
+  // CABEÇALHO DA TABELA
+  // ------------------------------------------------------------
+
+  const headerRow =
+    ws.getRow(linhaCabecalho)
+
+  headerRow.values =
+    colunas.map(c => c.header)
+
+  headerRow.height = 34
+
+  headerRow.eachCell(
+    { includeEmpty:true },
+    cell => {
+
+      cell.font = {
+        bold:true,
+        size:10,
+        color:{ argb:COR_BRANCO }
+      }
+
+      cell.fill = {
+        type:'pattern',
+        pattern:'solid',
+        fgColor:{ argb:COR_HEADER }
+      }
+
+      cell.alignment = {
+        vertical:'middle',
+        horizontal:'center',
+        wrapText:true
+      }
+
+      cell.border = {
+        top:{
+          style:'thin',
+          color:{ argb:'FF64748B' }
+        },
+        left:{
+          style:'thin',
+          color:{ argb:'FF64748B' }
+        },
+        bottom:{
+          style:'thin',
+          color:{ argb:'FF64748B' }
+        },
+        right:{
+          style:'thin',
+          color:{ argb:'FF64748B' }
+        }
+      }
+    }
+  )
+
+  // ------------------------------------------------------------
+  // DEFINE O ALINHAMENTO DE CADA TIPO DE CAMPO
+  // ------------------------------------------------------------
+
+  const alinhamentoColuna = config => {
+    const h =
+      String(config?.header || '')
+        .toLowerCase()
+		if (h === 'qtd') {
+  return 'center'
+}
+
+    // Valores, quantidades e percentuais
+    if (
+      config?.type === 'currency' ||
+      config?.type === 'number' ||
+      config?.type === 'percent'
+    ) {
+      return 'right'
+    }
+
+    // Datas
+    if (config?.type === 'date') {
+      return 'center'
+    }
+
+    // Campos cadastrais / fiscais / códigos
+    const camposCentralizados = [
+      'nf',
+      'série',
+      'serie',
+      'competência',
+      'competencia',
+      'chave nf-e',
+      'tipo operação',
+      'tipo operacao',
+      'cnpj emitente',
+      'uf emitente',
+      'cnpj destinatário',
+      'cnpj destinatario',
+      'uf destinatário',
+      'uf destinatario',
+      'item',
+      'código',
+      'codigo',
+      'ncm',
+      'cest',
+      'gtin/ean',
+      'ex tipi',
+      'cfop',
+      'unidade',
+      'cst pis',
+      'cst cofins',
+      'origem icms',
+      'cst icms',
+      'csosn',
+      'cst ipi',
+      'classificação',
+      'classificacao',
+      'considera receita',
+      'classificação revisada',
+      'classificacao revisada',
+      'origem classificação',
+      'origem classificacao'
+    ]
+
+    if (camposCentralizados.includes(h)) {
+      return 'center'
+    }
+
+    // Emitente, descrição, natureza etc.
+    return 'left'
+  }
+
+  // ------------------------------------------------------------
+  // DADOS
+  // ------------------------------------------------------------
+
+  dados.forEach((item, indice) => {
+
+    const row =
+      ws.addRow(
+        colunas.map(c => c.value(item))
+      )
+
+    row.height = 22
+
+    row.eachCell(
+      { includeEmpty:true },
+      (cell, colNumber) => {
+
+        const config =
+          colunas[colNumber - 1]
+
+        cell.font = {
+          size:9,
+          color:{ argb:COR_TEXTO }
+        }
+
+        cell.alignment = {
+          vertical:'middle',
+          horizontal:
+            alinhamentoColuna(config),
+          wrapText:
+            config?.wrap === true
+        }
+
+        // --------------------------------------------------------
+        // GRADE SUAVE HORIZONTAL + VERTICAL
+        // --------------------------------------------------------
+
+        const bordaSuave = {
+          style:'thin',
+          color:{ argb:'FFE4EAF0' }
+        }
+
+        cell.border = {
+          top:bordaSuave,
+          left:bordaSuave,
+          bottom:bordaSuave,
+          right:bordaSuave
+        }
+
+        // Zebra muito suave
+        if (indice % 2 === 1) {
+          cell.fill = {
+            type:'pattern',
+            pattern:'solid',
+            fgColor:{ argb:COR_ZEBRA }
+          }
+        }
+
+        // --------------------------------------------------------
+        // FORMATAÇÃO POR TIPO
+        // --------------------------------------------------------
+
+        if (config?.type === 'text') {
+          cell.numFmt = '@'
+        }
+
+        if (config?.type === 'date') {
+          cell.numFmt = 'dd/mm/yyyy'
+        }
+
+        // Quantidades:
+        // 130      -> 130
+        // 117.5    -> 117,5
+        // sem aparecer "130,"
+        if (config?.type === 'number') {
+  const valorNumerico = Number(cell.value)
+
+  cell.numFmt =
+    Number.isFinite(valorNumerico) && Number.isInteger(valorNumerico)
+      ? '0'
+      : '0.####'
+}
+
+        // Valores monetários
+        if (config?.type === 'currency') {
+          cell.numFmt = 'R$ #,##0.00'
+        }
+
+        // Alíquotas
+        if (config?.type === 'percent') {
+          cell.numFmt = '0.00"%"'
+        }
+      }
+    )
+
+    // ------------------------------------------------------------
+    // CLASSIFICAÇÃO
+    // ------------------------------------------------------------
+
+    if (opcoes.destacarClassificacao) {
+
+      const pos =
+        colunas.findIndex(
+          c => c.header === 'Classificação'
+        ) + 1
+
+      if (pos > 0) {
+
+        const cell =
+          row.getCell(pos)
+
+        const classificacao =
+          classificacaoItem(item)
+
+        if (classificacao === 'Monofásico') {
+          cell.fill = {
+            type:'pattern',
+            pattern:'solid',
+            fgColor:{ argb:COR_VERDE_BG }
+          }
+
+          cell.font = {
+            bold:true,
+            size:9,
+            color:{ argb:COR_VERDE }
+          }
+        }
+
+        if (
+          classificacao ===
+          'Pendente PGDAS'
+        ) {
+          cell.fill = {
+            type:'pattern',
+            pattern:'solid',
+            fgColor:{ argb:COR_LARANJA_BG }
+          }
+
+          cell.font = {
+            bold:true,
+            size:9,
+            color:{ argb:COR_LARANJA }
+          }
+        }
+
+        cell.alignment = {
+          vertical:'middle',
+          horizontal:'center'
+        }
+      }
+    }
+  })
+
+  // ------------------------------------------------------------
+  // FILTROS
+  // ------------------------------------------------------------
+
+  ws.autoFilter = {
+    from:{
+      row:linhaCabecalho,
+      column:1
+    },
+    to:{
+      row:linhaCabecalho,
+      column:colunas.length
+    }
+  }
+
+  // ------------------------------------------------------------
+  // CONGELAMENTO
+  // ------------------------------------------------------------
+
+  ws.views = [{
+    state:'frozen',
+    xSplit:opcoes.xSplit || 0,
+    ySplit:linhaCabecalho,
+    activeCell:
+      `${opcoes.activeCell || 'A'}${linhaCabecalho + 1}`
+  }]
+
+  // ------------------------------------------------------------
+  // IMPRESSÃO
+  // ------------------------------------------------------------
+
+  ws.pageSetup = {
+    orientation:'landscape',
+    fitToPage:true,
+    fitToWidth:1,
+    fitToHeight:0,
+    paperSize:9,
+    margins:{
+      left:0.25,
+      right:0.25,
+      top:0.5,
+      bottom:0.5,
+      header:0.2,
+      footer:0.2
+    }
+  }
+
+  ws.headerFooter.oddFooter =
+    `e-FiscalTribe® — ${ws.name}     Página &P de &N`
+}
+    // ============================================================
+    // ABA 1 — RESUMO
+    // ============================================================
+
+    const wsResumo =
+      workbook.addWorksheet(
+        'Resumo',
+        {
+          properties:{
+            defaultRowHeight:18
+          }
+        }
+      )
+
+    const colResumo = [
+      {
+        header:'NF',
+        width:10,
+        type:'text',
+        value:i=>texto(i.nNF)
+      },
+      {
+        header:'Data',
+        width:13,
+        type:'date',
+        value:i=>dataExcel(i.dataEmissao)
+      },
+      {
+        header:'Emitente',
+        width:28,
+        type:'text',
+        value:i=>texto(i.emitente)
+      },
+      {
+        header:'Descrição',
+        width:36,
+        type:'text',
+        wrap:true,
+        value:i=>texto(i.descricao)
+      },
+      {
+        header:'NCM',
+        width:12,
+        type:'text',
+        value:i=>texto(i.ncm)
+      },
+      {
+        header:'CFOP',
+        width:10,
+        type:'text',
+        value:i=>texto(i.cfop)
+      },
+      {
+        header:'QTD',
+        width:11,
+        type:'number',
+        value:i=>numero(i.quantidade)
+      },
+      {
+        header:'Valor Unitário',
+        width:15,
+        type:'currency',
+        value:i=>numero(i.valorUnitario)
+      },
+      {
+        header:'Valor Total',
+        width:15,
+        type:'currency',
+        value:i=>numero(i.vProd)
+      },
+	  {
+  header:'Efeito',
+  width:16,
+  type:'text',
+  value:i=>texto(i.efeitoReceita || '—')
+},
+{
+  header:'Efeito Receita',
+  width:16,
+  type:'currency',
+  value:i =>
+    numero(i.vProd) *
+    Number(
+      i.fatorReceita ??
+      (i.consideraReceita ? 1 : 0)
+    )
+},
+      {
+        header:'PIS',
+        width:13,
+        type:'currency',
+        value:i=>numero(i.vItemPIS)
+      },
+      {
+        header:'COFINS',
+        width:13,
+        type:'currency',
+        value:i=>numero(i.vItemCOFINS)
+      },
+      {
+        header:'Classificação',
+        width:18,
+        type:'text',
+        value:i=>classificacaoItem(i)
+      }
+    ]
+
+    configurarCabecalhoRelatorio(
+      wsResumo,
+      'Resumo da Auditoria NF-e',
+      colResumo.length
+    )
+
+    wsResumo.mergeCells('A4:B4')
+    wsResumo.getCell('A4').value =
+      'Total de itens'
+
+    wsResumo.getCell('C4').value =
+      totalItens
+
+    wsResumo.mergeCells('D4:E4')
+    wsResumo.getCell('D4').value =
+      'Itens monofásicos'
+
+    wsResumo.getCell('F4').value =
+      totalMonofasicos
+
+    wsResumo.mergeCells('G4:H4')
+    wsResumo.getCell('G4').value =
+      'Receita monofásica'
+
+    wsResumo.getCell('I4').value =
+      receitaMonofasica
+
+    ;['A4','D4','G4'].forEach(ref => {
+      const cell = wsResumo.getCell(ref)
+
+      cell.font = {
+        bold:true,
+        size:10,
+        color:{ argb:COR_MUTED }
+      }
+    })
+
+    wsResumo.getCell('C4').font = {
+      bold:true,
+      size:11,
+      color:{ argb:COR_NAVY }
+    }
+
+    wsResumo.getCell('F4').font = {
+      bold:true,
+      size:11,
+      color:{ argb:COR_LARANJA }
+    }
+
+    wsResumo.getCell('I4').font = {
+      bold:true,
+      size:11,
+      color:{ argb:COR_VERDE }
+    }
+
+    wsResumo.getCell('I4').numFmt =
+      'R$ #,##0.00'
+
+    wsResumo.mergeCells('A5:L5')
+
+    wsResumo.getCell('A5').value =
+      'Diagnóstico preliminar dos XMLs. A confirmação de eventual crédito depende das etapas seguintes do Motor do Simples.'
+
+    wsResumo.getCell('A5').font = {
+      italic:true,
+      size:9,
+      color:{ argb:COR_MUTED }
+    }
+
+    formatarTabela(
+      wsResumo,
+      colResumo,
+      7,
+      itens,
+      {
+        xSplit:2,
+        activeCell:'C',
+        destacarClassificacao:true
+      }
+    )
+
+    // ============================================================
+    // ABA 2 — NF-e E PRODUTOS
+    // ============================================================
+
+    const wsNFe =
+      workbook.addWorksheet(
+        'NF-e e Produtos',
+        {
+          properties:{
+            defaultRowHeight:18
+          }
+        }
+      )
+
+    const colNFe = [
+      { header:'NF', width:9, type:'text', value:i=>texto(i.nNF) },
+      { header:'Série', width:8, type:'text', value:i=>texto(i.serieNFe) },
+      { header:'Data', width:13, type:'date', value:i=>dataExcel(i.dataEmissao) },
+      { header:'Competência', width:12, type:'text', value:i=>formatarCompetencia(i.competencia) },
+      { header:'Chave NF-e', width:46, type:'text', value:i=>texto(i.chaveNFe) },
+
+      { header:'Tipo Operação', width:14, type:'text', value:i=>texto(i.tipoOperacao) },
+      { header:'Natureza Operação', width:25, type:'text', wrap:true, value:i=>texto(i.naturezaOperacao) },
+
+      { header:'Emitente', width:28, type:'text', value:i=>texto(i.emitente) },
+      { header:'CNPJ Emitente', width:20, type:'text', value:i=>formatarCNPJ(i.emitenteCNPJ) },
+      { header:'UF Emitente', width:10, type:'text', value:i=>texto(i.emitenteUF) },
+
+      { header:'CNPJ Destinatário', width:20, type:'text', value:i=>formatarCNPJ(i.destinatarioCNPJ) },
+      { header:'UF Destinatário', width:10, type:'text', value:i=>texto(i.destinatarioUF) },
+
+      { header:'Item', width:8, type:'text', value:i=>texto(i.numeroItemNFe) },
+      { header:'Código', width:13, type:'text', value:i=>texto(i.codigo) },
+      { header:'Descrição', width:34, type:'text', wrap:true, value:i=>texto(i.descricao) },
+
+      { header:'NCM', width:12, type:'text', value:i=>texto(i.ncm) },
+      { header:'CEST', width:12, type:'text', value:i=>texto(i.cest) },
+      { header:'GTIN/EAN', width:17, type:'text', value:i=>texto(i.gtin) },
+      { header:'EX TIPI', width:10, type:'text', value:i=>texto(i.ex) },
+      { header:'CFOP', width:10, type:'text', value:i=>texto(i.cfop) },
+
+      { header:'Unidade', width:10, type:'text', value:i=>texto(i.unidadeComercial) },
+      { header:'Quantidade', width:12, type:'number', value:i=>numero(i.quantidade) },
+      { header:'Valor Unitário', width:15, type:'currency', value:i=>numero(i.valorUnitario) },
+      { header:'Valor Produto', width:15, type:'currency', value:i=>numero(i.vProd) },
+
+      { header:'Desconto', width:13, type:'currency', value:i=>numero(i.valorDesconto) },
+      { header:'Frete', width:13, type:'currency', value:i=>numero(i.valorFrete) },
+      { header:'Seguro', width:13, type:'currency', value:i=>numero(i.valorSeguro) },
+      { header:'Outras Despesas', width:16, type:'currency', value:i=>numero(i.valorOutrasDespesas) }
+    ]
+
+    configurarCabecalhoRelatorio(
+      wsNFe,
+      'NF-e e Produtos',
+      colNFe.length
+    )
+
+    formatarTabela(
+      wsNFe,
+      colNFe,
+      5,
+      itens,
+      {
+        xSplit:2,
+        activeCell:'C'
+      }
+    )
+
+    // ============================================================
+    // ABA 3 — PIS E COFINS
+    // ============================================================
+
+    const wsPisCofins =
+      workbook.addWorksheet(
+        'PIS e COFINS',
+        {
+          properties:{
+            defaultRowHeight:18
+          }
+        }
+      )
+
+    const colPisCofins = [
+      { header:'NF', width:9, type:'text', value:i=>texto(i.nNF) },
+      { header:'Item', width:8, type:'text', value:i=>texto(i.numeroItemNFe) },
+      { header:'Código', width:13, type:'text', value:i=>texto(i.codigo) },
+      { header:'Descrição', width:34, type:'text', wrap:true, value:i=>texto(i.descricao) },
+      { header:'NCM', width:12, type:'text', value:i=>texto(i.ncm) },
+      { header:'CFOP', width:10, type:'text', value:i=>texto(i.cfop) },
+
+      { header:'CST PIS', width:11, type:'text', value:i=>texto(i.cstPIS) },
+      { header:'Base PIS', width:14, type:'currency', value:i=>numero(i.basePIS) },
+      { header:'Alíquota PIS', width:14, type:'percent', value:i=>numero(i.aliquotaPIS) },
+      { header:'Valor PIS', width:14, type:'currency', value:i=>numero(i.vItemPIS) },
+      { header:'PIS ST', width:13, type:'currency', value:i=>numero(i.valorPISST) },
+
+      { header:'CST COFINS', width:13, type:'text', value:i=>texto(i.cstCOFINS) },
+      { header:'Base COFINS', width:15, type:'currency', value:i=>numero(i.baseCOFINS) },
+      { header:'Alíquota COFINS', width:16, type:'percent', value:i=>numero(i.aliquotaCOFINS) },
+      { header:'Valor COFINS', width:15, type:'currency', value:i=>numero(i.vItemCOFINS) },
+      { header:'COFINS ST', width:14, type:'currency', value:i=>numero(i.valorCOFINSST) },
+
+      {
+        header:'Classificação',
+        width:18,
+        type:'text',
+        value:i=>classificacaoItem(i)
+      },
+      {
+        header:'Considera Receita',
+        width:17,
+        type:'text',
+        value:i=>i.consideraReceita ? 'Sim' : 'Não'
+      },
+      {
+        header:'Classificação Revisada',
+        width:20,
+        type:'text',
+        value:i=>i.classificacaoRevisada ? 'Sim' : 'Não'
+      },
+      {
+        header:'Origem Classificação',
+        width:22,
+        type:'text',
+        value:i=>texto(i.classificacaoOrigem)
+      }
+    ]
+
+    configurarCabecalhoRelatorio(
+      wsPisCofins,
+      'Auditoria PIS e COFINS',
+      colPisCofins.length
+    )
+
+    formatarTabela(
+      wsPisCofins,
+      colPisCofins,
+      5,
+      itens,
+      {
+        xSplit:2,
+        activeCell:'C',
+        destacarClassificacao:true
+      }
+    )
+
+    // ============================================================
+    // ABA 4 — ICMS E IPI
+    // ============================================================
+
+    const wsIcmsIpi =
+      workbook.addWorksheet(
+        'ICMS e IPI',
+        {
+          properties:{
+            defaultRowHeight:18
+          }
+        }
+      )
+
+    const colIcmsIpi = [
+      { header:'NF', width:9, type:'text', value:i=>texto(i.nNF) },
+      { header:'Item', width:8, type:'text', value:i=>texto(i.numeroItemNFe) },
+      { header:'Código', width:13, type:'text', value:i=>texto(i.codigo) },
+      { header:'Descrição', width:34, type:'text', wrap:true, value:i=>texto(i.descricao) },
+      { header:'NCM', width:12, type:'text', value:i=>texto(i.ncm) },
+      { header:'CFOP', width:10, type:'text', value:i=>texto(i.cfop) },
+
+      { header:'Origem ICMS', width:13, type:'text', value:i=>texto(i.origemICMS) },
+      { header:'CST ICMS', width:11, type:'text', value:i=>texto(i.cstICMS) },
+      { header:'CSOSN', width:10, type:'text', value:i=>texto(i.csosn) },
+
+      { header:'Base ICMS', width:14, type:'currency', value:i=>numero(i.baseICMS) },
+      { header:'Alíquota ICMS', width:15, type:'percent', value:i=>numero(i.aliquotaICMS) },
+      { header:'Valor ICMS', width:14, type:'currency', value:i=>numero(i.valorICMS) },
+
+      { header:'Base ICMS ST', width:15, type:'currency', value:i=>numero(i.baseICMSST) },
+      { header:'Alíquota ICMS ST', width:17, type:'percent', value:i=>numero(i.aliquotaICMSST) },
+      { header:'Valor ICMS ST', width:16, type:'currency', value:i=>numero(i.valorICMSST) },
+      { header:'ICMS Desonerado', width:17, type:'currency', value:i=>numero(i.valorICMSDesonerado) },
+
+      { header:'CST IPI', width:10, type:'text', value:i=>texto(i.cstIPI) },
+      { header:'Base IPI', width:13, type:'currency', value:i=>numero(i.baseIPI) },
+      { header:'Alíquota IPI', width:14, type:'percent', value:i=>numero(i.aliquotaIPI) },
+      { header:'Valor IPI', width:13, type:'currency', value:i=>numero(i.valorIPI) }
+    ]
+
+    configurarCabecalhoRelatorio(
+      wsIcmsIpi,
+      'Auditoria ICMS e IPI',
+      colIcmsIpi.length
+    )
+
+    formatarTabela(
+      wsIcmsIpi,
+      colIcmsIpi,
+      5,
+      itens,
+      {
+        xSplit:2,
+        activeCell:'C'
+      }
+    )
+
+    // ============================================================
+    // ARQUIVO FINAL
+    // ============================================================
+
+    const limparNomeArquivo = valor =>
+      texto(valor)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+
+    const empresaArquivo =
+      limparNomeArquivo(
+        cliente?.razao_social ||
+        cliente?.nome_fantasia ||
+        cliente?.cnpj ||
+        'cliente'
+      )
+
+    const periodoArquivo =
+      limparNomeArquivo(
+        periodoTexto || ''
+      )
+
+    const nomeArquivo =
+      `Auditoria_NFe_${empresaArquivo}` +
+      `${periodoArquivo ? '_' + periodoArquivo : ''}.xlsx`
+
+    const buffer =
+      await workbook.xlsx.writeBuffer()
+
+    const blob =
+      new Blob(
+        [buffer],
+        {
+          type:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      )
+
+    const url =
+      URL.createObjectURL(blob)
+
+    const a =
+      document.createElement('a')
+
+    a.href = url
+    a.download = nomeArquivo
+
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+
+    setTimeout(
+      () => URL.revokeObjectURL(url),
+      1000
+    )
+
+  } catch (e) {
+    console.error(
+      'Erro ao exportar Excel:',
+      e
+    )
+
+    alert(
+      'Erro ao gerar a planilha Excel: ' +
+      e.message
+    )
+  }
+}
+
+  function exportarPDFMonofasicos() {
+  if (!itens.length) {
+    alert('Nao existem itens para exportar.')
+    return
+  }
+
+  const valorTotalNFe = processados.reduce(
+    (s, p) => s + Number(p.valorTotalNF || 0),
+    0
+  )
+
+  const ajustesExclusoes = itens
+    .filter(i => !i.consideraReceita)
+    .reduce((s, i) => s + Number(i.vProd || 0), 0)
+const receitaConsiderada = itens.reduce(
+  (s, i) =>
+    s +
+    Number(i.vProd || 0) *
+    Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+  0
+)
+
+  const receitaMonofasicaPDF = itens
+  .filter(i => i.monofasico)
+  .reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+      Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+    0
+  )
+
+  const receitaNaoMonofasica = itens
+  .filter(i => !i.monofasico)
+  .reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+      Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+    0
+  )
+
+  const descontos = processados.reduce(
+    (s, p) => s + Number(p.totalDesconto || 0),
+    0
+  )
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  doc.setFontSize(16)
+  doc.text('e-FiscalTribe - Monofasicos PIS/COFINS', 14, 14)
+
+  doc.setFontSize(9)
+  doc.text(
+    `${cliente?.razao_social || 'Cliente'} - ${cliente?.cnpj || ''}`,
+    14,
+    20
+  )
+
+  autoTable(doc, {
+    startY: 26,
+    theme: 'grid',
+    head: [['Indicador', 'Valor']],
+    body: [
+      ['Total de itens', String(itens.length)],
+      ['Itens monofasicos', String(itens.filter(i => i.monofasico).length)],
+      ['Valor total NF-e', fmtR(valorTotalNFe)],
+      ['Ajustes / Exclusoes', fmtR(ajustesExclusoes)],
+      ['Receita considerada', fmtR(receitaConsiderada)],
+      ['Receita monofasica', fmtR(receitaMonofasicaPDF)],
+      ['Receita nao monofasica', fmtR(receitaNaoMonofasica)],
+      ['Descontos comerciais', fmtR(descontos)],
+      ['Potencial de recuperacao', fmtR(creditoTotal)],
+    ],
+    styles: {
+      fontSize: 8
+    }
+  })
+
+  const inicioTabela =
+    (doc.lastAutoTable?.finalY || 26) + 7
+
+  autoTable(doc, {
+    startY: inicioTabela,
+    theme: 'grid',
+    head: [[
+      'NF',
+      'Data',
+      'Produto',
+      'NCM',
+      'CFOP',
+      'Valor',
+      'PIS',
+      'COFINS',
+      'Classificacao',
+      'Receita'
+    ]],
+    body: itens.map(item => [
+      item.nNF || '',
+      item.dataEmissao || '',
+      item.descricao || '',
+      item.ncm || '',
+      item.cfop || '',
+      fmtR(item.vProd),
+      fmtR(item.vItemPIS),
+      fmtR(item.vItemCOFINS),
+      item.monofasico ? 'Monofasico' : 'Nao monofasico',
+      item.consideraReceita ? 'Sim' : 'Nao'
+    ]),
+    styles: {
+      fontSize: 7
+    }
+  })
+
+  const nomeCliente = String(
+    cliente?.razao_social || 'cliente'
+  )
+    .replace(/[^\w-]+/g, '_')
+
+  doc.save(
+    `FiscalTribe_Monofasicos_${nomeCliente}_${new Date()
+      .toISOString()
+      .slice(0, 10)}.pdf`
+  )
+}
+  
   function gerarRelatorioPDF() {
     // ── v8.9.4 FIX: usa itens_json do diagAberto quando disponivel
     // evita race condition ao abrir diagnostico do historico
@@ -541,8 +2164,24 @@ supabase
     if (!itensParaPDF.length) return
 
     const totalMono = itensParaPDF.filter(i => i.monofasico).length
-    const recMono   = itensParaPDF.filter(i => i.monofasico).reduce((s,i) => s + i.vProd, 0)
-    const credito   = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itensParaPDF.filter(i => i.monofasico).reduce((s,i) => s + i.credito, 0)
+   const recMono = itensParaPDF
+  .filter(i => i.monofasico)
+  .reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+        Number(
+          i.fatorReceita ??
+          (i.consideraReceita ? 1 : 0)
+        ),
+    0
+  )
+    const credito =
+  pgdasResult?.diferenca ??
+  pgdasSupabase?.diferenca ??
+  itensParaPDF
+    .filter(i => i.monofasico)
+    .reduce((s, i) => s + Number(i.credito || 0), 0)
     const periodos  = [...new Set(itensParaPDF.map(i => i.competencia))].sort()
     const dataHoje  = new Date().toLocaleDateString('pt-BR')
 
@@ -558,8 +2197,16 @@ supabase
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.descricao}</td>
         <td>${i.ncm}</td>
         <td style="text-align:right">${fmtR(i.vProd)}</td>
-        <td style="text-align:right">${fmtR(i.vItemPIS)}</td>
-        <td style="text-align:right">${fmtR(i.vItemCOFINS)}</td>
+<td>${i.efeitoReceita || '—'}</td>
+<td style="text-align:right">${fmtR(
+  Number(i.vProd || 0) *
+  Number(
+    i.fatorReceita ??
+    (i.consideraReceita ? 1 : 0)
+  )
+)}</td>
+<td style="text-align:right">${fmtR(i.vItemPIS)}</td>
+<td style="text-align:right">${fmtR(i.vItemCOFINS)}</td>
       </tr>`).join('')
 
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dossie Monofasicos — ${cliente?.razao_social||''}</title>
@@ -633,19 +2280,21 @@ supabase
       <table>
         <thead>
           <tr>
-            <th>NF</th><th>Competencia</th><th>Descricao</th><th>NCM</th>
-            <th style="text-align:right">Valor Produto</th>
-            <th style="text-align:right">PIS</th>
-            <th style="text-align:right">COFINS</th>
+           <th>NF</th><th>Competencia</th><th>Descricao</th><th>NCM</th>
+<th style="text-align:right">Valor Produto</th>
+<th>Efeito</th>
+<th style="text-align:right">Efeito Receita</th>
+<th style="text-align:right">PIS</th>
+<th style="text-align:right">COFINS</th>
           </tr>
         </thead>
         <tbody>
           ${linhasTabela}
           <tr style="background:#F0FDF4;font-weight:700">
-            <td colspan="4">TOTAL MONOFASICO</td>
-            <td style="text-align:right;color:#16a34a">${fmtR(recMono)}</td>
-            <td style="text-align:right"></td>
-            <td style="text-align:right"></td>
+            <td colspan="6">TOTAL MONOFASICO</td>
+<td style="text-align:right;color:#16a34a">${fmtR(recMono)}</td>
+<td style="text-align:right"></td>
+<td style="text-align:right"></td>
           </tr>
         </tbody>
       </table>
@@ -741,19 +2390,52 @@ if (!cliente?.id) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const periodos = [...new Set(itens.map(i => i.competencia))].sort()
-      const creditoFinal = pgdasResult?.diferenca || pgdasSupabase?.diferenca || itens.filter(i => i.monofasico).reduce((s, i) => s + i.credito, 0)
+      const creditoFinal =
+  pgdasResult?.diferenca ??
+  pgdasSupabase?.diferenca ??
+  itens
+    .filter(i => i.monofasico)
+    .reduce((s, i) => s + Number(i.credito || 0), 0)
       const { data: diagCriado, error } = await supabase
      .from('diagnosticos_monofasicos')
      .insert([{
         usuario_id: user.id, cliente_id: cliente.id,
         cliente_nome: cliente.razao_social || '', cliente_cnpj: cliente.cnpj || '', regime,
         nome_diagnostico: nomeDiagnostico || gerarNomeSugerido(),
-        arquivos_importados: processados.map(p => ({ nome: p.nome, tamanho: p.tamanho, status: p.status, qtd_itens: p.qtdItens || 0 })),
+        arquivos_importados: processados.map(p => ({
+  nome: p.nome,
+  tamanho: p.tamanho,
+  status: p.status,
+  qtd_itens: p.qtdItens || 0,
+  valor_total_nf: Number(p.valorTotalNF || 0),
+  total_desconto: Number(p.totalDesconto || 0),
+})),
         importado_por: user.email || '',
         total_itens: itens.length,
         total_monofasicos: itens.filter(i => i.monofasico).length,
-        receita_total: itens.reduce((s, i) => s + i.vProd, 0),
-        receita_monofasica: itens.filter(i => i.monofasico).reduce((s, i) => s + i.vProd, 0),
+        receita_total: itens.reduce(
+  (s, i) =>
+    s +
+    Number(i.vProd || 0) *
+      Number(
+        i.fatorReceita ??
+        (i.consideraReceita ? 1 : 0)
+      ),
+  0
+),
+
+receita_monofasica: itens
+  .filter(i => i.monofasico)
+  .reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+        Number(
+          i.fatorReceita ??
+          (i.consideraReceita ? 1 : 0)
+        ),
+    0
+  ),
         periodo_inicio: periodos[0] || null, periodo_fim: periodos[periodos.length - 1] || null,
         pgdas_json: pgdasResult || null,
         credito_estimado: creditoFinal,
@@ -872,6 +2554,11 @@ aliquota_ipi: item.aliquotaIPI || 0,
 
 considera_receita: item.consideraReceita ?? true,
 motivo_nao_considerar_receita: item.motivoNaoConsiderarReceita || null,
+efeito_receita: item.efeitoReceita || null,
+fator_receita: Number(
+  item.fatorReceita ??
+  (item.consideraReceita ? 1 : 0)
+),
 
 classificacao_revisada: item.classificacaoRevisada ?? false,
 classificacao_origem: item.classificacaoOrigem || 'xml',
@@ -908,14 +2595,78 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   }
 
   async function excluirDiagnostico(id) {
-    if (!window.confirm('Excluir este diagnostico?')) return
-    await supabase.from('diagnosticos_monofasicos').delete().eq('id', id)
-    if (diagAbertoRef.current?.id === id || diagAberto?.id === id) {
-    diagAbertoRef.current = null
-    setDiagAberto(null); setItens([]); setProcessados([])
-   }
+  if (!window.confirm('Excluir este diagnostico?')) return
+
+  try {
+    const { error } = await supabase
+      .from('diagnosticos_monofasicos')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    const eraDiagnosticoAberto =
+      diagAbertoRef.current?.id === id ||
+      diagAberto?.id === id
+
+    if (eraDiagnosticoAberto) {
+      limparDados()
+    }
+
     await carregarHistorico()
+
+    // depois da exclusao, deixa o modulo pronto
+    // para uma nova importacao
+    setAba('importar')
+
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
+    }, 0)
+
+  } catch (e) {
+    alert('Erro ao excluir diagnostico: ' + e.message)
   }
+}
+
+async function excluirDiagnosticosSelecionados() {
+  if (diagnosticosSelecionados.length === 0) return
+
+  const quantidade = diagnosticosSelecionados.length
+
+  if (
+    !window.confirm(
+      `Excluir ${quantidade} diagnóstico${quantidade > 1 ? 's' : ''} selecionado${quantidade > 1 ? 's' : ''}?`
+    )
+  ) return
+
+  try {
+    const { error } = await supabase
+      .from('diagnosticos_monofasicos')
+      .delete()
+      .in('id', diagnosticosSelecionados)
+
+    if (error) throw error
+
+    const apagouDiagnosticoAberto =
+      diagnosticosSelecionados.some(id =>
+        diagAbertoRef.current?.id === id ||
+        diagAberto?.id === id
+      )
+
+    if (apagouDiagnosticoAberto) {
+      limparDados()
+    }
+
+    setDiagnosticosSelecionados([])
+
+    await carregarHistorico()
+
+  } catch (e) {
+    alert('Erro ao excluir diagnósticos: ' + e.message)
+  }
+}
 
   async function abrirDiagnostico(diag) {
   try {
@@ -1045,7 +2796,19 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
           aliquotaIPI: parseFloat(item.aliquota_ipi || 0),
 
           consideraReceita: item.considera_receita ?? true,
-          motivoNaoConsiderarReceita: item.motivo_nao_considerar_receita || null,
+motivoNaoConsiderarReceita: item.motivo_nao_considerar_receita || null,
+
+efeitoReceita:
+  item.efeito_receita ||
+  (item.considera_receita === false
+    ? EFEITO_RECEITA.NEUTRO
+    : EFEITO_RECEITA.VENDA),
+
+fatorReceita:
+  item.fator_receita !== null &&
+  item.fator_receita !== undefined
+    ? Number(item.fator_receita)
+    : (item.considera_receita === false ? 0 : 1),
           classificacaoRevisada: item.classificacao_revisada ?? false,
           classificacaoOrigem: item.classificacao_origem || 'xml',
         }))
@@ -1060,6 +2823,17 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
     setDiagAberto(diagCompleto)
 	setDiagnosticoSalvoId(diag.id)
     setItens(itensCompletos)
+	
+	const processadosSalvos = Array.isArray(diag.arquivos_importados)
+  ? diag.arquivos_importados.map(p => ({
+      ...p,
+      qtdItens: Number(p.qtd_itens || 0),
+      valorTotalNF: Number(p.valor_total_nf || 0),
+      totalDesconto: Number(p.total_desconto || 0),
+    }))
+  : []
+
+setProcessados(processadosSalvos)
 
     setPgdasResult(diag.pgdas_json || null)
     setAba('importar')
@@ -1073,6 +2847,7 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
 
   	function limparDados() {
   diagAbertoRef.current = null
+  nfeCanceladasRef.current.clear()
   setDiagnosticoSalvoId(null)
 
   setPgdasForm({
@@ -1118,9 +2893,10 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
       codigo: item.codigo || '', descricao: item.descricao || '',
       gtin: item.gtin || null, ncm: item.ncm || null,
       ex: item.ex || null, cest: item.cest || null,
-      class_pis_cofins_econsulta: item.monofasico ? 'monofasico' : 'tributado',
+      class_pis_cofins_econsulta: null,
       status_ncm: item.ncm ? 'encontrada' : 'nao_encontrada',
-      considerar_receita: true, duplicado: false,
+      considerar_receita: item.consideraReceita ?? true,
+      duplicado: false,
     }))
     if (!registros.length) return
     let novosTotal = 0
@@ -1134,32 +2910,160 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   }
 
   async function onDrop(e) {
-    e.preventDefault()
-    const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
-    if (files.length === 0) return
-    const novos = files.map(f => ({ file: f, nome: f.name, tamanho: (f.size/1024).toFixed(0)+' KB', status: 'pendente' }))
-    setArquivos(prev => [...prev, ...novos])
-    await processarArquivos([...arquivos, ...novos])
+  e.preventDefault()
+
+  const files = Array.from(
+    e.dataTransfer?.files ||
+    e.target?.files ||
+    []
+  )
+
+  if (files.length === 0) return
+
+  const assinaturasExistentes = new Set(
+    arquivos.map(a =>
+      `${a.nome}|${a.file?.size || 0}|${a.file?.lastModified || 0}`
+    )
+  )
+
+  const novos = []
+  const repetidos = []
+
+  for (const f of files) {
+    const assinatura =
+      `${f.name}|${f.size}|${f.lastModified}`
+
+    if (assinaturasExistentes.has(assinatura)) {
+      repetidos.push(f.name)
+      continue
+    }
+
+    assinaturasExistentes.add(assinatura)
+
+    novos.push({
+      file: f,
+      nome: f.name,
+      tamanho: (f.size / 1024).toFixed(0) + ' KB',
+      status: 'pendente',
+    })
   }
+
+  if (repetidos.length > 0 && novos.length === 0) {
+  setProcessando(false)
+
+  if (inputRef.current) {
+    inputRef.current.value = ''
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.alert(
+        `Este arquivo XML já foi importado nesta análise:\n\n` +
+        repetidos.join('\n')
+      )
+    })
+  })
+
+  return
+}
+
+  if (novos.length === 0) {
+    if (inputRef.current) inputRef.current.value = ''
+    return
+  }
+
+  const atualizados = [...arquivos, ...novos]
+
+  setArquivos(atualizados)
+  await processarArquivos(atualizados)
+}
 
   async function processarArquivos(listaArquivos) {
     if (!listaArquivos || listaArquivos.length === 0) return
 	diagAbertoRef.current = null
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
+    const nfeJaImportadas = new Set()
+    const itensJaImportados = new Set()
+    const xmlDuplicados = []
+	const arquivosDuplicadosNaAnalise = new Set()
+    const nfeCanceladas = nfeCanceladasRef.current
     for (const arq of listaArquivos) {
       try {
         if (arq.nome.toLowerCase().endsWith('.xml')) {
           const texto = await arq.file.text()
           const xmls = texto.includes('<nfeProc') ? texto.split('</nfeProc>').filter(x => x.includes('<nfeProc')).map(x => x+'</nfeProc>') : [texto]
           let qtd = 0
+let valorTotalNFArquivo = 0
+let descontoTotalArquivo = 0
           for (const xml of xmls) {
             try {
               const nfe = parseXMLNFe(xml)
-              if (!nfe.competencia) continue
-              ;(nfe.itens || []).forEach(item => {
-                const mono = isMonofasico(item.ncm)
-                todosItens.push({
+
+if (nfe.tipoDocumento === 'evento') {
+	if (nfe.eventoCancelamento && nfe.chNFe) {
+        nfeCanceladas.add(nfe.chNFe)	  
+        todosItens.forEach(item => {
+        if (item.chaveNFe === nfe.chNFe) {
+        item.efeitoReceita = EFEITO_RECEITA.CANCELAMENTO
+        item.fatorReceita = 0
+        item.consideraReceita = false
+        item.motivoNaoConsiderarReceita =
+          'NF-e cancelada por evento fiscal'
+      }
+    })
+  }
+
+  continue
+}
+
+if (!nfe.competencia) continue
+			  const chaveDocumento =
+  nfe.chNFe ||
+  `${nfe.emitCNPJ || ''}-${nfe.nNF || ''}-${nfe.serie || ''}`
+
+if (!nfeJaImportadas.has(chaveDocumento)) {
+  valorTotalNFArquivo += Number(nfe.totalNF || 0)
+  descontoTotalArquivo += Number(nfe.totalDesconto || 0)
+
+  nfeJaImportadas.add(chaveDocumento)
+} else {
+  xmlDuplicados.push({
+    arquivo: arq.nome,
+    nNF: nfe.nNF || '—',
+    chave: nfe.chNFe || chaveDocumento,
+  })
+
+  arquivosDuplicadosNaAnalise.add(arq.file)
+
+  continue
+}
+              ;(nfe.itens || []).forEach((item, itemIndex) => {
+  const numeroItem =
+    item.numeroItem ||
+    item.nItem ||
+    (itemIndex + 1)
+
+  const chaveItem =
+    `${chaveDocumento}-${numeroItem}`
+
+  if (itensJaImportados.has(chaveItem)) {
+    return
+  }
+
+  itensJaImportados.add(chaveItem)
+
+  const mono = isMonofasico(item.ncm)
+
+const efeitoReceita = classificarEfeitoReceita({
+  cfop: item.cfop,
+  tipoOperacao: nfe.tipoOperacao || nfe.tipo,
+  naturezaOperacao: nfe.naturezaOperacao,
+  chaveNFeReferenciada: nfe.chaveNFeReferenciada,
+  cancelada: nfeCanceladas.has(nfe.chNFe),
+})
+
+todosItens.push({
   nNF: nfe.nNF || '-',
   competencia: nfe.competencia,
   emitente: nfe.emitNome || '-',
@@ -1195,6 +3099,8 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   csosn: item.csosn || null,
 
   chaveNFe: nfe.chNFe || null,
+  chaveNFeReferenciada: nfe.chaveNFeReferenciada || null,
+  chavesNFeReferenciadas: nfe.chavesNFeReferenciadas || [],
   dataEmissao: nfe.dataEmissao || null,
 
   emitenteCNPJ: nfe.emitCNPJ || null,
@@ -1214,10 +3120,10 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   numeroItemNFe: item.numeroItem || null,
   serieNFe: nfe.serie || null,
   modeloNFe: nfe.modelo || null,
-  finalidadeNFe: nfe.finalidadeNFe || null,
-  indicadorDestino: nfe.indicadorDestino || null,
-  consumidorFinal: nfe.consumidorFinal || null,
-  presencaComprador: nfe.presencaComprador || null,
+  finalidadeNFe: nfe.finNFe || null,
+  indicadorDestino: nfe.idDest || null,
+  consumidorFinal: nfe.indFinal || null,
+  presencaComprador: nfe.indPres || null,
   emitenteUF: nfe.emitUF || null,
   destinatarioUF: nfe.destUF || null,
 
@@ -1269,8 +3175,10 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
   aliquotaIPI: item.pIPI || 0,
 
   // Sera refinado depois pelas regras de CFOP
-  consideraReceita: true,
-  motivoNaoConsiderarReceita: null,
+  efeitoReceita: efeitoReceita.efeitoReceita,
+fatorReceita: efeitoReceita.fatorReceita,
+consideraReceita: efeitoReceita.consideraReceita,
+motivoNaoConsiderarReceita: efeitoReceita.motivoEfeitoReceita,
 
   classificacaoRevisada: false,
   classificacaoOrigem: 'xml',
@@ -1279,18 +3187,89 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
               })
             } catch {}
           }
-          novosProcessados.push({ ...arq, status: 'concluido', qtdItens: qtd })
+          novosProcessados.push({
+  ...arq,
+  status: 'concluido',
+  qtdItens: qtd,
+  valorTotalNF: valorTotalNFArquivo,
+  totalDesconto: descontoTotalArquivo,
+})
         } else {
           novosProcessados.push({ ...arq, status: 'ignorado', qtdItens: 0 })
         }
       } catch { novosProcessados.push({ ...arq, status: 'erro', qtdItens: 0 }) }
     }
+	
+	if (xmlDuplicados.length > 0) {
+  const duplicadosUnicos = Array.from(
+    new Map(
+      xmlDuplicados.map(d => [d.chave, d])
+    ).values()
+  )
+
+  const listaDuplicados = duplicadosUnicos
+    .map(d => `NF-e ${d.nNF} — ${d.arquivo}`)
+    .join('\n')
+
+  const titulo =
+    duplicadosUnicos.length === 1
+      ? 'Este arquivo XML já foi importado nesta análise.'
+      : `${duplicadosUnicos.length} arquivos XML já foram importados nesta análise.`
+
+  requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    window.alert(
+      `${titulo}\n\n` +
+      `${listaDuplicados}\n\n` +
+      `Os arquivos duplicados foram ignorados e não alteraram os valores da análise.`
+    )
+  })
+})
+}
+	
     if (regime === 'Simples Nacional') {
-      const recMono = todosItens.filter(i => i.monofasico).reduce((s,i)=>s+i.vProd, 0)
-      const recTotal = todosItens.reduce((s,i)=>s+i.vProd, 0)
-      setPgdasForm(prev => ({ ...prev, receita_bruta_total: recTotal.toFixed(2), receita_monofasica: recMono.toFixed(2) }))
-    }
-    setProcessados(novosProcessados)
+  const recMono = todosItens
+    .filter(i => i.monofasico)
+    .reduce(
+      (s, i) =>
+        s +
+        Number(i.vProd || 0) *
+          Number(
+            i.fatorReceita ??
+            (i.consideraReceita ? 1 : 0)
+          ),
+      0
+    )
+
+  const recTotal = todosItens
+    .reduce(
+      (s, i) =>
+        s +
+        Number(i.vProd || 0) *
+          Number(
+            i.fatorReceita ??
+            (i.consideraReceita ? 1 : 0)
+          ),
+      0
+    )
+
+  setPgdasForm(prev => ({
+    ...prev,
+    receita_bruta_total: recTotal.toFixed(2),
+    receita_monofasica: recMono.toFixed(2)
+  }))
+}
+    setArquivos(
+  listaArquivos.filter(
+    arq => !arquivosDuplicadosNaAnalise.has(arq.file)
+  )
+)
+
+setProcessados(
+  novosProcessados.filter(
+    arq => !arquivosDuplicadosNaAnalise.has(arq.file)
+  )
+)
     setItens(todosItens)
     setPgdasResult(null)
     setPgdasSupabase(null)
@@ -1757,19 +3736,33 @@ const itensSnapshot =
   criarSnapshotItens(itens)
 
     const itensMono =
-      itens.filter(i => i.monofasico)
+  itens.filter(i => i.monofasico)
 
-    const receitaTotal =
-      itens.reduce(
-        (s, i) => s + Number(i.vProd || 0),
-        0
-      )
+const receitaTotal =
+  itens.reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+        Number(
+          i.fatorReceita ??
+          (i.consideraReceita ? 1 : 0)
+        ),
+    0
+  )
 
-    const receitaMonofasica =
-      itensMono.reduce(
-        (s, i) => s + Number(i.vProd || 0),
-        0
-      )
+const receitaMonofasica =
+  itens
+    .filter(i => i.monofasico)
+    .reduce(
+      (s, i) =>
+        s +
+        numero(i.vProd) *
+          Number(
+            i.fatorReceita ??
+            (i.consideraReceita ? 1 : 0)
+          ),
+      0
+    )
 
     const pisItensMono =
       itensMono.reduce(
@@ -2608,10 +4601,27 @@ async function excluirMemoria(id) {
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length/porPagina))
   const itensPagina  = temResultado ? itensFiltrados.slice((pagina-1)*porPagina, pagina*porPagina) : LINHAS_GHOST
   const totalMono    = itens.filter(i=>i.monofasico).length
-  const creditoTotal = regime==='Simples Nacional'
-    ? (pgdasResult?.diferenca || pgdasSupabase?.diferenca || diagAberto?.credito_estimado || itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0))
-    : itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.credito,0)
-  const receitaMono  = itens.filter(i=>i.monofasico).reduce((s,i)=>s+i.vProd,0)
+  const creditoTotal = regime === 'Simples Nacional'
+  ? (
+      pgdasResult?.diferenca ??
+      pgdasSupabase?.diferenca ??
+      diagAberto?.credito_estimado ??
+      itens
+        .filter(i => i.monofasico)
+        .reduce((s, i) => s + Number(i.credito || 0), 0)
+    )
+  : itens
+      .filter(i => i.monofasico)
+      .reduce((s, i) => s + Number(i.credito || 0), 0)
+  const receitaMono = itens
+  .filter(i => i.monofasico)
+  .reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+      Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+    0
+  )
   const todosSelecionados = itensPagina.length>0 && !itensPagina[0]?.ghost && itensPagina.every((_,i)=>selecionados.includes((pagina-1)*porPagina+i))
 
   function toggleTodos() {
@@ -2659,20 +4669,27 @@ async function excluirMemoria(id) {
     setItens(novosItens)
 
     // Mantém os totais coerentes após a exclusão
-    if (regime === 'Simples Nacional') {
-      const recTotal =
-        novosItens.reduce(
-          (s, i) => s + Number(i.vProd || 0),
-          0
-        )
+	if (regime === 'Simples Nacional') {
+		
+    const recTotal =
+  novosItens.reduce(
+    (s, i) =>
+      s +
+      Number(i.vProd || 0) *
+      Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+    0
+  )
 
-      const recMono =
-        novosItens
-          .filter(i => i.monofasico)
-          .reduce(
-            (s, i) => s + Number(i.vProd || 0),
-            0
-          )
+const recMono =
+  novosItens
+    .filter(i => i.monofasico)
+    .reduce(
+      (s, i) =>
+        s +
+        Number(i.vProd || 0) *
+        Number(i.fatorReceita ?? (i.consideraReceita ? 1 : 0)),
+      0
+    )
 
       setPgdasForm(prev => ({
         ...prev,
@@ -2756,9 +4773,42 @@ async function excluirMemoria(id) {
          Imprimir Auditoria
               </button>
            )}
-			  <button onClick={exportarCSV} style={{ padding: '7px 14px', background: S.green, color: S.white, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exportar CSV</button>
-              <button onClick={novaAnalise} style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>Limpar</button>
-            </div>
+			  <button
+  onClick={exportarExcel}
+  style={{
+    padding:'7px 14px',
+    background:S.green,
+    color:S.white,
+    border:'none',
+    borderRadius:7,
+    fontSize:12,
+    fontWeight:600,
+    cursor:'pointer'
+  }}
+>
+  Exportar Excel
+</button>
+              <button onClick={novaAnalise} style={{ padding: '7px 14px', background: 'none', border: `1px solid ${S.red}`, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: S.red }}>Nova análise</button>
+           {!diagAberto && !diagnosticoSalvoId && (
+  <button
+    onClick={() => setModalNome(true)}
+    disabled={salvando}
+    style={{
+      padding:'7px 14px',
+      background:S.navy,
+      color:S.white,
+      border:'none',
+      borderRadius:7,
+      fontSize:12,
+      fontWeight:600,
+      cursor:salvando ? 'not-allowed' : 'pointer',
+      opacity:salvando ? 0.7 : 1
+    }}
+  >
+    {salvando ? 'Salvando...' : 'Salvar Diagnóstico'}
+  </button>
+)} 
+        </div>
           )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar NF-es</div>
@@ -2830,11 +4880,7 @@ async function excluirMemoria(id) {
         id:'historico',
         label:`Historico (${historico.length})`
         },
-        {
-      id:'memorias',
-      label:`Memorias (${memorias.length})`
-      }
-      ].map(a => (
+        ].map(a => (
           <button key={a.id} onClick={() => setAba(a.id)}
             style={{ padding:'10px 20px', fontSize:13, fontWeight:aba===a.id?700:400, color:aba===a.id?S.navy:S.muted, background:'none', border:'none', borderBottom:`2px solid ${aba===a.id?S.navy:'transparent'}`, marginBottom:-2, cursor:'pointer' }}>
             {a.label}
@@ -2859,16 +4905,185 @@ async function excluirMemoria(id) {
             </div>
           )}
 
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:16 }}>
+          <div style={{
+  display:'grid',
+  gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+  gap:12,
+  marginBottom:16
+}}>
             {[
-              { label:'Total de itens',          valor: temResultado ? itens.length       : '—',        cor: temResultado ? S.navy   : S.ghostText },
-              { label:'Itens monofasicos',        valor: temResultado ? totalMono          : '—',        cor: temResultado ? S.orange : S.ghostText },
-              { label:'Receita monofasica',       valor: temResultado ? fmtR(receitaMono)  : 'R$ —,——', cor: temResultado ? S.orange : S.ghostText },
-              { label:'Potencial de recuperacao', valor: temResultado ? fmtR(creditoTotal) : 'R$ —,——', cor: temResultado ? S.green  : S.ghostText },
-            ].map((k,i) => (
-              <div key={i} style={{ background:S.white, borderRadius:8, padding:'14px 16px', border:`1px solid ${S.border}`, textAlign:'center' }}>
-                <div style={{ fontSize:i>=2?14:22, fontWeight:700, color:k.cor }}>{k.valor}</div>
-                <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>{k.label}</div>
+  {
+  label:'Itens / NF-e',
+  valor: temResultado
+    ? `${itens.length} itens / ${
+        new Set(
+          itens
+            .map(i =>
+              i.chaveNFe ||
+              `${i.emitenteCNPJ || ''}-${i.nNF || ''}-${i.serieNFe || ''}`
+            )
+            .filter(Boolean)
+        ).size
+      } NF-e`
+    : '—',
+  cor: temResultado ? S.navy : S.ghostText
+},
+  {
+    label:'Itens monofasicos',
+    valor: temResultado ? totalMono : '—',
+    cor: temResultado ? S.orange : S.ghostText
+  },
+  {
+  label:'Itens não monofásicos',
+  valor: temResultado
+    ? itens.filter(i => !i.monofasico).length
+    : '—',
+  cor: temResultado ? S.navy : S.ghostText
+},
+  {
+    label:'Valor total NF-e',
+    valor: temResultado
+      ? fmtR(processados.reduce((s,p) => s + Number(p.valorTotalNF || 0), 0))
+      : 'R$ —,——',
+    cor: temResultado ? S.navy : S.ghostText
+  },
+  {
+  label:'Movimentações neutras / canceladas',
+  valor: temResultado
+    ? fmtR(
+        itens.reduce(
+          (s, i) => {
+            const fator = Number(
+              i.fatorReceita ??
+              (i.consideraReceita ? 1 : 0)
+            )
+
+            return fator === 0
+              ? s + Number(i.vProd || 0)
+              : s
+          },
+          0
+        )
+      )
+    : 'R$ —,—',
+  cor: temResultado ? S.red : S.ghostText
+},
+{
+  label:'Devoluções',
+  valor: temResultado
+    ? fmtR(
+        itens.reduce(
+          (s, i) => {
+            const fator = Number(
+              i.fatorReceita ??
+              (i.consideraReceita ? 1 : 0)
+            )
+
+            return fator === -1
+              ? s + Number(i.vProd || 0)
+              : s
+          },
+          0
+        )
+      )
+    : 'R$ —,—',
+  cor: temResultado ? S.red : S.ghostText
+},
+{
+  label:'Receita bruta antes das devoluções',
+  valor: temResultado
+    ? fmtR(
+        itens.reduce(
+          (s, i) => {
+            const fator = Number(
+              i.fatorReceita ??
+              (i.consideraReceita ? 1 : 0)
+            )
+
+            return fator === 1
+              ? s + Number(i.vProd || 0)
+              : s
+          },
+          0
+        )
+      )
+    : 'R$ —,—',
+  cor: temResultado ? S.navy : S.ghostText
+},
+{
+  label:'Receita considerada',
+  valor: temResultado
+    ? fmtR(
+        itens.reduce(
+          (s, i) =>
+            s +
+            Number(i.vProd || 0) *
+              Number(
+                i.fatorReceita ??
+                (i.consideraReceita ? 1 : 0)
+              ),
+          0
+        )
+      )
+    : 'R$ —,—',
+  cor: temResultado ? S.navy : S.ghostText
+},
+  {
+  label:'Receita monofasica',
+  valor: temResultado
+    ? fmtR(
+        itens
+          .filter(i => i.monofasico)
+          .reduce(
+            (s, i) =>
+              s +
+              Number(i.vProd || 0) *
+                Number(
+                  i.fatorReceita ??
+                  (i.consideraReceita ? 1 : 0)
+                ),
+            0
+          )
+      )
+    : 'R$ —,—',
+    cor: temResultado ? S.orange : S.ghostText
+  },
+  {
+  label:'Receita nao monofasica',
+  valor: temResultado
+    ? fmtR(
+        itens
+          .filter(i => !i.monofasico)
+          .reduce(
+            (s, i) =>
+              s +
+              Number(i.vProd || 0) *
+                Number(
+                  i.fatorReceita ??
+                  (i.consideraReceita ? 1 : 0)
+                ),
+            0
+          )
+      )
+    : 'R$ —,—',
+    cor: temResultado ? S.text : S.ghostText
+  },
+  {
+    label:'Descontos comerciais',
+    valor: temResultado
+      ? fmtR(processados.reduce((s,p) => s + Number(p.totalDesconto || 0), 0))
+      : 'R$ —,——',
+    cor: temResultado ? S.muted : S.ghostText
+  },
+  {
+    label:'Potencial de recuperacao',
+    valor: temResultado ? fmtR(creditoTotal) : 'R$ —,——',
+    cor: temResultado ? S.green : S.ghostText
+  },
+].map((k,i) => (
+              <div key={i} style={{ background:S.white, borderRadius:8, padding:'10px 14px', border:`1px solid ${S.border}`, textAlign:'center' }}>
+                <div style={{ fontSize:16, fontWeight:700, color:k.cor }}>{k.valor}</div>
+                <div style={{ fontSize:12.5, color:S.muted, marginTop:2 }}>{k.label}</div>
                 {!temResultado && <div style={{ fontSize:10, color:S.ghostText, marginTop:4 }}>Aguardando importacao</div>}
               </div>
             ))}
@@ -3061,7 +5276,13 @@ async function excluirMemoria(id) {
 >
   {item.nNF}
 </td>
-                          <td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>{isGhost?'—':(item.dataEmissao || '—')}</td>
+                          <td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>
+  {isGhost
+    ? '—'
+    : item.dataEmissao
+      ? item.dataEmissao.split('-').reverse().join('/')
+      : '—'}
+</td>
                           <td style={{ ...td, maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.emitente}</td>
                           <td style={{ ...td, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:isGhost?S.ghostText:S.text }}>{item.descricao}</td>
                           <td style={{ ...td, color:isGhost?S.ghostText:S.muted }}>{item.ncm}</td>
@@ -3107,6 +5328,51 @@ async function excluirMemoria(id) {
     background: isGhost ? S.ghost : sel ? '#eff6ff' : i%2===0 ? S.white : '#FAFAFA'
   }}
 >
+{isGhost && (
+  <div
+    style={{
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      gap:5
+    }}
+  >
+    <span
+      style={{
+        width:28,
+        height:20,
+        border:`1px solid ${S.border}`,
+        borderRadius:4,
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center',
+        color:S.ghostText,
+        fontSize:11,
+        opacity:0.55
+      }}
+    >
+      ...
+    </span>
+
+    <span
+      style={{
+        height:20,
+        padding:'0 7px',
+        border:`1px solid ${S.border}`,
+        borderRadius:4,
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center',
+        color:S.ghostText,
+        fontSize:9,
+        fontWeight:500,
+        opacity:0.55
+      }}
+    >
+      Excluir
+    </span>
+  </div>
+)}
                             {!isGhost && (
                               <>
                                 <button onClick={e=>{e.stopPropagation();setMenuAberto(menuAberto===idx?null:idx)}}
@@ -3133,13 +5399,56 @@ async function excluirMemoria(id) {
   Excluir
 </button>
                                 {menuAberto===idx && (
-                                  <div style={{ position:'absolute', right:8, top:30, background:S.white, border:`1px solid ${S.border}`, borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', zIndex:100, minWidth:170 }}>
-                                    <button onClick={()=>{setItemDetalhe(item);setMenuAberto(null)}}
-                                      style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>Detalhamento fiscal</button>
-                                    <button onClick={()=>{toggleItem(idx);setMenuAberto(null)}}
-                                      style={{ display:'block', width:'100%', padding:'8px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, cursor:'pointer', color:S.text }}>{sel?'Desselecionar':'Selecionar'}</button>
-                                  </div>
-                                )}
+  <div
+    style={{
+      position:'absolute',
+      right:8,
+      ...(i >= itensPagina.length - 2
+        ? { bottom:30 }
+        : { top:30 }),
+      background:S.white,
+      border:`1px solid ${S.border}`,
+      borderRadius:8,
+      boxShadow:'0 4px 12px rgba(0,0,0,0.1)',
+      zIndex:100,
+      minWidth:170
+    }}
+  >
+    <button
+      onClick={()=>{setItemDetalhe(item);setMenuAberto(null)}}
+      style={{
+        display:'block',
+        width:'100%',
+        padding:'8px 14px',
+        background:'none',
+        border:'none',
+        textAlign:'left',
+        fontSize:12,
+        cursor:'pointer',
+        color:S.text
+      }}
+    >
+      Detalhamento fiscal
+    </button>
+
+    <button
+      onClick={()=>{toggleItem(idx);setMenuAberto(null)}}
+      style={{
+        display:'block',
+        width:'100%',
+        padding:'8px 14px',
+        background:'none',
+        border:'none',
+        textAlign:'left',
+        fontSize:12,
+        cursor:'pointer',
+        color:S.text
+      }}
+    >
+      {sel?'Desselecionar':'Selecionar'}
+    </button>
+  </div>
+)}
                               </>
                             )}
                           </td>
@@ -3223,100 +5532,6 @@ async function excluirMemoria(id) {
             </div>
           </div>
 
-          {regime === 'Simples Nacional' && (
-            <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
-              <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, background:'#fff7ed' }}>
-                <div style={{ fontSize:14, fontWeight:700, color:S.orange }}>PGDAS-D — Calcular Credito de Segregacao</div>
-                <div style={{ fontSize:12, color:S.muted, marginTop:2 }}>Informe os dados do PGDAS-D para calcular o credito recuperavel de receitas monofasicas.</div>
-              </div>
-              <div style={{ padding:16 }}>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12, marginBottom:12 }}>
-                  {[
-                    { label:'* Receita Bruta Total (R$)',        key:'receita_bruta_total' },
-                    { label:'* Receita Monofasica (R$)',          key:'receita_monofasica'  },
-                    { label:'Receita c/ Subst. Tributaria (R$)', key:'receita_st'          },
-                    { label:'* DAS Recolhido (R$)',               key:'das_recolhido'       },
-                  ].map(({ label, key }) => (
-                    <div key={key}>
-                      <div style={{ fontSize:11, color:S.muted, marginBottom:4, fontWeight:600 }}>{label}</div>
-                      <input type="text"
-                        value={pgdasForm[key] ? parseFloat(pgdasForm[key]||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}
-                        onChange={e => { const raw=e.target.value.replace(/\D/g,''); const num=(parseInt(raw||'0')/100).toFixed(2); setPgdasForm(prev=>({...prev,[key]:num})) }}
-                        placeholder="R$ 0,00"
-                        style={{ width:'100%', padding:'7px 10px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', boxSizing:'border-box' }} />
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginBottom:12 }}>
-  <label
-    style={{
-      display:'flex',
-      alignItems:'center',
-      gap:8,
-      fontSize:13,
-      cursor:'pointer'
-    }}
-  >
-    <input
-      type="checkbox"
-      checked={pgdasForm.segregou}
-      onChange={e =>
-        setPgdasForm(prev => ({
-          ...prev,
-          segregou:e.target.checked
-        }))
-      }
-    />
-    Segregou receitas monofásicas corretamente no PGDAS-D
-  </label>
-
-  <div
-    style={{
-      marginTop:5,
-      marginLeft:24,
-      fontSize:11,
-      color:S.muted,
-      lineHeight:1.4
-    }}
-  >
-    Marque somente se o PGDAS-D desta competência já tiver sido importado
-    e você tiver confirmado que a receita monofásica foi segregada corretamente.
-  </div>
-</div>
-                <button onClick={calcularPGDAS} style={{ padding:'8px 20px', background:S.navy, color:S.white, border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                  Calcular Credito
-                </button>
-                {pgdasResult && (
-                  <div style={{ marginTop:16, background:pgdasResult.diferenca>0?'#f0fdf4':S.bg, border:`1px solid ${pgdasResult.diferenca>0?'#86efac':S.border}`, borderRadius:8, padding:14 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:pgdasResult.diferenca>0?S.green:S.muted, marginBottom:10 }}>
-                      {pgdasResult.diferenca>0?'Oportunidade identificada!':'Nenhuma diferenca encontrada'}
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:10 }}>
-                      {[
-                        { label:'Receita Bruta Total',   valor:fmtR(pgdasResult.rb)         },
-                        { label:'Receita Monofasica',    valor:fmtR(pgdasResult.rm)         },
-                        { label:'DAS Recolhido',         valor:fmtR(pgdasResult.das)        },
-                        { label:'DAS Correto Estimado',  valor:fmtR(pgdasResult.dasCorreto) },
-                        { label:'Diferenca Recuperavel', valor:fmtR(pgdasResult.diferenca), destaque:true },
-                        { label:'Segregou Corretamente', valor:pgdasResult.segregou?'Sim':'Nao' },
-                      ].map((k,i) => (
-                        <div key={i} style={{ background:S.white, borderRadius:6, padding:'8px 12px', border:`1px solid ${S.border}` }}>
-                          <div style={{ fontSize:10, color:S.muted, marginBottom:2 }}>{k.label}</div>
-                          <div style={{ fontSize:13, fontWeight:700, color:k.destaque?S.green:S.text }}>{k.valor}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {pgdasResult.diferenca>0 && (
-                      <div style={{ marginTop:10, background:'#dcfce7', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#166534' }}>
-                        <strong>Como recuperar:</strong> Retifique o PGDAS-D e solicite restituicao via PER/DCOMP junto a Receita Federal.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {temResultado && (
             <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
               {!diagAberto && !diagnosticoSalvoId && (
@@ -3325,30 +5540,7 @@ async function excluirMemoria(id) {
                   {salvando?'Salvando...':'Salvar Diagnostico'}
                 </button>
               )}
-			  {(diagAberto || diagnosticoSalvoId) && (
-                <button
-             onClick={gerarMemoriaCalculo}
-             disabled={salvandoMemoria}
-             style={{
-             padding:'9px 20px',
-             background:'#7c3aed',
-             color:S.white,
-             border:'none',
-             borderRadius:6,
-             fontSize:13,
-             fontWeight:600,
-             cursor:salvandoMemoria
-             ? 'not-allowed'
-             : 'pointer',
-             opacity:salvandoMemoria ? 0.7 : 1
-            }}
-           >
-            {salvandoMemoria
-            ? 'Gerando memoria...'
-            : 'Gerar Memoria de Calculo'}
-              </button>
-           )}
-              <button onClick={novaAnalise} style={{ padding:'9px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Nova analise</button>
+	        <button onClick={novaAnalise} style={{ padding:'9px 16px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, cursor:'pointer', color:S.muted }}>Nova analise</button>
             </div>
           )}
         </>
@@ -3358,7 +5550,47 @@ async function excluirMemoria(id) {
         <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div style={{ fontSize:14, fontWeight:600 }}>Historico de Diagnosticos</div>
-            <button onClick={carregarHistorico} style={{ padding:'6px 12px', background:'none', border:`1px solid ${S.border}`, borderRadius:6, fontSize:12, cursor:'pointer', color:S.muted }}>Atualizar</button>
+           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+  <button
+    onClick={excluirDiagnosticosSelecionados}
+    disabled={diagnosticosSelecionados.length === 0}
+    style={{
+      height:32,
+      padding:'0 13px',
+      background: diagnosticosSelecionados.length === 0 ? '#f1f5f9' : '#fff',
+      border:`1px solid ${diagnosticosSelecionados.length === 0 ? S.border : '#f2b8b5'}`,
+      borderRadius:7,
+      fontSize:11.5,
+      fontWeight:600,
+      cursor: diagnosticosSelecionados.length === 0 ? 'not-allowed' : 'pointer',
+      color: diagnosticosSelecionados.length === 0 ? S.text : S.red,
+      opacity: diagnosticosSelecionados.length === 0 ? 0.72 : 1,
+      whiteSpace:'nowrap'
+    }}
+  >
+    {diagnosticosSelecionados.length > 0
+      ? `Excluir ${diagnosticosSelecionados.length} selecionado${diagnosticosSelecionados.length > 1 ? 's' : ''}`
+      : 'Excluir selecionados'}
+  </button>
+
+  <button
+    onClick={carregarHistorico}
+    style={{
+      height:32,
+      padding:'0 13px',
+      background:S.white,
+      border:`1px solid ${S.border}`,
+      borderRadius:7,
+      fontSize:11.5,
+      fontWeight:500,
+      cursor:'pointer',
+      color:S.text,
+      whiteSpace:'nowrap'
+    }}
+  >
+    Atualizar
+  </button>
+</div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, padding:16, borderBottom:`1px solid ${S.border}` }}>
             {loadingHistorico ? Array(3).fill(null).map((_, i) => <SkeletonKPI key={i} />) : (
@@ -3387,16 +5619,54 @@ async function excluirMemoria(id) {
                 <thead>
                   <tr style={{ background:S.thBg }}>
                     {['Nome','Data','Periodo','Arquivos','Itens','Monofasicos','Receita Mono','Potencial','Status','Acoes'].map(h => (
-                      <th key={h} style={{ padding:'8px 10px', textAlign:'left', color:S.thText, fontWeight:600, fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
-                    ))}
+  <th
+    key={h}
+    style={{
+      padding:'8px 10px',
+      textAlign:'left',
+      color:S.thText,
+      fontWeight:600,
+      fontSize:11,
+      whiteSpace:'nowrap'
+    }}
+  >
+    {h === 'Nome' ? (
+      <>
+        <input
+          type="checkbox"
+          checked={
+            historico.filter(diag => !diag.ghost).length > 0 &&
+            historico
+              .filter(diag => !diag.ghost)
+              .every(diag => diagnosticosSelecionados.includes(diag.id))
+          }
+          onChange={toggleTodosDiagnosticos}
+          style={{ marginRight:8, cursor:'pointer' }}
+        />
+        Nome
+      </>
+    ) : h}
+  </th>
+))}
                   </tr>
                 </thead>
                 <tbody>
                   {loadingHistorico ? Array(5).fill(null).map((_, i) => <SkeletonRow key={i} cols={10} />) : (
                     historicoExibir.map((diag, i) => (
                       <tr key={i} style={{ borderBottom:`1px solid ${S.border}`, background: diag.ghost ? S.ghost : i%2===0 ? S.white : '#FAFAFA' }}>
-                        <td style={{ padding:'7px 10px', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.navy, fontWeight: diag.ghost ? 400 : 600 }}>
-                          {diag.ghost ? 'Nome do diagnostico' : (diag.nome_diagnostico || '—')}
+                        <td
+  title={diag.ghost ? '' : (diag.nome_diagnostico || '')}
+  style={{ padding:'7px 10px', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.navy, fontWeight: diag.ghost ? 400 : 600 }}
+>
+  {!diag.ghost && (
+  <input
+    type="checkbox"
+    checked={diagnosticosSelecionados.includes(diag.id)}
+    onChange={() => toggleDiagnosticoSelecionado(diag.id)}
+    style={{ marginRight:8, cursor:'pointer' }}
+  />
+)} 
+						  {diag.ghost ? 'Nome do diagnostico' : (diag.nome_diagnostico || '—')}
                         </td>
                         <td style={{ padding:'7px 10px', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? '—' : fmtData(diag.created_at)}</td>
                         <td style={{ padding:'7px 10px', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? 'MM/AAAA' : `${diag.periodo_inicio}${diag.periodo_fim&&diag.periodo_fim!==diag.periodo_inicio?` -> ${diag.periodo_fim}`:''}`}</td>
@@ -3427,345 +5697,6 @@ async function excluirMemoria(id) {
           )}
         </div>
 		)}
-		{aba === 'memorias' && (
-  <div
-    style={{
-      background:S.white,
-      borderRadius:10,
-      border:`1px solid ${S.border}`,
-      overflow:'hidden'
-    }}
-  >
-
-    <div
-      style={{
-        padding:'12px 16px',
-        borderBottom:`1px solid ${S.border}`,
-        display:'flex',
-        justifyContent:'space-between',
-        alignItems:'center'
-      }}
-    >
-
-      <div>
-        <div
-          style={{
-            fontSize:14,
-            fontWeight:700,
-            color:S.navy
-          }}
-        >
-          Memorias de Calculo
-        </div>
-
-        <div
-          style={{
-            fontSize:11,
-            color:S.muted,
-            marginTop:2
-          }}
-        >
-          Snapshots tecnicos preservados para rastreabilidade da auditoria.
-        </div>
-      </div>
-
-      <button
-        onClick={carregarMemorias}
-        style={{
-          padding:'6px 12px',
-          background:'none',
-          border:`1px solid ${S.border}`,
-          borderRadius:6,
-          fontSize:12,
-          cursor:'pointer',
-          color:S.muted
-        }}
-      >
-        Atualizar
-      </button>
-
-    </div>
-
-    {loadingMemorias ? (
-
-      <div
-        style={{
-          padding:30,
-          textAlign:'center',
-          color:S.muted
-        }}
-      >
-        Carregando memorias...
-      </div>
-
-    ) : memorias.length === 0 ? (
-
-      <div
-        style={{
-          padding:40,
-          textAlign:'center'
-        }}
-      >
-
-        <div
-          style={{
-            fontSize:32,
-            marginBottom:10
-          }}
-        >
-          📑
-        </div>
-
-        <div
-          style={{
-            fontSize:14,
-            fontWeight:600
-          }}
-        >
-          Nenhuma memoria salva
-        </div>
-
-        <div
-          style={{
-            fontSize:12,
-            color:S.muted,
-            marginTop:5
-          }}
-        >
-          Salve um diagnostico e gere a memoria de calculo.
-        </div>
-
-      </div>
-
-    ) : (
-
-      <div style={{ overflowX:'auto' }}>
-
-        <table
-          style={{
-            width:'100%',
-            borderCollapse:'collapse',
-            fontSize:12
-          }}
-        >
-
-          <thead>
-            <tr
-              style={{
-                background:S.thBg
-              }}
-            >
-
-              {[
-                'Gerada em',
-                'Periodo',
-                'Itens',
-                'Monofasicos',
-                'Receita Total',
-                'Receita Mono',
-                'Potencial preliminar',
-                'Status',
-                'Acoes'
-              ].map(h => (
-
-                <th
-                  key={h}
-                  style={{
-                    padding:'8px 10px',
-                    textAlign:'left',
-                    color:S.thText,
-                    fontWeight:600,
-                    whiteSpace:'nowrap'
-                  }}
-                >
-                  {h}
-                </th>
-
-              ))}
-
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {memorias.map((memoria, i) => (
-
-              <tr
-                key={memoria.id}
-                style={{
-                  borderBottom:
-                    `1px solid ${S.border}`,
-                  background:
-                    i % 2 === 0
-                      ? S.white
-                      : '#FAFAFA'
-                }}
-              >
-
-                <td
-                  style={{
-                    padding:'8px 10px',
-                    whiteSpace:'nowrap'
-                  }}
-                >
-                  {fmtData(memoria.gerado_em)}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-                  {memoria.periodo_inicio || '—'}
-
-                  {memoria.periodo_fim &&
-                   memoria.periodo_fim !== memoria.periodo_inicio
-                    ? ` a ${memoria.periodo_fim}`
-                    : ''}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-                  {memoria.total_itens || 0}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px',
-                    color:S.orange,
-                    fontWeight:700
-                  }}
-                >
-                  {memoria.total_monofasicos || 0}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-                  {fmtR(memoria.receita_total)}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-                  {fmtR(memoria.receita_monofasica)}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px',
-                    color:S.green,
-                    fontWeight:700
-                  }}
-                >
-                  {fmtR(memoria.credito_estimado)}
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-                  <Badge
-                    tipo={
-                      memoria.status === 'final'
-                        ? 'concluido'
-                        : 'pendente'
-                    }
-                  />
-                </td>
-
-                <td
-                  style={{
-                    padding:'8px 10px'
-                  }}
-                >
-
-                  <div
-                    style={{
-                      display:'flex',
-                      gap:5
-                    }}
-                  >
-
-                    <button
-                onClick={() =>
-                imprimirMemoria(memoria, false)
-                }
-                style={{
-                padding:'4px 10px',
-                background:'#2563EB',
-                color:S.white,
-                border:'none',
-                borderRadius:4,
-                fontSize:11,
-                fontWeight:600,
-                cursor:'pointer'
-                }}
-                >
-                Abrir
-                 </button>
-					
-					<button
-                      onClick={() =>
-                        imprimirMemoria(memoria)
-                      }
-                      style={{
-                        padding:'4px 10px',
-                        background:S.navy,
-                        color:S.white,
-                        border:'none',
-                        borderRadius:4,
-                        fontSize:11,
-                        fontWeight:600,
-                        cursor:'pointer'
-                      }}
-                    >
-                      Imprimir
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        excluirMemoria(memoria.id)
-                      }
-                      style={{
-                        padding:'4px 10px',
-                        background:'#fef2f2',
-                        color:S.red,
-                        border:'1px solid #fecaca',
-                        borderRadius:4,
-                        fontSize:11,
-                        cursor:'pointer'
-                      }}
-                    >
-                      Excluir
-                    </button>
-
-                  </div>
-
-                </td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    )}
-
-  </div>
-)}
-</div>
+	</div>
 )
 }

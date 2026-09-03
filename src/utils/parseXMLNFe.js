@@ -31,6 +31,49 @@ export function parseXMLNFe(xmlString) {
   // BLOCOS PRINCIPAIS DA NF-e
   // ============================================================
 
+  const infEvento =
+  doc.getElementsByTagNameNS('*', 'infEvento')[0]
+
+const retEvento =
+  doc.getElementsByTagNameNS('*', 'retEvento')[0]
+
+if (infEvento) {
+  const tpEvento = get(infEvento, 'tpEvento')
+  const chNFeEvento = get(infEvento, 'chNFe')
+  const dhEvento = get(infEvento, 'dhEvento')
+
+  const cStatEvento =
+    get(retEvento, 'cStat') || ''
+
+  let competenciaEvento = ''
+  let dataEvento = ''
+
+  if (dhEvento) {
+    const dataParte = dhEvento.substring(0, 10)
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dataParte)) {
+      const [ano, mes] = dataParte.split('-')
+
+      competenciaEvento = `${mes}/${ano}`
+      dataEvento = dataParte
+    }
+  }
+
+  return {
+    tipoDocumento: 'evento',
+    tpEvento,
+    cStatEvento,
+    chNFe: chNFeEvento,
+    competencia: competenciaEvento,
+    dataEvento,
+
+    eventoCancelamento:
+      tpEvento === '110111' &&
+      ['135', '155'].includes(cStatEvento),
+
+    itens: [],
+  }
+}
   const ide = doc.getElementsByTagNameNS('*', 'ide')[0]
   const emit = doc.getElementsByTagNameNS('*', 'emit')[0]
   const dest = doc.getElementsByTagNameNS('*', 'dest')[0]
@@ -83,6 +126,15 @@ export function parseXMLNFe(xmlString) {
     get(doc, 'chNFe') ||
     infNFe?.getAttribute('Id')?.replace(/^NFe/, '') ||
     ''
+	
+	const chavesNFeReferenciadas = Array.from(
+  doc.getElementsByTagNameNS('*', 'refNFe')
+)
+  .map(el => el.textContent?.trim())
+  .filter(Boolean)
+
+const chaveNFeReferenciada =
+  chavesNFeReferenciadas[0] || ''
 
   // ============================================================
   // EMITENTE
@@ -788,6 +840,8 @@ export function parseXMLNFe(xmlString) {
     modelo,
 
     chNFe,
+    chaveNFeReferenciada,
+    chavesNFeReferenciadas,
 
     finNFe,
     idDest,
