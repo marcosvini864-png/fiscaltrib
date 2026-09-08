@@ -10,6 +10,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
+import { parseXMLCFe } from '../../utils/parseXMLCFe'
+import { detectarDocumentoFiscalXML } from '../../utils/detectarDocumentoFiscalXML'
 import AnalisadorIA from '../../AnalisadorIA'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -321,14 +323,14 @@ function ModalDetalhesFiscais({ item, onFechar }) {
   
    const secoesDetalhamento = [
     {
-      titulo: 'NF-e / Operacao',
+      titulo: 'Documento Fiscal / Operacao',
       linhas: [
-        ['Chave NF-e', item.chaveNFe || '—'],
+        ['Chave do documento', item.chaveNFe || '—'],
         ['Numero / Serie / Modelo', `${item.nNF || '—'} / ${item.serieNFe || '—'} / ${item.modeloNFe || '—'}`],
         ['Data de emissao', item.dataEmissao || '—'],
         ['Tipo de operacao', item.tipoOperacao || '—'],
         ['Natureza da operacao', item.naturezaOperacao || '—'],
-        ['Finalidade NF-e', item.finalidadeNFe || '—'],
+        ['Finalidade do documento', item.finalidadeNFe || '—'],
         ['Destino da operacao', item.indicadorDestino || '—'],
         ['Consumidor final', item.consumidorFinal || '—'],
         ['Presenca comprador', item.presencaComprador || '—'],
@@ -592,8 +594,8 @@ function ModalDetalhesFiscais({ item, onFechar }) {
 
         <div style={{ padding:18, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))', gap:14 }}>
           <div>
-            <Secao titulo="NF-e / Operacao">
-              <Linha label="Chave NF-e" valor={item.chaveNFe} />
+            <Secao titulo="Documento Fiscal / Operacao">
+              <Linha label="Chave do documento" valor={item.chaveNFe} />
               <Linha label="Numero / Serie / Modelo" valor={`${item.nNF || '—'} / ${item.serieNFe || '—'} / ${item.modeloNFe || '—'}`} />
               <Linha
   label="Data de emissao"
@@ -605,7 +607,7 @@ function ModalDetalhesFiscais({ item, onFechar }) {
 />
               <Linha label="Tipo de operacao" valor={item.tipoOperacao} />
               <Linha label="Natureza da operacao" valor={item.naturezaOperacao} />
-              <Linha label="Finalidade NF-e" valor={item.finalidadeNFe} />
+              <Linha label="Finalidade do documento" valor={item.finalidadeNFe} />
               <Linha label="Destino da operacao" valor={item.indicadorDestino} />
               <Linha label="Consumidor final" valor={item.consumidorFinal} />
               <Linha label="Presenca comprador" valor={item.presencaComprador} />
@@ -903,8 +905,8 @@ supabase
     workbook.lastModifiedBy = 'e-FiscalTribe'
     workbook.created = new Date()
     workbook.modified = new Date()
-    workbook.title = 'Auditoria NF-e'
-    workbook.subject = 'Auditoria fiscal de NF-e'
+    workbook.title = 'Auditoria de Documentos Fiscais'
+    workbook.subject = 'Auditoria fiscal de documentos fiscais'
 
     // ============================================================
     // HELPERS
@@ -1668,7 +1670,7 @@ function formatarTabela(
 
     configurarCabecalhoRelatorio(
       wsResumo,
-      'Resumo da Auditoria NF-e',
+      'Resumo da Auditoria de Documentos Fiscais',
       colResumo.length
     )
 
@@ -1753,7 +1755,7 @@ function formatarTabela(
 
     const wsNFe =
       workbook.addWorksheet(
-        'NF-e e Produtos',
+        'Documentos e Produtos',
         {
           properties:{
             defaultRowHeight:18
@@ -1766,7 +1768,7 @@ function formatarTabela(
       { header:'Série', width:8, type:'text', value:i=>texto(i.serieNFe) },
       { header:'Data', width:13, type:'date', value:i=>dataExcel(i.dataEmissao) },
       { header:'Competência', width:12, type:'text', value:i=>formatarCompetencia(i.competencia) },
-      { header:'Chave NF-e', width:46, type:'text', value:i=>texto(i.chaveNFe) },
+      { header:'Chave do documento', width:46, type:'text', value:i=>texto(i.chaveNFe) },
 
       { header:'Tipo Operação', width:14, type:'text', value:i=>texto(i.tipoOperacao) },
       { header:'Natureza Operação', width:25, type:'text', wrap:true, value:i=>texto(i.naturezaOperacao) },
@@ -1801,7 +1803,7 @@ function formatarTabela(
 
     configurarCabecalhoRelatorio(
       wsNFe,
-      'NF-e e Produtos',
+      'Documentos e Produtos',
       colNFe.length
     )
 
@@ -2093,7 +2095,7 @@ const receitaConsiderada = itens.reduce(
     body: [
       ['Total de itens', String(itens.length)],
       ['Itens monofasicos', String(itens.filter(i => i.monofasico).length)],
-      ['Valor total NF-e', fmtR(valorTotalNFe)],
+      ['Valor total dos documentos', fmtR(valorTotalNFe)],
       ['Ajustes / Exclusoes', fmtR(ajustesExclusoes)],
       ['Receita considerada', fmtR(receitaConsiderada)],
       ['Receita monofasica', fmtR(receitaMonofasicaPDF)],
@@ -2250,7 +2252,7 @@ const receitaConsiderada = itens.reduce(
       <div class="info">CNPJ: <span>${cliente?.cnpj||'—'}</span></div>
       <div class="info">Regime Tributario: <span>${regime||'Simples Nacional'}</span></div>
       <div class="info">Periodo Analisado: <span>${periodos[0]||'—'} a ${periodos[periodos.length-1]||'—'}</span></div>
-      <div class="info">Total de NF-es Analisadas: <span>${[...new Set(itensParaPDF.map(i => i.nNF))].length}</span></div>
+      <div class="info">Total de documentos analisados: <span>${[...new Set(itensParaPDF.map(i => i.nNF))].length}</span></div>
     </div>
 
     <div class="secao">
@@ -2986,6 +2988,8 @@ setProcessados(processadosSalvos)
     const nfeJaImportadas = new Set()
     const itensJaImportados = new Set()
     const xmlDuplicados = []
+	const documentosNaoSuportados = []
+	const errosXML = []
 	const arquivosDuplicadosNaAnalise = new Set()
     const nfeCanceladas = nfeCanceladasRef.current
     for (const arq of listaArquivos) {
@@ -2998,7 +3002,22 @@ let valorTotalNFArquivo = 0
 let descontoTotalArquivo = 0
           for (const xml of xmls) {
             try {
-              const nfe = parseXMLNFe(xml)
+			const documento = detectarDocumentoFiscalXML(xml)
+
+if (!documento.suportado) {
+  documentosNaoSuportados.push({
+    arquivo: arq.nome,
+    tipo: documento.tipo,
+    modelo: documento.modelo,
+    versao: documento.versao,
+  })
+
+  continue
+}	
+              const nfe =
+  documento.tipo === 'CFE'
+    ? parseXMLCFe(xml)
+    : parseXMLNFe(xml)
 
 if (nfe.tipoDocumento === 'evento') {
 	if (nfe.eventoCancelamento && nfe.chNFe) {
@@ -3185,14 +3204,36 @@ motivoNaoConsiderarReceita: efeitoReceita.motivoEfeitoReceita,
 })
                 qtd++
               })
-            } catch {}
+            } catch (e) {
+  errosXML.push({
+    arquivo: arq.nome,
+    mensagem: e?.message || String(e),
+  })
+}
           }
-          novosProcessados.push({
+          const documentoNaoSuportadoDoArquivo =
+  documentosNaoSuportados.find(
+    d => d.arquivo === arq.nome
+  )
+  
+  const erroXMLDoArquivo =
+  errosXML.find(
+    e => e.arquivo === arq.nome
+  )
+
+novosProcessados.push({
   ...arq,
-  status: 'concluido',
+  status:
+  erroXMLDoArquivo && qtd === 0
+    ? 'erro'
+    : documentoNaoSuportadoDoArquivo && qtd === 0
+      ? 'ignorado'
+      : 'concluido',
   qtdItens: qtd,
   valorTotalNF: valorTotalNFArquivo,
   totalDesconto: descontoTotalArquivo,
+  documentoFiscalNaoSuportado:
+    documentoNaoSuportadoDoArquivo || null,
 })
         } else {
           novosProcessados.push({ ...arq, status: 'ignorado', qtdItens: 0 })
@@ -3208,7 +3249,7 @@ motivoNaoConsiderarReceita: efeitoReceita.motivoEfeitoReceita,
   )
 
   const listaDuplicados = duplicadosUnicos
-    .map(d => `NF-e ${d.nNF} — ${d.arquivo}`)
+    .map(d => `Documento fiscal ${d.nNF} — ${d.arquivo}`)
     .join('\n')
 
   const titulo =
@@ -3225,6 +3266,52 @@ motivoNaoConsiderarReceita: efeitoReceita.motivoEfeitoReceita,
     )
   })
 })
+}
+
+if (documentosNaoSuportados.length > 0) {
+  const documentosUnicos = Array.from(
+    new Map(
+      documentosNaoSuportados.map(d => [
+        `${d.arquivo}|${d.tipo}|${d.modelo}|${d.versao}`,
+        d
+      ])
+    ).values()
+  )
+
+  const lista = documentosUnicos
+    .map(d =>
+      `${d.arquivo} — ${d.tipo}` +
+      `${d.modelo ? ` modelo ${d.modelo}` : ''}` +
+      `${d.versao ? ` — versão ${d.versao}` : ''}`
+    )
+    .join('\n')
+
+  window.alert(
+    `Foram encontrados documentos fiscais ainda não suportados neste módulo:\n\n` +
+    `${lista}\n\n` +
+    `Esses documentos foram identificados e não entraram na apuração.`
+  )
+}
+
+if (errosXML.length > 0) {
+  const errosUnicos = Array.from(
+    new Map(
+      errosXML.map(e => [
+        `${e.arquivo}|${e.mensagem}`,
+        e
+      ])
+    ).values()
+  )
+
+  const listaErros = errosUnicos
+    .map(e => `${e.arquivo} — ${e.mensagem}`)
+    .join('\n')
+
+  window.alert(
+    `Ocorreram erros ao processar alguns arquivos XML:\n\n` +
+    `${listaErros}\n\n` +
+    `Esses arquivos não foram considerados na apuração.`
+  )
 }
 	
     if (regime === 'Simples Nacional') {
@@ -3273,7 +3360,7 @@ setProcessados(
     setItens(todosItens)
     setPgdasResult(null)
     setPgdasSupabase(null)
-    setProcessando(false)
+	setProcessando(false)
     setPagina(1)
     if (inputRef.current) inputRef.current.value = ''
     try {
@@ -3433,7 +3520,7 @@ function criarSnapshotItens(lista) {
     <head>
       <meta charset="UTF-8">
 
-      <title>Visao Auditoria NF-e</title>
+      <title>Visao Auditoria de Documentos Fiscais</title>
 
       <style>
         @page {
@@ -3514,7 +3601,7 @@ function criarSnapshotItens(lista) {
     <body>
 
       <div class="cabecalho">
-        <h1>e-FiscalTribe® — Visao Auditoria NF-e</h1>
+        <h1>e-FiscalTribe® — Visao Auditoria de Documentos Fiscais</h1>
 
         <div class="meta">
           <strong>Cliente:</strong>
@@ -4265,7 +4352,7 @@ const conciliacaoCompleta =
 
         <div class="card">
           <div class="label">
-            NF-es analisadas
+            Documentos fiscais analisados
           </div>
 
           <div class="valor">
@@ -4723,6 +4810,144 @@ const recMono =
   }
 }
 
+async function excluirItensSelecionados() {
+  if (selecionados.length === 0) return
+
+  if (diagAberto) {
+    alert('Este diagnóstico já está salvo. Para preservar o histórico, faça a exclusão pelo Histórico ou inicie uma Nova análise.')
+    return
+  }
+
+  const itensSelecionados = selecionados
+    .map(idx => itensFiltrados[idx])
+    .filter(item => item && !item.ghost)
+
+  if (itensSelecionados.length === 0) return
+
+  const quantidade = itensSelecionados.length
+
+  if (
+    !window.confirm(
+      `Excluir ${quantidade} item${quantidade > 1 ? 's' : ''} selecionado${quantidade > 1 ? 's' : ''} desta análise?`
+    )
+  ) return
+
+  try {
+    const selecionadosSet = new Set(itensSelecionados)
+
+    const novosItens =
+      itens.filter(item => !selecionadosSet.has(item))
+
+    const codigosRemovidos = [
+      ...new Set(
+        itensSelecionados
+          .map(item => item.codigo)
+          .filter(Boolean)
+      )
+    ]
+
+    if (cliente?.id && codigosRemovidos.length > 0) {
+      const codigosParaExcluir =
+        codigosRemovidos.filter(
+          codigo =>
+            !novosItens.some(
+              item => item.codigo === codigo
+            )
+        )
+
+      if (codigosParaExcluir.length > 0) {
+        const { error } = await supabase
+          .from('itens_fiscais')
+          .delete()
+          .eq('cliente_id', cliente.id)
+          .in('codigo', codigosParaExcluir)
+
+        if (error) throw error
+      }
+    }
+
+    setItens(novosItens)
+	
+	const arquivosAindaUsados = new Set(
+  novosItens
+    .map(item => item.arquivo)
+    .filter(Boolean)
+)
+
+setArquivos(prev =>
+  prev.filter(arq =>
+    arquivosAindaUsados.has(arq.nome)
+  )
+)
+
+if (novosItens.length === 0) {
+  setUpsertInfo(null)
+}
+
+    if (regime === 'Simples Nacional') {
+      const recTotal =
+        novosItens.reduce(
+          (s, i) =>
+            s +
+            Number(i.vProd || 0) *
+            Number(
+              i.fatorReceita ??
+              (i.consideraReceita ? 1 : 0)
+            ),
+          0
+        )
+
+      const recMono =
+        novosItens
+          .filter(i => i.monofasico)
+          .reduce(
+            (s, i) =>
+              s +
+              Number(i.vProd || 0) *
+              Number(
+                i.fatorReceita ??
+                (i.consideraReceita ? 1 : 0)
+              ),
+            0
+          )
+
+      setPgdasForm(prev => ({
+        ...prev,
+        receita_bruta_total: recTotal.toFixed(2),
+        receita_monofasica: recMono.toFixed(2),
+      }))
+    }
+
+    const removidosPorArquivo = {}
+
+    itensSelecionados.forEach(item => {
+      if (!item.arquivo) return
+
+      removidosPorArquivo[item.arquivo] =
+        (removidosPorArquivo[item.arquivo] || 0) + 1
+    })
+
+    setProcessados(prev =>
+  prev
+    .map(p => ({
+      ...p,
+      qtdItens: Math.max(
+        0,
+        Number(p.qtdItens || 0) -
+        Number(removidosPorArquivo[p.nome] || 0)
+      )
+    }))
+    .filter(p => Number(p.qtdItens || 0) > 0)
+)
+
+    setSelecionados([])
+    setMenuAberto(null)
+
+  } catch (e) {
+    alert('Erro ao excluir itens selecionados: ' + e.message)
+  }
+}
+
   const dadosIA = temResultado ? {
     totalItens: itens.length, totalMonofasicos: totalMono,
     receitaMonofasica: receitaMono, creditoEstimado: creditoTotal, regime,
@@ -4811,8 +5036,8 @@ const recMono =
         </div>
           )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar NF-es</div>
-            <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.xml (NF-e)</strong></div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar XMLs Fiscais</div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.xml (NF-e, NFC-e e CF-e)</strong></div>
             <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
             <button
   onClick={() => inputRef.current?.click()}
@@ -4913,7 +5138,7 @@ const recMono =
 }}>
             {[
   {
-  label:'Itens / NF-e',
+  label:'Itens / Documentos',
   valor: temResultado
     ? `${itens.length} itens / ${
         new Set(
@@ -4924,7 +5149,7 @@ const recMono =
             )
             .filter(Boolean)
         ).size
-      } NF-e`
+      } documento(s)`
     : '—',
   cor: temResultado ? S.navy : S.ghostText
 },
@@ -4941,7 +5166,7 @@ const recMono =
   cor: temResultado ? S.navy : S.ghostText
 },
   {
-    label:'Valor total NF-e',
+    label:'Valor total dos documentos',
     valor: temResultado
       ? fmtR(processados.reduce((s,p) => s + Number(p.valorTotalNF || 0), 0))
       : 'R$ —,——',
@@ -5107,6 +5332,27 @@ const recMono =
                   </button>
                 ))}
 
+<button
+  onClick={excluirItensSelecionados}
+  disabled={selecionados.length === 0}
+  style={{
+    padding:'4px 12px',
+    background: selecionados.length === 0 ? '#f1f5f9' : '#fff',
+    color: selecionados.length === 0 ? S.muted : S.red,
+    border:`1px solid ${selecionados.length === 0 ? S.border : '#f2b8b5'}`,
+    borderRadius:6,
+    fontSize:11,
+    fontWeight:600,
+    cursor: selecionados.length === 0 ? 'not-allowed' : 'pointer',
+    opacity: selecionados.length === 0 ? 0.7 : 1,
+    whiteSpace:'nowrap'
+  }}
+>
+  {selecionados.length > 0
+    ? `Excluir ${selecionados.length} selecionado${selecionados.length > 1 ? 's' : ''}`
+    : 'Excluir selecionados'}
+</button>
+
                 <span style={{ width:1, height:22, background:S.border, margin:'0 4px' }} />
 
                 <button onClick={()=>setVisaoTabela('resumida')}
@@ -5189,7 +5435,8 @@ const recMono =
     </th>
 
     {[
-  ['Nº NF', 52],
+  ['Nº Documento', 82],
+  ['Tipo / Modelo', 88],
   ['Data', 72],
   ['Emitente', 125],
   ['Descrição do Produto', 175],
@@ -5275,6 +5522,20 @@ const recMono =
   }}
 >
   {item.nNF}
+</td>
+
+<td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap', fontWeight:600 }}>
+  {isGhost
+    ? '—'
+    : String(item.modeloNFe || '') === '55'
+      ? 'NF-e 55'
+      : String(item.modeloNFe || '') === '65'
+        ? 'NFC-e 65'
+        : String(item.modeloNFe || '') === '59'
+          ? 'CF-e 59'
+          : item.modeloNFe
+            ? `Modelo ${item.modeloNFe}`
+            : '—'}
 </td>
                           <td style={{ ...td, color:isGhost?S.ghostText:S.text, whiteSpace:'nowrap' }}>
   {isGhost
@@ -5515,7 +5776,7 @@ const recMono =
             </div>
             {!temResultado && (
               <div style={{ padding:'16px 20px', borderTop:`1px solid ${S.border}`, textAlign:'center', fontSize:12, color:S.ghostText }}>
-                Importe arquivos XML de NF-e para visualizar os itens e identificar monofasicos
+                Importe arquivos XML fiscais para visualizar os itens e identificar monofasicos
               </div>
             )}
             <div style={{ padding:'10px 16px', borderTop:`1px solid ${S.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12, color:S.muted, flexWrap:'wrap', gap:8 }}>
