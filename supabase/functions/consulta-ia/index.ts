@@ -87,7 +87,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
-        max_completion_tokens: 2000,
+        max_completion_tokens: 8000,
         temperature: 0,
         messages: groqMessages,
       }),

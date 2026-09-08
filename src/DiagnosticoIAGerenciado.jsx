@@ -654,8 +654,15 @@ function montarDossieHtml({
       <div class="campo">
         <div class="label">Data de Transmissão</div>
         <div class="valor">${escaparHtml(
-          d.data_transmissao || '—'
-        )}</div>
+  (() => {
+    const data = String(d.data_transmissao || '').slice(0, 10)
+    const m = data.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+    return m
+      ? m[3] + '/' + m[2] + '/' + m[1]
+      : data || '-'
+  })()
+)}</div>
       </div>
     </div>
   </div>
@@ -1503,7 +1510,7 @@ export default function DiagnosticoIAGerenciado({
           regime ||
           '—'
         }`,
-        132,
+        150,
         y
       )
 
@@ -1837,7 +1844,14 @@ export default function DiagnosticoIAGerenciado({
         margemX + larguraId * 2,
         y,
         'Data de Transmissão',
-        declaracao.data_transmissao
+        (() => {
+  const data = String(declaracao.data_transmissao || '').slice(0, 10)
+  const m = data.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  return m
+    ? `${m[3]}/${m[2]}/${m[1]}`
+    : data || '-'
+})()
       )
 
       y += 12

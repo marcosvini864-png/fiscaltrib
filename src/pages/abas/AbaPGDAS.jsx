@@ -95,6 +95,15 @@ const FORM_VAZIO = {
   periodo_apuracao: '',
   tipo_declaracao: 'Original',
   data_transmissao: '',
+  
+  rbt12p: '',
+cnpj_estabelecimento: '',
+municipio_estabelecimento: '',
+uf_estabelecimento: '',
+sublimite: '',
+impedido_recolher_icms_iss_das: false,
+receitas_anteriores: [],
+dados_originais: null,
 
   rpa: '',
   rbt12: '',
@@ -194,6 +203,14 @@ Use exatamente esta estrutura:
   "num_recibo": "",
   "autenticacao": "",
   "data_transmissao": "",
+  
+  "rbt12p": 0,
+"cnpj_estabelecimento": "",
+"municipio_estabelecimento": "",
+"uf_estabelecimento": "",
+"sublimite": 0,
+"impedido_recolher_icms_iss_das": false,
+"receitas_anteriores": [],
 
   "rpa": 0,
   "rbt12": 0,
@@ -288,6 +305,7 @@ REGRAS DE EXTRACAO:
 11. Valores monetarios devem ser numeros JSON, sem R$, sem separador de milhar e com ponto decimal.
 12. Nao calcule credito tributario. Apenas extraia o PGDAS-D.
 13. Sempre que o proprio documento permitir conferencia, mantenha os totais coerentes com as atividades.
+14. No campo "fator_r", se o documento informar "Fator r = Não se aplica", retorne exatamente "Não se aplica". Se houver valor de Fator R, retorne o valor informado no documento. Não deixe o campo vazio quando houver informação explícita no PGDAS-D.
 `
 
 function Badge({ tipo }) {
@@ -419,7 +437,7 @@ function InputMoeda({
   )
 }
 
-function InputTexto({ label, value, onChange, placeholder, disabled }) {
+function InputTexto({ label, value, onChange, placeholder, disabled, type = 'text' }) {
   return (
     <div>
       <div
@@ -433,7 +451,7 @@ function InputTexto({ label, value, onChange, placeholder, disabled }) {
         {label}
       </div>
 
-      <input
+      <input type={type}
         value={value || ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -464,12 +482,35 @@ function normalizarAtividade(a, index) {
     num(a.icms) +
     num(a.ipi) +
     num(a.iss)
+	
+	const textoFiscal = str(
+  a.texto_original || a.descricao_original || a.descricao
+)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+
+const textoSemAlternativasGenericas = textoFiscal.replace(
+  /substituicao tributaria\s*\/\s*tributacao monofasica\s*\/\s*antecipacao com encerramento de tributacao/g,
+  ''
+)
+
+const monofasicoExplicito =
+  /monofasic/.test(textoSemAlternativasGenericas)
+
+const antecipacaoExplicita =
+  /antecipacao/.test(textoSemAlternativasGenericas)
 
   return {
     ...ATIVIDADE_VAZIA,
     ordem: Number(a.ordem || index + 1),
     descricao: str(a.descricao),
-    anexo: str(a.anexo),
+    anexo:
+  str(a.anexo).trim() ||
+  (() => {
+    const m = textoFiscal.match(/\banexo\s+(i{1,3}|iv|v)\b/i)
+    return m ? m[1].toUpperCase() : ''
+  })(),
     tipo_atividade: str(a.tipo_atividade),
 
     receita: num(a.receita),
@@ -480,8 +521,15 @@ function normalizarAtividade(a, index) {
     mercado_externo: num(a.mercado_externo),
 
     icms_st: bool(a.icms_st),
-    pis_cofins_monofasico: bool(a.pis_cofins_monofasico),
-    antecipacao_com_encerramento: bool(a.antecipacao_com_encerramento),
+    pis_cofins_monofasico:
+  bool(a.pis_cofins_monofasico) &&
+  monofasicoExplicito &&
+  num(a.pis) === 0 &&
+  num(a.cofins) === 0,
+
+antecipacao_com_encerramento:
+  bool(a.antecipacao_com_encerramento) &&
+  antecipacaoExplicita,
     iss_retido: bool(a.iss_retido),
     imunidade: bool(a.imunidade ?? a.imune),
     exportacao: bool(a.exportacao),
@@ -551,6 +599,93 @@ function mapAtividadeBanco(a) {
     texto_original: a.descricao_original || '',
     dados_originais: a.dados_originais || null,
   }
+}
+
+async function carregarPDFJS() {
+  const PDFJS_VERSION = '3.11.174'
+
+  if (!window['pdfjs-dist/build/pdf']) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src =
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`
+
+      script.onload = resolve
+      script.onerror = reject
+
+      document.head.appendChild(script)
+    })
+  }
+
+  const pdfjsLib = window['pdfjs-dist/build/pdf']
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+
+  return pdfjsLib
+}
+
+async function extrairTextoPDF(file) {
+  const pdfjsLib = await carregarPDFJS()
+  const arrayBuffer = await file.arrayBuffer()
+
+  const pdf = await pdfjsLib.getDocument({
+    data: arrayBuffer,
+  }).promise
+
+  let textoTotal = ''
+
+  for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) {
+    const page = await pdf.getPage(i)
+    const textContent = await page.getTextContent()
+
+    const texto = textContent.items
+      .map(item => item.str)
+      .join(' ')
+
+    if (texto.trim()) {
+      textoTotal +=
+        `\n--- PAGINA ${i} ---\n${texto}`
+    }
+  }
+
+  return textoTotal
+}
+
+const esperar = ms =>
+  new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchComRetry(url, options, tentativas = 3) {
+  let ultimaResposta = null
+
+  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    try {
+      const resp = await fetch(url, options)
+      ultimaResposta = resp
+
+      if (resp.ok) {
+        return resp
+      }
+
+      const podeRepetir =
+        [429, 500, 502, 503, 504].includes(resp.status)
+
+      if (!podeRepetir || tentativa === tentativas) {
+        return resp
+      }
+
+      await esperar(tentativa * 1500)
+
+    } catch (erro) {
+      if (tentativa === tentativas) {
+        throw erro
+      }
+
+      await esperar(tentativa * 1500)
+    }
+  }
+
+  return ultimaResposta
 }
 
 export default function AbaPGDAS({ cliente, regime }) {
@@ -623,67 +758,100 @@ export default function AbaPGDAS({ cliente, regime }) {
       let textoExtraido = ''
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result.split(',')[1])
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
+        const textoPDF = await extrairTextoPDF(file)
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+const {
+  data: { session },
+} = await supabase.auth.getSession()
 
-        if (!session?.access_token) {
-          throw new Error('Sessao expirada. Entre novamente no sistema.')
-        }
+if (!session?.access_token) {
+  throw new Error('Sessao expirada. Entre novamente no sistema.')
+}
 
-        const resp = await fetch(
-          'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia',
+let resp
+
+if (textoPDF && textoPDF.trim().length >= 50) {
+  
+  resp = await fetchComRetry(
+    'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
           {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              model: 'gemini-3.5-flash',
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'inline_data',
-                      inline_data: {
-                        mime_type: 'application/pdf',
-                        data: base64,
-                      },
-                    },
-                    {
-                      type: 'text',
-                      text: PROMPT_PGDAS,
-                    },
-                  ],
+            role: 'user',
+            content:
+              `${PROMPT_PGDAS}\n\n` +
+              `TEXTO EXTRAIDO DO PGDAS-D:\n${textoPDF.slice(0, 20000)}`,
+          },
+        ],
+      }),
+    }
+  )
+} else {
+  
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () =>
+      resolve(reader.result.split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+  resp = await fetchComRetry(
+    'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        model: 'gemini-3.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'inline_data',
+                inline_data: {
+                  mime_type: 'application/pdf',
+                  data: base64,
                 },
-              ],
-            }),
-          }
-        )
+              },
+              {
+                type: 'text',
+                text: PROMPT_PGDAS,
+              },
+            ],
+          },
+        ],
+      }),
+    }
+  )
+}
 
-        if (!resp.ok) {
-          const detalhe = await resp.text()
-          throw new Error(
-            `Falha na extracao do PDF (${resp.status}). ${detalhe || ''}`.trim()
-          )
-        }
+if (!resp.ok) {
+  const detalhe = await resp.text()
 
-        const data = await resp.json()
-        textoExtraido =
-          data?.resposta ??
-          data?.resultado ??
-          data?.content ??
-          data?.message ??
-          ''
+  throw new Error(
+    `Falha na extracao do PGDAS-D (${resp.status}). ${detalhe || ''}`.trim()
+  )
+}
+
+const data = await resp.json()
+
+textoExtraido =
+  data?.resposta ??
+  data?.resultado ??
+  data?.content ??
+  data?.message ??
+  ''
       } else {
         textoExtraido = await file.text()
       }
@@ -705,8 +873,72 @@ export default function AbaPGDAS({ cliente, regime }) {
       const atividadesExtraidas = Array.isArray(parsed.atividades)
         ? parsed.atividades.map(normalizarAtividade)
         : []
+		
+	  const receitaMonoValidada = atividadesExtraidas
+      .filter(a => a.pis_cofins_monofasico)
+      .reduce((soma, a) => soma + num(a.receita), 0)
+	  
+	  const receitaSTValidada = atividadesExtraidas
+      .filter(a => a.icms_st)
+      .reduce((soma, a) => soma + num(a.receita), 0)
+	  
+	  const normalizarTexto = v =>
+  str(v)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 
-      setAtividades(atividadesExtraidas)
+const receitaRevendaValidada = atividadesExtraidas.reduce((soma, a) => {
+  const explicita = num(a.receita_revenda)
+
+  if (explicita > 0) {
+    return soma + explicita
+  }
+
+  const texto = normalizarTexto(
+    `${a.tipo_atividade} ${a.descricao}`
+  )
+
+  return /revenda/.test(texto)
+    ? soma + num(a.receita)
+    : soma
+}, 0)
+
+const receitaIndustrializacaoValidada =
+  atividadesExtraidas.reduce((soma, a) => {
+    const explicita = num(a.receita_industrializacao)
+
+    if (explicita > 0) {
+      return soma + explicita
+    }
+
+    const texto = normalizarTexto(
+      `${a.tipo_atividade} ${a.descricao}`
+    )
+
+    return /industrializ/.test(texto)
+      ? soma + num(a.receita)
+      : soma
+  }, 0)
+
+const receitaServicosValidada =
+  atividadesExtraidas.reduce((soma, a) => {
+    const explicita = num(a.receita_servicos)
+
+    if (explicita > 0) {
+      return soma + explicita
+    }
+
+    const texto = normalizarTexto(
+      `${a.tipo_atividade} ${a.descricao}`
+    )
+
+    return /servic/.test(texto)
+      ? soma + num(a.receita)
+      : soma
+  }, 0)
+	  
+	  setAtividades(atividadesExtraidas)
 
       setForm(prev => ({
         ...prev,
@@ -721,21 +953,45 @@ export default function AbaPGDAS({ cliente, regime }) {
           str(parsed.num_recibo) || prev.num_recibo,
         autenticacao:
           str(parsed.autenticacao) || prev.autenticacao,
-        data_transmissao:
-          str(parsed.data_transmissao) || prev.data_transmissao,
+        data_transmissao: (() => {
+  const data = str(parsed.data_transmissao).trim()
+
+  const m = data.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+
+  if (m) {
+    return `${m[3]}-${m[2]}-${m[1]}`
+  }
+
+  return data || prev.data_transmissao
+})(),
+		  
+		  rbt12p: str(num(parsed.rbt12p)),
+cnpj_estabelecimento:
+  str(parsed.cnpj_estabelecimento) || prev.cnpj_estabelecimento,
+municipio_estabelecimento:
+  str(parsed.municipio_estabelecimento) || prev.municipio_estabelecimento,
+uf_estabelecimento:
+  str(parsed.uf_estabelecimento) || prev.uf_estabelecimento,
+sublimite: str(num(parsed.sublimite)),
+impedido_recolher_icms_iss_das:
+  !!parsed.impedido_recolher_icms_iss_das,
+receitas_anteriores:
+  Array.isArray(parsed.receitas_anteriores)
+    ? parsed.receitas_anteriores
+    : [],
+dados_originais: parsed,
 
         rpa: str(num(parsed.rpa)),
         rbt12: str(num(parsed.rbt12)),
         rba: str(num(parsed.rba)),
         rbaa: str(num(parsed.rbaa)),
 
-        receita_revenda: str(num(parsed.receita_revenda)),
-        receita_industrializacao: str(
-          num(parsed.receita_industrializacao)
-        ),
-        receita_servicos: str(num(parsed.receita_servicos)),
-        receita_monofasica: str(num(parsed.receita_monofasica)),
-        receita_st: str(num(parsed.receita_st)),
+        receita_revenda: str(receitaRevendaValidada),
+receita_industrializacao:
+  str(receitaIndustrializacaoValidada),
+receita_servicos: str(receitaServicosValidada),
+        receita_monofasica: str(receitaMonoValidada),
+        receita_st: str(receitaSTValidada),
         receita_imune: str(num(parsed.receita_imune)),
 
         fator_r: str(parsed.fator_r),
@@ -761,12 +1017,23 @@ export default function AbaPGDAS({ cliente, regime }) {
         iss_susp: str(num(parsed.iss_susp)),
       }))
 
-      alert(
-        `Dados extraidos com sucesso.\n\nAtividades identificadas: ${atividadesExtraidas.length}\n\nRevise os dados antes de salvar.`
-      )
+      setAba('lancamento')
+setImportando(false)
+
+setTimeout(() => {
+  alert(
+    `Dados extraídos com sucesso.\n\nAtividades identificadas: ${atividadesExtraidas.length}\n\nRevise os dados antes de salvar.`
+  )
+}, 50)
     } catch (err) {
+  setImportando(false)
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
       alert('Erro ao importar PGDAS-D: ' + err.message)
-    } finally {
+    })
+  })
+} finally {
       setImportando(false)
       if (e.target) e.target.value = ''
     }
@@ -843,6 +1110,19 @@ export default function AbaPGDAS({ cliente, regime }) {
         autenticacao: form.autenticacao || null,
         tipo_declaracao: form.tipo_declaracao || 'Original',
         data_transmissao: form.data_transmissao || null,
+		
+		rbt12p: num(form.rbt12p),
+cnpj_estabelecimento: form.cnpj_estabelecimento || null,
+municipio_estabelecimento: form.municipio_estabelecimento || null,
+uf_estabelecimento: form.uf_estabelecimento || null,
+sublimite: num(form.sublimite),
+impedido_recolher_icms_iss_das:
+  !!form.impedido_recolher_icms_iss_das,
+receitas_anteriores:
+  Array.isArray(form.receitas_anteriores)
+    ? form.receitas_anteriores
+    : [],
+dados_originais: form.dados_originais || null,
 
         receita_bruta_total: rpa,
         rbt12,
@@ -1042,6 +1322,19 @@ export default function AbaPGDAS({ cliente, regime }) {
         periodo_apuracao: diag.competencia || '',
         tipo_declaracao: diag.tipo_declaracao || 'Original',
         data_transmissao: diag.data_transmissao || '',
+		
+		rbt12p: str(diag.rbt12p),
+cnpj_estabelecimento: diag.cnpj_estabelecimento || '',
+municipio_estabelecimento: diag.municipio_estabelecimento || '',
+uf_estabelecimento: diag.uf_estabelecimento || '',
+sublimite: str(diag.sublimite),
+impedido_recolher_icms_iss_das:
+  !!diag.impedido_recolher_icms_iss_das,
+receitas_anteriores:
+  Array.isArray(diag.receitas_anteriores)
+    ? diag.receitas_anteriores
+    : [],
+dados_originais: diag.dados_originais || null,
 
         rpa: str(diag.receita_bruta_total),
         rbt12: str(diag.rbt12),
@@ -1896,11 +2189,12 @@ Essas etapas são controladas pelo próprio FiscalTribe.`}
                   />
 
                   <InputTexto
-                    label="Data de Transmissao"
-                    value={form.data_transmissao}
-                    onChange={v => setF('data_transmissao', v)}
-                    disabled={!!diagAberto}
-                  />
+  label="Data de Transmissao"
+  type="date"
+  value={form.data_transmissao ? String(form.data_transmissao).slice(0, 10) : ''}
+  onChange={v => setF('data_transmissao', v)}
+  disabled={!!diagAberto}
+/>
                 </div>
               )}
 
