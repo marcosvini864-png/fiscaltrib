@@ -1577,11 +1577,28 @@ function formatarTabela(
 
     const colResumo = [
       {
-        header:'NF',
-        width:10,
-        type:'text',
-        value:i=>texto(i.nNF)
-      },
+  header:'Nº Documento',
+  width:14,
+  type:'text',
+  value:i=>texto(i.nNF)
+},
+
+{
+  header:'Tipo / Modelo',
+  width:14,
+  type:'text',
+  value:i =>
+    String(i.modeloNFe || '') === '55'
+      ? 'NF-e 55'
+      : String(i.modeloNFe || '') === '65'
+        ? 'NFC-e 65'
+        : String(i.modeloNFe || '') === '59'
+          ? 'CF-e 59'
+          : i.modeloNFe
+            ? `Modelo ${i.modeloNFe}`
+            : ''
+},
+
       {
         header:'Data',
         width:13,
@@ -1764,7 +1781,22 @@ function formatarTabela(
       )
 
     const colNFe = [
-      { header:'NF', width:9, type:'text', value:i=>texto(i.nNF) },
+      { header:'Nº Documento', width:14, type:'text', value:i=>texto(i.nNF) },
+	  {
+  header:'Tipo / Modelo',
+  width:14,
+  type:'text',
+  value:i =>
+    String(i.modeloNFe || '') === '55'
+      ? 'NF-e 55'
+      : String(i.modeloNFe || '') === '65'
+        ? 'NFC-e 65'
+        : String(i.modeloNFe || '') === '59'
+          ? 'CF-e 59'
+          : i.modeloNFe
+            ? `Modelo ${i.modeloNFe}`
+            : ''
+},
       { header:'Série', width:8, type:'text', value:i=>texto(i.serieNFe) },
       { header:'Data', width:13, type:'date', value:i=>dataExcel(i.dataEmissao) },
       { header:'Competência', width:12, type:'text', value:i=>formatarCompetencia(i.competencia) },
@@ -1911,7 +1943,22 @@ function formatarTabela(
       )
 
     const colIcmsIpi = [
-      { header:'NF', width:9, type:'text', value:i=>texto(i.nNF) },
+      { header:'Nº Documento', width:14, type:'text', value:i=>texto(i.nNF) },
+	  {
+  header:'Tipo / Modelo',
+  width:14,
+  type:'text',
+  value:i =>
+    String(i.modeloNFe || '') === '55'
+      ? 'NF-e 55'
+      : String(i.modeloNFe || '') === '65'
+        ? 'NFC-e 65'
+        : String(i.modeloNFe || '') === '59'
+          ? 'CF-e 59'
+          : i.modeloNFe
+            ? `Modelo ${i.modeloNFe}`
+            : ''
+},
       { header:'Item', width:8, type:'text', value:i=>texto(i.numeroItemNFe) },
       { header:'Código', width:13, type:'text', value:i=>texto(i.codigo) },
       { header:'Descrição', width:34, type:'text', wrap:true, value:i=>texto(i.descricao) },
@@ -2195,7 +2242,19 @@ const receitaConsiderada = itens.reduce(
 
     const linhasTabela = itensParaPDF.filter(i => i.monofasico).map(i => `
       <tr>
-        <td>${i.nNF}</td><td>${i.competencia}</td>
+        <td>${i.nNF}</td>
+<td>${
+  String(i.modeloNFe || '') === '55'
+    ? 'NF-e 55'
+    : String(i.modeloNFe || '') === '65'
+      ? 'NFC-e 65'
+      : String(i.modeloNFe || '') === '59'
+        ? 'CF-e 59'
+        : i.modeloNFe
+          ? `Modelo ${i.modeloNFe}`
+          : '—'
+}</td>
+<td>${i.competencia}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.descricao}</td>
         <td>${i.ncm}</td>
         <td style="text-align:right">${fmtR(i.vProd)}</td>
@@ -2282,7 +2341,7 @@ const receitaConsiderada = itens.reduce(
       <table>
         <thead>
           <tr>
-           <th>NF</th><th>Competencia</th><th>Descricao</th><th>NCM</th>
+           <th>Nº Documento</th><th>Tipo / Modelo</th><th>Competencia</th><th>Descricao</th><th>NCM</th>
 <th style="text-align:right">Valor Produto</th>
 <th>Efeito</th>
 <th style="text-align:right">Efeito Receita</th>
@@ -2293,7 +2352,7 @@ const receitaConsiderada = itens.reduce(
         <tbody>
           ${linhasTabela}
           <tr style="background:#F0FDF4;font-weight:700">
-            <td colspan="6">TOTAL MONOFASICO</td>
+            <td colspan="7">TOTAL MONOFASICO</td>
 <td style="text-align:right;color:#16a34a">${fmtR(recMono)}</td>
 <td style="text-align:right"></td>
 <td style="text-align:right"></td>
@@ -5173,7 +5232,7 @@ if (novosItens.length === 0) {
     cor: temResultado ? S.navy : S.ghostText
   },
   {
-  label:'Movimentações neutras / canceladas',
+  label:'Ajustes fiscais',
   valor: temResultado
     ? fmtR(
         itens.reduce(
