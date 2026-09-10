@@ -80,7 +80,11 @@ const GHOST_ROWS = Array(5).fill(null).map((_, i) => ({
 export default function PainelSimples({ clienteId, cliente }) {
   const [apuracoes, setApuracoes] = useState([])
   const [dadosComp, setDadosComp] = useState(null)
-  const [loading, setLoading] = useState(false)
+const [statusFluxo, setStatusFluxo] = useState({
+  xml: false,
+  pgdas: false,
+})
+const [loading, setLoading] = useState(false)
   const [pagina, setPagina] = useState(1)
   const [menuAberto, setMenuAberto] = useState(null)
   const [modalApuracao, setModalApuracao] = useState(false)
@@ -100,8 +104,39 @@ export default function PainelSimples({ clienteId, cliente }) {
     return () => document.head.removeChild(style)
   }, [])
 
-  useEffect(() => { if (clienteId) { carregar(); carregarDadosComp() } }, [clienteId])
+  useEffect(() => {
+  if (clienteId) {
+    carregar()
+    carregarDadosComp()
+    carregarStatusFluxo()
+  }
+}, [clienteId])
 
+  async function carregarStatusFluxo() {
+  if (!clienteId) return
+
+  const [xmlResult, pgdasResult] = await Promise.all([
+    supabase
+      .from('diagnosticos_monofasicos')
+      .select('id')
+      .eq('cliente_id', clienteId)
+      .eq('status', 'concluido')
+      .limit(1),
+
+    supabase
+      .from('diagnosticos_pgdas')
+      .select('id')
+      .eq('cliente_id', clienteId)
+      .eq('status', 'concluido')
+      .limit(1),
+  ])
+  
+    setStatusFluxo({
+    xml: (xmlResult.data || []).length > 0,
+    pgdas: (pgdasResult.data || []).length > 0,
+  })
+}
+  
   async function carregar() {
     setLoading(true)
     const { data } = await supabase
@@ -232,6 +267,74 @@ export default function PainelSimples({ clienteId, cliente }) {
           </span>
         )}
       </div>
+	  
+	  {/* FLUXO DO MOTOR DO SIMPLES */}
+<div
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 12,
+    marginBottom: 16,
+  }}
+>
+  <div
+    style={{
+      background: S.white,
+      borderRadius: 8,
+      border: `1px solid ${statusFluxo.xml ? '#86efac' : S.border}`,
+      padding: '12px 16px',
+    }}
+  >
+    <div style={{ fontSize: 11, color: S.muted, marginBottom: 5 }}>
+      ETAPA 1
+    </div>
+
+    <div
+      style={{
+        fontSize: 14,
+        fontWeight: 700,
+        color: S.text,
+        marginBottom: 6,
+      }}
+    >
+      XML / Documentos Fiscais
+    </div>
+
+    <Badge
+      label={statusFluxo.xml ? 'Concluído' : 'Pendente'}
+      tipo={statusFluxo.xml ? 'transmitida' : 'aguardando'}
+    />
+  </div>
+
+  <div
+    style={{
+      background: S.white,
+      borderRadius: 8,
+      border: `1px solid ${statusFluxo.pgdas ? '#86efac' : S.border}`,
+      padding: '12px 16px',
+    }}
+  >
+    <div style={{ fontSize: 11, color: S.muted, marginBottom: 5 }}>
+      ETAPA 2
+    </div>
+
+    <div
+      style={{
+        fontSize: 14,
+        fontWeight: 700,
+        color: S.text,
+        marginBottom: 6,
+      }}
+    >
+      PGDAS-D
+    </div>
+
+    <Badge
+      label={statusFluxo.pgdas ? 'Concluído' : 'Pendente'}
+      tipo={statusFluxo.pgdas ? 'transmitida' : 'aguardando'}
+    />
+  </div>
+</div>
 
       {/* KPI CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
