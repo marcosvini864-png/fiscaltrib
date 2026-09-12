@@ -186,6 +186,12 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [porPagina, setPorPagina] = useState(25)
   const [selecionados, setSelecionados] = useState([])
   const [menuAberto, setMenuAberto] = useState(null)
+  const [menuPosicao, setMenuPosicao] = useState({ top: 0, left: 0 })
+
+  const [conflitoItem, setConflitoItem] = useState(null)
+  const [conflitoOcorrencias, setConflitoOcorrencias] = useState([])
+  const [carregandoConflito, setCarregandoConflito] = useState(false)
+
   const [modalAberto, setModalAberto] = useState(false)
   const [aprovando, setAprovando] = useState(false)
   const [confirmandoDemais, setConfirmandoDemais] = useState(false)
@@ -268,25 +274,47 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const itensPagina  = itensFiltrados.slice((pagina - 1) * porPagina, pagina * porPagina)
   const temDados     = itens.length > 0
 
-  const todosSelecionados = itensPagina.length > 0 && !itensPagina[0]?.ghost && itensPagina.every(i => selecionados.includes(i.id))
+  const itensSelecionaveisPagina = itensPagina.filter(
+  i => !i?.ghost && !i?.duplicado
+)
 
-  function toggleTodos() {
-    if (todosSelecionados) {
-      const idsPagina = itensPagina.map(i => i.id)
-      setSelecionados(prev => prev.filter(id => !idsPagina.includes(id)))
-    } else {
-      const idsPagina = itensPagina.map(i => i.id)
-      setSelecionados(prev => [...new Set([...prev, ...idsPagina])])
-    }
-  }
+const todosSelecionados =
+  itensSelecionaveisPagina.length > 0 &&
+  itensSelecionaveisPagina.every(i => selecionados.includes(i.id))
 
-  function toggleItem(id) {
-    setSelecionados(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
-  }
+function toggleTodos() {
+  const idsPagina = itensSelecionaveisPagina.map(i => i.id)
 
-  function selecionarTodos() {
-    setSelecionados(itensFiltrados.map(i => i.id))
+  if (todosSelecionados) {
+    setSelecionados(prev =>
+      prev.filter(id => !idsPagina.includes(id))
+    )
+  } else {
+    setSelecionados(prev =>
+      [...new Set([...prev, ...idsPagina])]
+    )
   }
+}
+
+function toggleItem(id) {
+  const item = itens.find(i => i.id === id)
+
+  if (item?.duplicado) return
+
+  setSelecionados(prev =>
+    prev.includes(id)
+      ? prev.filter(i => i !== id)
+      : [...prev, id]
+  )
+}
+
+function selecionarTodos() {
+  setSelecionados(
+    itensFiltrados
+      .filter(i => !i.duplicado)
+      .map(i => i.id)
+  )
+}
 
   async function aprovarTodosMonofasicos() {
     const monofasicos = itens.filter(
@@ -526,6 +554,147 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   }
 }
 
+async function abrirConflito(item) {
+  if (!item?.codigo || !clienteId) return
+
+  setMenuAberto(null)
+  setConflitoItem(item)
+  setConflitoOcorrencias([])
+  setCarregandoConflito(true)
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnostico_monofasico_itens')
+      .select(`
+        id,
+        nf,
+        competencia,
+        codigo,
+        descricao,
+        ncm,
+        monofasico,
+        cfop,
+        cst_pis,
+        cst_cofins,
+        ordem_item
+      `)
+      .eq('cliente_id', clienteId)
+      .eq('codigo', item.codigo)
+      .order('competencia', { ascending: true })
+      .order('nf', { ascending: true })
+      .order('ordem_item', { ascending: true })
+
+    if (error) throw error
+
+    setConflitoOcorrencias(data || [])
+
+  } catch (e) {
+    setConflitoItem(null)
+    setConflitoOcorrencias([])
+    alert(
+      'Erro ao carregar as ocorrencias do produto conflitante: ' +
+      (e.message || 'falha desconhecida')
+    )
+  } finally {
+    setCarregandoConflito(false)
+  }
+}
+
+async function prosseguirConflitoComoTributado() {
+  if (!conflitoItem?.id) return
+
+  if (!window.confirm(
+    'Prosseguir sem corrigir o conflito?\n\n' +
+    'O produto será tratado como TRIBUTADO, seguindo o critério conservador.'
+  )) return
+
+  setSalvando(true)
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error: erroItem } = await supabase
+      .from('itens_fiscais')
+      .update({
+        class_pis_cofins_considerado: 'tributado',
+        considerar_receita: conflitoItem.considerar_receita !== false,
+        duplicado: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', conflitoItem.id)
+
+    if (erroItem) throw erroItem
+
+    const { error: erroHistorico } = await supabase
+      .from('itens_classificacoes')
+      .insert({
+        item_id: conflitoItem.id,
+        usuario_id: user.id,
+        classificacao: 'tributado',
+        considerar_receita: conflitoItem.considerar_receita !== false,
+        fonte: 'conflito_conservador',
+        data_inicio: null,
+        data_fim: null,
+      })
+
+    if (erroHistorico) throw erroHistorico
+
+    setConflitoItem(null)
+    setConflitoOcorrencias([])
+    await carregar()
+
+  } catch (e) {
+    alert(
+      'Erro ao prosseguir com o conflito: ' +
+      (e.message || 'falha desconhecida')
+    )
+  } finally {
+    setSalvando(false)
+  }
+}
+
+async function corrigirConflitoComOcorrencia(ocorrencia) {
+  if (!conflitoItem?.id || !ocorrencia?.ncm) return
+
+  const classificacaoSugerida =
+    ocorrencia.monofasico ? 'monofasico' : null
+
+  if (!window.confirm(
+    `Usar o NCM ${ocorrencia.ncm} como NCM correto para o produto ${conflitoItem.codigo}?\n\n` +
+    'A evidência original dos XMLs será preservada.'
+  )) return
+
+  setSalvando(true)
+
+  try {
+    const { error: erroItem } = await supabase
+      .from('itens_fiscais')
+      .update({
+        ncm: ocorrencia.ncm,
+        class_pis_cofins_econsulta: classificacaoSugerida,
+        class_pis_cofins_considerado: null,
+        status_ncm: 'encontrada',
+        duplicado: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', conflitoItem.id)
+
+    if (erroItem) throw erroItem
+
+    setConflitoItem(null)
+    setConflitoOcorrencias([])
+    await carregar()
+
+  } catch (e) {
+    alert(
+      'Erro ao corrigir o conflito: ' +
+      (e.message || 'falha desconhecida')
+    )
+  } finally {
+    setSalvando(false)
+  }
+}
+
 async function removerClassificacao(item) {
   if (!item?.class_pis_cofins_considerado) return
 
@@ -593,7 +762,7 @@ async function removerClassificacao(item) {
     } catch (e) { alert('Erro: ' + e.message) }
     finally { setSalvando(false) }
   }
-  
+
   async function limparTodosItens() {
   if (!clienteId || itens.length === 0) return
 
@@ -702,6 +871,215 @@ async function removerClassificacao(item) {
           onFechar={() => setModalAberto(false)}
         />
       )}
+
+	  {conflitoItem && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.4)',
+      zIndex: 10000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+    onClick={e => {
+      if (e.target === e.currentTarget) {
+        setConflitoItem(null)
+        setConflitoOcorrencias([])
+      }
+    }}
+  >
+    <div
+      style={{
+        background: S.white,
+        borderRadius: 12,
+        width: 760,
+        maxWidth: '95vw',
+        maxHeight: '85vh',
+        overflowY: 'auto',
+        padding: 24,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 18,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: S.navy }}>
+            Resolver conflito de classificação
+          </div>
+
+          <div style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>
+            Código: {conflitoItem.codigo}
+          </div>
+        </div>
+
+		<button
+  onClick={prosseguirConflitoComoTributado}
+  disabled={salvando || carregandoConflito}
+  style={{
+    padding: '8px 16px',
+    background: S.orange,
+    color: S.white,
+    border: 'none',
+    borderRadius: 6,
+    cursor:
+      salvando || carregandoConflito
+        ? 'not-allowed'
+        : 'pointer',
+    fontWeight: 600,
+    opacity:
+      salvando || carregandoConflito
+        ? 0.6
+        : 1,
+  }}
+>
+  {salvando ? 'Processando...' : 'Prosseguir como Tributado'}
+</button>
+
+        <button
+          onClick={() => {
+            setConflitoItem(null)
+            setConflitoOcorrencias([])
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: 18,
+            cursor: 'pointer',
+            color: S.muted,
+          }}
+        >
+          X
+        </button>
+      </div>
+
+      {carregandoConflito ? (
+        <div style={{ padding: 20, textAlign: 'center', color: S.muted }}>
+          Carregando ocorrências...
+        </div>
+      ) : conflitoOcorrencias.length === 0 ? (
+        <div style={{ padding: 20, textAlign: 'center', color: S.red }}>
+          Nenhuma ocorrência encontrada.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: 12,
+            }}
+          >
+            <thead>
+              <tr style={{ background: S.thBg }}>
+                {[
+                  'NF',
+                  'Competência',
+                  'Descrição',
+                  'NCM',
+                  'CFOP',
+                  'CST PIS',
+                  'CST COFINS',
+                  'Motor',
+				  'Ação',
+                ].map(titulo => (
+                  <th
+                    key={titulo}
+                    style={{
+                      padding: '8px 10px',
+                      color: S.thText,
+                      textAlign: 'left',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {titulo}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {conflitoOcorrencias.map(oc => (
+                <tr
+                  key={oc.id}
+                  style={{ borderBottom: `1px solid ${S.border}` }}
+                >
+                  <td style={{ padding: '8px 10px' }}>{oc.nf || '-'}</td>
+                  <td style={{ padding: '8px 10px' }}>{oc.competencia || '-'}</td>
+                  <td style={{ padding: '8px 10px' }}>{oc.descricao || '-'}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>
+                    {oc.ncm || '-'}
+                  </td>
+                  <td style={{ padding: '8px 10px' }}>{oc.cfop || '-'}</td>
+                  <td style={{ padding: '8px 10px' }}>{oc.cst_pis || '-'}</td>
+                  <td style={{ padding: '8px 10px' }}>{oc.cst_cofins || '-'}</td>
+                  <td style={{ padding: '8px 10px' }}>
+                    {oc.monofasico ? 'Monofásico' : 'Não monofásico'}
+                  </td>
+				  <td style={{ padding: '8px 10px' }}>
+  <button
+    onClick={() => corrigirConflitoComOcorrencia(oc)}
+    disabled={salvando}
+    style={{
+      padding: '6px 10px',
+      background: S.blue,
+      color: S.white,
+      border: 'none',
+      borderRadius: 6,
+      cursor: salvando ? 'not-allowed' : 'pointer',
+      fontSize: 11,
+      fontWeight: 600,
+      whiteSpace: 'nowrap',
+      opacity: salvando ? 0.6 : 1,
+    }}
+  >
+    Usar este NCM
+  </button>
+</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div
+  style={{
+    marginTop: 20,
+    display: 'flex',
+    gap: 8,
+    justifyContent: 'flex-end',
+  }}
+>
+
+  <button
+    onClick={() => {
+      setConflitoItem(null)
+      setConflitoOcorrencias([])
+    }}
+    style={{
+      padding: '8px 16px',
+      background: 'none',
+      border: `1px solid ${S.border}`,
+      borderRadius: 6,
+      cursor: 'pointer',
+      color: S.muted,
+    }}
+  >
+    Fechar
+  </button>
+</div>
+    </div>
+  </div>
+)}
 
       {/* HEADER */}
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -997,10 +1375,37 @@ async function removerClassificacao(item) {
               </>
             ) : (
               <>
-                <button onClick={selecionarTodos} disabled={!temDados || loading}
-                  style={{ padding: '6px 14px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 12, cursor: temDados ? 'pointer' : 'not-allowed', color: S.muted, opacity: temDados ? 1 : 0.5 }}>
-                  Selecionar todos ({temDados ? itensFiltrados.length : '—'})
-                </button>
+                <button
+  onClick={selecionarTodos}
+  disabled={
+    loading ||
+    itensFiltrados.filter(i => !i.duplicado).length === 0
+  }
+  style={{
+    padding: '6px 14px',
+    background: 'none',
+    border: `1px solid ${S.border}`,
+    borderRadius: 6,
+    fontSize: 12,
+    cursor:
+      loading ||
+      itensFiltrados.filter(i => !i.duplicado).length === 0
+        ? 'not-allowed'
+        : 'pointer',
+    color: S.muted,
+    opacity:
+      loading ||
+      itensFiltrados.filter(i => !i.duplicado).length === 0
+        ? 0.5
+        : 1,
+  }}
+>
+  Selecionar todos ({
+    loading
+      ? '—'
+      : itensFiltrados.filter(i => !i.duplicado).length
+  })
+</button>
 				<button
                 onClick={limparTodosItens}
                 disabled={!temDados || loading || limpandoTodos}
@@ -1079,7 +1484,19 @@ async function removerClassificacao(item) {
                   return (
                     <tr key={item.id} style={{ borderBottom: `1px solid ${S.border}`, background: isGhost ? S.ghost : sel ? '#eff6ff' : i % 2 === 0 ? S.white : '#FAFAFA' }}>
                       <td style={{ padding: '8px 10px' }}>
-                        {!isGhost && <input type="checkbox" checked={sel} onChange={() => toggleItem(item.id)} style={{ cursor: 'pointer' }} />}
+                        {!isGhost && (
+  <input
+    type="checkbox"
+    checked={sel}
+    onChange={() => toggleItem(item.id)}
+    disabled={item.duplicado}
+    title={item.duplicado ? 'Resolva o conflito antes de selecionar este item' : ''}
+    style={{
+      cursor: item.duplicado ? 'not-allowed' : 'pointer',
+      opacity: item.duplicado ? 0.45 : 1,
+    }}
+  />
+)}
                       </td>
                       <td style={{ padding: '8px 10px', fontWeight: 600, color: isGhost ? S.ghostText : S.navy, whiteSpace: 'nowrap' }}>{item.codigo || '-'}</td>
                       <td style={{ padding: '8px 10px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isGhost ? S.ghostText : S.text }} title={item.descricao}>
@@ -1111,7 +1528,34 @@ async function removerClassificacao(item) {
                       <td style={{ padding: '8px 10px', position: 'relative' }}>
                         {!isGhost && (
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <button onClick={e => { e.stopPropagation(); setMenuAberto(menuAberto === item.id ? null : item.id) }}
+                            <button
+  onClick={e => {
+    e.stopPropagation()
+
+    if (menuAberto === item.id) {
+      setMenuAberto(null)
+      return
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const larguraMenu = 200
+    const alturaMenu = temConf ? 160 : 125
+    const margem = 8
+
+    const left = Math.min(
+      Math.max(margem, rect.right - larguraMenu),
+      window.innerWidth - larguraMenu - margem
+    )
+
+    let top = rect.bottom + 4
+
+    if (top + alturaMenu > window.innerHeight - margem) {
+      top = Math.max(margem, rect.top - alturaMenu - 4)
+    }
+
+    setMenuPosicao({ top, left })
+    setMenuAberto(item.id)
+  }}
                               style={{ background: 'none', border: `1px solid ${S.border}`, borderRadius: 4, cursor: 'pointer', padding: '2px 8px', fontSize: 13, color: S.muted }}>
                               ...
                             </button>
@@ -1138,8 +1582,40 @@ async function removerClassificacao(item) {
                           </div>
                         )}
                         {!isGhost && menuAberto === item.id && (
-                          <div style={{ position: 'absolute', right: 8, top: 30, background: S.white, border: `1px solid ${S.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 200 }}
+                          <div
+  style={{
+    position: 'fixed',
+    top: menuPosicao.top,
+    left: menuPosicao.left,
+    background: S.white,
+    border: `1px solid ${S.border}`,
+    borderRadius: 8,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    zIndex: 9999,
+    minWidth: 200,
+  }}
                             onClick={e => e.stopPropagation()}>
+							{item.duplicado && (
+  <button
+    onClick={() => abrirConflito(item)}
+    style={{
+      display: 'block',
+      width: '100%',
+      padding: '8px 14px',
+      background: 'none',
+      border: 'none',
+      textAlign: 'left',
+      fontSize: 12,
+      cursor: 'pointer',
+      color: S.orange,
+      borderBottom: `1px solid ${S.border}`,
+    }}
+  >
+    Resolver conflito
+  </button>
+)}
+{!item.duplicado && (
+  <>
                             <button onClick={() => { setSelecionados([item.id]); setMenuAberto(null); setTimeout(() => confirmarConforme(), 0) }}
                               style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
                               Confirmar conforme Motor NCM
@@ -1148,9 +1624,11 @@ async function removerClassificacao(item) {
                               style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
                               Classificar manualmente
                             </button>
+							  </>
+)}
                             {temConf && (
                              <button
-							 onClick={() => removerClassificacao(item)} 
+							 onClick={() => removerClassificacao(item)}
                              style={{
                              display: 'block',
                              width: '100%',

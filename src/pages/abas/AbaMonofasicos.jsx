@@ -12,6 +12,7 @@ import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
 import { parseXMLCFe } from '../../utils/parseXMLCFe'
 import { detectarDocumentoFiscalXML } from '../../utils/detectarDocumentoFiscalXML'
+import { validarNCM } from '../../motor/base/utilitarios/validacoes'
 import AnalisadorIA from '../../AnalisadorIA'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -72,6 +73,21 @@ function isMonofasico(ncm) {
   if (!ncm) return false
   const n = ncm.replace(/\D/g, '')
   return NCM_PREFIXOS.some(p => n.startsWith(p))
+}
+
+function statusNCMClassificacao(ncm) {
+  const resultado = validarNCM(ncm)
+
+  if (!resultado.valido) return 'nao_encontrada'
+
+  if (
+    resultado.ncmLimpo === '00000000' ||
+    resultado.ncmLimpo === '99999999'
+  ) {
+    return 'nao_encontrada'
+  }
+
+  return 'encontrada'
 }
 
 const EFEITO_RECEITA = Object.freeze({
@@ -2944,22 +2960,45 @@ setProcessados(processadosSalvos)
   async function upsertItensFiscais(todosItens, userId) {
     if (!cliente?.id || !userId || !todosItens.length) return
     const mapaUnicos = new Map()
-    for (const item of todosItens) {
-      const codigo = item.codigo || item.nNF
-      if (!codigo || mapaUnicos.has(codigo)) continue
-      mapaUnicos.set(codigo, item)
-    }
+
+for (const item of todosItens) {
+  const codigo = item.codigo || item.nNF
+  if (!codigo) continue
+
+  const existente = mapaUnicos.get(codigo)
+
+  if (!existente) {
+    mapaUnicos.set(codigo, {
+      ...item,
+      duplicadoConflitante: false,
+    })
+    continue
+  }
+
+  const classificacaoExistente = !!existente.monofasico
+  const classificacaoAtual = !!item.monofasico
+
+  if (classificacaoExistente !== classificacaoAtual) {
+    mapaUnicos.set(codigo, {
+      ...existente,
+      duplicadoConflitante: true,
+    })
+  }
+}
     const registros = Array.from(mapaUnicos.values()).map(item => ({
       usuario_id: userId, cliente_id: cliente.id,
       codigo: item.codigo || '', descricao: item.descricao || '',
       gtin: item.gtin || null, ncm: item.ncm || null,
       ex: item.ex || null, cest: item.cest || null,
-      class_pis_cofins_econsulta: null,
-      status_ncm: item.ncm ? 'encontrada' : 'nao_encontrada',
+      class_pis_cofins_econsulta:
+  item.duplicadoConflitante
+    ? null
+    : (item.monofasico ? 'monofasico' : null),
+      status_ncm: statusNCMClassificacao(item.ncm),
       considerar_receita: item.consideraReceita ?? true,
-      duplicado: false,
+      duplicado: !!item.duplicadoConflitante,
     }))
-    if (!registros.length) return
+	if (!registros.length) return
     let novosTotal = 0
     const LOTE = 100
     for (let i = 0; i < registros.length; i += LOTE) {
