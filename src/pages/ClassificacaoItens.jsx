@@ -505,6 +505,122 @@ function selecionarTodos() {
       return inicioValido && fimValido
     })
 
+const periodosNormalizados = periodos.map(p => ({
+  dataInicio: p.data_inicio
+    ? p.data_inicio + '-01'
+    : null,
+  dataFim: p.data_fim
+    ? p.data_fim + '-01'
+    : null,
+}))
+
+function periodosSobrepostos(inicioA, fimA, inicioB, fimB) {
+  const inicio1 = inicioA || '0001-01-01'
+  const fim1 = fimA || '9999-12-31'
+  const inicio2 = inicioB || '0001-01-01'
+  const fim2 = fimB || '9999-12-31'
+
+  return inicio1 <= fim2 && inicio2 <= fim1
+}
+
+// Impede sobreposição entre períodos informados no próprio modal
+for (let i = 0; i < periodosNormalizados.length; i++) {
+  for (let j = i + 1; j < periodosNormalizados.length; j++) {
+    const periodoA = periodosNormalizados[i]
+    const periodoB = periodosNormalizados[j]
+
+    const periodoATemVigencia =
+      periodoA.dataInicio || periodoA.dataFim
+
+    const periodoBTemVigencia =
+      periodoB.dataInicio || periodoB.dataFim
+
+    if (
+      periodoATemVigencia &&
+      periodoBTemVigencia &&
+      periodosSobrepostos(
+        periodoA.dataInicio,
+        periodoA.dataFim,
+        periodoB.dataInicio,
+        periodoB.dataFim
+      )
+    ) {
+      alert(
+        'Os períodos de vigência informados se sobrepõem. ' +
+        'Ajuste os períodos antes de classificar.'
+      )
+      return
+    }
+  }
+}
+
+// Valida o histórico antes de alterar qualquer item
+for (const item of itensSelecionados) {
+  const { data: historicosExistentes, error: erroHistoricos } =
+    await supabase
+      .from('itens_classificacoes')
+      .select(`
+        id,
+        classificacao,
+        considerar_receita,
+        fonte,
+        data_inicio,
+        data_fim
+      `)
+      .eq('item_id', item.id)
+
+  if (erroHistoricos) throw erroHistoricos
+  for (const novoPeriodo of periodosNormalizados) {const novoTemVigencia =
+      novoPeriodo.dataInicio || novoPeriodo.dataFim
+
+    if (!novoTemVigencia) continue
+
+    const conflito = (historicosExistentes || []).find(historico => {
+      const existenteTemVigencia =
+        historico.data_inicio || historico.data_fim
+
+      if (!existenteTemVigencia) return false
+
+      // Duplicata exatamente igual será ignorada pela trava já existente
+      const duplicataExata =
+        historico.classificacao === classificacao &&
+        historico.considerar_receita === considerarReceita &&
+        historico.fonte === 'manual' &&
+        (historico.data_inicio || null) === novoPeriodo.dataInicio &&
+        (historico.data_fim || null) === novoPeriodo.dataFim
+
+      if (duplicataExata) return false
+
+      return periodosSobrepostos(
+        novoPeriodo.dataInicio,
+        novoPeriodo.dataFim,
+        historico.data_inicio,
+        historico.data_fim
+      )
+    })
+
+    if (conflito) {
+      const formatarCompetencia = data => {
+        if (!data) return 'sem limite'
+
+        const [ano, mes] = data.slice(0, 7).split('-')
+        return `${mes}/${ano}`
+      }
+
+      alert(
+        'Já existe uma classificação para este produto em período sobreposto.\n\n' +
+        `Classificação existente: ${conflito.classificacao}\n` +
+        `Vigência existente: ${formatarCompetencia(conflito.data_inicio)} até ${formatarCompetencia(conflito.data_fim)}\n\n` +
+        `Nova classificação: ${classificacao}\n` +
+        `Nova vigência: ${formatarCompetencia(novoPeriodo.dataInicio)} até ${formatarCompetencia(novoPeriodo.dataFim)}\n\n` +
+        'Ajuste a vigência antes de salvar.'
+      )
+
+      return
+    }
+  }
+}
+
     for (const item of itensSelecionados) {
 
       const atualizacaoItem = {
@@ -524,24 +640,57 @@ function selecionarTodos() {
       if (erroItem) throw erroItem
 
       for (const p of periodos) {
-        const { error: erroHistorico } = await supabase
-          .from('itens_classificacoes')
-          .insert({
-            item_id: item.id,
-            usuario_id: user.id,
-            classificacao,
-            considerar_receita: considerarReceita,
-            fonte: 'manual',
-            data_inicio: p.data_inicio
-              ? p.data_inicio + '-01'
-              : null,
-            data_fim: p.data_fim
-              ? p.data_fim + '-01'
-              : null,
-          })
+  const dataInicio = p.data_inicio
+    ? p.data_inicio + '-01'
+    : null
 
-        if (erroHistorico) throw erroHistorico
-      }
+  const dataFim = p.data_fim
+    ? p.data_fim + '-01'
+    : null
+
+  let consultaExistente = supabase
+    .from('itens_classificacoes')
+    .select('id')
+    .eq('item_id', item.id)
+    .eq('classificacao', classificacao)
+    .eq('considerar_receita', considerarReceita)
+    .eq('fonte', 'manual')
+
+  if (dataInicio === null) {
+    consultaExistente = consultaExistente.is('data_inicio', null)
+  } else {
+    consultaExistente = consultaExistente.eq('data_inicio', dataInicio)
+  }
+
+  if (dataFim === null) {
+    consultaExistente = consultaExistente.is('data_fim', null)
+  } else {
+    consultaExistente = consultaExistente.eq('data_fim', dataFim)
+  }
+
+  const { data: historicoExistente, error: erroConsulta } =
+    await consultaExistente.limit(1)
+
+  if (erroConsulta) throw erroConsulta
+
+  if (historicoExistente?.length > 0) {
+    continue
+  }
+
+  const { error: erroHistorico } = await supabase
+    .from('itens_classificacoes')
+    .insert({
+      item_id: item.id,
+      usuario_id: user.id,
+      classificacao,
+      considerar_receita: considerarReceita,
+      fonte: 'manual',
+      data_inicio: dataInicio,
+      data_fim: dataFim,
+    })
+
+  if (erroHistorico) throw erroHistorico
+}
     }
 
     await carregar()
