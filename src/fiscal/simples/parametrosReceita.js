@@ -345,44 +345,68 @@ function montarDecisoesReceitaPorParametros({
     }
 
     const valorProduto =
-      numeroMonetarioReceita(
-        item?.valor_produto
-      )
+  numeroMonetarioReceita(
+    item?.valor_produto
+  )
 
-    const valorDesconto =
-      numeroMonetarioReceita(
-        item?.valor_desconto
-      )
+const valorDesconto =
+  numeroMonetarioReceita(
+    item?.valor_desconto
+  )
 
-    if (
-      valorProduto === null ||
-      valorProduto < 0 ||
-      valorDesconto === null ||
-      valorDesconto < 0
-    ) {
-      pendencias.push({
-        tipo:
-          'valor_documental_invalido',
-        cfop,
-        chaveItem,
-        nf: item?.nf || null,
-        codigo: item?.codigo || null,
-      })
+const valorFrete =
+  numeroMonetarioReceita(
+    item?.valor_frete
+  )
 
-      continue
-    }
+const valorSeguro =
+  numeroMonetarioReceita(
+    item?.valor_seguro
+  )
 
-    let valorReceita =
-      valorProduto
+const valorOutrasDespesas =
+  numeroMonetarioReceita(
+    item?.valor_outras_despesas
+  )
 
-    if (
-      parametro.tratamentoDesconto ===
-      'reduzir_receita'
-    ) {
-      valorReceita =
-        valorProduto -
-        valorDesconto
-    }
+if (
+  valorProduto === null ||
+  valorProduto < 0 ||
+  valorDesconto === null ||
+  valorDesconto < 0 ||
+  valorFrete === null ||
+  valorFrete < 0 ||
+  valorSeguro === null ||
+  valorSeguro < 0 ||
+  valorOutrasDespesas === null ||
+  valorOutrasDespesas < 0
+) {
+  pendencias.push({
+    tipo:
+      'valor_documental_invalido',
+    cfop,
+    chaveItem,
+    nf: item?.nf || null,
+    codigo: item?.codigo || null,
+  })
+
+  continue
+}
+
+let valorReceita =
+  valorProduto +
+  valorFrete +
+  valorSeguro +
+  valorOutrasDespesas
+
+if (
+  parametro.tratamentoDesconto ===
+  'reduzir_receita'
+) {
+  valorReceita =
+    valorReceita -
+    valorDesconto
+}
 
     if (valorReceita < 0) {
       pendencias.push({
