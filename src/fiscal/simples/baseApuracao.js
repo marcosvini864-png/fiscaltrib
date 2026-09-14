@@ -87,22 +87,68 @@ function resolverClassificacaoPisCofinsVigente({
   }
 
   const assinaturas = new Set(
-    vigentes.map(registro =>
-      String(registro.classificacao || "") +
-      "|" +
-      String(registro.considerar_receita !== false)
-    )
+  vigentes.map(registro =>
+    String(registro.classificacao || "") +
+    "|" +
+    String(registro.considerar_receita !== false)
+  )
+)
+
+if (assinaturas.size > 1) {
+  const todasSemVigenciaExplicita = vigentes.every(
+    registro =>
+      !registro.data_inicio &&
+      !registro.data_fim
   )
 
-  if (assinaturas.size > 1) {
+  const todasComDataDeCriacao = vigentes.every(
+    registro =>
+      Boolean(
+        String(registro.criado_em || "").trim()
+      )
+  )
+
+  if (
+    todasSemVigenciaExplicita &&
+    todasComDataDeCriacao
+  ) {
+    const ordenadasPorCriacao = [...vigentes].sort(
+      (a, b) =>
+        String(b.criado_em).localeCompare(
+          String(a.criado_em)
+        )
+    )
+
+    const registroMaisRecente =
+      ordenadasPorCriacao[0]
+
+    if (!registroMaisRecente?.classificacao) {
+      return {
+        status: "classificacao_vazia",
+        classificacao: null,
+        considerarReceita: null,
+        registro: registroMaisRecente,
+      }
+    }
+
     return {
-      status: "classificacao_ambigua",
-      classificacao: null,
-      considerarReceita: null,
-      registro: null,
-      registros: vigentes,
+      status: "ok",
+      classificacao:
+        registroMaisRecente.classificacao,
+      considerarReceita:
+        registroMaisRecente.considerar_receita !== false,
+      registro: registroMaisRecente,
     }
   }
+
+  return {
+    status: "classificacao_ambigua",
+    classificacao: null,
+    considerarReceita: null,
+    registro: null,
+    registros: vigentes,
+  }
+}
 
   const ordenados = [...vigentes].sort((a, b) =>
     String(b.data_inicio || "").localeCompare(
