@@ -276,24 +276,122 @@ function montarDecisoesReceitaPorParametros({
     }
 
     /*
-     * Exclusão documental já existente
-     * permanece respeitada.
-     */
+ * Tratamento documental ja identificado na origem.
+ * Cancelamentos sao excluidos.
+ * Devolucoes reduzem a receita.
+ */
+if (
+  item?.considera_receita === false
+) {
+  const efeitoReceita = String(
+    item?.efeito_receita ?? ''
+  ).trim().toUpperCase()
+
+  const fatorReceita =
+    numeroMonetarioReceita(
+      item?.fator_receita
+    )
+
+  if (
+    efeitoReceita === 'DEVOLUCAO' ||
+    fatorReceita === -1
+  ) {
+    const valorProduto =
+      numeroMonetarioReceita(
+        item?.valor_produto
+      )
+
+    const valorDesconto =
+      numeroMonetarioReceita(
+        item?.valor_desconto
+      )
+
+    const valorFrete =
+      numeroMonetarioReceita(
+        item?.valor_frete
+      )
+
+    const valorSeguro =
+      numeroMonetarioReceita(
+        item?.valor_seguro
+      )
+
+    const valorOutrasDespesas =
+      numeroMonetarioReceita(
+        item?.valor_outras_despesas
+      )
+
     if (
-      item?.considera_receita === false
+      valorProduto === null ||
+      valorProduto < 0 ||
+      valorDesconto === null ||
+      valorDesconto < 0 ||
+      valorFrete === null ||
+      valorFrete < 0 ||
+      valorSeguro === null ||
+      valorSeguro < 0 ||
+      valorOutrasDespesas === null ||
+      valorOutrasDespesas < 0
     ) {
-      decisoes.push({
+      pendencias.push({
+        tipo:
+          'valor_documental_invalido',
         chaveItem,
-        tipo: 'excluir',
-        origem:
-          'marcacao_documental_existente',
-        motivo:
-          item?.motivo_nao_considerar_receita ||
-          'Item marcado para não considerar receita',
+        nf: item?.nf || null,
+        codigo: item?.codigo || null,
       })
 
       continue
     }
+
+    const valorReducao =
+      valorProduto +
+      valorFrete +
+      valorSeguro +
+      valorOutrasDespesas -
+      valorDesconto
+
+    if (valorReducao < 0) {
+      pendencias.push({
+        tipo:
+          'desconto_superior_valor_documental',
+        chaveItem,
+        nf: item?.nf || null,
+        codigo: item?.codigo || null,
+      })
+
+      continue
+    }
+
+    decisoes.push({
+      chaveItem,
+      tipo: 'reduzir',
+      valor:
+        Math.round(
+          valorReducao * 100
+        ) / 100,
+      origem:
+        'marcacao_documental_existente',
+      motivo:
+        item?.motivo_nao_considerar_receita ||
+        'Devolucao reduz a receita documental',
+    })
+
+    continue
+  }
+
+  decisoes.push({
+    chaveItem,
+    tipo: 'excluir',
+    origem:
+      'marcacao_documental_existente',
+    motivo:
+      item?.motivo_nao_considerar_receita ||
+      'Item marcado para nao considerar receita',
+  })
+
+  continue
+}
 
     const cfop =
       normalizarCfopReceita(

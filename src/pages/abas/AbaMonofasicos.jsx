@@ -2556,6 +2556,10 @@ cst_icms: item.cstICMS || null,
 csosn: item.csosn || null,
 
 chave_nfe: item.chaveNFe || null,
+chave_nfe_referenciada: item.chaveNFeReferenciada || null,
+chaves_nfe_referenciadas: Array.isArray(item.chavesNFeReferenciadas)
+  ? item.chavesNFeReferenciadas
+  : [],
 data_emissao: item.dataEmissao || null,
 
 emitente_cnpj: item.emitenteCNPJ || null,

@@ -410,20 +410,38 @@ function prepararBaseApuracaoSimples({
       continue
     }
 
-    if (receitaDocumental.movimento?.tipo !== 'receita') {
-      pendencias.push({
-        tipo: 'reducao_documental_exige_vinculo',
-        chaveItem,
-        codigo,
-        nf: item?.nf || null,
-        origem: 'receita_documental',
-      })
-      continue
-    }
+    const tipoMovimento =
+  receitaDocumental.movimento?.tipo
 
-    const valorReceita = Number(
-      receitaDocumental.movimento.valor
-    )
+if (tipoMovimento === 'reducao') {
+  const chaveNfeReferenciada = String(
+    item?.chave_nfe_referenciada ?? ''
+  ).replace(/\D/g, '')
+
+  if (chaveNfeReferenciada.length !== 44) {
+    pendencias.push({
+      tipo: 'reducao_documental_exige_vinculo',
+      chaveItem,
+      codigo,
+      nf: item?.nf || null,
+      origem: 'receita_documental',
+    })
+    continue
+  }
+} else if (tipoMovimento !== 'receita') {
+  pendencias.push({
+    tipo: 'movimento_receita_documental_invalido',
+    chaveItem,
+    codigo,
+    nf: item?.nf || null,
+    origem: 'receita_documental',
+  })
+  continue
+}
+
+const valorReceita = Number(
+  receitaDocumental.movimento.valor
+)
     const itemFiscal = mapaItensFiscais.get(codigo)
 
     if (!itemFiscal) {
@@ -496,7 +514,129 @@ function prepararBaseApuracaoSimples({
     })
   }
 
-  const parcelas = qualificacao.parcelas
+  const parcelasReceita = []
+const reducoesQualificadas = []
+
+for (const itemQualificado of qualificacao.itens || []) {
+  const entrada =
+    itemQualificado?.entrada || null
+
+  const resultado =
+    itemQualificado?.resultado || null
+
+  if (
+    !resultado?.pronta ||
+    !resultado?.parcela
+  ) {
+    continue
+  }
+
+  const tipoMovimento =
+    entrada?.receitaDocumental
+      ?.movimento?.tipo
+
+  if (tipoMovimento === 'reducao') {
+    reducoesQualificadas.push({
+      item: entrada?.item || null,
+      parcela: {
+        ...resultado.parcela,
+      },
+    })
+
+    continue
+  }
+
+  parcelasReceita.push({
+    ...resultado.parcela,
+  })
+}
+
+const parcelasAjustadas =
+  parcelasReceita.map(parcela => ({
+    ...parcela,
+  }))
+
+const criarChaveParcela = parcela =>
+  JSON.stringify([
+    parcela?.estabelecimento || null,
+    parcela?.mercado || null,
+    parcela?.atividade || null,
+    parcela?.classificacaoPisCofins || null,
+    parcela?.classificacaoIcms || null,
+  ])
+
+for (const reducao of reducoesQualificadas) {
+  let restanteCentavos = Math.round(
+    Number(reducao.parcela?.valor || 0) * 100
+  )
+
+  if (
+    !Number.isFinite(restanteCentavos) ||
+    restanteCentavos <= 0
+  ) {
+    pendencias.push({
+      tipo:
+        'reducao_documental_valor_invalido',
+      nf: reducao.item?.nf || null,
+      codigo: reducao.item?.codigo || null,
+      origem: 'receita_documental',
+    })
+
+    continue
+  }
+
+  const chaveReducao =
+    criarChaveParcela(reducao.parcela)
+
+  for (const parcela of parcelasAjustadas) {
+    if (restanteCentavos <= 0) break
+
+    if (
+      criarChaveParcela(parcela) !==
+      chaveReducao
+    ) {
+      continue
+    }
+
+    const disponivelCentavos = Math.round(
+      Number(parcela.valor || 0) * 100
+    )
+
+    if (disponivelCentavos <= 0) continue
+
+    const aplicadoCentavos = Math.min(
+      disponivelCentavos,
+      restanteCentavos
+    )
+
+    parcela.valor =
+      (
+        disponivelCentavos -
+        aplicadoCentavos
+      ) / 100
+
+    restanteCentavos -=
+      aplicadoCentavos
+  }
+
+  if (restanteCentavos > 0) {
+    pendencias.push({
+      tipo:
+        'reducao_documental_superior_receita_qualificada',
+      nf: reducao.item?.nf || null,
+      codigo: reducao.item?.codigo || null,
+      valor_nao_aplicado:
+        restanteCentavos / 100,
+      origem: 'receita_documental',
+    })
+  }
+}
+
+const parcelas =
+  parcelasAjustadas.filter(
+    parcela =>
+      Number(parcela?.valor || 0) > 0
+  )
 
   return {
     competencia: competenciaNormalizada,
