@@ -694,6 +694,7 @@ for (const item of itensSelecionados) {
     }
 
     await carregar()
+    setSelecionados([])
     setModalAberto(false)
 
   } catch (e) {
