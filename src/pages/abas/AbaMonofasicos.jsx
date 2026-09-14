@@ -726,6 +726,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [menuAberto, setMenuAberto] = useState(null)
   const [visaoTabela, setVisaoTabela] = useState('resumida')
   const [itemDetalhe, setItemDetalhe] = useState(null)
+  const [modalEventosFiscais, setModalEventosFiscais] = useState(false)
   const [pgdasForm, setPgdasForm] = useState({
     receita_bruta_total: '', receita_monofasica: '', receita_st: '', das_recolhido: '', segregou: false,
   })
@@ -2890,6 +2891,14 @@ fatorReceita:
   item.fator_receita !== undefined
     ? Number(item.fator_receita)
     : (item.considera_receita === false ? 0 : 1),
+	
+	          chaveNFeReferenciada:
+            item.chave_nfe_referenciada || null,
+
+          chavesNFeReferenciadas:
+            Array.isArray(item.chaves_nfe_referenciadas)
+              ? item.chaves_nfe_referenciadas
+              : [],
           classificacaoRevisada: item.classificacao_revisada ?? false,
           classificacaoOrigem: item.classificacao_origem || 'xml',
         }))
@@ -5058,6 +5067,49 @@ if (novosItens.length === 0) {
   } : null
 
   const historicoExibir = loadingHistorico ? HISTORICO_GHOST : historico
+  
+  const identificarDocumentoFiscal = item =>
+  item.chaveNFe ||
+  [item.emitenteCNPJ, item.nNF, item.serieNFe]
+    .filter(Boolean)
+    .join('-') ||
+  null
+
+const itensCancelados = itens.filter(
+  item => item.efeitoReceita === EFEITO_RECEITA.CANCELAMENTO
+)
+
+const itensDevolvidos = itens.filter(
+  item => item.efeitoReceita === EFEITO_RECEITA.DEVOLUCAO
+)
+
+const qtdDocumentosCancelados = new Set(
+  itensCancelados
+    .map(identificarDocumentoFiscal)
+    .filter(Boolean)
+).size
+
+const qtdDocumentosDevolvidos = new Set(
+  itensDevolvidos
+    .map(identificarDocumentoFiscal)
+    .filter(Boolean)
+).size
+
+const valorCancelamentos = itensCancelados.reduce(
+  (total, item) => total + Number(item.vProd || 0),
+  0
+)
+
+const valorDevolucoes = itensDevolvidos.reduce(
+  (total, item) => total + Number(item.vProd || 0),
+  0
+)
+
+const qtdEventosFiscais =
+  qtdDocumentosCancelados + qtdDocumentosDevolvidos
+
+const valorEventosFiscais =
+  valorCancelamentos + valorDevolucoes
 
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
@@ -5072,6 +5124,241 @@ if (novosItens.length === 0) {
       {itemDetalhe && (
         <ModalDetalhesFiscais item={itemDetalhe} onFechar={() => setItemDetalhe(null)} />
       )}
+	  
+	  {modalEventosFiscais && (
+  <div
+    onClick={() => setModalEventosFiscais(false)}
+    style={{
+      position:'fixed',
+      inset:0,
+      background:'rgba(15,23,42,0.45)',
+      zIndex:9999,
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      padding:20
+    }}
+  >
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        background:S.white,
+        width:'100%',
+        maxWidth:1050,
+        maxHeight:'82vh',
+        overflow:'auto',
+        borderRadius:12,
+        boxShadow:'0 20px 60px rgba(15,23,42,0.25)'
+      }}
+    >
+      <div style={{
+        padding:'16px 20px',
+        borderBottom:`1px solid ${S.border}`,
+        display:'flex',
+        justifyContent:'space-between',
+        alignItems:'center'
+      }}>
+        <div>
+          <div style={{
+            fontSize:17,
+            fontWeight:700,
+            color:S.navy
+          }}>
+            Detalhamento dos eventos fiscais
+          </div>
+
+          <div style={{
+            fontSize:12,
+            color:S.muted,
+            marginTop:3
+          }}>
+            Cancelamentos e devoluções identificados nos documentos fiscais
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setModalEventosFiscais(false)}
+          style={{
+            border:`1px solid ${S.border}`,
+            background:S.white,
+            borderRadius:6,
+            padding:'6px 12px',
+            cursor:'pointer',
+            color:S.muted
+          }}
+        >
+          Fechar
+        </button>
+      </div>
+
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+        gap:10,
+        padding:'14px 20px'
+      }}>
+        <div style={{
+          border:'1px solid #FECACA',
+          background:'#FEF2F2',
+          borderRadius:8,
+          padding:'10px 12px',
+          textAlign:'center'
+        }}>
+          <div style={{fontSize:16,fontWeight:700,color:'#B91C1C'}}>
+            {qtdDocumentosCancelados} NF-e
+          </div>
+          <div style={{fontSize:12,color:S.muted}}>
+            Cancelamentos · {fmtR(valorCancelamentos)}
+          </div>
+        </div>
+
+        <div style={{
+          border:'1px solid #FED7AA',
+          background:'#FFF7ED',
+          borderRadius:8,
+          padding:'10px 12px',
+          textAlign:'center'
+        }}>
+          <div style={{fontSize:16,fontWeight:700,color:'#C2410C'}}>
+            {qtdDocumentosDevolvidos} NF-e
+          </div>
+          <div style={{fontSize:12,color:S.muted}}>
+            Devoluções · {fmtR(valorDevolucoes)}
+          </div>
+        </div>
+
+        <div style={{
+          border:`1px solid ${S.border}`,
+          background:'#F8FAFC',
+          borderRadius:8,
+          padding:'10px 12px',
+          textAlign:'center'
+        }}>
+          <div style={{fontSize:16,fontWeight:700,color:S.navy}}>
+            {qtdEventosFiscais} documentos fiscais
+          </div>
+          <div style={{fontSize:12,color:S.muted}}>
+            Total · {fmtR(valorEventosFiscais)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        padding:'0 20px 20px',
+        overflowX:'auto'
+      }}>
+        <table style={{
+          width:'100%',
+          borderCollapse:'collapse',
+          fontSize:12
+        }}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {[
+                'Evento',
+                'NF-e',
+                'Produto',
+                'NCM',
+                'CFOP',
+                'Valor',
+                'NF-e referenciada'
+              ].map(coluna => (
+                <th
+                  key={coluna}
+                  style={{
+                    padding:'9px 10px',
+                    borderBottom:`1px solid ${S.border}`,
+                    textAlign:'left',
+                    color:S.muted,
+                    fontWeight:600,
+                    whiteSpace:'nowrap'
+                  }}
+                >
+                  {coluna}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {[
+              ...itensCancelados.map(item => ({
+                ...item,
+                tipoEvento:'Cancelamento'
+              })),
+              ...itensDevolvidos.map(item => ({
+                ...item,
+                tipoEvento:'Devolução'
+              }))
+            ].map((item, index) => (
+              <tr key={`${item.chaveNFe || item.nNF || 'evento'}-${index}`}>
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  fontWeight:600,
+                  color:item.tipoEvento === 'Cancelamento'
+                    ? '#B91C1C'
+                    : '#C2410C'
+                }}>
+                  {item.tipoEvento}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  whiteSpace:'nowrap'
+                }}>
+                  {item.nNF || '—'}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`
+                }}>
+                  {item.descricao || '—'}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  whiteSpace:'nowrap'
+                }}>
+                  {item.ncm || '—'}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  whiteSpace:'nowrap'
+                }}>
+                  {item.cfop || '—'}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  whiteSpace:'nowrap',
+                  textAlign:'right'
+                }}>
+                  {fmtR(item.vProd || 0)}
+                </td>
+
+                <td style={{
+                  padding:'9px 10px',
+                  borderBottom:`1px solid ${S.border}`,
+                  fontSize:11
+                }}>
+                  {item.chaveNFeReferenciada || '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+)}
 
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ flex: 1 }}>
@@ -5415,8 +5702,107 @@ if (novosItens.length === 0) {
               </div>
             ))}
           </div>
+		  
+{temResultado && qtdEventosFiscais > 0 && (
+  <>
+    <div style={{
+      fontSize:12,
+      fontWeight:600,
+      color:S.muted,
+      marginBottom:7
+    }}>
+      Eventos fiscais identificados
+    </div>
 
-          <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
+    <div style={{
+      display:'grid',
+      gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+      gap:12,
+      marginBottom:16
+    }}>
+      <div style={{
+        background:'#FEF2F2',
+        border:'1px solid #FECACA',
+        borderRadius:8,
+        padding:'10px 14px',
+        textAlign:'center'
+      }}>
+        <div style={{
+          fontSize:16,
+          fontWeight:700,
+          color:'#B91C1C'
+        }}>
+          {fmtR(valorCancelamentos)}
+        </div>
+
+        <div style={{
+          fontSize:12.5,
+          color:S.muted,
+          marginTop:2
+        }}>
+          Cancelamentos · {qtdDocumentosCancelados} NF-e
+        </div>
+      </div>
+
+      <div style={{
+        background:'#FFF7ED',
+        border:'1px solid #FED7AA',
+        borderRadius:8,
+        padding:'10px 14px',
+        textAlign:'center'
+      }}>
+        <div style={{
+          fontSize:16,
+          fontWeight:700,
+          color:'#C2410C'
+        }}>
+          {fmtR(valorDevolucoes)}
+        </div>
+
+        <div style={{
+          fontSize:12.5,
+          color:S.muted,
+          marginTop:2
+        }}>
+          Devoluções · {qtdDocumentosDevolvidos} NF-e
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setModalEventosFiscais(true)}
+        style={{
+          background:'#F8FAFC',
+          border:`1px solid ${S.border}`,
+          borderRadius:8,
+          padding:'10px 14px',
+          textAlign:'center',
+          cursor:'pointer',
+          fontFamily:'inherit'
+        }}
+      >
+        <div style={{
+          fontSize:16,
+          fontWeight:700,
+          color:S.navy
+        }}>
+          {qtdEventosFiscais} documentos fiscais
+        </div>
+
+        <div style={{
+          fontSize:12.5,
+          color:S.navy,
+          marginTop:2,
+          fontWeight:600
+        }}>
+          Detalhamento fiscal · Ver detalhes →
+        </div>
+      </button>
+    </div>
+  </>
+)}
+
+		  <div style={{ background:S.white, borderRadius:10, border:`1px solid ${S.border}`, marginBottom:16, overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'space-between' }}>
               <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1)}} placeholder="Buscar produto, NCM, CFOP, NF, chave..."
                 style={{ padding:'6px 12px', border:`1px solid ${S.border}`, borderRadius:6, fontSize:13, outline:'none', width:270 }} />
