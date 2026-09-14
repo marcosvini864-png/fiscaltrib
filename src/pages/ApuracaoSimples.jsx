@@ -5414,7 +5414,16 @@ function rotuloStatusApuracao(status) {
                             <td style={{ padding: '8px 10px', color: S.text }}>{a.competencia || '—'}</td>
                             <td style={{ padding: '8px 10px', color: S.text }}>{fmtR(a.receita_apurada)}</td>
                             <td style={{ padding: '8px 10px', color: S.navy }}>{fmtR(a.imposto_apurado)}</td>
-                            <td style={{ padding: '8px 10px' }}><Badge label={fmtPct(a.aliquota_efetiva)} tipo="original" /></td>
+                            <td style={{ padding: '8px 10px' }}>
+  <Badge
+    label={fmtPct(
+      Math.abs(Number(a.aliquota_efetiva || 0)) <= 1
+        ? Number(a.aliquota_efetiva || 0) * 100
+        : Number(a.aliquota_efetiva || 0)
+    )}
+    tipo="original"
+  />
+</td>
                             <td style={{ padding: '8px 10px', color: S.muted }}>{a.tipo_declaracao || '—'}</td>
                             <td style={{ padding: '8px 10px' }}><Badge label={rotuloStatusApuracao(a.status_apuracao)} tipo={statusTipo(a.status_apuracao)} /></td>
                             <td style={{ padding: '8px 10px' }}><Badge label={a.status_declaracao || 'Aguardando'} tipo={statusTipo(a.status_declaracao)} /></td>
