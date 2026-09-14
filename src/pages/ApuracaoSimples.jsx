@@ -970,6 +970,15 @@ export default function ApuracaoSimples({
           })
       }
 
+      const calculoTributario =
+        conferencia?.prontoParaCalculo === true
+          ? calcularResultadoTributarioMotor({
+              conferencia,
+              pgdas: contexto.pgdas,
+              competencia: motorCompetencia,
+            })
+          : null
+
       setMotorAnalise({
         cliente:
           contexto.cliente,
@@ -988,6 +997,7 @@ export default function ApuracaoSimples({
 
         base,
         conferencia,
+        calculoTributario,
 
         parametrizacaoReceita: {
           parametros,
@@ -3649,16 +3659,16 @@ function rotuloStatusApuracao(status) {
                 cor: S.orange,
                 fundo: '#FFF7ED',
               },
-              {
-  simbolo: '✓',
-  label: 'Concluídas',
-  valor: apuracoes.filter(a =>
-    ['Concluida', 'Concluída', 'Transmitida'].includes(a.status_apuracao)
-  ).length,
-  detalhe: 'Apurações concluídas',
-  cor: S.green,
-  fundo: '#F0FDF4',
-},
+                {
+                simbolo: '✓',
+                label: 'Concluídas',
+                valor: apuracoes.filter(a =>
+                  ['Concluida', 'Concluída', 'Transmitida'].includes(a.status_apuracao)
+                ).length,
+                detalhe: 'Apurações concluídas',
+                cor: S.green,
+                fundo: '#F0FDF4',
+                },
               {
                 simbolo: '!',
                 label: 'Em atenção',
