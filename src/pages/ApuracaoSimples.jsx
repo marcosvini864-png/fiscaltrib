@@ -467,9 +467,8 @@ export default function ApuracaoSimples({
     const creditoMonofasico =
       comparacao?.status === 'comparacao_concluida'
         ? identificarCreditoMonofasicoPisCofins({
-            comparacao,
-          })
-        : null
+            comparacao,})
+: null
 
     const resultado =
       creditoMonofasico
@@ -1046,7 +1045,7 @@ export default function ApuracaoSimples({
   }
 
 
-  function abrirRelatorioStandalone(
+  async function abrirRelatorioStandalone(
     dados,
     { orientarPdf = false } = {}
   ) {
@@ -1069,6 +1068,45 @@ export default function ApuracaoSimples({
     }
 
     janela.opener = null
+	let perfilEscritorio = null
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data, error } = await supabase
+          .from('perfil_escritorio')
+          .select(`
+            logo_url,
+            nome_escritorio,
+            responsavel,
+            crc,
+            endereco,
+            telefone,
+            whatsapp,
+            email,
+            site
+          `)
+          .eq('usuario_id', user.id)
+          .maybeSingle()
+
+        if (error) {
+          console.warn(
+            'Não foi possível carregar o perfil do escritório:',
+            error
+          )
+        } else {
+          perfilEscritorio = data || null
+        }
+      }
+    } catch (erro) {
+      console.warn(
+        'Erro ao carregar o perfil do escritório:',
+        erro
+      )
+    }
 
     const moeda = valor => {
       const numero = numeroRelatorio(valor)
@@ -1126,6 +1164,43 @@ export default function ApuracaoSimples({
         <td><span>${nome}</span><strong>${moeda(valor)}</strong></td>
       `)
       .join('')
+	  const nomeEscritorio =
+      String(perfilEscritorio?.nome_escritorio || '').trim()
+
+    const logoEscritorio =
+      String(perfilEscritorio?.logo_url || '').trim()
+
+    const responsavelEscritorio =
+      String(perfilEscritorio?.responsavel || '').trim()
+
+    const crcEscritorio =
+      String(perfilEscritorio?.crc || '').trim()
+
+    const contatoEscritorio = [
+      perfilEscritorio?.telefone,
+      perfilEscritorio?.whatsapp
+        ? `WhatsApp: ${perfilEscritorio.whatsapp}`
+        : '',
+      perfilEscritorio?.email,
+      perfilEscritorio?.site,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+    const identificacaoEscritorio = [
+      responsavelEscritorio,
+      crcEscritorio,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+    const temPerfilEscritorio =
+      Boolean(
+        nomeEscritorio ||
+        logoEscritorio ||
+        responsavelEscritorio ||
+        crcEscritorio
+      )
 
     const html = `<!doctype html>
 <html lang="pt-BR">
@@ -1146,20 +1221,45 @@ export default function ApuracaoSimples({
     }
     .pagina { width: 100%; padding-bottom: 7mm; }
     .topo {
-      background: #0B1F4D;
-      color: #fff;
-      padding: 11px 14px;
-      border-radius: 10px;
-      display: flex;
-      justify-content: space-between;
-      gap: 20px;
-      align-items: center;
-    }
+  background: #F3F4F6;
+  color: #172033;
+  padding: 11px 14px;
+  border: 1px solid #DDE5EF;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+
+.identidade {
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo-escritorio {
+  max-width:110px;
+  max-height:52px;
+  object-fit:contain;
+  background:#fff;
+  border-radius:6px;
+  padding:4px;
+}
+
+.dados-escritorio {
+  margin-top:2px;
+  font-size:9px;
+  color:#DBEAFE;
+  line-height:1.4;
+}
+
+}
     .marca { font-size: 10px; letter-spacing: .8px; color: #93C5FD; font-weight: 800; }
     h1 { margin: 4px 0 0; font-size: 20px; }
-    .empresa { margin-top: 4px; font-size:10px; color: #DBEAFE; }
+    .empresa { margin-top: 4px; font-size:10px; color: #475569; }
     .competencia { text-align: right; }
-    .competencia span { display:block; font-size:10px; text-transform: uppercase; color:#93C5FD; font-weight:700; }
+    .competencia span { display:block; font-size:10px; text-transform: uppercase; color:#2563EB; font-weight:700; }
     .competencia strong { display:block; margin-top:3px; font-size:18px; }
     .status { display:inline-block; margin-top:4px; padding:2px 7px; border-radius:999px; background:#DCFCE7; color:#166534; font-size:10px; font-weight:800; }
     .kpis { display:grid; grid-template-columns: repeat(6, 1fr); gap:6px; margin-top:6px; }
@@ -1197,23 +1297,135 @@ export default function ApuracaoSimples({
 <body>
   <div class="pagina">
     <div class="topo">
-      <div>
-        <div class="marca">E-FISCALTRIBE — MOTOR DO SIMPLES NACIONAL</div>
-        <h1>Relatório de Apuração — ${escaparHtmlRelatorio(dados.competencia || '')}</h1>
-        <div class="empresa">
-          ${escaparHtmlRelatorio(dados.empresa || 'Empresa não identificada')}
-          ${dados.cnpj ? ' · ' + escaparHtmlRelatorio(dados.cnpj) : ''}
-          ${dados.regime ? ' · ' + escaparHtmlRelatorio(dados.regime) : ''}
-        </div>
+  <div style="display:flex; align-items:center; gap:14px; min-width:0;">
+
+    ${
+  logoEscritorio
+    ? `<div style="
+          width:140px;
+          height:72px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          flex:0 0 140px;
+        ">
+        <img
+          src="${escaparHtmlRelatorio(logoEscritorio)}"
+          alt="Logo do escritório"
+          style="
+            max-width:140px;
+            max-height:72px;
+            width:auto;
+            height:auto;
+            object-fit:contain;
+            display:block;
+          "
+        />
+      </div>`
+    : `<div style="
+          width:120px;
+          height:62px;
+          border:1px dashed #94A3B8;
+          border-radius:7px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:#64748B;
+          font-size:9px;
+          text-align:center;
+          padding:5px;
+          flex:0 0 120px;
+          background:transparent;
+        ">
+        LOGO DO<br>ESCRITÓRIO
+      </div>`
+}
+
+    <div style="min-width:0;">
+      <div style="
+        font-size:13px;
+        font-weight:800;
+        color:#172033;
+        margin-bottom:2px;
+      ">
+        ${escaparHtmlRelatorio(
+          nomeEscritorio || 'Nome do Escritório / Empresa'
+        )}
       </div>
-      <div class="competencia">
-        <span>Competência</span>
-        <strong>${escaparHtmlRelatorio(dados.competencia || '—')}</strong>
-        <div class="status">${escaparHtmlRelatorio(dados.statusApuracao || 'Concluída')}</div>
+
+      <div style="
+        font-size:9px;
+        color:#475569;
+        line-height:1.45;
+      ">
+        ${escaparHtmlRelatorio(
+          identificacaoEscritorio || 'Responsável · CRC / OAB'
+        )}
+      </div>
+
+      <div style="
+        font-size:9px;
+        color:#475569;
+        line-height:1.45;
+      ">
+        ${escaparHtmlRelatorio(
+          perfilEscritorio?.endereco || 'Endereço do escritório'
+        )}
+      </div>
+
+      <div style="
+        font-size:9px;
+        color:#475569;
+        line-height:1.45;
+      ">
+        ${escaparHtmlRelatorio(
+          [
+            perfilEscritorio?.telefone || 'Telefone',
+            perfilEscritorio?.whatsapp
+              ? `WhatsApp: ${perfilEscritorio.whatsapp}`
+              : 'WhatsApp',
+            perfilEscritorio?.email || 'E-mail',
+            perfilEscritorio?.site || 'Site',
+          ].join(' · ')
+        )}
+      </div>
+
+      <h1 style="margin-top:6px;">
+        Relatório de Apuração — ${escaparHtmlRelatorio(
+          dados.competencia || ''
+        )}
+      </h1>
+
+      <div class="empresa">
+        ${escaparHtmlRelatorio(
+          dados.empresa || 'Empresa não identificada'
+        )}
+        ${
+          dados.cnpj
+            ? ' · ' + escaparHtmlRelatorio(dados.cnpj)
+            : ''
+        }
+        ${
+          dados.regime
+            ? ' · ' + escaparHtmlRelatorio(dados.regime)
+            : ''
+        }
       </div>
     </div>
+  </div>
 
-    <div class="kpis">
+  <div class="competencia">
+    <span>Competência</span>
+    <strong>${escaparHtmlRelatorio(dados.competencia || '—')}</strong>
+    <div class="status">
+      ${escaparHtmlRelatorio(
+        dados.statusApuracao || 'Concluída'
+      )}
+    </div>
+  </div>
+</div>
+
+      <div class="kpis">
       <div class="kpi"><span>Receita considerada</span><strong>${moeda(dados.receitaConsiderada)}</strong></div>
       <div class="kpi"><span>DAS original</span><strong>${moeda(dados.dasOriginal)}</strong></div>
       <div class="kpi"><span>DAS conferido</span><strong>${moeda(dados.dasConferido)}</strong></div>
@@ -1287,9 +1499,21 @@ export default function ApuracaoSimples({
     </div>
 
     <div class="rodape">
-      <span>e-FiscalTribe® — Motor de Inteligência Tributária</span>
-      <span>Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</span>
-    </div>
+  <span>
+    ${
+      temPerfilEscritorio
+        ? `${escaparHtmlRelatorio(
+            nomeEscritorio || responsavelEscritorio || 'Escritório'
+          )} · Gerado por FiscalTribe`
+        : 'e-FiscalTribe® — Motor de Inteligência Tributária'
+    }
+  </span>
+
+  <span>
+    Gerado em ${new Date().toLocaleDateString('pt-BR')}
+    às ${new Date().toLocaleTimeString('pt-BR')}
+  </span>
+</div>
   </div>
 </body>
 </html>`
