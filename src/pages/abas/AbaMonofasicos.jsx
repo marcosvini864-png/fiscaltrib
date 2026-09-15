@@ -156,7 +156,7 @@ const temReferencia =
         `CFOP ${codigo} — movimentacao sem composicao de receita`,
     }
   }
-  
+
   if (CFOPS_DEVOLUCAO_VENDA.has(codigo)) {
   if (tipo === 'entrada' && temReferencia) {
     return {
@@ -336,7 +336,7 @@ function ModalDetalhesFiscais({ item, onFechar }) {
       {children}
     </div>
   )
-  
+
    const secoesDetalhamento = [
     {
       titulo: 'Documento Fiscal / Operacao',
@@ -546,7 +546,7 @@ function ModalDetalhesFiscais({ item, onFechar }) {
     doc.save(
       `FiscalTribe_Detalhamento_NF_${item.nNF || 'sem-nf'}_Item_${item.numeroItemNFe || '1'}.pdf`
     )
-  } 
+  }
 
   return (
     <div onClick={onFechar} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.55)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -748,7 +748,7 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const inputRef = useRef(null)
   const diagAbertoRef = useRef(null)
   const nfeCanceladasRef = useRef(new Set())
-  
+
   function toggleDiagnosticoSelecionado(id) {
   setDiagnosticosSelecionados(prev =>
     prev.includes(id)
@@ -825,7 +825,7 @@ function toggleTodosDiagnosticos() {
     carregarMemorias()
     }
     }, [cliente?.id])
-	
+
 	async function carregarMemorias() {
   if (!cliente?.id) return
 
@@ -2218,8 +2218,8 @@ const receitaConsiderada = itens.reduce(
       .slice(0, 10)}.pdf`
   )
 }
-  
-  function gerarRelatorioPDF() {
+
+  async function gerarRelatorioPDF() {
     // ── v8.9.4 FIX: usa itens_json do diagAberto quando disponivel
     // evita race condition ao abrir diagnostico do historico
     const diagRef = diagAbertoRef.current
@@ -2250,6 +2250,46 @@ const receitaConsiderada = itens.reduce(
     .reduce((s, i) => s + Number(i.credito || 0), 0)
     const periodos  = [...new Set(itensParaPDF.map(i => i.competencia))].sort()
     const dataHoje  = new Date().toLocaleDateString('pt-BR')
+
+    let perfilEscritorio = null
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data, error } = await supabase
+          .from('perfil_escritorio')
+          .select(`
+            logo_url,
+            nome_escritorio,
+            responsavel,
+            crc,
+            endereco,
+            telefone,
+            whatsapp,
+            email,
+            site
+          `)
+          .eq('usuario_id', user.id)
+          .maybeSingle()
+
+        if (error) {
+          console.warn(
+            'Não foi possível carregar o perfil do escritório:',
+            error
+          )
+        } else {
+          perfilEscritorio = data || null
+        }
+      }
+    } catch (erro) {
+      console.warn(
+        'Erro ao carregar o perfil do escritório:',
+        erro
+      )
+    }
 
     const rbTotal  = pgdasResult?.rb || parseFloat(pgdasSupabase?.registros?.[0]?.receita_bruta_total || 0)
     const rmTotal  = pgdasResult?.rm || parseFloat(pgdasSupabase?.registros?.[0]?.receita_monofasica || 0)
@@ -2287,11 +2327,52 @@ const receitaConsiderada = itens.reduce(
 <td style="text-align:right">${fmtR(i.vItemCOFINS)}</td>
       </tr>`).join('')
 
+	      const escaparHtmlRelatorio = valor =>
+      String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+
+	      const nomeEscritorio =
+      String(perfilEscritorio?.nome_escritorio || '').trim()
+
+    const logoEscritorio =
+      String(perfilEscritorio?.logo_url || '').trim()
+
+    const responsavelEscritorio =
+      String(perfilEscritorio?.responsavel || '').trim()
+
+    const crcEscritorio =
+      String(perfilEscritorio?.crc || '').trim()
+
+    const identificacaoEscritorio = [
+      responsavelEscritorio,
+      crcEscritorio,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+	      const enderecoEscritorio =
+      String(perfilEscritorio?.endereco || '').trim()
+
+    const contatoEscritorio = [
+      perfilEscritorio?.telefone,
+      perfilEscritorio?.whatsapp
+        ? `WhatsApp: ${perfilEscritorio.whatsapp}`
+        : '',
+      perfilEscritorio?.email,
+      perfilEscritorio?.site,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dossie Monofasicos — ${cliente?.razao_social||''}</title>
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{font-family:Arial,sans-serif;font-size:11px;color:#0F172A;padding:32px}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;border-bottom:3px solid #0B1F4D;padding-bottom:16px}
+      .header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:20px;background:#F3F4F6;border:1px solid #DDE5EF;border-radius:10px;padding:12px 14px}
       .logo{font-size:18px;font-weight:700;color:#0B1F4D}.logo span{color:#2563EB}
       .secao{margin-bottom:20px}
       .secao-titulo{font-size:11px;font-weight:700;color:#0B1F4D;text-transform:uppercase;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-bottom:12px}
@@ -2312,15 +2393,95 @@ const receitaConsiderada = itens.reduce(
     </style></head><body>
 
     <div class="header">
-      <div>
-        <div class="logo">e-<span>FiscalTribe</span>®</div>
-        <div style="font-size:10px;color:#64748B;margin-top:4px">Sistema de Inteligencia Tributaria</div>
+
+  <div style="display:flex;align-items:center;gap:14px;min-width:0">
+
+    ${
+      logoEscritorio
+        ? `<div style="
+            width:140px;
+            height:72px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            flex:0 0 140px;
+          ">
+            <img
+              src="${escaparHtmlRelatorio(logoEscritorio)}"
+              alt="Logo do escritório"
+              style="
+                max-width:140px;
+                max-height:72px;
+                width:auto;
+                height:auto;
+                object-fit:contain;
+                display:block;
+              "
+            />
+          </div>`
+        : `<div style="
+            width:140px;
+            height:72px;
+            border:1px dashed #94A3B8;
+            border-radius:7px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#64748B;
+            font-size:9px;
+            text-align:center;
+            padding:5px;
+            flex:0 0 140px;
+            background:transparent;
+          ">
+            LOGO DO<br>ESCRITÓRIO
+          </div>`
+    }
+
+    <div style="min-width:0">
+
+      <div style="font-size:14px;font-weight:800;color:#172033">
+        ${escaparHtmlRelatorio(
+          nomeEscritorio || 'Nome do Escritório / Empresa'
+        )}
       </div>
-      <div style="text-align:right">
-        <div style="font-size:14px;font-weight:700;color:#0B1F4D">Dossie de Recuperacao PIS/COFINS Monofasico</div>
-        <div style="font-size:11px;color:#334155">Gerado em: ${dataHoje}</div>
+
+      <div style="font-size:9px;color:#475569;line-height:1.5;margin-top:2px">
+        ${escaparHtmlRelatorio(
+          identificacaoEscritorio || 'Responsável · CRC / OAB'
+        )}
       </div>
+
+      <div style="font-size:9px;color:#475569;line-height:1.5">
+        ${escaparHtmlRelatorio(
+          enderecoEscritorio || 'Endereço do escritório'
+        )}
+      </div>
+
+      <div style="font-size:9px;color:#475569;line-height:1.5">
+        ${escaparHtmlRelatorio(
+          contatoEscritorio || 'Telefone · WhatsApp · E-mail · Site'
+        )}
+      </div>
+
     </div>
+  </div>
+
+  <div style="text-align:right;max-width:310px">
+    <div style="font-size:15px;font-weight:800;color:#172033">
+      Dossiê de Recuperação PIS/COFINS Monofásico
+    </div>
+
+    <div style="font-size:10px;color:#2563EB;font-weight:700;margin-top:5px">
+      ${escaparHtmlRelatorio(cliente?.razao_social || 'Cliente')}
+    </div>
+
+    <div style="font-size:10px;color:#64748B;margin-top:3px">
+      Gerado em ${dataHoje}
+    </div>
+  </div>
+
+</div>
 
     <div class="secao">
       <div class="secao-titulo">1. Identificacao do Contribuinte</div>
@@ -2441,9 +2602,18 @@ const receitaConsiderada = itens.reduce(
     </div>
 
     <div class="rodape">
-      <div>e-FiscalTribe® — Sistema de Inteligencia Tributaria</div>
-      <div>Documento gerado em ${dataHoje} — Uso exclusivo do profissional tributario</div>
-    </div>
+  <div>
+    ${
+      nomeEscritorio
+        ? `${escaparHtmlRelatorio(nomeEscritorio)} · Gerado por FiscalTribe`
+        : 'e-FiscalTribe® — Sistema de Inteligência Tributária'
+    }
+  </div>
+
+  <div>
+    Documento gerado em ${dataHoje} · Uso exclusivo do profissional tributário
+  </div>
+</div>
 
     </body></html>`
 
@@ -2891,7 +3061,7 @@ fatorReceita:
   item.fator_receita !== undefined
     ? Number(item.fator_receita)
     : (item.considera_receita === false ? 0 : 1),
-	
+
 	          chaveNFeReferenciada:
             item.chave_nfe_referenciada || null,
 
@@ -2913,7 +3083,7 @@ fatorReceita:
     setDiagAberto(diagCompleto)
 	setDiagnosticoSalvoId(diag.id)
     setItens(itensCompletos)
-	
+
 	const processadosSalvos = Array.isArray(diag.arquivos_importados)
   ? diag.arquivos_importados.map(p => ({
       ...p,
@@ -3124,7 +3294,7 @@ if (!documento.suportado) {
   })
 
   continue
-}	
+}
               const nfe =
   documento.tipo === 'CFE'
     ? parseXMLCFe(xml)
@@ -3132,7 +3302,7 @@ if (!documento.suportado) {
 
 if (nfe.tipoDocumento === 'evento') {
 	if (nfe.eventoCancelamento && nfe.chNFe) {
-        nfeCanceladas.add(nfe.chNFe)	  
+        nfeCanceladas.add(nfe.chNFe)
         todosItens.forEach(item => {
         if (item.chaveNFe === nfe.chNFe) {
         item.efeitoReceita = EFEITO_RECEITA.CANCELAMENTO
@@ -3326,7 +3496,7 @@ motivoNaoConsiderarReceita: efeitoReceita.motivoEfeitoReceita,
   documentosNaoSuportados.find(
     d => d.arquivo === arq.nome
   )
-  
+
   const erroXMLDoArquivo =
   errosXML.find(
     e => e.arquivo === arq.nome
@@ -3351,7 +3521,7 @@ novosProcessados.push({
         }
       } catch { novosProcessados.push({ ...arq, status: 'erro', qtdItens: 0 }) }
     }
-	
+
 	if (xmlDuplicados.length > 0) {
   const duplicadosUnicos = Array.from(
     new Map(
@@ -3424,7 +3594,7 @@ if (errosXML.length > 0) {
     `Esses arquivos não foram considerados na apuração.`
   )
 }
-	
+
     if (regime === 'Simples Nacional') {
   const recMono = todosItens
     .filter(i => i.monofasico)
@@ -4157,7 +4327,7 @@ function imprimirMemoria(memoria, imprimirAutomatico = true) {
 
   const resumo =
     memoria.resumo_json || {}
-	
+
   const competenciasAnalisadas =
    resumo.competencias_analisadas || []
 
@@ -4374,7 +4544,7 @@ const conciliacaoCompleta =
           padding-top: 7px;
           color: #64748B;
         }
-		
+
 		.toolbar {
         position: sticky;
         top: 0;
@@ -4407,7 +4577,7 @@ const conciliacaoCompleta =
     </head>
 
     <body>
-	
+
 	<div class="toolbar">
   <button
     class="btn-imprimir"
@@ -4659,7 +4829,7 @@ tipoVinculoPGDASMemoria === 'manual'
 }
 
       </div>
-	  
+
 	  <h2>
         4. Demonstrativo Analitico
       </h2>
@@ -4827,7 +4997,7 @@ async function excluirMemoria(id) {
     else { const novos=itensPagina.map((_,i)=>(pagina-1)*porPagina+i); setSelecionados(prev=>[...new Set([...prev,...novos])]) }
   }
   function toggleItem(idx) { setSelecionados(prev=>prev.includes(idx)?prev.filter(i=>i!==idx):[...prev,idx]) }
-  
+
   async function excluirItemDaAnalise(item) {
   if (!item || item.ghost) return
 
@@ -4868,7 +5038,7 @@ async function excluirMemoria(id) {
 
     // Mantém os totais coerentes após a exclusão
 	if (regime === 'Simples Nacional') {
-		
+
     const recTotal =
   novosItens.reduce(
     (s, i) =>
@@ -4978,7 +5148,7 @@ async function excluirItensSelecionados() {
     }
 
     setItens(novosItens)
-	
+
 	const arquivosAindaUsados = new Set(
   novosItens
     .map(item => item.arquivo)
@@ -5067,7 +5237,7 @@ if (novosItens.length === 0) {
   } : null
 
   const historicoExibir = loadingHistorico ? HISTORICO_GHOST : historico
-  
+
   const identificarDocumentoFiscal = item =>
   item.chaveNFe ||
   [item.emitenteCNPJ, item.nNF, item.serieNFe]
@@ -5124,7 +5294,7 @@ const valorEventosFiscais =
       {itemDetalhe && (
         <ModalDetalhesFiscais item={itemDetalhe} onFechar={() => setItemDetalhe(null)} />
       )}
-	  
+
 	  {modalEventosFiscais && (
   <div
     onClick={() => setModalEventosFiscais(false)}
@@ -5421,7 +5591,7 @@ const valorEventosFiscais =
   >
     {salvando ? 'Salvando...' : 'Salvar Diagnóstico'}
   </button>
-)} 
+)}
         </div>
           )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
@@ -5702,7 +5872,7 @@ const valorEventosFiscais =
               </div>
             ))}
           </div>
-		  
+
 {temResultado && qtdEventosFiscais > 0 && (
   <>
     <div style={{
@@ -5950,7 +6120,7 @@ const valorEventosFiscais =
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           borderRight: '1px solid #64748B',
-          
+
         }}
       >
         {h}
@@ -6414,7 +6584,7 @@ const valorEventosFiscais =
     onChange={() => toggleDiagnosticoSelecionado(diag.id)}
     style={{ marginRight:8, cursor:'pointer' }}
   />
-)} 
+)}
 						  {diag.ghost ? 'Nome do diagnostico' : (diag.nome_diagnostico || '—')}
                         </td>
                         <td style={{ padding:'7px 10px', whiteSpace:'nowrap', color: diag.ghost ? S.ghostText : S.text }}>{diag.ghost ? '—' : fmtData(diag.created_at)}</td>
