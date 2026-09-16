@@ -986,10 +986,13 @@ export default function ApuracaoSimples({
           motorCompetencia,
 
         pgdas:
-          contexto.pgdas,
+  contexto.pgdas,
 
-        diagnosticoMono:
-          contexto.diagnosticoMono,
+atividadesPgdas:
+  contexto.atividadesPgdas || [],
+
+diagnosticoMono:
+  contexto.diagnosticoMono,
 
         itensDocumentais:
           contexto.itensDocumentais,
@@ -1796,7 +1799,7 @@ export default function ApuracaoSimples({
           )
 
       const memoriaCalculo = {
-        versao: 1,
+        versao: 2,
         gerado_em:
           new Date().toISOString(),
 
@@ -1818,6 +1821,13 @@ export default function ApuracaoSimples({
           pgdas: {
             id:
               motorAnalise.pgdas?.id || null,
+			declaracao_completa:
+              motorAnalise.pgdas || null,
+
+        atividades:
+            Array.isArray(motorAnalise.atividadesPgdas)
+              ? motorAnalise.atividadesPgdas
+             : [],
             numero_declaracao:
               motorAnalise.pgdas?.num_declaracao || null,
             tipo_declaracao:
