@@ -181,27 +181,35 @@ function normalizeTributo(memoria, apuracao, codigo) {
   const pgdas =
     memoria?.fontes?.pgdas ||
     {};
+	
+  const valorOriginalPgdas =
+  lower === "cpp"
+    ? firstDefined(
+        pgdas?.cpp,
+        pgdas?.inss_cpp
+      )
+    : pgdas?.[lower];
 
-  const original = firstDefined(
-    resultado?.valoresOriginais?.[lower],
-    comparacao?.comparacaoTributos?.[lower]?.original,
-    pgdas?.[lower],
-    pick(memoria, [
-      `tributos.${lower}.original`,
-      `tributos.${lower}.valor_original`,
-      `tributos_originais.${lower}`,
-      `valores_originais.${lower}`,
-      `${lower}_original`,
-      `${lower}Original`,
-    ]),
-    pick(apuracao, [
-      `${lower}_original`,
-      `${lower}Original`,
-      `tributos_originais.${lower}`,
-      `valores_originais.${lower}`,
-    ]),
-    0
-  );
+const original = firstDefined(
+  resultado?.valoresOriginais?.[lower],
+  valorOriginalPgdas,
+  pick(memoria, [
+    `tributos.${lower}.original`,
+    `tributos.${lower}.valor_original`,
+    `tributos_originais.${lower}`,
+    `valores_originais.${lower}`,
+    `${lower}_original`,
+    `${lower}Original`,
+  ]),
+  pick(apuracao, [
+    `${lower}_original`,
+    `${lower}Original`,
+    `tributos_originais.${lower}`,
+    `valores_originais.${lower}`,
+  ]),
+  comparacao?.comparacaoTributos?.[lower]?.original,
+  0
+);
 
   const conferido = firstDefined(
     resultado?.valoresConferidos?.[lower],
@@ -337,8 +345,11 @@ export default function EspelhoRetificacaoPGDAS({
   const [historicoAberto, setHistoricoAberto] = useState(false);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [historicoVersoes, setHistoricoVersoes] = useState([]);
-  const [ultimaVersao, setUltimaVersao] = useState(null);
+  const [ultimaVersao, setUltimaVersao] = useState(null);  
   const [versaoVisualizada, setVersaoVisualizada] = useState(null);
+  
+  const [perfilEscritorio, setPerfilEscritorio] = useState(null);
+	
   const [metadados, setMetadados] = useState({
     responsavel: "",
     protocolo: "",
@@ -381,6 +392,116 @@ export default function EspelhoRetificacaoPGDAS({
     const pgdas =
       memoria?.fontes?.pgdas ||
       {};
+	  
+	const declaracaoPgdas =
+      pgdas?.declaracao_completa || {};
+
+    const atividadesPgdas =
+	 Array.isArray(pgdas?.atividades)
+      ? pgdas.atividades
+      : [];
+	  
+	  const atividadesOriginais = atividadesPgdas.map((atividade, index) => {
+  const dadosOriginais = atividade?.dados_originais || {};
+
+  return {
+    ordem: firstDefined(
+      atividade?.ordem_atividade,
+      dadosOriginais?.ordem,
+      index + 1
+    ),
+    descricao: firstDefined(
+      atividade?.descricao_original,
+      dadosOriginais?.descricao,
+      dadosOriginais?.texto_original,
+      "Atividade não identificada"
+    ),
+    tipoAtividade: firstDefined(
+      atividade?.tipo_atividade,
+      dadosOriginais?.tipo_atividade,
+      ""
+    ),
+    anexo: firstDefined(
+      atividade?.anexo,
+      dadosOriginais?.anexo,
+      ""
+    ),
+    receitaBruta: toNumber(
+      firstDefined(
+        atividade?.receita_bruta,
+        dadosOriginais?.receita,
+        0
+      )
+    ),
+    mercadoInterno: toNumber(
+      firstDefined(dadosOriginais?.mercado_interno, 0)
+    ),
+    mercadoExterno: toNumber(
+      firstDefined(dadosOriginais?.mercado_externo, 0)
+    ),
+    receitaRevenda: toNumber(
+      firstDefined(dadosOriginais?.receita_revenda, 0)
+    ),
+    receitaServicos: toNumber(
+      firstDefined(dadosOriginais?.receita_servicos, 0)
+    ),
+    receitaIndustrializacao: toNumber(
+      firstDefined(dadosOriginais?.receita_industrializacao, 0)
+    ),
+    monofasico: Boolean(atividade?.pis_cofins_monofasico),
+    icmsSt: Boolean(atividade?.icms_st),
+    pis: toNumber(atividade?.pis),
+    cofins: toNumber(atividade?.cofins),
+    irpj: toNumber(atividade?.irpj),
+    csll: toNumber(atividade?.csll),
+    cpp: toNumber(atividade?.inss_cpp),
+    icms: toNumber(atividade?.icms),
+    ipi: toNumber(atividade?.ipi),
+    iss: toNumber(atividade?.iss),
+  };
+});
+	  
+	const identificacaoDeclaracao = {
+  numeroDeclaracao: firstDefined(
+    declaracaoPgdas?.num_declaracao,
+    declaracaoPgdas?.numero_declaracao,
+    pgdas?.numero_declaracao,
+    ""
+  ),
+  numeroRecibo: firstDefined(
+    declaracaoPgdas?.num_recibo,
+    declaracaoPgdas?.numero_recibo,
+    ""
+  ),
+  autenticacao: firstDefined(
+    declaracaoPgdas?.autenticacao,
+    ""
+  ),
+  dataTransmissao: firstDefined(
+    declaracaoPgdas?.data_transmissao,
+    ""
+  ),
+  tipoDeclaracao: firstDefined(
+    declaracaoPgdas?.tipo_declaracao,
+    pgdas?.tipo_declaracao,
+    ""
+  ),
+  cnpjEstabelecimento: firstDefined(
+    declaracaoPgdas?.cnpj_estabelecimento,
+    declaracaoPgdas?.cliente_cnpj,
+    ""
+  ),
+  
+  ufEstabelecimento: firstDefined(
+  declaracaoPgdas?.uf_estabelecimento,
+  ""
+),
+
+municipioEstabelecimento: firstDefined(
+  declaracaoPgdas?.municipio_estabelecimento,
+  ""
+),
+};  
 
     const loteXmlMemoria =
       memoria?.fontes?.lote_xml ||
@@ -699,9 +820,18 @@ export default function EspelhoRetificacaoPGDAS({
       usar_receita_declarada: "Usar receita declarada",
     }[decisaoCodigo] || decisaoCodigo || "—";
 
-    const tributos = ["PIS", "COFINS", "IRPJ", "CSLL", "CPP", "ICMS"].map(
-      (codigo) => normalizeTributo(memoria, apuracao, codigo)
-    );
+    const tributos = [
+  "PIS",
+  "COFINS",
+  "IRPJ",
+  "CSLL",
+  "CPP",
+  "ICMS",
+  "IPI",
+  "ISS",
+].map(
+  (codigo) => normalizeTributo(memoria, apuracao, codigo)
+);
 
     tributos.push({
       codigo: "DAS",
@@ -716,6 +846,10 @@ export default function EspelhoRetificacaoPGDAS({
       empresa,
       cnpj,
       competencia,
+	  declaracaoPgdas,
+      atividadesPgdas,
+	  atividadesOriginais,
+	  identificacaoDeclaracao,
       receitaOriginal: toNumber(receitaOriginal),
       receitaDocumental: toNumber(receitaDocumental),
       receitaConsiderada: toNumber(receitaConsiderada),
@@ -741,6 +875,41 @@ export default function EspelhoRetificacaoPGDAS({
   }, [versaoVisualizada, dados]);
 
   const versaoEmExibicao = versaoVisualizada || ultimaVersao;
+  
+    const nomeEscritorio =
+    String(perfilEscritorio?.nome_escritorio || "").trim();
+
+  const logoEscritorio =
+    String(perfilEscritorio?.logo_url || "").trim();
+
+  const responsavelEscritorio =
+    String(perfilEscritorio?.responsavel || "").trim();
+
+  const crcEscritorio =
+    String(perfilEscritorio?.crc || "").trim();
+
+  const identificacaoEscritorio = [
+    responsavelEscritorio,
+    crcEscritorio,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const enderecoEscritorio =
+    String(perfilEscritorio?.endereco || "").trim();
+
+  const contatoEscritorio = [
+    perfilEscritorio?.telefone,
+    perfilEscritorio?.whatsapp
+      ? `WhatsApp: ${perfilEscritorio.whatsapp}`
+      : "",
+    perfilEscritorio?.email,
+    perfilEscritorio?.site,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const dataHoje = new Date().toLocaleDateString("pt-BR");
 
   const metadadosEmExibicao = versaoVisualizada
     ? {
@@ -860,6 +1029,56 @@ export default function EspelhoRetificacaoPGDAS({
     // O Espelho permanece vinculado ao registro salvo da apuração.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apuracao?.id, versaoInicial, versoesExternas]);
+  
+    useEffect(() => {
+    async function carregarPerfilEscritorio() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setPerfilEscritorio(null);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("perfil_escritorio")
+          .select(`
+            logo_url,
+            nome_escritorio,
+            responsavel,
+            crc,
+            endereco,
+            telefone,
+            whatsapp,
+            email,
+            site
+          `)
+          .eq("usuario_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn(
+            "Não foi possível carregar o perfil do escritório:",
+            error
+          );
+          setPerfilEscritorio(null);
+          return;
+        }
+
+        setPerfilEscritorio(data || null);
+      } catch (error) {
+        console.warn(
+          "Erro ao carregar o perfil do escritório:",
+          error
+        );
+        setPerfilEscritorio(null);
+      }
+    }
+
+    carregarPerfilEscritorio();
+  }, []);
 
   function handleEditarAdministrativo() {
     setEditandoAdministrativo(true);
@@ -1010,11 +1229,23 @@ export default function EspelhoRetificacaoPGDAS({
     <div className="espelho-print-root" style={styles.page}>
       <div style={styles.container}>
         <style>{`
+		
+		    .espelho-only-print {
+            display: none;
+          }
+		
           @media print {
+			.espelho-only-print {
+             display: flex !important;
+             visibility: visible !important;
+            }
+			
             @page {
               size: A4 portrait;
               margin: 10mm;
             }
+			
+			
 
             html,
             body {
@@ -1063,6 +1294,11 @@ export default function EspelhoRetificacaoPGDAS({
               page-break-inside: avoid;
               box-shadow: none !important;
             }
+			
+			.espelho-print-section-flexivel {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
 
             .espelho-print-table {
               overflow: visible !important;
@@ -1094,8 +1330,169 @@ export default function EspelhoRetificacaoPGDAS({
             }
           }
         `}</style>
+		
+		        <section
+          className="espelho-only-print"
+          style={{
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 20,
+            marginBottom: 18,
+            background: "#F3F4F6",
+            border: "1px solid #DDE5EF",
+            borderRadius: 10,
+            padding: "12px 14px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
+            {logoEscritorio ? (
+              <div
+                style={{
+                  width: 140,
+                  height: 72,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flex: "0 0 140px",
+                }}
+              >
+                <img
+                  src={logoEscritorio}
+                  alt="Logo do escritório"
+                  style={{
+                    maxWidth: 140,
+                    maxHeight: 72,
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                style={{
+                  width: 140,
+                  height: 72,
+                  border: "1px dashed #94A3B8",
+                  borderRadius: 7,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748B",
+                  fontSize: 9,
+                  textAlign: "center",
+                  padding: 5,
+                  flex: "0 0 140px",
+                }}
+              >
+                LOGO DO ESCRITÓRIO
+              </div>
+            )}
 
-        <header style={styles.header}>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: "#172033",
+                }}
+              >
+                {nomeEscritorio || "Nome do Escritório / Empresa"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#475569",
+                  lineHeight: 1.5,
+                  marginTop: 2,
+                }}
+              >
+                {identificacaoEscritorio || "Responsável · CRC / OAB"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#475569",
+                  lineHeight: 1.5,
+                }}
+              >
+                {enderecoEscritorio || "Endereço do escritório"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#475569",
+                  lineHeight: 1.5,
+                }}
+              >
+                {contatoEscritorio || "Telefone · WhatsApp · E-mail · Site"}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              textAlign: "right",
+              maxWidth: 310,
+              flex: "0 0 auto",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 800,
+                color: "#172033",
+              }}
+            >
+              Espelho de Retificação do PGDAS-D
+            </div>
+
+            <div
+              style={{
+                fontSize: 10,
+                color: "#2563EB",
+                fontWeight: 700,
+                marginTop: 5,
+              }}
+            >
+              {dadosExibicao?.empresa || "Empresa não identificada"}
+            </div>
+
+            <div
+              style={{
+                fontSize: 10,
+                color: "#64748B",
+                marginTop: 3,
+              }}
+            >
+              Competência {formatCompetencia(dadosExibicao?.competencia)}
+            </div>
+
+            <div
+              style={{
+                fontSize: 9,
+                color: "#64748B",
+                marginTop: 2,
+              }}
+            >
+              Gerado em {dataHoje}
+            </div>
+          </div>
+        </section>
+
+        <header className="espelho-no-print" style={styles.header}>
           <div style={styles.headerMain}>
             <div style={styles.headerIcon}>ER</div>
 
@@ -1261,21 +1658,26 @@ export default function EspelhoRetificacaoPGDAS({
           <div style={styles.adminItem}>
             <span style={styles.adminLabel}>Versão salva</span>
             <strong style={styles.adminValue}>
-              {versaoEmExibicao ? `v${versaoEmExibicao.versao}` : "—"}
+              {versaoEmExibicao
+              ? `v${versaoEmExibicao.versao}`
+              : "Ainda não salvo"}
             </strong>
           </div>
 
           <div style={styles.adminItem}>
             <span style={styles.adminLabel}>Responsável</span>
             <strong style={styles.adminValue}>
-              {metadadosEmExibicao.responsavel || "—"}
+              {metadadosEmExibicao.responsavel || "Não informado"}
             </strong>
           </div>
 
           <div style={styles.adminItem}>
             <span style={styles.adminLabel}>Protocolo</span>
             <strong style={styles.adminValue}>
-              {metadadosEmExibicao.protocolo || "—"}
+              {metadadosEmExibicao.protocolo ||
+              (metadadosEmExibicao.status === "Transmitida"
+              ? "Não informado"
+            : "Aguardando transmissão")}
             </strong>
           </div>
 
@@ -1321,9 +1723,13 @@ export default function EspelhoRetificacaoPGDAS({
 
           <div style={styles.grid4}>
             <InfoCard
-              label="PGDAS-D utilizado"
-              value={dadosExibicao.pgdasIdentificacao}
-            />
+  label="Nº da declaração PGDAS-D"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.numeroDeclaracao ||
+    dadosExibicao.pgdasIdentificacao ||
+    "—"
+  }
+/>
             <InfoCard label="Lote XML" value={dadosExibicao.loteXml} />
             <InfoCard label="RBT12" value={formatMoney(dadosExibicao.rbt12)} />
             <InfoCard
@@ -1336,6 +1742,64 @@ export default function EspelhoRetificacaoPGDAS({
                   : "—"
               }
             />
+			
+			<InfoCard
+  label="Nº do recibo"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.numeroRecibo ||
+    "—"
+  }
+/>
+
+<InfoCard
+  label="Autenticação"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.autenticacao ||
+    "—"
+  }
+/>
+
+<InfoCard
+  label="Data de transmissão"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.dataTransmissao
+      ? formatDate(dadosExibicao.identificacaoDeclaracao.dataTransmissao)
+      : "—"
+  }
+/>
+
+<InfoCard
+  label="Tipo da declaração"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.tipoDeclaracao ||
+    "—"
+  }
+/>
+
+<InfoCard
+  label="CNPJ do estabelecimento"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.cnpjEstabelecimento ||
+    "—"
+  }
+/>
+
+<InfoCard
+  label="UF do estabelecimento"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.ufEstabelecimento ||
+    "—"
+  }
+/>
+
+<InfoCard
+  label="Município do estabelecimento"
+  value={
+    dadosExibicao.identificacaoDeclaracao?.municipioEstabelecimento ||
+    "—"
+  }
+/>
+			
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -1346,8 +1810,84 @@ export default function EspelhoRetificacaoPGDAS({
             />
           </div>
         </section>
+		
+		<section
+  className="espelho-print-section espelho-print-section-flexivel"
+  style={styles.section}
+>
+  <div style={styles.sectionHeading}>
+    <div>
+      <div style={styles.sectionKicker}>ATIVIDADES ORIGINAIS DO PGDAS-D</div>
+      <h2 style={styles.sectionTitle}>
+        Estrutura declarada antes da retificação
+      </h2>
+    </div>
+  </div>
 
-        <section className="espelho-print-section" style={styles.section}>
+  {Array.isArray(dadosExibicao.atividadesOriginais) &&
+  dadosExibicao.atividadesOriginais.length > 0 ? (
+    dadosExibicao.atividadesOriginais.map((atividade, index) => (
+      <div
+        key={`${atividade.ordem || index}-${index}`}
+        style={styles.segregacaoBox}
+      >
+        <div style={styles.segregacaoHeader}>
+          <div>
+            <div style={styles.sectionKicker}>
+              ATIVIDADE {atividade.ordem || index + 1}
+            </div>
+
+            <h3 style={styles.subsectionTitle}>
+              {atividade.descricao}
+            </h3>
+          </div>
+        </div>
+
+        <div style={styles.grid4}>
+          <InfoCard
+            label="Receita bruta"
+            value={formatMoney(atividade.receitaBruta)}
+          />
+
+          <InfoCard
+            label="Mercado interno"
+            value={formatMoney(atividade.mercadoInterno)}
+          />
+
+          <InfoCard
+            label="Mercado externo"
+            value={formatMoney(atividade.mercadoExterno)}
+          />
+
+          <InfoCard
+            label="Receita de revenda"
+            value={formatMoney(atividade.receitaRevenda)}
+          />
+
+          <InfoCard
+            label="Receita de serviços"
+            value={formatMoney(atividade.receitaServicos)}
+          />
+
+          <InfoCard
+            label="Receita de industrialização"
+            value={formatMoney(atividade.receitaIndustrializacao)}
+          />
+        </div>
+      </div>
+    ))
+  ) : (
+    <InfoCard
+      label="Atividades do PGDAS-D"
+      value="Não disponíveis nesta memória."
+    />
+  )}
+</section>
+
+        <section
+  className="espelho-print-section espelho-print-section-flexivel"
+  style={styles.section}
+>
           <div style={styles.sectionHeading}>
             <div>
               <div style={styles.sectionKicker}>RECEITA</div>
@@ -1429,7 +1969,10 @@ export default function EspelhoRetificacaoPGDAS({
           </div>
         </section>
 
-        <section className="espelho-print-section" style={styles.section}>
+        <section
+  className="espelho-print-section espelho-print-section-flexivel"
+  style={styles.section}
+>
           <div style={styles.sectionHeading}>
             <div>
               <div style={styles.sectionKicker}>COMPARAÇÃO TRIBUTÁRIA</div>
@@ -1509,7 +2052,9 @@ export default function EspelhoRetificacaoPGDAS({
           </p>
         </section>
 
-        <section className="espelho-print-section" style={styles.section}>
+         <section
+         className="espelho-print-section" style={styles.section}
+          >
           <div style={styles.sectionHeading}>
             <div>
               <div style={styles.sectionKicker}>RESULTADO</div>
@@ -1541,7 +2086,10 @@ export default function EspelhoRetificacaoPGDAS({
           </div>
         </section>
 
-        <section className="espelho-print-section" style={styles.section}>
+        <section
+  className="espelho-print-section espelho-print-section-flexivel"
+  style={styles.section}
+>
           <div style={styles.sectionHeading}>
             <div>
               <div style={styles.sectionKicker}>SITUAÇÃO OPERACIONAL</div>
@@ -1785,6 +2333,30 @@ export default function EspelhoRetificacaoPGDAS({
             na memória da apuração salva. Nesta versão, nenhuma informação é
             recalculada, alterada ou transmitida ao PGDAS-D.
           </div>
+		  
+		  <div
+  className="espelho-only-print"
+  style={{
+    width: "100%",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    paddingTop: 8,
+    borderTop: "1px solid #DDE5EF",
+    fontSize: 9,
+    color: "#64748B",
+  }}
+>
+  <div>
+    {nomeEscritorio
+      ? `${nomeEscritorio} · Gerado por FiscalTribe`
+      : "Gerado por FiscalTribe"}
+  </div>
+
+  <div>
+    Gerado em {dataHoje}
+  </div>
+</div>
 
           <button
             className="espelho-no-print"

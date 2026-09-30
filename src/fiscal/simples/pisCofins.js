@@ -1,3 +1,7 @@
+import {
+  normalizarParcelaReceitaQualificada,
+} from './movimentacao.js'
+
 function definirPoliticaRecuperacaoPisCofins({
   alterarIcms = false,
 } = {}) {

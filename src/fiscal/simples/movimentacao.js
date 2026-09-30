@@ -17,6 +17,10 @@ function normalizarParcelaReceitaQualificada(parcela) {
   const atividade = String(
     parcela.atividade ?? ''
   ).trim()
+  
+  const naturezaAtividade = String(
+  parcela.naturezaAtividade ?? ''
+).trim()
 
   const classificacaoPisCofins = String(
     parcela.classificacaoPisCofins ?? ''
@@ -40,15 +44,18 @@ function normalizarParcelaReceitaQualificada(parcela) {
     return null
   }
 
-  return {
-    estabelecimento,
-    mercado,
-    atividade,
-    classificacaoPisCofins,
-    classificacaoIcms,
-    valor,
-  }
+return {
+  estabelecimento,
+  mercado,
+  atividade,
+  naturezaAtividade: naturezaAtividade || null,
+  classificacaoPisCofins,
+  classificacaoIcms,
+  valor,
 }
+}
+
+// ============================================================
 
 // ============================================================
 // CONSOLIDAÇÃO DAS PARCELAS QUALIFICADAS
@@ -75,12 +82,13 @@ function consolidarParcelasReceitaQualificada(parcelas) {
     }
 
     const chave = JSON.stringify([
-      parcela.estabelecimento,
-      parcela.mercado,
-      parcela.atividade,
-      parcela.classificacaoPisCofins,
-      parcela.classificacaoIcms,
-    ])
+  parcela.estabelecimento,
+  parcela.mercado,
+  parcela.atividade,
+  parcela.naturezaAtividade,
+  parcela.classificacaoPisCofins,
+  parcela.classificacaoIcms,
+])
 
     const existente = mapa.get(chave)
 

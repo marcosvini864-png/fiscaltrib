@@ -159,6 +159,36 @@ function calcularDasTeoricoBase(receitaCompetencia, aliquotaEfetiva) {
 }
 
 // ============================================================
+// SEGREGAÇÃO PIS/COFINS MONOFÁSICO — BASE AUXILIAR
+// Mantida por compatibilidade com a apuração-base deste módulo.
+// ============================================================
+
+function segregarReceitaPisCofinsMonofasica(
+  receitaCompetencia,
+  receitaMonofasica
+) {
+  const receitaTotal = Number(receitaCompetencia)
+  const monofasica = Number(receitaMonofasica ?? 0)
+
+  if (
+    !Number.isFinite(receitaTotal) ||
+    !Number.isFinite(monofasica) ||
+    receitaTotal < 0 ||
+    monofasica < 0 ||
+    monofasica > receitaTotal
+  ) {
+    return null
+  }
+
+  return {
+    receitaTotal,
+    receitaMonofasica: monofasica,
+    receitaTributadaPisCofins:
+      receitaTotal - monofasica,
+  }
+}
+
+// ============================================================
 // APURAÇÃO-BASE — ANEXO I
 // Consolida as etapas matemáticas já validadas
 // ============================================================
@@ -375,6 +405,7 @@ export {
   identificarFaixaAnexoI,
   calcularParametrosAnexoI,
   calcularDasTeoricoBase,
+  segregarReceitaPisCofinsMonofasica,
   calcularApuracaoBaseAnexoI,
   REPARTICAO_ANEXO_I,
   calcularAliquotasEfetivasPorTributo,

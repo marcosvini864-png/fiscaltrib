@@ -1,10 +1,10 @@
 import {
   calcularParametrosAnexoI,
-} from './anexoI'
+} from './anexoI.js'
 
 import {
   CLASSIFICACOES_PIS_COFINS_TRATAMENTO_ESPECIFICO,
-} from './pisCofins'
+} from './pisCofins.js'
 function prepararBasePisCofinsConferida(
   resultadoConferencia
 ) {
@@ -187,6 +187,16 @@ function prepararBasePisCofinsConferida(
       ),
 
     tratamentosEspecificos,
+
+    parcelasQualificadas:
+      Array.isArray(movimentacao.parcelas)
+        ? movimentacao.parcelas.map(parcela => ({ ...parcela }))
+        : [],
+
+    detalhamentoQualificado:
+      Array.isArray(movimentacao.detalhamento)
+        ? movimentacao.detalhamento
+        : [],
 
     classificacoesTratamentoEspecifico:
       Array.from(

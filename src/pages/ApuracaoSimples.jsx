@@ -65,10 +65,18 @@ import {
   gerarResultadoRecuperacaoPisCofins,
 } from '../fiscal/simples/resultadoRecuperacao'
 
-
 import {
   prepararBaseApuracaoSimples,
 } from '../fiscal/simples/baseApuracao'
+
+import {
+  validarEscopoMotorSimples,
+} from '../fiscal/simples/escopoMotor'
+
+import {
+  identificarNaturezaAtividadePgdas,
+} from '../fiscal/simples/atividadePgdas'
+
 import {
   criarChaveItemDocumental,
 } from '../fiscal/simples/receitaDocumental'
@@ -353,6 +361,7 @@ const VAZIO = {
 
 export default function ApuracaoSimples({
   onGerarEspelho,
+  onAbrirEspelhoHistorico,
 }) {
   const [apuracoes, setApuracoes]     = useState([])
   const [clientes, setClientes]       = useState({})
@@ -378,6 +387,11 @@ export default function ApuracaoSimples({
   const [parametrosCfopReceita, setParametrosCfopReceita] = useState({})
   const [contextoMotorPendente, setContextoMotorPendente] = useState(null)
   const [parametrosReceitaErro, setParametrosReceitaErro] = useState('')
+  const [historicoEspelhosAberto, setHistoricoEspelhosAberto] = useState(false)
+  const [historicoEspelhos, setHistoricoEspelhos] = useState([])
+  const [carregandoHistoricoEspelhos, setCarregandoHistoricoEspelhos] = useState(false)
+  const [erroHistoricoEspelhos, setErroHistoricoEspelhos] = useState('')
+  const [excluindoEspelhoId, setExcluindoEspelhoId] = useState(null)
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -389,10 +403,12 @@ export default function ApuracaoSimples({
   useEffect(() => { carregar() }, [])
 
   function calcularResultadoTributarioMotor({
-    conferencia,
-    pgdas,
-    competencia,
-  } = {}) {
+  conferencia,
+  pgdas,
+  atividadesPgdas = [],
+  competencia,
+  escopoMotor = null,
+} = {}) {
     if (
       !conferencia ||
       conferencia.prontoParaCalculo !== true ||
@@ -407,7 +423,10 @@ export default function ApuracaoSimples({
       )
 
     const rbt12 =
-      Number(pgdas.rbt12)
+      Number(
+        escopoMotor?.baseRbt12?.valor ??
+        pgdas.rbt12
+      )
 
     const pisCofins =
       basePisCofins
@@ -424,16 +443,70 @@ export default function ApuracaoSimples({
             basePisCofins,
           })
         : null
+		
+    const atividadesRevenda =
+      Array.isArray(atividadesPgdas)
+        ? atividadesPgdas.filter(
+            atividade =>
+              Number(
+                atividade?.receita_bruta || 0
+              ) > 0 &&
+              identificarNaturezaAtividadePgdas(
+                atividade
+              ) === 'revenda'
+          )
+        : []
 
+    const somarCampoRevenda = campo =>
+      atividadesRevenda.reduce(
+        (total, atividade) =>
+          total +
+          Number(
+            atividade?.[campo] || 0
+          ),
+        0
+      )
+
+    const pgdasOriginalRevenda = {
+	  receitaBruta:
+        somarCampoRevenda('receita_bruta'),
+		
+      irpj:
+        somarCampoRevenda('irpj'),
+
+      csll:
+        somarCampoRevenda('csll'),
+
+      pis:
+        somarCampoRevenda('pis'),
+
+      cofins:
+        somarCampoRevenda('cofins'),
+
+      cpp:
+        somarCampoRevenda('inss_cpp'),
+
+      icms:
+        somarCampoRevenda('icms'),
+    }
+
+    pgdasOriginalRevenda.das =
+      pgdasOriginalRevenda.irpj +
+      pgdasOriginalRevenda.csll +
+      pgdasOriginalRevenda.pis +
+      pgdasOriginalRevenda.cofins +
+      pgdasOriginalRevenda.cpp +
+      pgdasOriginalRevenda.icms
+	  
     const politica =
       definirPoliticaRecuperacaoPisCofins({
         alterarIcms: false,
       })
 
-    const icmsPreservado =
+        const icmsPreservado =
       prepararIcmsPreservadoPgdas({
         valorIcmsOriginalPgdas:
-          pgdas.icms,
+          pgdasOriginalRevenda.icms,
         politica,
       })
 
@@ -446,20 +519,47 @@ export default function ApuracaoSimples({
           })
         : null
 
-    const pgdasOriginal = {
-      irpj: pgdas.irpj,
-      csll: pgdas.csll,
-      pis: pgdas.pis,
-      cofins: pgdas.cofins,
-      cpp: pgdas.inss_cpp,
-      icms: pgdas.icms,
-      das: pgdas.das_recolhido,
+        const pgdasOriginalCompetencia = {
+      receitaBruta:
+        Number(
+          pgdas.receita_bruta_total || 0
+        ),
+
+      irpj:
+        Number(pgdas.irpj || 0),
+
+      csll:
+        Number(pgdas.csll || 0),
+
+      pis:
+        Number(pgdas.pis || 0),
+
+      cofins:
+        Number(pgdas.cofins || 0),
+
+      cpp:
+        Number(pgdas.inss_cpp || 0),
+
+      icms:
+        Number(pgdas.icms || 0),
+
+      ipi:
+        Number(pgdas.ipi || 0),
+
+      iss:
+        Number(pgdas.iss || 0),
+
+      das:
+        Number(
+          pgdas.das_recolhido || 0
+        ),
     }
 
-    const comparacao =
+        const comparacao =
       dasConferido
         ? compararPgdasOriginalComDasConferido({
-            pgdasOriginal,
+            pgdasOriginal:
+              pgdasOriginalRevenda,
             dasConferido,
           })
         : null
@@ -471,19 +571,22 @@ export default function ApuracaoSimples({
 : null
 
     const resultado =
-      creditoMonofasico
-        ? gerarResultadoRecuperacaoPisCofins({
-            competencia,
-            receitaDeclaradaPgdas:
-              Number(
-                pgdas.receita_bruta_total || 0
-              ),
-            basePisCofins,
-            dasConferido,
-            comparacao,
-            creditoMonofasico,
-          })
-        : null
+  creditoMonofasico
+    ? gerarResultadoRecuperacaoPisCofins({
+        competencia,
+          pgdasOriginalCompetencia,
+		receitaDeclaradaRevendaPgdas:
+          pgdasOriginalRevenda.receitaBruta,
+        receitaDeclaradaPgdas:
+          Number(
+            pgdas.receita_bruta_total || 0
+          ),
+        basePisCofins,
+        dasConferido,
+        comparacao,
+        creditoMonofasico,
+      })
+    : null
 
     return {
       basePisCofins,
@@ -495,38 +598,46 @@ export default function ApuracaoSimples({
       comparacao,
       creditoMonofasico,
       resultado,
+      escopoMotor,
+      rbt12Utilizado: rbt12,
+      fonteRbt12:
+        escopoMotor?.baseRbt12?.fonte || 'rbt12',
     }
   }
 
   function aplicarDecisaoDivergenciaMotor(decisao) {
-    if (
+        if (
       !motorAnalise ||
-      !motorAnalise.base ||
-      !Array.isArray(motorAnalise.base.parcelas) ||
+      !Array.isArray(motorAnalise.parcelasRevenda) ||
       !motorAnalise.pgdas
     ) {
       return
     }
 
     const conferencia = executarApuracaoSimples({
-      parcelas: motorAnalise.base.parcelas,
+      parcelas:
+        motorAnalise.parcelasRevenda,
 
-      receitaDeclaradaPgdas: Number(
-        motorAnalise.pgdas?.receita_bruta_total || 0
-      ),
+      receitaDeclaradaPgdas:
+        motorAnalise.receitaDeclaradaRevendaPgdas,
 
-      decisaoDivergencia: decisao,
+      decisaoDivergencia:
+        decisao,
 
-      alterarIcms: false,
+      alterarIcms:
+        false,
     })
 
     const calculoTributario =
       conferencia?.prontoParaCalculo === true
         ? calcularResultadoTributarioMotor({
-            conferencia,
-            pgdas: motorAnalise.pgdas,
-            competencia: motorAnalise.competencia,
-          })
+    conferencia,
+    pgdas: motorAnalise.pgdas,
+    atividadesPgdas:
+      motorAnalise.atividadesPgdas || [],
+    competencia: motorAnalise.competencia,
+    escopoMotor: motorAnalise.escopoMotor,
+  })
         : null
 
     setMotorAnalise(atual =>
@@ -553,6 +664,136 @@ export default function ApuracaoSimples({
     setClientes(mapa)
     setLoading(false)
   }
+
+  async function carregarHistoricoEspelhosGeral() {
+    setCarregandoHistoricoEspelhos(true)
+    setErroHistoricoEspelhos('')
+
+    try {
+      const { data, error } = await supabase
+        .from('espelhos_retificacao_pgdas')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('versao', { ascending: false })
+
+      if (error) throw error
+
+      setHistoricoEspelhos(Array.isArray(data) ? data : [])
+      setHistoricoEspelhosAberto(true)
+    } catch (e) {
+      const mensagem = e?.message || 'Erro desconhecido.'
+      setErroHistoricoEspelhos(mensagem)
+      alert('Não foi possível carregar o histórico de Espelhos: ' + mensagem)
+    } finally {
+      setCarregandoHistoricoEspelhos(false)
+    }
+  }
+
+  async function abrirEspelhoHistoricoGeral(item) {
+    if (!item?.apuracao_id) {
+      alert('Este Espelho não possui vínculo com uma apuração salva.')
+      return
+    }
+
+    if (typeof onAbrirEspelhoHistorico !== 'function') {
+      alert('A abertura do histórico do Espelho não está disponível nesta tela.')
+      return
+    }
+
+    try {
+      let apuracao = apuracoes.find(
+        registro => String(registro.id) === String(item.apuracao_id)
+      ) || null
+
+      if (!apuracao) {
+        const { data, error } = await supabase
+          .from('apuracoes_simples')
+          .select('*')
+          .eq('id', item.apuracao_id)
+          .maybeSingle()
+
+        if (error) throw error
+        apuracao = data || null
+      }
+
+      if (!apuracao) {
+        alert('A apuração vinculada a este Espelho não foi localizada.')
+        return
+      }
+
+      const versoesDaApuracao = historicoEspelhos
+        .filter(versao => String(versao.apuracao_id) === String(item.apuracao_id))
+        .sort((a, b) => {
+          const dataB = new Date(b?.created_at || 0).getTime()
+          const dataA = new Date(a?.created_at || 0).getTime()
+          if (dataB !== dataA) return dataB - dataA
+          return Number(b?.versao || 0) - Number(a?.versao || 0)
+        })
+
+      setHistoricoEspelhosAberto(false)
+      onAbrirEspelhoHistorico({
+        apuracao,
+        versaoInicial: item,
+        versoesExternas: versoesDaApuracao,
+      })
+    } catch (e) {
+      alert('Não foi possível abrir o Espelho salvo: ' + (e?.message || 'Erro desconhecido.'))
+    }
+  }
+  
+  async function excluirEspelhoHistoricoGeral(item) {
+  if (!item?.id) {
+    alert('Este Espelho não possui identificação válida para exclusão.')
+    return
+  }
+
+  const cliente = clientes[item.cliente_id]
+  const nomeEmpresa =
+    cliente?.razao_social ||
+    'Empresa não identificada'
+
+  const confirmou = window.confirm(
+    `Excluir permanentemente este Espelho?\n\n` +
+    `Empresa: ${nomeEmpresa}\n` +
+    `Competência: ${item.competencia || '—'}\n` +
+    `Versão: v${item.versao || 1}\n\n` +
+    `Esta operação não poderá ser desfeita.`
+  )
+
+  if (!confirmou) return
+
+  setExcluindoEspelhoId(item.id)
+  setErroHistoricoEspelhos('')
+
+  try {
+    const { error } = await supabase
+      .from('espelhos_retificacao_pgdas')
+      .delete()
+      .eq('id', item.id)
+
+    if (error) throw error
+
+    setHistoricoEspelhos(atual =>
+      atual.filter(
+        registro => String(registro.id) !== String(item.id)
+      )
+    )
+  } catch (e) {
+    const mensagem =
+      e?.message ||
+      'Erro desconhecido.'
+
+    setErroHistoricoEspelhos(
+      'Não foi possível excluir o Espelho: ' + mensagem
+    )
+
+    alert(
+      'Não foi possível excluir o Espelho: ' + mensagem
+    )
+  } finally {
+    setExcluindoEspelhoId(null)
+  }
+}
   
   async function consultaMotorComTimeout(consulta, etapa, ms = 20000) {
   let timer
@@ -920,6 +1161,29 @@ export default function ApuracaoSimples({
         )
       }
 
+      const escopoMotor =
+        validarEscopoMotorSimples({
+          competencia:
+            motorCompetencia,
+          pgdas:
+            contexto.pgdas,
+          atividadesPgdas:
+            contexto.atividadesPgdas,
+        })
+
+      if (!escopoMotor.podeCalcular) {
+        const mensagens =
+          escopoMotor.bloqueios
+            .slice(0, 5)
+            .map(item => item.mensagem || item.tipo)
+            .join(' | ')
+
+        throw new Error(
+          'A competência foi bloqueada pelas travas de segurança da V1. ' +
+          mensagens
+        )
+      }
+
       const base =
         prepararBaseApuracaoSimples({
           competencia:
@@ -948,21 +1212,48 @@ export default function ApuracaoSimples({
 
           decisoesReceitaDocumental:
             parametrizacao.decisoes,
-        })
+                })
+
+      const parcelasRevenda =
+        Array.isArray(base.parcelas)
+          ? base.parcelas.filter(
+              parcela =>
+                parcela?.naturezaAtividade === 'revenda'
+            )
+          : []
+
+      const receitaDeclaradaRevendaPgdas =
+        (contexto.atividadesPgdas || []).reduce(
+          (total, atividade) => {
+            const natureza =
+              identificarNaturezaAtividadePgdas(
+                atividade
+              )
+
+            if (natureza !== 'revenda') {
+              return total
+            }
+
+            return (
+              total +
+              Number(
+                atividade?.receita_bruta || 0
+              )
+            )
+          },
+          0
+        )
 
       let conferencia = null
 
       if (base.prontaParaConferencia) {
         conferencia =
-          executarApuracaoSimples({
+                    executarApuracaoSimples({
             parcelas:
-              base.parcelas,
+              parcelasRevenda,
 
             receitaDeclaradaPgdas:
-              Number(
-                contexto.pgdas
-                  .receita_bruta_total || 0
-              ),
+              receitaDeclaradaRevendaPgdas,
 
             alterarIcms:
               false,
@@ -972,10 +1263,13 @@ export default function ApuracaoSimples({
       const calculoTributario =
         conferencia?.prontoParaCalculo === true
           ? calcularResultadoTributarioMotor({
-              conferencia,
-              pgdas: contexto.pgdas,
-              competencia: motorCompetencia,
-            })
+    conferencia,
+    pgdas: contexto.pgdas,
+    atividadesPgdas:
+      contexto.atividadesPgdas || [],
+    competencia: motorCompetencia,
+    escopoMotor,
+  })
           : null
 
       setMotorAnalise({
@@ -998,8 +1292,11 @@ diagnosticoMono:
           contexto.itensDocumentais,
 
         base,
+        parcelasRevenda,
+        receitaDeclaradaRevendaPgdas,
         conferencia,
         calculoTributario,
+        escopoMotor,
 
         parametrizacaoReceita: {
           parametros,
@@ -1156,13 +1453,15 @@ diagnosticoMono:
       .join('')
 
     const tributos = [
-      ['IRPJ', dados.irpjConferido],
-      ['CSLL', dados.csllConferido],
-      ['PIS', dados.pisConferido],
-      ['COFINS', dados.cofinsConferido],
-      ['CPP', dados.cppConferido],
-      ['ICMS', dados.icmsPreservado],
-    ]
+  ['IRPJ', dados.irpjConferido],
+  ['CSLL', dados.csllConferido],
+  ['PIS', dados.pisConferido],
+  ['COFINS', dados.cofinsConferido],
+  ['CPP', dados.cppConferido],
+  ['ICMS', dados.icmsPreservado],
+  ['IPI', dados.ipiConferido],
+  ['ISS', dados.issConferido],
+]
       .map(([nome, valor]) => `
         <td><span>${nome}</span><strong>${moeda(valor)}</strong></td>
       `)
@@ -1555,7 +1854,9 @@ diagnosticoMono:
       resultado.comparacao ||
       {}
     const valores =
-      das.valoresConferidos || {}
+  resultado.valoresConferidos ||
+  das.valoresConferidos ||
+  {}
 
     const receitaDocumental =
       (motorAnalise.base?.parcelas || [])
@@ -1699,13 +2000,17 @@ diagnosticoMono:
           valores.cofins
         ),
       irpjConferido:
-        numeroRelatorio(valores.irpj),
-      csllConferido:
-        numeroRelatorio(valores.csll),
-      cppConferido:
-        numeroRelatorio(valores.cpp),
-      icmsPreservado:
-        numeroRelatorio(valores.icms),
+  numeroRelatorio(valores.irpj),
+csllConferido:
+  numeroRelatorio(valores.csll),
+cppConferido:
+  numeroRelatorio(valores.cpp),
+icmsPreservado:
+  numeroRelatorio(valores.icms),
+ipiConferido:
+  numeroRelatorio(valores.ipi),
+issConferido:
+  numeroRelatorio(valores.iss),
       creditoPis:
         numeroRelatorio(resultado.credito?.pis),
       creditoCofins:
@@ -1817,6 +2122,11 @@ diagnosticoMono:
         competencia:
           motorAnalise.competencia,
 
+        escopo_motor:
+          motorAnalise.escopoMotor ||
+          calculo?.escopoMotor ||
+          null,
+
         fontes: {
           pgdas: {
             id:
@@ -1835,6 +2145,20 @@ diagnosticoMono:
               'Original',
             rbt12:
               Number(motorAnalise.pgdas?.rbt12 || 0),
+            rbt12p:
+              Number(
+                motorAnalise.pgdas?.rbt12p ||
+                motorAnalise.pgdas?.dados_originais?.rbt12p ||
+                0
+              ),
+            rbt12_utilizado:
+              Number(
+                calculo?.rbt12Utilizado ??
+                motorAnalise.pgdas?.rbt12 ??
+                0
+              ),
+            fonte_rbt12:
+              calculo?.fonteRbt12 || 'rbt12',
             receita_bruta_total:
               Number(
                 motorAnalise.pgdas?.receita_bruta_total || 0
@@ -1888,6 +2212,39 @@ diagnosticoMono:
 
         parametrizacao_receita:
           motorAnalise.parametrizacaoReceita || null,
+
+        qualificacao_tributaria: {
+          parcelas:
+            Array.isArray(motorAnalise.base?.parcelas)
+              ? motorAnalise.base.parcelas
+              : [],
+          detalhamento:
+            motorAnalise.conferencia
+              ?.movimentacaoConsiderada
+              ?.detalhamento || [],
+          decisoes_atividade:
+            Array.isArray(motorAnalise.base?.itensPreparados)
+              ? motorAnalise.base.itensPreparados.map(entrada => ({
+                  chave_nfe:
+                    entrada?.item?.chave_nfe || null,
+                  numero_item:
+                    entrada?.item?.numero_item_nfe ||
+                    entrada?.item?.ordem_item || null,
+                  codigo:
+                    entrada?.item?.codigo || null,
+                  cfop:
+                    entrada?.item?.cfop || null,
+                  classificacao_pis_cofins:
+                    entrada?.classificacao?.classificacao || null,
+                  atividade:
+                    entrada?.decisaoAtividade?.atividade || null,
+                  origem_decisao:
+                    entrada?.decisaoAtividade?.origem || null,
+                  criterios:
+                    entrada?.decisaoAtividade?.criterios || [],
+                }))
+              : [],
+        },
 
         calculo_tributario:
           calculo,
@@ -2099,20 +2456,39 @@ diagnosticoMono:
   async function salvar() {
     setSalvando(true)
     try {
-      const payload = {
+      const payloadCompleto = {
         ...form,
         receita_apurada:  parseFloat(form.receita_apurada  || 0),
         imposto_apurado:  parseFloat(form.imposto_apurado  || 0),
         aliquota_efetiva: parseFloat(form.aliquota_efetiva || 0),
       }
+
       if (modalEditar) {
-        const { error } = await supabase.from('apuracoes_simples').update(payload).eq('id', modalEditar.id)
+        const edicaoTecnicaProtegida = Boolean(modalEditar?.memoria_calculo)
+
+        const payload = edicaoTecnicaProtegida
+          ? {
+              tipo_declaracao: form.tipo_declaracao || modalEditar.tipo_declaracao || 'Original',
+              status_declaracao: form.status_declaracao || modalEditar.status_declaracao || 'Aguardando',
+              data_transmissao: form.data_transmissao || null,
+              transmitido_por: form.transmitido_por || null,
+            }
+          : payloadCompleto
+
+        const { error } = await supabase
+          .from('apuracoes_simples')
+          .update(payload)
+          .eq('id', modalEditar.id)
+
         if (error) throw error
       } else {
         if (!form.cliente_id) return alert('Selecione a empresa')
-        const { error } = await supabase.from('apuracoes_simples').insert({ ...payload, created_at: new Date().toISOString() })
+        const { error } = await supabase
+          .from('apuracoes_simples')
+          .insert({ ...payloadCompleto, created_at: new Date().toISOString() })
         if (error) throw error
       }
+
       setModalEditar(null); setModalNova(false); setForm(VAZIO)
       await carregar()
     } catch (e) { alert('Erro: ' + e.message) }
@@ -3724,6 +4100,144 @@ function rotuloStatusApuracao(status) {
             </span>
           </div>
         </div>
+
+      {/* MODAL NOVA / EDITAR */}
+      {(modalNova || modalEditar) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: S.white, borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: S.navy, marginBottom: 20 }}>
+              {modalEditar ? 'Editar Apuracao' : 'Nova Apuracao'}
+            </div>
+            {modalNova && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Empresa *</div>
+                <select value={form.cliente_id || ''} onChange={e => setForm(p => ({ ...p, cliente_id: e.target.value }))}
+                  style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
+                  <option value="">Selecione...</option>
+                  {Object.values(clientes).map(c => (
+                    <option key={c.id} value={c.id}>{c.razao_social}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {modalEditar?.memoria_calculo ? (
+              <>
+                <div style={{ padding: '10px 12px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, color: '#1E40AF', fontSize: 11, lineHeight: 1.5, marginBottom: 16 }}>
+                  Os dados técnicos desta apuração foram gerados pelo Motor e estão protegidos. Para alterar valores tributários, corrija a origem e execute novamente <strong>Conferir competência</strong>.
+                </div>
+
+                <div style={{ fontSize: 11, fontWeight: 700, color: S.navy, marginBottom: 8 }}>Dados técnicos — somente leitura</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 10, marginBottom: 18 }}>
+                  {[
+                    { label: 'Competência', value: form.competencia || '—' },
+                    { label: 'Receita apurada', value: fmtR(form.receita_apurada) },
+                    { label: 'DAS conferido', value: fmtR(form.imposto_apurado) },
+                    {
+                      label: 'Alíquota efetiva',
+                      value: (() => {
+                        const raw = Number(form.aliquota_efetiva || 0)
+                        const pct = Math.abs(raw) <= 1 ? raw * 100 : raw
+                        return pct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%'
+                      })(),
+                    },
+                    { label: 'Status da apuração', value: rotuloStatusApuracao(form.status_apuracao) },
+                  ].map(item => (
+                    <div key={item.label} style={{ padding: '9px 10px', background: '#F8FAFC', border: `1px solid ${S.border}`, borderRadius: 7 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: S.muted, marginBottom: 3 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: S.text }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: 11, fontWeight: 700, color: S.navy, marginBottom: 8 }}>Dados administrativos — editáveis</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Data Transmissão</div>
+                    <input
+                      value={form.data_transmissao || ''}
+                      onChange={e => setForm(p => ({ ...p, data_transmissao: e.target.value }))}
+                      placeholder="DD/MM/AAAA"
+                      style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Transmitido por</div>
+                    <input
+                      value={form.transmitido_por || ''}
+                      onChange={e => setForm(p => ({ ...p, transmitido_por: e.target.value }))}
+                      placeholder="Nome do contador"
+                      style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: 'Tipo Declaração', field: 'tipo_declaracao', opts: ['Original', 'Retificadora'] },
+                    { label: 'Status Declaração', field: 'status_declaracao', opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <select
+                        value={form[f.field] || ''}
+                        onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                      >
+                        {f.opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Competencia (MM/AAAA) *', field: 'competencia',      placeholder: '07/2026'          },
+                    { label: 'Receita Apurada (R$)',    field: 'receita_apurada',  placeholder: '0,00'             },
+                    { label: 'Imposto Apurado (R$)',    field: 'imposto_apurado',  placeholder: '0,00'             },
+                    { label: 'Aliquota Efetiva (%)',    field: 'aliquota_efetiva', placeholder: '0,00'             },
+                    { label: 'Data Transmissao',        field: 'data_transmissao', placeholder: 'DD/MM/AAAA'       },
+                    { label: 'Transmitido por',         field: 'transmitido_por',  placeholder: 'Nome do contador' },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <input value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: 'Tipo Declaracao',   field: 'tipo_declaracao',   opts: ['Original', 'Retificadora'] },
+                    { label: 'Status Apuracao',   field: 'status_apuracao',   opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                    { label: 'Status Declaracao', field: 'status_declaracao', opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <select value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
+                        {f.opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => { setModalNova(false); setModalEditar(null); setForm(VAZIO) }}
+                style={{ padding: '7px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: S.muted }}>
+                Cancelar
+              </button>
+              <button onClick={salvar} disabled={salvando}
+                style={{ padding: '7px 16px', background: S.blue, color: S.white, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: salvando ? 'not-allowed' : 'pointer' }}>
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     )
   }
@@ -3845,6 +4359,25 @@ function rotuloStatusApuracao(status) {
                   }}
                 >
                   Conferir competência
+                </button>
+
+                <button
+                  onClick={carregarHistoricoEspelhosGeral}
+                  disabled={carregandoHistoricoEspelhos}
+                  style={{
+                    minHeight: 38,
+                    padding: '0 16px',
+                    background: S.white,
+                    color: S.navy,
+                    border: '1px solid ' + S.border,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: carregandoHistoricoEspelhos ? 'not-allowed' : 'pointer',
+                    opacity: carregandoHistoricoEspelhos ? 0.7 : 1,
+                  }}
+                >
+                  {carregandoHistoricoEspelhos ? 'Carregando...' : 'Histórico de Espelhos'}
                 </button>
 
                 <button
@@ -4287,26 +4820,20 @@ function rotuloStatusApuracao(status) {
               },
 
               {
-                label: 'Divergência de receita',
-                valor: fmtR(
-                  Math.abs(
-                    Number(
-                      motorAnalise.pgdas
-                        ?.receita_bruta_total || 0
-                    ) -
-                    (motorAnalise.base?.parcelas || [])
-                      .reduce(
-                        (s, parcela) =>
-                          s + Number(parcela.valor || 0),
-                        0
-                      )
-                  )
-                ),
-                detalhe:
-                  motorAnalise.conferencia?.prontoParaCalculo
-                    ? 'Divergência tratada na conferência'
-                    : 'Aguardando tratamento',
-              },
+  label: 'Divergência de receita',
+  valor: fmtR(
+    Math.abs(
+      Number(
+        motorAnalise.conferencia
+          ?.conciliacao?.diferenca || 0
+      )
+    )
+  ),
+  detalhe:
+    motorAnalise.conferencia?.prontoParaCalculo
+      ? 'Divergência tratada na conferência'
+      : 'Aguardando tratamento',
+},
             ].map((k, i) => (
               <div
                 key={i}
@@ -5301,8 +5828,11 @@ function rotuloStatusApuracao(status) {
                   </div>
 
                   <div>
-                    ✓ Crédito de PIS/COFINS identificado.
-                  </div>
+  {motorAnalise?.calculoTributario?.creditoMonofasico?.status ===
+  'sem_credito_monofasico_pis_cofins'
+    ? '✓ Nenhum crédito monofásico identificado.'
+    : '✓ Crédito de PIS/COFINS identificado.'}
+</div>
 
                   <div>
                     ✓ Competência pronta para salvar e documentar.
@@ -6167,6 +6697,238 @@ function rotuloStatusApuracao(status) {
           </div>
         </div>
       )}
+      {historicoEspelhosAberto && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.46)',
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setHistoricoEspelhosAberto(false)
+          }}
+        >
+          <div
+            style={{
+              background: S.white,
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 1080,
+              maxHeight: '86vh',
+              overflow: 'hidden',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.22)',
+              border: '1px solid ' + S.border,
+            }}
+          >
+            <div
+              style={{
+                padding: '16px 18px',
+                borderBottom: '1px solid ' + S.border,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: S.navy }}>
+                  Histórico de Espelhos de Retificação
+                </div>
+                <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>
+                  Consulte os Espelhos já salvos e reabra uma versão sem gerar um novo Espelho.
+                </div>
+              </div>
+              <button
+                onClick={() => setHistoricoEspelhosAberto(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: '1px solid ' + S.border,
+                  background: S.white,
+                  color: S.muted,
+                  cursor: 'pointer',
+                  fontSize: 18,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: 18, overflowY: 'auto', maxHeight: 'calc(86vh - 70px)' }}>
+              {erroHistoricoEspelhos && (
+                <div
+                  style={{
+                    padding: '9px 11px',
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: 7,
+                    color: S.red,
+                    fontSize: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  {erroHistoricoEspelhos}
+                </div>
+              )}
+
+              {historicoEspelhos.length === 0 ? (
+                <div
+                  style={{
+                    padding: 28,
+                    textAlign: 'center',
+                    color: S.muted,
+                    fontSize: 13,
+                    background: S.bg,
+                    border: '1px dashed ' + S.border,
+                    borderRadius: 10,
+                  }}
+                >
+                  Nenhum Espelho de Retificação foi salvo até o momento.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid ' + S.border, borderRadius: 9 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: S.thBg, color: S.white }}>
+                        {['Empresa', 'Competência', 'Versão', 'Status', 'Responsável', 'Protocolo', 'Salvo em', 'Ação'].map(coluna => (
+                          <th
+                            key={coluna}
+                            style={{
+                              padding: '9px 10px',
+                              textAlign: coluna === 'Versão' ? 'center' : 'left',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {coluna}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historicoEspelhos.map((item, indice) => {
+                        const cliente = clientes[item.cliente_id]
+                        const salvoEm = item.created_at
+                          ? new Date(item.created_at).toLocaleString('pt-BR')
+                          : '—'
+
+                        return (
+                          <tr
+                            key={item.id}
+                            style={{
+                              borderTop: indice === 0 ? 'none' : '1px solid ' + S.border,
+                              background: indice % 2 === 0 ? S.white : '#FAFAFA',
+                            }}
+                          >
+                            <td style={{ padding: '9px 10px', color: S.text, fontWeight: 600 }}>
+                              {cliente?.razao_social || 'Empresa não identificada'}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.text }}>
+                              {item.competencia || '—'}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.text, textAlign: 'center', fontWeight: 700 }}>
+                              v{item.versao || 1}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.text }}>
+                              {item.status || 'Rascunho'}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.muted }}>
+                              {item.responsavel || '—'}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.muted }}>
+                              {item.protocolo || '—'}
+                            </td>
+                            <td style={{ padding: '9px 10px', color: S.muted, whiteSpace: 'nowrap' }}>
+                              {salvoEm}
+                            </td>
+                            <td style={{ padding: '9px 10px' }}>
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      whiteSpace: 'nowrap',
+    }}
+  >
+    <button
+      onClick={() => abrirEspelhoHistoricoGeral(item)}
+      disabled={excluindoEspelhoId === item.id}
+      style={{
+        padding: '5px 10px',
+        background: '#EFF6FF',
+        color: S.blue,
+        border: '1px solid #BFDBFE',
+        borderRadius: 6,
+        cursor:
+          excluindoEspelhoId === item.id
+            ? 'not-allowed'
+            : 'pointer',
+        fontSize: 10,
+        fontWeight: 700,
+      }}
+    >
+      Abrir
+    </button>
+
+    <button
+      onClick={() => excluirEspelhoHistoricoGeral(item)}
+      disabled={excluindoEspelhoId === item.id}
+      style={{
+        padding: '5px 10px',
+        background: '#FEF2F2',
+        color: S.red,
+        border: '1px solid #FECACA',
+        borderRadius: 6,
+        cursor:
+          excluindoEspelhoId === item.id
+            ? 'not-allowed'
+            : 'pointer',
+        fontSize: 10,
+        fontWeight: 700,
+      }}
+    >
+      {excluindoEspelhoId === item.id
+        ? 'Excluindo...'
+        : 'Excluir'}
+    </button>
+  </div>
+</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <button
+                  onClick={() => setHistoricoEspelhosAberto(false)}
+                  style={{
+                    padding: '7px 16px',
+                    background: S.blue,
+                    color: S.white,
+                    border: 'none',
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalMotor && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: S.white, borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -6247,38 +7009,111 @@ function rotuloStatusApuracao(status) {
                 </select>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-              {[
-                { label: 'Competencia (MM/AAAA) *', field: 'competencia',      placeholder: '07/2026'          },
-                { label: 'Receita Apurada (R$)',    field: 'receita_apurada',  placeholder: '0,00'             },
-                { label: 'Imposto Apurado (R$)',    field: 'imposto_apurado',  placeholder: '0,00'             },
-                { label: 'Aliquota Efetiva (%)',    field: 'aliquota_efetiva', placeholder: '0,00'             },
-                { label: 'Data Transmissao',        field: 'data_transmissao', placeholder: 'DD/MM/AAAA'       },
-                { label: 'Transmitido por',         field: 'transmitido_por',  placeholder: 'Nome do contador' },
-              ].map(f => (
-                <div key={f.field}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
-                  <input value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+            {modalEditar?.memoria_calculo ? (
+              <>
+                <div style={{ padding: '10px 12px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, color: '#1E40AF', fontSize: 11, lineHeight: 1.5, marginBottom: 16 }}>
+                  Os dados técnicos desta apuração foram gerados pelo Motor e estão protegidos. Para alterar valores tributários, corrija a origem e execute novamente <strong>Conferir competência</strong>.
                 </div>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-              {[
-                { label: 'Tipo Declaracao',   field: 'tipo_declaracao',   opts: ['Original', 'Retificadora'] },
-                { label: 'Status Apuracao',   field: 'status_apuracao',   opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
-                { label: 'Status Declaracao', field: 'status_declaracao', opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
-              ].map(f => (
-                <div key={f.field}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
-                  <select value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
-                    style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
-                    {f.opts.map(o => <option key={o}>{o}</option>)}
-                  </select>
+
+                <div style={{ fontSize: 11, fontWeight: 700, color: S.navy, marginBottom: 8 }}>Dados técnicos — somente leitura</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 10, marginBottom: 18 }}>
+                  {[
+                    { label: 'Competência', value: form.competencia || '—' },
+                    { label: 'Receita apurada', value: fmtR(form.receita_apurada) },
+                    { label: 'DAS conferido', value: fmtR(form.imposto_apurado) },
+                    {
+                      label: 'Alíquota efetiva',
+                      value: (() => {
+                        const raw = Number(form.aliquota_efetiva || 0)
+                        const pct = Math.abs(raw) <= 1 ? raw * 100 : raw
+                        return pct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%'
+                      })(),
+                    },
+                    { label: 'Status da apuração', value: rotuloStatusApuracao(form.status_apuracao) },
+                  ].map(item => (
+                    <div key={item.label} style={{ padding: '9px 10px', background: '#F8FAFC', border: `1px solid ${S.border}`, borderRadius: 7 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: S.muted, marginBottom: 3 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: S.text }}>{item.value}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                <div style={{ fontSize: 11, fontWeight: 700, color: S.navy, marginBottom: 8 }}>Dados administrativos — editáveis</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Data Transmissão</div>
+                    <input
+                      value={form.data_transmissao || ''}
+                      onChange={e => setForm(p => ({ ...p, data_transmissao: e.target.value }))}
+                      placeholder="DD/MM/AAAA"
+                      style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>Transmitido por</div>
+                    <input
+                      value={form.transmitido_por || ''}
+                      onChange={e => setForm(p => ({ ...p, transmitido_por: e.target.value }))}
+                      placeholder="Nome do contador"
+                      style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: 'Tipo Declaração', field: 'tipo_declaracao', opts: ['Original', 'Retificadora'] },
+                    { label: 'Status Declaração', field: 'status_declaracao', opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <select
+                        value={form[f.field] || ''}
+                        onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                      >
+                        {f.opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Competencia (MM/AAAA) *', field: 'competencia',      placeholder: '07/2026'          },
+                    { label: 'Receita Apurada (R$)',    field: 'receita_apurada',  placeholder: '0,00'             },
+                    { label: 'Imposto Apurado (R$)',    field: 'imposto_apurado',  placeholder: '0,00'             },
+                    { label: 'Aliquota Efetiva (%)',    field: 'aliquota_efetiva', placeholder: '0,00'             },
+                    { label: 'Data Transmissao',        field: 'data_transmissao', placeholder: 'DD/MM/AAAA'       },
+                    { label: 'Transmitido por',         field: 'transmitido_por',  placeholder: 'Nome do contador' },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <input value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: 'Tipo Declaracao',   field: 'tipo_declaracao',   opts: ['Original', 'Retificadora'] },
+                    { label: 'Status Apuracao',   field: 'status_apuracao',   opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                    { label: 'Status Declaracao', field: 'status_declaracao', opts: ['Aguardando', 'Transmitida', 'Em atraso'] },
+                  ].map(f => (
+                    <div key={f.field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 4 }}>{f.label}</div>
+                      <select value={form[f.field] || ''} onChange={e => setForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${S.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
+                        {f.opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => { setModalNova(false); setModalEditar(null); setForm(VAZIO) }}
                 style={{ padding: '7px 16px', background: 'none', border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: S.muted }}>

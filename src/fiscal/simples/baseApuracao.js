@@ -1,10 +1,14 @@
 import {
   criarChaveItemDocumental,
   prepararReceitaDocumentalItem,
-} from './receitaDocumental'
+} from './receitaDocumental.js'
 import {
   qualificarItensApuracao,
-} from './qualificacaoApuracao'
+} from './qualificacaoApuracao.js'
+import {
+  identificarNaturezaAtividadePgdas,
+  resolverAtividadePgdasDocumental,
+} from './atividadePgdas.js'
 function normalizarCompetenciaApuracao(valor) {
   if (!valor) return null
 
@@ -196,60 +200,15 @@ function identificarAtividadeUnicaPgdas(atividadesPgdas = []) {
 function resolverAtividadePgdasPorClassificacao({
   atividadesPgdas = [],
   classificacaoPisCofins = null,
+  item = null,
+  mercado = null,
 } = {}) {
-
-  const atividadeUnica =
-    identificarAtividadeUnicaPgdas(atividadesPgdas)
-
-  if (atividadeUnica) {
-    return atividadeUnica
-  }
-
-  if (!Array.isArray(atividadesPgdas)) {
-    return null
-  }
-
-  const classificacao = String(
-    classificacaoPisCofins ?? ""
-  ).trim()
-
-  let exigeTratamentoEspecifico = null
-
-  if (
-    classificacao === "monofasico" ||
-    classificacao === "st_pis_cofins"
-  ) {
-    exigeTratamentoEspecifico = true
-  } else if (classificacao === "tributado") {
-    exigeTratamentoEspecifico = false
-  } else {
-    return null
-  }
-
-  const compativeis = atividadesPgdas.filter(atividade => {
-    const receita = Number(
-      atividade?.receita_bruta || 0
-    )
-
-    if (!(receita > 0)) return false
-
-    return (
-      Boolean(atividade?.pis_cofins_monofasico) ===
-      exigeTratamentoEspecifico
-    )
+  return resolverAtividadePgdasDocumental({
+    atividadesPgdas,
+    item,
+    mercado,
+    classificacaoPisCofins,
   })
-
-  if (compativeis.length !== 1) {
-    return null
-  }
-
-  const atividade = compativeis[0]
-
-  return String(
-    atividade.tipo_atividade ||
-    atividade.descricao_original ||
-    ""
-  ).trim() || null
 }
 
 function prepararBaseApuracaoSimples({
@@ -480,19 +439,52 @@ const valorReceita = Number(
       continue
     }
 
+    const decisaoAtividade =
+      resolverAtividadePgdasPorClassificacao({
+        atividadesPgdas,
+        classificacaoPisCofins:
+          classificacao.classificacao,
+        item,
+      })
+
+    if (
+      !decisaoAtividade ||
+      decisaoAtividade.status !== 'ok' ||
+      !decisaoAtividade.atividade
+    ) {
+      pendencias.push({
+        tipo:
+          decisaoAtividade?.status ||
+          'atividade_pgdas_nao_identificada',
+        codigo,
+        nf: item?.nf || null,
+        cfop: item?.cfop || null,
+        classificacaoPisCofins:
+          classificacao.classificacao,
+        candidatas:
+          decisaoAtividade?.candidatas || [],
+        origem: 'resolucao_atividade_pgdas',
+      })
+      continue
+    }
+
     itensPreparados.push({
       item,
       itemFiscal,
       classificacao,
       receitaDocumental,
+      decisaoAtividade,
       qualificacao: {
-        estabelecimento: null,
-        mercado: null,
-        atividade: resolverAtividadePgdasPorClassificacao({
-          atividadesPgdas,
-          classificacaoPisCofins: classificacao.classificacao,
-        }),
-        classificacaoPisCofins: classificacao.classificacao,
+  estabelecimento: null,
+  mercado: null,
+  atividade:
+    decisaoAtividade.atividade,
+  naturezaAtividade:
+    identificarNaturezaAtividadePgdas(
+      decisaoAtividade.registro
+    ),
+  classificacaoPisCofins:
+    classificacao.classificacao,
         classificacaoIcms: null,
         valor: valorReceita,
       },
@@ -659,5 +651,6 @@ export {
   competenciaParaDataIso,
   resolverClassificacaoPisCofinsVigente,
   identificarAtividadeUnicaPgdas,
+  resolverAtividadePgdasPorClassificacao,
   prepararBaseApuracaoSimples,
 }

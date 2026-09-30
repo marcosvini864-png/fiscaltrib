@@ -1,5 +1,7 @@
 function gerarResultadoRecuperacaoPisCofins({
   competencia = null,
+  pgdasOriginalCompetencia = null,
+  receitaDeclaradaRevendaPgdas,
   receitaDeclaradaPgdas,
   basePisCofins,
   dasConferido,
@@ -87,6 +89,62 @@ function gerarResultadoRecuperacaoPisCofins({
 
   const deCentavos = (valor) =>
     valor / 100
+	
+	  const pgdasCompetenciaCentavos =
+    pgdasOriginalCompetencia &&
+    typeof pgdasOriginalCompetencia === 'object'
+      ? {
+          receitaBruta:
+            paraCentavos(
+              pgdasOriginalCompetencia.receitaBruta
+            ),
+
+          irpj:
+            paraCentavos(
+              pgdasOriginalCompetencia.irpj
+            ),
+
+          csll:
+            paraCentavos(
+              pgdasOriginalCompetencia.csll
+            ),
+
+          pis:
+            paraCentavos(
+              pgdasOriginalCompetencia.pis
+            ),
+
+          cofins:
+            paraCentavos(
+              pgdasOriginalCompetencia.cofins
+            ),
+
+          cpp:
+            paraCentavos(
+              pgdasOriginalCompetencia.cpp
+            ),
+
+          icms:
+            paraCentavos(
+              pgdasOriginalCompetencia.icms
+            ),
+
+          ipi:
+            paraCentavos(
+              pgdasOriginalCompetencia.ipi
+            ),
+
+          iss:
+            paraCentavos(
+              pgdasOriginalCompetencia.iss
+            ),
+
+          das:
+            paraCentavos(
+              pgdasOriginalCompetencia.das
+            ),
+        }
+      : null
 
   /*
    * -------------------------------------------------
@@ -98,8 +156,16 @@ function gerarResultadoRecuperacaoPisCofins({
     paraCentavos(
       receitaDeclaradaPgdas
     )
+	
+  const receitaDeclaradaRevendaCentavos =
+    paraCentavos(
+      receitaDeclaradaRevendaPgdas
+    )
 
-  if (receitaDeclaradaCentavos === null) {
+    if (
+    receitaDeclaradaCentavos === null ||
+    receitaDeclaradaRevendaCentavos === null
+  ) {
     return null
   }
 
@@ -185,26 +251,26 @@ function gerarResultadoRecuperacaoPisCofins({
       : [])
   ]
 
-  if (
-    receitaDeclaradaCentavos !==
+    if (
+    receitaDeclaradaRevendaCentavos !==
     receitaTotalCentavos
   ) {
     alertas.push({
       tipo:
-        'receita_pgdas_diferente_receita_resultado',
+        'receita_revenda_pgdas_diferente_receita_revenda_resultado',
 
-      receitaDeclaradaPgdas:
+      receitaDeclaradaRevendaPgdas:
         deCentavos(
-          receitaDeclaradaCentavos
+          receitaDeclaradaRevendaCentavos
         ),
 
-      receitaResultado:
+      receitaRevendaResultado:
         deCentavos(
           receitaTotalCentavos
         ),
 
       mensagem:
-        'A receita total considerada no resultado difere da receita originalmente declarada no PGDAS.'
+        'A receita de revenda considerada na apuração difere da receita de revenda declarada no PGDAS.'
     })
   }
 
@@ -306,6 +372,142 @@ function gerarResultadoRecuperacaoPisCofins({
         false
     }
   }
+  
+    const competenciaConferidaCentavos =
+    pgdasCompetenciaCentavos
+      ? {
+          receitaBruta:
+            pgdasCompetenciaCentavos.receitaBruta,
+
+          irpj:
+            pgdasCompetenciaCentavos.irpj,
+
+          csll:
+            pgdasCompetenciaCentavos.csll,
+
+          pis:
+            pgdasCompetenciaCentavos.pis !== null
+              ? pgdasCompetenciaCentavos.pis -
+                creditoPisCentavos
+              : null,
+
+          cofins:
+            pgdasCompetenciaCentavos.cofins !== null
+              ? pgdasCompetenciaCentavos.cofins -
+                creditoCofinsCentavos
+              : null,
+
+          cpp:
+            pgdasCompetenciaCentavos.cpp,
+
+          icms:
+            pgdasCompetenciaCentavos.icms,
+
+          ipi:
+            pgdasCompetenciaCentavos.ipi,
+
+          iss:
+            pgdasCompetenciaCentavos.iss,
+
+          das:
+            pgdasCompetenciaCentavos.das !== null
+              ? pgdasCompetenciaCentavos.das -
+                creditoTotalCentavos
+              : null,
+        }
+      : null
+	  
+	    if (
+    !competenciaConferidaCentavos ||
+    competenciaConferidaCentavos.receitaBruta === null ||
+    competenciaConferidaCentavos.irpj === null ||
+    competenciaConferidaCentavos.csll === null ||
+    competenciaConferidaCentavos.pis === null ||
+    competenciaConferidaCentavos.cofins === null ||
+    competenciaConferidaCentavos.cpp === null ||
+    competenciaConferidaCentavos.icms === null ||
+    competenciaConferidaCentavos.ipi === null ||
+    competenciaConferidaCentavos.iss === null ||
+    competenciaConferidaCentavos.das === null ||
+    competenciaConferidaCentavos.pis < 0 ||
+    competenciaConferidaCentavos.cofins < 0 ||
+    competenciaConferidaCentavos.das < 0
+  ) {
+    return {
+      status:
+        'resultado_inconsistente_recomposicao_competencia',
+
+      resultadoGerado:
+        false,
+
+      podeGerarEspelhoPgdas:
+        false
+    }
+  }
+  
+    const somaTributosOriginaisCentavos =
+    pgdasCompetenciaCentavos.irpj +
+    pgdasCompetenciaCentavos.csll +
+    pgdasCompetenciaCentavos.pis +
+    pgdasCompetenciaCentavos.cofins +
+    pgdasCompetenciaCentavos.cpp +
+    pgdasCompetenciaCentavos.icms +
+    pgdasCompetenciaCentavos.ipi +
+    pgdasCompetenciaCentavos.iss
+
+  const somaTributosConferidosCentavos =
+    competenciaConferidaCentavos.irpj +
+    competenciaConferidaCentavos.csll +
+    competenciaConferidaCentavos.pis +
+    competenciaConferidaCentavos.cofins +
+    competenciaConferidaCentavos.cpp +
+    competenciaConferidaCentavos.icms +
+    competenciaConferidaCentavos.ipi +
+    competenciaConferidaCentavos.iss
+
+  if (
+    somaTributosOriginaisCentavos !==
+      pgdasCompetenciaCentavos.das ||
+    somaTributosConferidosCentavos !==
+      competenciaConferidaCentavos.das
+  ) {
+    return {
+      status:
+        'resultado_inconsistente_fechamento_das_competencia',
+
+      resultadoGerado:
+        false,
+
+      podeGerarEspelhoPgdas:
+        false,
+
+      conferenciaDas: {
+        original: {
+          das:
+            deCentavos(
+              pgdasCompetenciaCentavos.das
+            ),
+
+          somaTributos:
+            deCentavos(
+              somaTributosOriginaisCentavos
+            )
+        },
+
+        conferido: {
+          das:
+            deCentavos(
+              competenciaConferidaCentavos.das
+            ),
+
+          somaTributos:
+            deCentavos(
+              somaTributosConferidosCentavos
+            )
+        }
+      }
+    }
+  }
 
   /*
    * -------------------------------------------------
@@ -313,12 +515,8 @@ function gerarResultadoRecuperacaoPisCofins({
    * -------------------------------------------------
    */
 
-  const valorIcmsCentavos =
-    paraCentavos(
-      dasConferido
-        .valoresConferidos
-        ?.icms
-    )
+    const valorIcmsCentavos =
+    competenciaConferidaCentavos.icms
 
   if (valorIcmsCentavos === null) {
     return null
@@ -340,9 +538,9 @@ function gerarResultadoRecuperacaoPisCofins({
   const espelhoPgdas = {
     competencia,
 
-    receitaBrutaTotal:
+        receitaBrutaTotal:
       deCentavos(
-        receitaTotalCentavos
+        competenciaConferidaCentavos.receitaBruta
       ),
 
     segregacaoReceitas: {
@@ -356,38 +554,46 @@ function gerarResultadoRecuperacaoPisCofins({
           receitaTratamentoCentavos
         ),
 
-      /*
-       * Mantemos também o detalhamento
-       * produzido pelo motor para distinguir
-       * monofásico, ST e demais classificações
-       * conhecidas.
-       */
       detalhamentoTratamentoEspecifico:
         basePisCofins
-          .tratamentosEspecificos || {}
+          .tratamentosEspecificos || {},
+
+      /*
+       * Snapshot operacional completo para o Espelho:
+       * estabelecimento -> mercado -> atividade -> qualificações.
+       */
+      detalhamentoQualificado:
+        Array.isArray(basePisCofins.detalhamentoQualificado)
+          ? basePisCofins.detalhamentoQualificado
+          : [],
+
+      parcelasQualificadas:
+        Array.isArray(basePisCofins.parcelasQualificadas)
+          ? basePisCofins.parcelasQualificadas
+          : [],
     },
 
     pis: {
-      anteriormenteDeclarado:
+     anteriormenteDeclarado:
         deCentavos(
-          pisOriginalCentavos
+          pgdasCompetenciaCentavos.pis
         ),
 
-      novoValorApurado:
+     novoValorApurado:
         deCentavos(
-          pisConferidoCentavos
+          competenciaConferidaCentavos.pis
         )
     },
 
     cofins: {
-      anteriormenteDeclarado:
+     anteriormenteDeclarado:
         deCentavos(
-          cofinsOriginalCentavos
+          pgdasCompetenciaCentavos.cofins
         ),
 
-      novoValorApurado:
+            novoValorApurado:
         deCentavos(
-          cofinsConferidoCentavos
+          competenciaConferidaCentavos.cofins
         )
     },
 
@@ -402,7 +608,8 @@ function gerarResultadoRecuperacaoPisCofins({
     },
 
     prontoComoGuiaRetificacao:
-      true,
+      Array.isArray(basePisCofins.detalhamentoQualificado) &&
+      basePisCofins.detalhamentoQualificado.length > 0,
 
     retificacaoTransmitida:
       false
@@ -433,9 +640,9 @@ function gerarResultadoRecuperacaoPisCofins({
           receitaDeclaradaCentavos
         ),
 
-      consideradaNaApuracao:
+            consideradaNaApuracao:
         deCentavos(
-          receitaTotalCentavos
+          competenciaConferidaCentavos.receitaBruta
         ),
 
       integralmenteTributadaPisCofins:
@@ -454,38 +661,102 @@ function gerarResultadoRecuperacaoPisCofins({
      */
 
     valoresOriginais: {
-      pis:
-        deCentavos(
-          pisOriginalCentavos
-        ),
+  irpj:
+    deCentavos(
+      pgdasCompetenciaCentavos.irpj
+    ),
 
-      cofins:
-        deCentavos(
-          cofinsOriginalCentavos
-        ),
+  csll:
+    deCentavos(
+      pgdasCompetenciaCentavos.csll
+    ),
 
-      das:
-        comparacao.dasOriginal
-    },
+  pis:
+    deCentavos(
+      pgdasCompetenciaCentavos.pis
+    ),
+
+  cofins:
+    deCentavos(
+      pgdasCompetenciaCentavos.cofins
+    ),
+
+  cpp:
+    deCentavos(
+      pgdasCompetenciaCentavos.cpp
+    ),
+
+  icms:
+    deCentavos(
+      pgdasCompetenciaCentavos.icms
+    ),
+
+  ipi:
+    deCentavos(
+      pgdasCompetenciaCentavos.ipi
+    ),
+
+  iss:
+    deCentavos(
+      pgdasCompetenciaCentavos.iss
+    ),
+
+  das:
+    deCentavos(
+      pgdasCompetenciaCentavos.das
+    )
+},
 
     /*
      * NOVA APURAÇÃO
      */
 
-    valoresConferidos: {
-      pis:
-        deCentavos(
-          pisConferidoCentavos
-        ),
+valoresConferidos: {
+  irpj:
+    deCentavos(
+      competenciaConferidaCentavos.irpj
+    ),
 
-      cofins:
-        deCentavos(
-          cofinsConferidoCentavos
-        ),
+  csll:
+    deCentavos(
+      competenciaConferidaCentavos.csll
+    ),
 
-      das:
-        comparacao.dasConferido
-    },
+  pis:
+    deCentavos(
+      competenciaConferidaCentavos.pis
+    ),
+
+  cofins:
+    deCentavos(
+      competenciaConferidaCentavos.cofins
+    ),
+
+  cpp:
+    deCentavos(
+      competenciaConferidaCentavos.cpp
+    ),
+
+  icms:
+    deCentavos(
+      competenciaConferidaCentavos.icms
+    ),
+
+  ipi:
+    deCentavos(
+      competenciaConferidaCentavos.ipi
+    ),
+
+  iss:
+    deCentavos(
+      competenciaConferidaCentavos.iss
+    ),
+
+  das:
+    deCentavos(
+      competenciaConferidaCentavos.das
+    )
+},
 
     /*
      * CRÉDITO MONOFÁSICO

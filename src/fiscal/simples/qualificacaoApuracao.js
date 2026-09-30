@@ -6,6 +6,11 @@ function normalizarCnpjApuracao(valor) {
     : null
 }
 
+function raizCnpjApuracao(cnpj) {
+  const normalizado = normalizarCnpjApuracao(cnpj)
+  return normalizado ? normalizado.slice(0, 8) : null
+}
+
 function resolverEstabelecimentoDocumento({
   item,
   clienteCnpj,
@@ -14,9 +19,10 @@ function resolverEstabelecimentoDocumento({
 
   if (!cliente) {
     return {
-      status: "cliente_cnpj_invalido",
+      status: 'cliente_cnpj_invalido',
       estabelecimento: null,
       papel: null,
+      correspondencia: null,
     }
   }
 
@@ -33,32 +39,74 @@ function resolverEstabelecimentoDocumento({
 
   if (clienteEhEmitente && clienteEhDestinatario) {
     return {
-      status: "estabelecimento_ambiguo",
+      status: 'estabelecimento_ambiguo',
       estabelecimento: null,
       papel: null,
+      correspondencia: 'cnpj_exato',
     }
   }
 
   if (clienteEhEmitente) {
     return {
-      status: "ok",
-      estabelecimento: cliente,
-      papel: "emitente",
+      status: 'ok',
+      estabelecimento: emitente,
+      papel: 'emitente',
+      correspondencia: 'cnpj_exato',
     }
   }
 
   if (clienteEhDestinatario) {
     return {
-      status: "ok",
-      estabelecimento: cliente,
-      papel: "destinatario",
+      status: 'ok',
+      estabelecimento: destinatario,
+      papel: 'destinatario',
+      correspondencia: 'cnpj_exato',
+    }
+  }
+
+  /*
+   * Matriz/filial: se o cliente selecionado representa o mesmo grupo
+   * empresarial (mesma raiz de 8 dígitos), preservamos no movimento o
+   * CNPJ real do estabelecimento que aparece no documento.
+   */
+  const raizCliente = raizCnpjApuracao(cliente)
+  const emitenteMesmaRaiz =
+    Boolean(emitente) && raizCnpjApuracao(emitente) === raizCliente
+  const destinatarioMesmaRaiz =
+    Boolean(destinatario) && raizCnpjApuracao(destinatario) === raizCliente
+
+  if (emitenteMesmaRaiz && destinatarioMesmaRaiz) {
+    return {
+      status: 'estabelecimento_ambiguo',
+      estabelecimento: null,
+      papel: null,
+      correspondencia: 'raiz_cnpj',
+    }
+  }
+
+  if (emitenteMesmaRaiz) {
+    return {
+      status: 'ok',
+      estabelecimento: emitente,
+      papel: 'emitente',
+      correspondencia: 'raiz_cnpj',
+    }
+  }
+
+  if (destinatarioMesmaRaiz) {
+    return {
+      status: 'ok',
+      estabelecimento: destinatario,
+      papel: 'destinatario',
+      correspondencia: 'raiz_cnpj',
     }
   }
 
   return {
-    status: "estabelecimento_nao_identificado",
+    status: 'estabelecimento_nao_identificado',
     estabelecimento: null,
     papel: null,
+    correspondencia: null,
   }
 }
 
@@ -163,6 +211,7 @@ function qualificarItemApuracao({
   item,
   clienteCnpj,
   atividade,
+  naturezaAtividade,
   classificacaoPisCofins,
   alterarIcms = false,
   classificacaoIcmsInformada = null,
@@ -205,6 +254,10 @@ function qualificarItemApuracao({
   const atividadeNormalizada = String(
     atividade ?? ""
   ).trim()
+  
+  const naturezaAtividadeNormalizada = String(
+  naturezaAtividade ?? ""
+).trim()
 
   if (!atividadeNormalizada) {
     pendencias.push({
@@ -261,6 +314,9 @@ function qualificarItemApuracao({
 
           atividade:
             atividadeNormalizada,
+			
+		  naturezaAtividade:
+            naturezaAtividadeNormalizada || null,
 
           classificacaoPisCofins:
             pisCofins,
@@ -277,6 +333,8 @@ function qualificarItemApuracao({
       estabelecimento,
       mercado,
       atividade: atividadeNormalizada || null,
+	  naturezaAtividade:
+      naturezaAtividadeNormalizada || null,
       classificacaoPisCofins: pisCofins || null,
       icms,
       valor:
@@ -327,6 +385,9 @@ function qualificarItensApuracao({
 
       atividade:
         entrada?.qualificacao?.atividade,
+		
+	  naturezaAtividade:
+        entrada?.qualificacao?.naturezaAtividade,
 
       classificacaoPisCofins:
         entrada?.classificacao?.classificacao ||
@@ -377,6 +438,7 @@ function qualificarItensApuracao({
 
 export {
   normalizarCnpjApuracao,
+  raizCnpjApuracao,
   resolverEstabelecimentoDocumento,
   resolverMercadoDocumento,
   resolverClassificacaoIcmsApuracao,
