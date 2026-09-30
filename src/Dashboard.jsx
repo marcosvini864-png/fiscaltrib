@@ -1,6 +1,7 @@
 import Simuladores from './Simuladores'
 import PrazosFiscais from './PrazosFiscais'
 import { useState, useEffect, useRef } from 'react'
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { supabase } from './supabase'
 import Relatorio from './Relatorio'
 import ScoreFiscal from './ScoreFiscal'
@@ -459,14 +460,150 @@ function Sidebar({ sidebarAtiva, onNavigate, clientes, activeId, onChangeCliente
   )
 }
 
-function KpiCard({ icon, value, label, color }) {
+function MetricRing({ percent=0, color='#2563EB' }) {
+  const pct = Math.max(0, Math.min(100, Number(percent) || 0))
   return (
-    <div style={{background:C.white,borderRadius:12,padding:'16px 20px',border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:28,flexShrink:0}}>{icon}</div>
-      <div>
-        <div style={{fontSize:22,fontWeight:700,color,lineHeight:1}}>{value}</div>
-        <div style={{fontSize:11,color:C.muted,marginTop:4}}>{label}</div>
+    <div style={{
+      width:58,height:58,borderRadius:'50%',flexShrink:0,
+      background:'#FFFFFF',border:`3px solid ${color}`,
+      display:'grid',placeItems:'center'
+    }}>
+      <div style={{textAlign:'center',lineHeight:1}}>
+        <div style={{fontSize:14,fontWeight:900,color}}>{pct}%</div>
+        <div style={{fontSize:7.5,fontWeight:800,color:'#64748B',marginTop:4,letterSpacing:.45}}>ÍNDICE</div>
       </div>
+    </div>
+  )
+}
+
+function KpiCard({ icon, value, label, color, percent=0, subtitle='', onClick }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={()=>setHover(true)}
+      onMouseLeave={()=>setHover(false)}
+      style={{
+        width:'100%',textAlign:'left',position:'relative',overflow:'hidden',
+        background:'#FFFFFF',
+        borderRadius:18,padding:'16px 17px',border:'1px solid #E6EDF5',
+        boxShadow:hover?'0 10px 24px rgba(15,23,42,.07)':'0 6px 18px rgba(15,23,42,.045)',
+        display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,minWidth:0,
+        cursor:onClick?'pointer':'default',transform:hover&&onClick?'translateY(-1px)':'translateY(0)',
+        transition:'all .18s ease',fontFamily:'inherit'
+      }}
+    >
+      <div style={{display:'flex',alignItems:'center',gap:13,minWidth:0}}>
+        <div style={{width:40,height:40,borderRadius:'50%',display:'grid',placeItems:'center',fontSize:16,background:color,color:'#FFFFFF',flexShrink:0}}>{icon}</div>
+        <div style={{minWidth:0}}>
+          <div style={{fontSize:11,fontWeight:800,color:C.muted,letterSpacing:.25,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:22,fontWeight:900,color:C.text,lineHeight:1.05,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:-.3}}>{value}</div>
+          <div style={{fontSize:10.3,color:C.muted,marginTop:6,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{subtitle}</div>
+          {onClick && <div style={{fontSize:9.3,color:hover?C.blue:'#64748B',marginTop:7,fontWeight:800}}>Ver detalhes →</div>}
+        </div>
+      </div>
+      <MetricRing percent={percent} color={color} />
+    </button>
+  )
+}
+
+function ChartShell({ title, subtitle, icon, children, right, onClick, accent='#2563EB' }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onClick()}}}
+      role={onClick?'button':undefined}
+      tabIndex={onClick?0:undefined}
+      onMouseEnter={()=>setHover(true)}
+      onMouseLeave={()=>setHover(false)}
+      style={{
+        position:'relative',overflow:'hidden',
+        background:'linear-gradient(155deg,#FFFFFF 0%,#FBFDFF 100%)',
+        border:`1px solid ${hover&&onClick ? accent+'45' : '#E6EDF5'}`,borderRadius:20,padding:'17px',
+        boxShadow:hover&&onClick?`0 18px 42px ${accent}13`:'0 10px 28px rgba(15,23,42,.05)',minWidth:0,
+        cursor:onClick?'pointer':'default',transform:hover&&onClick?'translateY(-2px)':'none',transition:'all .2s ease'
+      }}
+    >
+      <div style={{position:'absolute',top:0,left:18,right:18,height:2,borderRadius:'0 0 8px 8px',background:`linear-gradient(90deg,transparent,${accent}40,transparent)`}} />
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,marginBottom:12}}>
+        <div style={{display:'flex',gap:10,minWidth:0}}>
+          <div style={{width:36,height:36,borderRadius:11,display:'grid',placeItems:'center',background:`${accent}10`,color:accent,fontSize:17,fontWeight:900,flexShrink:0,border:`1px solid ${accent}16`}}>{icon}</div>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:13.5,fontWeight:900,color:C.text,letterSpacing:-.1}}>{title}</div>
+            <div style={{fontSize:10.8,color:C.muted,marginTop:3}}>{subtitle}</div>
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:7}}>
+          {right}
+          {onClick && <span style={{fontSize:9.5,fontWeight:800,color:accent,background:`${accent}0C`,border:`1px solid ${accent}18`,padding:'5px 7px',borderRadius:8,whiteSpace:'nowrap'}}>Detalhes ↗</span>}
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function DashboardDetailModal({ detail, onClose, children }) {
+  useEffect(() => {
+    if (!detail) return
+    const fechar = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', fechar)
+    return () => window.removeEventListener('keydown', fechar)
+  }, [detail, onClose])
+  if (!detail) return null
+  const accent = detail.accent || '#2563EB'
+  return (
+    <div
+      onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}
+      style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(15,23,42,.48)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+    >
+      <div style={{width:'min(920px,96vw)',maxHeight:'88vh',overflow:'hidden',background:'#fff',borderRadius:24,border:'1px solid rgba(255,255,255,.55)',boxShadow:'0 32px 90px rgba(15,23,42,.28)',display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'20px 22px 17px',borderBottom:'1px solid #E8EEF5',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,background:`linear-gradient(135deg,${accent}0C,#FFFFFF 55%)`}}>
+          <div style={{display:'flex',gap:12,minWidth:0}}>
+            <div style={{width:46,height:46,borderRadius:15,display:'grid',placeItems:'center',background:`${accent}16`,color:accent,fontWeight:900,fontSize:20,border:`1px solid ${accent}20`}}>{detail.icon || '↗'}</div>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:18,fontWeight:900,color:C.text,letterSpacing:-.25}}>{detail.title}</div>
+              <div style={{fontSize:11.5,color:C.muted,marginTop:4}}>{detail.subtitle}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{width:36,height:36,borderRadius:11,border:'1px solid #E2E8F0',background:'#fff',color:'#64748B',fontSize:18,cursor:'pointer',fontWeight:700}}>×</button>
+        </div>
+        <div style={{padding:22,overflowY:'auto',background:'#FBFCFE'}}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function DetailMetric({ label, value, accent='#2563EB', helper='' }) {
+  return (
+    <div style={{background:'#fff',border:'1px solid #E6EDF5',borderRadius:16,padding:'15px 16px',boxShadow:'0 6px 18px rgba(15,23,42,.035)'}}>
+      <div style={{fontSize:10.5,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:.6}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:900,color:accent,marginTop:6,letterSpacing:-.35}}>{value}</div>
+      {helper && <div style={{fontSize:10.5,color:C.muted,marginTop:5}}>{helper}</div>}
+    </div>
+  )
+}
+
+function DonutLegend({ data, total, money=false }) {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:0}}>
+      {data.map(item => {
+        const pct = total > 0 ? Math.round((item.value / total) * 100) : 0
+        return (
+          <div key={item.name} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,fontSize:10.5}}>
+            <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:item.color,flexShrink:0}} />
+              <span style={{color:C.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'baseline',gap:5,whiteSpace:'nowrap'}}>
+              <strong style={{fontSize:10.5,color:C.text}}>{money ? fmtR(item.value) : item.value}</strong>
+              <span style={{color:C.muted,fontSize:9.5}}>{pct}%</span>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -516,6 +653,7 @@ function PaginaReforma() {
         {carregando&&<div style={{marginTop:16,background:C.bg,borderRadius:10,padding:'16px'}}><div style={{fontSize:13,color:C.muted}}>Consultando...</div></div>}
         {resposta&&!carregando&&<div style={{marginTop:16,background:'#F0FDF4',border:'1px solid #86efac',borderRadius:10,padding:'16px'}}><div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8,textTransform:'uppercase',letterSpacing:1}}>Resposta</div><div style={{fontSize:13,color:C.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{resposta}</div></div>}
       </div>
+
     </div>
   )
 }
@@ -543,6 +681,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const [cdaParaDiagnostico, setCdaParaDiagnostico] = useState(null)
   const [mostrarImportarCDA, setMostrarImportarCDA] = useState(false)
   const [apuracaoEspelho, setApuracaoEspelho] = useState(null)
+  const [espelhoVersaoInicial, setEspelhoVersaoInicial] = useState(null)
+  const [espelhoVersoesExternas, setEspelhoVersoesExternas] = useState(null)
+  const [espelhoModoConsulta, setEspelhoModoConsulta] = useState(false)
   const [cFolha,setCFolha]=useState(''); const [cRb,setCRb]=useState('')
   const [cRbt12,setCRbt12]=useState(''); const [cRmes,setCRmes]=useState('')
   const [cFat,setCFat]=useState(''); const [cMarg,setCMarg]=useState(''); const [cAtv,setCAtv]=useState('comercio')
@@ -551,6 +692,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const contentRef = useRef(null)
   const [clienteProntuario, setClienteProntuario] = useState(null)
   const [origemProntuario, setOrigemProntuario] = useState('clientes')
+  const [painelDetalhe, setPainelDetalhe] = useState(null)
 
   useEffect(() => {
   carregarClientes()
@@ -858,6 +1000,28 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     setSidebarAtiva(key + ':' + tab)
     if(key==='clientes') { setNovoCliente(null); setModoNovoCliente(null) }
   }
+
+  function abrirEspelhoDaApuracao(apuracao) {
+    setApuracaoEspelho(apuracao)
+    setEspelhoVersaoInicial(null)
+    setEspelhoVersoesExternas(null)
+    setEspelhoModoConsulta(false)
+  }
+
+  function abrirEspelhoDoHistorico({ apuracao, versaoInicial, versoesExternas }) {
+    setApuracaoEspelho(apuracao)
+    setEspelhoVersaoInicial(versaoInicial || null)
+    setEspelhoVersoesExternas(Array.isArray(versoesExternas) ? versoesExternas : null)
+    setEspelhoModoConsulta(true)
+  }
+
+  function fecharEspelho() {
+    setApuracaoEspelho(null)
+    setEspelhoVersaoInicial(null)
+    setEspelhoVersoesExternas(null)
+    setEspelhoModoConsulta(false)
+  }
+
   function handleTab(i) {
     setActiveTab(i)
     contentRef.current?.scrollTo(0, 0)
@@ -883,6 +1047,168 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const totalOpp   = clientes.reduce((s,c)=>(entradas[c.id]||[]).length+s,0)
   const hoje       = new Date()
   const criticos   = clientes.reduce((s,c)=>s+(entradas[c.id]||[]).filter(e=>{const[a,m]=(e.competencia||'').split('-');const lim=new Date(parseInt(a)+5,parseInt(m)-1,1);return(lim-hoje)/(1000*60*60*24*365)<=1&&e.credito>0}).length,0)
+  const todasEntradas = clientes.flatMap(c => entradas[c.id] || [])
+  const oportunidadesPositivas = todasEntradas.filter(e => Number(e.credito || 0) > 0).length
+  const clientesAnalisados = clientes.filter(c => (entradas[c.id] || []).length > 0).length
+  const clientesComPotencial = clientes.filter(c => (entradas[c.id] || []).some(e => Number(e.credito || 0) > 0)).length
+
+  const pctClientes = clientes.length ? Math.round((clientesAnalisados / clientes.length) * 100) : 0
+  const pctOportunidades = totalOpp ? Math.round((oportunidadesPositivas / totalOpp) * 100) : 0
+  const pctPotencial = clientes.length ? Math.round((clientesComPotencial / clientes.length) * 100) : 0
+  const pctCriticos = totalOpp ? Math.round((criticos / totalOpp) * 100) : 0
+
+  const regimeColors = {
+    'Simples Nacional':'#DC2626',
+    'Lucro Presumido':'#EF4444',
+    'Lucro Real':'#B91C1C',
+    'Outros':'#F87171',
+  }
+  const regimeCounts = clientes.reduce((acc,c) => {
+    const regime = c.regime || 'Outros'
+    acc[regime] = (acc[regime] || 0) + 1
+    return acc
+  }, {})
+  const regimeData = [
+    {name:'Simples Nacional',value:regimeCounts['Simples Nacional'] || 0,color:regimeColors['Simples Nacional']},
+    {name:'Lucro Presumido',value:regimeCounts['Lucro Presumido'] || 0,color:regimeColors['Lucro Presumido']},
+    {name:'Lucro Real',value:regimeCounts['Lucro Real'] || 0,color:regimeColors['Lucro Real']},
+    {name:'Outros',value:Object.entries(regimeCounts).filter(([k])=>!['Simples Nacional','Lucro Presumido','Lucro Real'].includes(k)).reduce((a,[,v])=>a+v,0),color:regimeColors.Outros},
+  ]
+  const regimeChartData = regimeData.some(x=>x.value>0) ? regimeData : [{name:'Sem clientes',value:1,color:'#FF0000'}]
+
+  const potencialCategorias = {
+    'PIS/COFINS': {value:0,color:'#EAB308'},
+    'ICMS': {value:0,color:'#FACC15'},
+    'IRPJ/CSLL': {value:0,color:'#FCD34D'},
+    'Outros': {value:0,color:'#FDE68A'},
+  }
+  todasEntradas.forEach(e => {
+    const trib = String(e.tributo || '').toUpperCase()
+    const valor = Number(e.credito || 0)
+    if (!valor) return
+    if (trib.includes('PIS') || trib.includes('COFINS')) potencialCategorias['PIS/COFINS'].value += valor
+    else if (trib.includes('ICMS')) potencialCategorias.ICMS.value += valor
+    else if (trib.includes('IRPJ') || trib.includes('CSLL')) potencialCategorias['IRPJ/CSLL'].value += valor
+    else potencialCategorias.Outros.value += valor
+  })
+  const potencialData = Object.entries(potencialCategorias).map(([name,v])=>({name,value:v.value,color:v.color}))
+  const potencialChartData = potencialData.some(x=>x.value>0) ? potencialData : [{name:'Sem potencial',value:1,color:'#009C3B'}]
+
+  const mesesEvolucao = Array.from({length:6},(_,i)=>{
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()-5+i, 1)
+    return {
+      key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      mes:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),
+      ano:String(d.getFullYear()).slice(-2),
+      clientes:0,
+    }
+  })
+  clientes.forEach(c=>{
+    const raw = c.created_at || c.data_cadastro || c.createdAt
+    if(!raw) return
+    const d = new Date(raw)
+    if(Number.isNaN(d.getTime())) return
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const alvo=mesesEvolucao.find(m=>m.key===key)
+    if(alvo) alvo.clientes += 1
+  })
+  const dataHoje = hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})
+  const oportunidadesCriticas = clientes.flatMap(c => (entradas[c.id] || []).map(e => ({...e, cliente:c}))).filter(e => {
+    const [a,m] = String(e.competencia || '').split('-')
+    if (!a || !m || Number(e.credito || 0) <= 0) return false
+    const lim = new Date(parseInt(a)+5, parseInt(m)-1, 1)
+    return Number.isFinite(lim.getTime()) && (lim-hoje)/(1000*60*60*24*365) <= 1
+  })
+  const clientesOrdenadosPotencial = clientes.map(c => {
+    const ee = entradas[c.id] || []
+    return {...c, qtdOportunidades:ee.length, qtdPositivas:ee.filter(e=>Number(e.credito||0)>0).length, potencial:ee.reduce((s,e)=>s+(Number(e.credito)||0),0)}
+  }).sort((a,b)=>b.potencial-a.potencial)
+
+  function renderPainelDetalhe() {
+    if (!painelDetalhe) return null
+    const tipo = painelDetalhe.tipo
+    const grid3 = {display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,minmax(0,1fr))',gap:12,marginBottom:18}
+    const th = {padding:'9px 10px',textAlign:'left',fontSize:9.5,fontWeight:900,color:C.muted,textTransform:'uppercase',letterSpacing:.5,borderBottom:'1px solid #E6EDF5',whiteSpace:'nowrap'}
+    const td = {padding:'10px',fontSize:11.5,color:C.text,borderBottom:'1px solid #EEF2F7',verticalAlign:'middle'}
+    const tableWrap = {background:'#fff',border:'1px solid #E6EDF5',borderRadius:16,overflow:'auto'}
+
+    if (tipo === 'clientes') return <>
+      <div style={grid3}>
+        <DetailMetric label="Clientes cadastrados" value={clientes.length} accent="#2563EB" />
+        <DetailMetric label="Com análise" value={clientesAnalisados} accent="#0EA5E9" helper={`${pctClientes}% da carteira`} />
+        <DetailMetric label="Com potencial" value={clientesComPotencial} accent="#10B981" helper={`${pctPotencial}% da carteira`} />
+      </div>
+      <div style={tableWrap}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Regime','Oportunidades','Potencial',''].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>
+        {clientesOrdenadosPotencial.map(c=><tr key={c.id}>
+          <td style={{...td,fontWeight:800}}>{c.razao_social}<div style={{fontSize:9.5,color:C.muted,marginTop:2}}>{c.cnpj}</div></td>
+          <td style={td}>{badge(c.regime)}</td><td style={td}>{c.qtdOportunidades}</td><td style={{...td,color:'#B45309',fontWeight:900}}>{fmtR(c.potencial)}</td>
+          <td style={td}><button onClick={()=>{setActiveId(c.id.toString());setPainelDetalhe(null);navigateTo('analise',0)}} style={{padding:'6px 9px',borderRadius:8,border:'1px solid #BFDBFE',background:'#EFF6FF',color:'#1D4ED8',fontSize:10.5,fontWeight:800,cursor:'pointer'}}>Analisar →</button></td>
+        </tr>)}
+      </tbody></table></div>
+    </>
+
+    if (tipo === 'oportunidades') return <>
+      <div style={grid3}>
+        <DetailMetric label="Mapeadas" value={totalOpp} accent="#F59E0B" />
+        <DetailMetric label="Com crédito" value={oportunidadesPositivas} accent="#10B981" helper={`${pctOportunidades}% das mapeadas`} />
+        <DetailMetric label="Críticas" value={criticos} accent="#F43F5E" />
+      </div>
+      <div style={tableWrap}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Competência','Tributo','Crédito','Risco'].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>
+        {clientes.flatMap(c=>(entradas[c.id]||[]).map(e=>({...e,cliente:c}))).slice(0,100).map((e,i)=><tr key={i}>
+          <td style={{...td,fontWeight:700}}>{e.cliente?.razao_social || '—'}</td><td style={td}>{e.competencia || '—'}</td><td style={td}>{e.tributo || '—'}</td><td style={{...td,color:Number(e.credito||0)>0?'#059669':C.muted,fontWeight:800}}>{fmtR(e.credito)}</td><td style={td}>{riskBadge(e.risco)}</td>
+        </tr>)}
+      </tbody></table></div>
+    </>
+
+    if (tipo === 'potencial') return <>
+      <div style={grid3}>
+        <DetailMetric label="Potencial total" value={fmtR(totalGeral)} accent="#10B981" />
+        <DetailMetric label="Clientes com potencial" value={clientesComPotencial} accent="#0EA5E9" />
+        <DetailMetric label="Oportunidades positivas" value={oportunidadesPositivas} accent="#8B5CF6" />
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14}}>
+        <div style={{...tableWrap,padding:16}}><div style={{fontSize:12.5,fontWeight:900,color:C.text,marginBottom:13}}>Por categoria tributária</div>{potencialData.map(x=>{
+          const pctv=totalGeral>0?Math.round(x.value/totalGeral*100):0
+          return <div key={x.name} style={{marginBottom:13}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:5}}><span style={{fontWeight:800,color:C.text}}>{x.name}</span><span style={{color:C.muted}}>{fmtR(x.value)} · {pctv}%</span></div><div style={{height:7,borderRadius:99,background:'#EEF2F7',overflow:'hidden'}}><div style={{height:'100%',width:`${pctv}%`,background:x.color,borderRadius:99}} /></div></div>
+        })}</div>
+        <div style={tableWrap}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Potencial'].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{clientesOrdenadosPotencial.slice(0,12).map(c=><tr key={c.id}><td style={{...td,fontWeight:700}}>{c.razao_social}</td><td style={{...td,color:'#059669',fontWeight:900}}>{fmtR(c.potencial)}</td></tr>)}</tbody></table></div>
+      </div>
+    </>
+
+    if (tipo === 'criticos') return <>
+      <div style={grid3}>
+        <DetailMetric label="Críticos" value={criticos} accent="#F43F5E" />
+        <DetailMetric label="Participação" value={`${pctCriticos}%`} accent="#F97316" helper="sobre as oportunidades mapeadas" />
+        <DetailMetric label="Potencial crítico" value={fmtR(oportunidadesCriticas.reduce((s,e)=>s+(Number(e.credito)||0),0))} accent="#DC2626" />
+      </div>
+      {oportunidadesCriticas.length===0 ? <div style={{padding:34,textAlign:'center',background:'#fff',border:'1px solid #E6EDF5',borderRadius:16,color:C.muted}}>Nenhuma oportunidade crítica no momento.</div> : <div style={tableWrap}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Competência','Tributo','Crédito','Risco'].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{oportunidadesCriticas.map((e,i)=><tr key={i}><td style={{...td,fontWeight:700}}>{e.cliente?.razao_social}</td><td style={td}>{e.competencia}</td><td style={td}>{e.tributo}</td><td style={{...td,color:'#DC2626',fontWeight:900}}>{fmtR(e.credito)}</td><td style={td}>{riskBadge(e.risco)}</td></tr>)}</tbody></table></div>}
+    </>
+
+    if (tipo === 'regimes') return <>
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)',gap:12,marginBottom:18}}>{regimeData.map(x=><DetailMetric key={x.name} label={x.name} value={x.value} accent={x.color} helper={clientes.length?`${Math.round(x.value/clientes.length*100)}% da base`:'0% da base'} />)}</div>
+      <div style={tableWrap}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Regime','CNPJ','Município/UF'].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{clientes.map(c=><tr key={c.id}><td style={{...td,fontWeight:800}}>{c.razao_social}</td><td style={td}>{badge(c.regime)}</td><td style={td}>{c.cnpj}</td><td style={td}>{[c.municipio,c.uf].filter(Boolean).join('/') || '—'}</td></tr>)}</tbody></table></div>
+    </>
+
+    if (tipo === 'evolucao') return <>
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(6,1fr)',gap:10,marginBottom:18}}>{mesesEvolucao.map(m=><DetailMetric key={m.key} label={`${m.mes}/${m.ano}`} value={m.clientes} accent="#3B82F6" />)}</div>
+      <div style={{background:'#fff',border:'1px solid #E6EDF5',borderRadius:18,padding:18,height:280}}><ResponsiveContainer width="100%" height="100%"><BarChart data={mesesEvolucao} margin={{top:10,right:12,left:-12,bottom:0}}><CartesianGrid stroke="#EEF2F7" vertical={false}/><XAxis dataKey="mes" tick={{fontSize:11,fill:'#64748B'}} axisLine={false} tickLine={false}/><YAxis allowDecimals={false} tick={{fontSize:10,fill:'#94A3B8'}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{borderRadius:12,border:'1px solid #E2E8F0'}}/><Bar dataKey="clientes" fill="#3B82F6" radius={[9,9,0,0]} maxBarSize={46}/></BarChart></ResponsiveContainer></div>
+    </>
+
+    if (tipo === 'cliente') {
+      const c = painelDetalhe.cliente
+      const ee = entradas[c?.id] || []
+      const pot = ee.reduce((s,e)=>s+(Number(e.credito)||0),0)
+      return <>
+        <div style={grid3}><DetailMetric label="Potencial" value={fmtR(pot)} accent="#10B981"/><DetailMetric label="Oportunidades" value={ee.length} accent="#F59E0B"/><DetailMetric label="Com crédito" value={ee.filter(e=>Number(e.credito||0)>0).length} accent="#2563EB"/></div>
+        <div style={{background:'#fff',border:'1px solid #E6EDF5',borderRadius:16,padding:17,marginBottom:14,display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(2,1fr)',gap:12,fontSize:11.5}}>
+          {[['Razão social',c?.razao_social],['CNPJ',c?.cnpj],['Regime',c?.regime],['Município / UF',[c?.municipio,c?.uf].filter(Boolean).join('/')],['CNAE principal',c?.cnae_principal],['Responsável contábil',c?.responsavel_contabil]].map(([lb,v])=><div key={lb}><div style={{fontSize:9.5,fontWeight:900,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>{lb}</div><div style={{fontWeight:700,color:C.text,marginTop:4}}>{v||'—'}</div></div>)}
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',flexWrap:'wrap'}}><button onClick={()=>{setActiveId(c.id.toString());setPainelDetalhe(null);navigateTo('clientes',0)}} style={btnOutline}>Abrir cadastro</button><button onClick={()=>{setActiveId(c.id.toString());setPainelDetalhe(null);navigateTo('analise',0)}} style={btnPrimary}>Abrir análise →</button></div>
+      </>
+    }
+    return null
+  }
+
   const docs       = REGIME_DOCS[active?.regime]||[]
   const checks     = checklist[activeId]||docs.map(()=>false)
   const done       = checks.filter(Boolean).length
@@ -960,61 +1286,74 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           <div ref={contentRef} style={{flex:1,overflowY:'auto',overflowX:'hidden',padding,background:C.bg,minWidth:0}}>
 
             {module==='painel' && <>
-              <div style={{marginBottom:16}}>
-                <div style={{fontSize:isMobile?18:22,fontWeight:700,color:C.text}}>Painel Geral</div>
-                <div style={{fontSize:12,color:C.muted,marginTop:2}}>Visao consolidada dos casos em andamento.</div>
-              </div>
-              <div style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:8,padding:'10px 14px',marginBottom:16,fontSize:12,color:'#92400E'}}>
-                <strong>Aviso:</strong> Analise preliminar — nao dispensa revisao profissional.
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)',gap:12,marginBottom:20}}>
-                <KpiCard icon="👥" value={clientes.length}  label="Clientes"      color={C.blue} />
-                <KpiCard icon="🎯" value={totalOpp}         label="Oportunidades" color={C.blue} />
-                <KpiCard icon="💰" value={fmtR(totalGeral)} label="Potencial"     color={C.green} />
-                <KpiCard icon="⚠️" value={criticos}         label="Criticos"      color={C.red} />
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12,marginBottom:20}}>
-                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+              <div style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#FFFFFF 0%,#FBFDFF 70%,#F8FBFF 100%)',border:'1px solid #E6EDF5',borderRadius:22,padding:isMobile?'17px':'18px 20px',marginBottom:14,boxShadow:'0 12px 34px rgba(15,23,42,.05)'}}>
+                <div style={{position:'absolute',width:260,height:260,borderRadius:'50%',background:'radial-gradient(circle,rgba(37,99,235,.05),transparent 68%)',right:-70,top:-120,pointerEvents:'none'}} />
+                <div style={{position:'absolute',width:220,height:220,borderRadius:'50%',background:'radial-gradient(circle,rgba(16,185,129,.04),transparent 68%)',right:150,bottom:-170,pointerEvents:'none'}} />
+                <div style={{position:'relative',display:'flex',alignItems:isMobile?'flex-start':'center',justifyContent:'space-between',gap:14,flexDirection:isMobile?'column':'row'}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>CRM Comercial</div>
-                    <div style={{fontSize:12,color:C.muted}}>Cockpit comercial e Kanban.</div>
+                    <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'5px 9px',borderRadius:999,background:'#EFF6FF',border:'1px solid #DBEAFE',fontSize:9.5,fontWeight:900,color:'#2563EB',letterSpacing:.6,textTransform:'uppercase',marginBottom:8}}><span style={{width:6,height:6,borderRadius:'50%',background:'#10B981',boxShadow:'0 0 0 4px rgba(16,185,129,.10)'}}/>FiscalTribe Intelligence</div>
+                    <div style={{fontSize:isMobile?21:28,fontWeight:900,color:C.text,letterSpacing:-.65}}>Painel Geral</div>
+                    <div style={{fontSize:12.5,color:C.muted,marginTop:4}}>Visão executiva da carteira, oportunidades e potencial de recuperação.</div>
                   </div>
-                  <button onClick={()=>navigateTo('prospeccao')} style={{...btnOutline,padding:'6px 12px',fontSize:12,whiteSpace:'nowrap'}}>Abrir</button>
-                </div>
-                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>Comunicação</div>
-                    <div style={{fontSize:12,color:C.muted}}>Templates para WhatsApp.</div>
-                  </div>
-                  <button onClick={()=>navigateTo('mensagens')} style={{...btnOutline,padding:'6px 12px',fontSize:12,whiteSpace:'nowrap'}}>Abrir</button>
+                  {!isMobile && (
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,.86)',border:'1px solid #E6EDF5',borderRadius:13,padding:'9px 11px',boxShadow:'0 6px 18px rgba(15,23,42,.04)'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#10B981',boxShadow:'0 0 0 4px rgba(16,185,129,.10)'}}/><div><div style={{fontSize:9.5,fontWeight:900,color:C.text}}>Dados sincronizados</div><div style={{fontSize:9,color:C.muted,marginTop:1}}>Base conectada · Supabase</div></div></div>
+                      <div style={{display:'flex',alignItems:'center',gap:9,background:'rgba(255,255,255,.86)',border:'1px solid #E6EDF5',borderRadius:13,padding:'9px 12px',boxShadow:'0 6px 18px rgba(15,23,42,.04)'}}><span style={{fontSize:15,color:'#2563EB'}}>▣</span><div><div style={{fontSize:10,fontWeight:800,color:C.text,textTransform:'capitalize'}}>{dataHoje}</div><div style={{fontSize:9,color:C.muted,marginTop:1}}>Bem-vindo de volta!</div></div></div>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              <div style={{background:'#FFFBEB',border:'1px solid #FDE68A',borderRadius:13,padding:'10px 14px',marginBottom:14,fontSize:11.5,color:'#9A3412',display:'flex',alignItems:'center',gap:9,boxShadow:'0 4px 14px rgba(15,23,42,.03)'}}>
+                <span style={{width:25,height:25,borderRadius:8,display:'grid',placeItems:'center',background:'#FDE68A',color:'#B45309',fontWeight:900}}>!</span>
+                <span><strong>Aviso:</strong> Análise preliminar — não dispensa revisão profissional.</span>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(4,minmax(0,1fr))',gap:12,marginBottom:14}}>
+                <KpiCard icon={<span style={{fontSize:18,fontWeight:900}}>◎</span>} value={clientes.length} label="Clientes" color="#16A34A" percent={pctClientes} subtitle="Carteira cadastrada" onClick={()=>setPainelDetalhe({tipo:'clientes',title:'Clientes da carteira',subtitle:'Visão detalhada dos clientes, análises e potencial.',accent:'#16A34A',icon:'◎'})} />
+                <KpiCard icon={<span style={{fontSize:18,fontWeight:900}}>↗</span>} value={totalOpp} label="Oportunidades" color="#F97316" percent={pctOportunidades} subtitle="Mapeamentos identificados" onClick={()=>setPainelDetalhe({tipo:'oportunidades',title:'Oportunidades mapeadas',subtitle:'Detalhamento das oportunidades identificadas na carteira.',accent:'#F97316',icon:'↗'})} />
+                <KpiCard icon={<span style={{fontSize:15,fontWeight:900}}>R$</span>} value={fmtR(totalGeral)} label="Potencial" color="#EAB308" percent={pctPotencial} subtitle="Valor potencial estimado" onClick={()=>setPainelDetalhe({tipo:'potencial',title:'Potencial de recuperação',subtitle:'Composição do valor estimado por categoria e cliente.',accent:'#EAB308',icon:'R$'})} />
+                <KpiCard icon={<span style={{fontSize:20,fontWeight:900}}>!</span>} value={criticos} label="Críticos" color="#DC2626" percent={pctCriticos} subtitle="Oportunidades próximas do prazo" onClick={()=>setPainelDetalhe({tipo:'criticos',title:'Oportunidades críticas',subtitle:'Itens com crédito e prazo de recuperação mais sensível.',accent:'#DC2626',icon:'!'})} />
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'minmax(0,1fr) minmax(0,1fr) minmax(0,1.12fr)',gap:12,marginBottom:14}}>
+                <ChartShell title="Distribuição da Base de Clientes" subtitle="Composição por regime tributário" icon="◔" accent="#EF4444" onClick={()=>setPainelDetalhe({tipo:'regimes',title:'Distribuição da base de clientes',subtitle:'Detalhamento da carteira por regime tributário.',accent:'#EF4444',icon:'◔'})}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'145px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
+                    <div style={{height:165,position:'relative'}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart><Pie data={regimeChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={72} paddingAngle={2} cornerRadius={6} stroke="none">{regimeChartData.map((entry,i)=><Cell key={i} fill={entry.color} />)}</Pie><Tooltip formatter={(v,n)=>[v,n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} /></PieChart>
+                      </ResponsiveContainer>
+                      <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}}><div style={{textAlign:'center'}}><div style={{fontSize:25,fontWeight:900,color:C.text,lineHeight:1}}>{clientes.length}</div><div style={{fontSize:9.5,color:C.muted,marginTop:5,fontWeight:700}}>CLIENTES</div></div></div>
+                    </div>
+                    <DonutLegend data={regimeData} total={clientes.length} />
+                  </div>
+                </ChartShell>
+
+                <ChartShell title="Potencial de Recuperação" subtitle="Estimativa por categoria tributária" icon="◕" accent="#16A34A" onClick={()=>setPainelDetalhe({tipo:'potencial',title:'Potencial de recuperação',subtitle:'Composição do valor estimado por categoria e cliente.',accent:'#EAB308',icon:'R$'})}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'145px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
+                    <div style={{height:165,position:'relative'}}><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={potencialChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={72} paddingAngle={2} cornerRadius={6} stroke="none">{potencialChartData.map((entry,i)=><Cell key={i} fill={entry.color} />)}</Pie><Tooltip formatter={(v,n)=>[fmtR(v),n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} /></PieChart></ResponsiveContainer><div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}}><div style={{textAlign:'center',maxWidth:100}}><div style={{fontSize:13,fontWeight:900,color:'#059669',lineHeight:1.2}}>{fmtR(totalGeral)}</div><div style={{fontSize:9.5,color:C.muted,marginTop:5,fontWeight:700}}>POTENCIAL</div></div></div></div>
+                    <DonutLegend data={potencialData} total={totalGeral} money />
+                  </div>
+                </ChartShell>
+
+                <ChartShell title="Evolução de Clientes" subtitle="Cadastros nos últimos 6 meses" icon="▥" accent="#3B82F6" onClick={()=>setPainelDetalhe({tipo:'evolucao',title:'Evolução de clientes',subtitle:'Cadastros realizados nos últimos seis meses.',accent:'#3B82F6',icon:'▥'})} right={<span style={{fontSize:9.5,color:C.muted,background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 7px'}}>6 meses</span>}>
+                  <div style={{height:190,width:'100%'}}><ResponsiveContainer width="100%" height="100%"><BarChart data={mesesEvolucao} margin={{top:10,right:3,left:-23,bottom:0}}><CartesianGrid stroke="#EEF2F7" vertical={false} /><XAxis dataKey="mes" tick={{fontSize:10,fill:'#94A3B8',fontWeight:600}} axisLine={false} tickLine={false} /><YAxis allowDecimals={false} tick={{fontSize:9.5,fill:'#94A3B8'}} axisLine={false} tickLine={false} /><Tooltip cursor={{fill:'#F8FAFC'}} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} formatter={(v)=>[v,'Clientes']} /><Bar dataKey="clientes" radius={[8,8,2,2]} maxBarSize={30}>{mesesEvolucao.map((_,i)=><Cell key={i} fill={i===mesesEvolucao.length-1?'#F97316':'#3B82F6'} />)}</Bar></BarChart></ResponsiveContainer></div>
+                </ChartShell>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:12,marginBottom:14}}>
+                <div onClick={()=>navigateTo('prospeccao')} style={{background:'#FFFFFF',border:'1px solid #E6EDF5',borderRadius:18,padding:'15px 17px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,boxShadow:'0 8px 22px rgba(15,23,42,.04)',cursor:'pointer'}}><div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}><div style={{width:42,height:42,borderRadius:13,display:'grid',placeItems:'center',background:'#FFF7ED',color:'#EA580C',fontSize:19,fontWeight:900,border:'1px solid #FFEDD5'}}>↗</div><div><div style={{fontSize:13.5,fontWeight:900,color:C.text}}>CRM Comercial</div><div style={{fontSize:10.8,color:C.muted,marginTop:3}}>Cockpit comercial e Kanban.</div></div></div><span style={{padding:'7px 11px',borderRadius:9,background:'#F8FAFC',border:'1px solid #E2E8F0',color:C.text,fontSize:10.5,fontWeight:800}}>Abrir →</span></div>
+                <div onClick={()=>navigateTo('mensagens')} style={{background:'#FFFFFF',border:'1px solid #E6EDF5',borderRadius:18,padding:'15px 17px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,boxShadow:'0 8px 22px rgba(15,23,42,.04)',cursor:'pointer'}}><div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}><div style={{width:42,height:42,borderRadius:13,display:'grid',placeItems:'center',background:'#EFF6FF',color:'#1D4ED8',fontSize:18,fontWeight:900,border:'1px solid #DBEAFE'}}>•••</div><div><div style={{fontSize:13.5,fontWeight:900,color:C.text}}>Comunicação</div><div style={{fontSize:10.8,color:C.muted,marginTop:3}}>Templates e ações para WhatsApp.</div></div></div><span style={{padding:'7px 11px',borderRadius:9,background:'#F8FAFC',border:'1px solid #E2E8F0',color:C.text,fontSize:10.5,fontWeight:800}}>Abrir →</span></div>
+              </div>
+
               {clientes.length===0 ? (
-                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:32,textAlign:'center'}}>
-                  <div style={{fontSize:36,marginBottom:12}}>👥</div>
-                  <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum cliente ainda</div>
-                  <button onClick={()=>navigateTo('clientes',1)} style={btnPrimary}>+ Cadastrar primeiro cliente</button>
-                </div>
+                <div style={{background:C.white,borderRadius:18,border:'1px solid #E6EDF5',padding:36,textAlign:'center',boxShadow:'0 10px 28px rgba(15,23,42,.04)'}}><div style={{fontSize:15,fontWeight:800,color:C.text,marginBottom:8}}>Nenhum cliente ainda</div><button onClick={()=>navigateTo('clientes',1)} style={btnPrimary}>+ Cadastrar primeiro cliente</button></div>
               ) : (
-                <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden'}}>
-                  <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <span style={{fontSize:14,fontWeight:600,color:C.text}}>Clientes</span>
-                    <button onClick={()=>navigateTo('clientes',0)} style={{...btnOutline,padding:'5px 12px',fontSize:12}}>Ver todos</button>
-                  </div>
-                  <div style={{overflowX:'auto'}}>
-                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                      <thead><tr style={{background:C.bg}}>{['Razao Social','CNPJ','Regime','Potencial',''].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
-                      <tbody>{clientes.map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(e.credito||0),0);return(
-                        <tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
-                          <td style={{padding:'10px 12px',fontWeight:600,color:C.text,whiteSpace:'nowrap'}}>{c.razao_social}</td>
-                          <td style={{padding:'10px 12px',color:C.muted,fontSize:11,whiteSpace:'nowrap'}}>{c.cnpj}</td>
-                          <td style={{padding:'10px 12px'}}>{badge(c.regime)}</td>
-                          <td style={{padding:'10px 12px',color:C.green,fontWeight:600,whiteSpace:'nowrap'}}>{fmtR(tot)}</td>
-                          <td style={{padding:'10px 12px'}}><button onClick={()=>{setActiveId(c.id.toString());navigateTo('analise',0)}} style={{...btnOutline,padding:'4px 10px',fontSize:11}}>Analisar</button></td>
-                        </tr>
-                      )})}</tbody>
-                    </table>
-                  </div>
+                <div style={{background:C.white,borderRadius:20,border:'1px solid #E6EDF5',overflow:'hidden',boxShadow:'0 10px 28px rgba(15,23,42,.045)'}}>
+                  <div style={{padding:'14px 16px',borderBottom:'1px solid #E6EDF5',display:'flex',alignItems:'center',justifyContent:'space-between',background:'linear-gradient(180deg,#FFFFFF,#FCFDFE)'}}><div><div style={{fontSize:13.5,fontWeight:900,color:C.text}}>Clientes</div><div style={{fontSize:9.8,color:C.muted,marginTop:2}}>Clique em uma linha para abrir o resumo do cliente.</div></div><button onClick={()=>navigateTo('clientes',0)} style={{background:'#EFF6FF',border:'1px solid #DBEAFE',color:C.blue,fontSize:10.5,fontWeight:800,cursor:'pointer',padding:'6px 9px',borderRadius:8}}>Ver todos →</button></div>
+                  <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:11.5}}><thead><tr style={{background:'#F8FAFC'}}>{['Razão Social','CNPJ','Regime','Potencial','Ações'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:9.5,fontWeight:900,color:C.muted,borderBottom:'1px solid #E6EDF5',textTransform:'uppercase',letterSpacing:.6,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead><tbody>{clientes.slice(0,6).map(c=>{const ee=entradas[c.id]||[];const tot=ee.reduce((s,e)=>s+(Number(e.credito)||0),0);return(
+                    <tr key={c.id} onClick={()=>setPainelDetalhe({tipo:'cliente',cliente:c,title:c.razao_social,subtitle:'Resumo cadastral e tributário do cliente.',accent:'#16A34A',icon:'◎'})} style={{borderBottom:'1px solid #EEF2F7',cursor:'pointer'}}><td style={{padding:'12px',fontWeight:800,color:C.text,whiteSpace:'nowrap'}}>{c.razao_social}<div style={{fontSize:9.5,color:C.muted,fontWeight:500,marginTop:3}}>Clique para detalhar</div></td><td style={{padding:'12px',color:C.muted,fontSize:10.5,whiteSpace:'nowrap'}}>{c.cnpj}</td><td style={{padding:'12px'}}>{badge(c.regime)}</td><td style={{padding:'12px',color:'#059669',fontWeight:900,whiteSpace:'nowrap'}}>{fmtR(tot)}</td><td style={{padding:'12px'}}><button onClick={e=>{e.stopPropagation();setActiveId(c.id.toString());navigateTo('analise',0)}} style={{padding:'6px 10px',fontSize:10.5,borderRadius:8,border:'1px solid #BFDBFE',background:'#EFF6FF',color:'#1D4ED8',fontWeight:900,cursor:'pointer'}}>Analisar →</button></td></tr>
+                  )})}</tbody></table></div>
                 </div>
               )}
             </>}
@@ -1245,11 +1584,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             apuracaoEspelho ? (
             <EspelhoRetificacaoPGDAS
             apuracao={apuracaoEspelho}
-            onVoltar={() => setApuracaoEspelho(null)}
+            onVoltar={fecharEspelho}
+            versaoInicial={espelhoVersaoInicial}
+            versoesExternas={espelhoVersoesExternas}
+            modoConsulta={espelhoModoConsulta}
             />
             ) : (
             <ApuracaoSimples
-            onGerarEspelho={setApuracaoEspelho}
+            onGerarEspelho={abrirEspelhoDaApuracao}
+            onAbrirEspelhoHistorico={abrirEspelhoDoHistorico}
             />
             )
             )}
@@ -1375,6 +1718,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           </div>
         </div>
       </div>
+
+      <DashboardDetailModal detail={painelDetalhe} onClose={()=>setPainelDetalhe(null)}>
+        {renderPainelDetalhe()}
+      </DashboardDetailModal>
     </div>
   )
 }
