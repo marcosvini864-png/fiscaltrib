@@ -48,7 +48,7 @@ export default function App() {
     localStorage.removeItem('fiscaltrib_module')  // ← adiciona esta linha
 
     if (user.email === ADMIN_EMAIL) {
-    setTela(prev => prev === 'login' || prev === '' ? 'admin' : prev)
+    setTela(prev => prev === 'login' || prev === '' ? 'dashboard' : prev)
     return
 }
 
