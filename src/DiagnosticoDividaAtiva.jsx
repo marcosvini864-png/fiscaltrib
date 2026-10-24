@@ -14,6 +14,11 @@ const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFraction
 const fmtData = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada'
 const diasEntre = (d1,d2) => d1&&d2 ? Math.floor((new Date(d2+'T00:00:00')-new Date(d1+'T00:00:00'))/(1000*60*60*24)) : null
 const addAnos = (d,anos) => { if(!d) return null; const dt=new Date(d+'T00:00:00'); dt.setFullYear(dt.getFullYear()+anos); return dt.toISOString().slice(0,10) }
+const primeiroDiaExercicioSeguinte = d => {
+  if(!d) return null
+  const dt = new Date(d+'T00:00:00')
+  return `${dt.getFullYear()+1}-01-01`
+}
 const hoje = new Date().toISOString().slice(0,10)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-BR') : '—'
 const parseValor = v => {
@@ -21,6 +26,31 @@ const parseValor = v => {
   if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0
   if (s.includes(',')) return parseFloat(s.replace(',','.')) || 0
   return parseFloat(s) || 0
+}
+
+
+function JusticeScaleIcon({ size = 34, stroke = '#0B1F4D', accent = '#C99718' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path d="M32 9V52" stroke={stroke} strokeWidth="3.4" strokeLinecap="round"/>
+      <path d="M20 14H44" stroke={stroke} strokeWidth="3.4" strokeLinecap="round"/>
+      <path d="M32 8L28.5 14H35.5L32 8Z" fill={accent}/>
+      <path d="M16 18L8 34H24L16 18Z" stroke={stroke} strokeWidth="2.6" strokeLinejoin="round"/>
+      <path d="M48 18L40 34H56L48 18Z" stroke={stroke} strokeWidth="2.6" strokeLinejoin="round"/>
+      <path d="M8 34C9.3 39.3 12 42 16 42C20 42 22.7 39.3 24 34" stroke={accent} strokeWidth="2.8" strokeLinecap="round"/>
+      <path d="M40 34C41.3 39.3 44 42 48 42C52 42 54.7 39.3 56 34" stroke={accent} strokeWidth="2.8" strokeLinecap="round"/>
+      <path d="M16 18L32 14L48 18" stroke={stroke} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M22 52H42" stroke={stroke} strokeWidth="3.4" strokeLinecap="round"/>
+      <path d="M26 47H38" stroke={stroke} strokeWidth="3.4" strokeLinecap="round"/>
+    </svg>
+  )
 }
 
 function converterDataBR(d) {
@@ -95,21 +125,38 @@ const SISPAR_GHOST = Array(5).fill(null).map((_, i) => ({
   valor_parcela: 0,
 }))
 
-function migrarCDA(cda) {
-  let migrada = cda
-  if (!('numero_cda' in migrada)) migrada = { ...migrada, numero_cda: '' }
-
-  if (migrada.inscricoes && migrada.inscricoes.length>0 && 'tipo_credito' in (migrada.inscricoes[0]||{})) return migrada
-  const tipoPadrao = migrada.tipo_credito || 'tributario_federal'
-  if (migrada.inscricoes) {
-    return { ...migrada, inscricoes: migrada.inscricoes.map(ins=>({...ins, tipo_credito: ins.tipo_credito||tipoPadrao})) }
-  }
-  if (migrada.numeros) {
-    return { ...migrada, inscricoes: migrada.numeros.map(n=>({numero:n,valor:'',tipo_credito:tipoPadrao})) }
-  }
-  const { numero } = migrada
-  return { ...migrada, inscricoes: [{numero: numero||'', valor:'', tipo_credito:tipoPadrao}] }
+function normalizarInscricao(ins={}, cda={}) {
+  const tipoPadrao = ins.tipo_credito || cda.tipo_credito || 'tributario_federal'
+  return novaInscricao({
+    ...ins,
+    numero: ins.numero || '',
+    valor: ins.valor ?? ins.valor_total ?? '',
+    tipo_credito: tipoPadrao,
+    periodo_inicio: ins.periodo_inicio || ins.periodo_divida_inicio || '',
+    periodo_fim: ins.periodo_fim || ins.periodo_divida_fim || '',
+    data_fato_gerador: normalizarData(ins.data_fato_gerador) || '',
+    data_vencimento: normalizarData(ins.data_vencimento || ins.data_vencimento_original) || '',
+    data_constituicao: normalizarData(ins.data_constituicao || ins.data_constituicao_definitiva) || '',
+    data_inscricao: normalizarData(ins.data_inscricao) || '',
+    modalidade_lancamento: ins.modalidade_lancamento || '',
+  })
 }
+
+function migrarCDA(cda) {
+  let migrada = { ...(cda || {}) }
+  if (!('numero_cda' in migrada)) migrada.numero_cda = ''
+
+  const tipoPadrao = migrada.tipo_credito || 'tributario_federal'
+  let origem = []
+  if (Array.isArray(migrada.inscricoes_json) && migrada.inscricoes_json.length) origem = migrada.inscricoes_json
+  else if (Array.isArray(migrada.inscricoes) && migrada.inscricoes.length) origem = migrada.inscricoes
+  else if (Array.isArray(migrada.numeros) && migrada.numeros.length) origem = migrada.numeros.map(n=>({numero:n,tipo_credito:tipoPadrao}))
+  else origem = [{ numero:migrada.numero || migrada.numero_cda || '', valor:migrada.valor_total || '', tipo_credito:tipoPadrao }]
+
+  migrada.inscricoes = origem.map(ins=>normalizarInscricao(ins, migrada))
+  return migrada
+}
+
 function migrarListaCDAs(lista) {
   if (!lista || lista.length===0) return [{...CDA_VAZIA}]
   return lista.map(migrarCDA)
@@ -131,7 +178,7 @@ const TIPOS_CREDITO = [
 ]
 
 const TESES_POR_TIPO = {
-  tributario_federal: ['Decadência (art. 173 ou 150 CTN)','Prescrição (art. 174 CTN)','Prescrição intercorrente (art. 40 Lei 6.830)','Nulidade da CDA (art. 202 CTN)','Juros SELIC inconstitucionais (RE 1.346.152)','Multa confiscatória (art. 150, IV CF)'],
+  tributario_federal: ['Decadência (art. 173 ou 150 CTN)','Prescrição (art. 174 CTN)','Prescrição intercorrente (art. 40 Lei 6.830)','Nulidade da CDA (arts. 202 e 203 CTN)','Juros SELIC inconstitucionais (RE 1.346.152)','Multa confiscatória (art. 150, IV CF)'],
   previdenciario:     ['Decadência (art. 173 CTN)','Prescrição (art. 174 CTN)','Lançamento de ofício — prazo especial','Contribuições sobre verbas indenizatórias','Nulidade da CDA por ausência de fundamentação'],
   fgts:               ['Prescrição trintenária vs. quinquenal (RE 709.212 STF)','Prescrição de atos anteriores a 13/11/2014','Nulidade da CDA por vício formal','Multa mora — limitação legal'],
   simples_nacional:   ['Decadência (LC 123/2006 + CTN)','Prescrição (art. 174 CTN)','Segregação de receitas — cálculo incorreto','Fator R — enquadramento indevido','Substituição tributária — recolhimento em duplicidade'],
@@ -145,15 +192,100 @@ const TESES_POR_TIPO = {
   outro:              ['Prescrição aplicável','Nulidade formal','Proporcionalidade','Liquidez e certeza do crédito'],
 }
 
+const INSCRICAO_VAZIA = {
+  numero:'',
+  valor:'',
+  tipo_credito:'tributario_federal',
+  periodo_inicio:'',
+  periodo_fim:'',
+  data_fato_gerador:'',
+  data_vencimento:'',
+  data_constituicao:'',
+  data_inscricao:'',
+  valor_originario:'',
+  principal_atualizado:'',
+  juros:'',
+  multa:'',
+  encargo_legal:'',
+  fundamento_legal:'',
+  modalidade_lancamento:'',
+}
+
+function novaInscricao(base={}) {
+  return { ...INSCRICAO_VAZIA, ...base }
+}
+
 const CDA_VAZIA = {
   numero_cda:'',
-  inscricoes:[{numero:'',valor:'',tipo_credito:'tributario_federal'}],
+  inscricoes:[novaInscricao()],
   situacao:'Ativa',
   modalidade_lancamento:'oficio',
   data_fato_gerador:'', data_constituicao:'', data_inscricao:'',
-  data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'',
+  data_ajuizamento:'', data_despacho_citacao:'', data_citacao:'',
+  data_ciencia_fazenda_nao_localizacao:'', data_ultima_movimentacao:'',
   possui_parcelamento:false, possui_suspensao:false, possui_garantia:false,
   possui_penhora:false, possui_embargos:false,
+  possui_execucao_fiscal:false,
+  numero_processo_execucao:'', trf_regiao:'', vara_execucao:'',
+}
+
+function chaveProcesso(cda={}) {
+  return String(cda.numero_processo_execucao || cda.processo_execucao || '').trim()
+}
+
+// Eventos do processo são compartilhados entre as CDAs vinculadas ao mesmo número judicial.
+// Não propagamos automaticamente fatos próprios do crédito (parcelamento, garantia, suspensão etc.).
+function consolidarDadosProcessuais(lista=[]) {
+  const grupos = new Map()
+  const camposCompartilhados = ['data_ajuizamento','data_despacho_citacao','data_citacao','data_ciencia_fazenda_nao_localizacao','data_ultima_movimentacao','trf_regiao','vara_execucao']
+
+  ;(lista || []).forEach(cda => {
+    const processo = chaveProcesso(cda)
+    if (!processo) return
+    if (!grupos.has(processo)) grupos.set(processo, {})
+    const comum = grupos.get(processo)
+    camposCompartilhados.forEach(campo => {
+      if (!comum[campo] && cda?.[campo]) comum[campo] = cda[campo]
+    })
+  })
+
+  return (lista || []).map(cda => {
+    const processo = chaveProcesso(cda)
+    if (!processo) return cda
+    const comum = grupos.get(processo) || {}
+    const atualizada = {
+      ...cda,
+      numero_processo_execucao: processo,
+      possui_execucao_fiscal: true,
+    }
+    camposCompartilhados.forEach(campo => {
+      if (!atualizada[campo] && comum[campo]) atualizada[campo] = comum[campo]
+    })
+    return atualizada
+  })
+}
+
+function agruparCdasPorProcesso(lista=[]) {
+  const consolidadas = consolidarDadosProcessuais(lista)
+  const mapa = new Map()
+  consolidadas.forEach((cda, indice) => {
+    const processo = chaveProcesso(cda)
+    const key = processo || `__sem_processo_${indice}`
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        key, processo, semProcesso:!processo, cdas:[], valor:0, inscricoes:0,
+        data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'', trf_regiao:'', vara_execucao:''
+      })
+    }
+    const grupo = mapa.get(key)
+    grupo.cdas.push(cda)
+    grupo.valor += totalInscricoes(cda)
+    grupo.inscricoes += (cda.inscricoes || []).length
+    ;['data_ajuizamento','data_citacao','data_ultima_movimentacao','trf_regiao','vara_execucao'].forEach(campo => {
+      if (!grupo[campo] && cda?.[campo]) grupo[campo] = cda[campo]
+    })
+  })
+  return Array.from(mapa.values())
 }
 
 const MODALIDADES_PGFN = [
@@ -163,6 +295,57 @@ const MODALIDADES_PGFN = [
   { key:'prdi',                  label:'PRDI',                        desconto_multa:[50,70],  desconto_juros:[50,70],  entrada_min:0,  parcelas_max:84, elegibilidade:'Empresa em recuperação judicial.' },
   { key:'parcelamento_ordinario',label:'Parcelamento Ordinário',      desconto_multa:[0,0],    desconto_juros:[0,0],    entrada_min:0,  parcelas_max:60, elegibilidade:'Qualquer contribuinte com dívida inscrita.' },
   { key:'njp',                   label:'Negócio Jurídico Processual', desconto_multa:[0,40],   desconto_juros:[0,40],   entrada_min:10, parcelas_max:60, elegibilidade:'Execução fiscal em andamento com penhora ou garantia.' },
+]
+
+
+// ── Editais e cenários vigentes — base inicial para o motor de negociação ──
+// IMPORTANTE: esta base serve para enquadramento e simulação orientativa.
+// A proposta efetiva do contribuinte deve ser confirmada no REGULARIZE/SISPAR.
+const EDITAIS_VIGENTES_2026 = [
+  {
+    key:'pgdau_6_capag',
+    edital:'Edital PGDAU nº 6/2026, prorrogado pelo nº 10/2026',
+    modalidade:'Capacidade de Pagamento',
+    prazo_adesao:'29/01/2027 às 19h',
+    publico:'Pessoa física e pessoa jurídica — dívida consolidada de até R$ 45 milhões',
+    regra:'Benefícios dependem da classificação A/B/C/D do contribuinte no REGULARIZE.',
+    status:'validar_regularize'
+  },
+  {
+    key:'pgdau_6_dificil',
+    edital:'Edital PGDAU nº 6/2026, prorrogado pelo nº 10/2026',
+    modalidade:'Débitos de difícil recuperação ou irrecuperáveis',
+    prazo_adesao:'29/01/2027 às 19h',
+    publico:'Contribuintes que atendam às hipóteses objetivas do edital',
+    regra:'Exige enquadramento específico de recuperabilidade/situação do contribuinte.',
+    status:'validar_regularize'
+  },
+  {
+    key:'pgdau_6_pequeno',
+    edital:'Edital PGDAU nº 6/2026, prorrogado pelo nº 10/2026',
+    modalidade:'Pequeno Valor',
+    prazo_adesao:'29/07/2027 às 19h',
+    publico:'Pessoa física, MEI, ME e EPP — inscrições elegíveis até 01/06/2025',
+    regra:'Até 60 salários mínimos. Não depende da capacidade de pagamento.',
+    status:'simulavel'
+  },
+  {
+    key:'pgdau_6_garantia',
+    edital:'Edital PGDAU nº 6/2026, prorrogado pelo nº 10/2026',
+    modalidade:'Seguro garantia ou carta fiança',
+    prazo_adesao:'29/01/2027 às 19h',
+    publico:'Dívidas garantidas e com decisão judicial definitiva, observados os requisitos do edital',
+    regra:'Modalidade específica; deve ser validada antes de comparar com outras alternativas.',
+    status:'validar_regularize'
+  },
+]
+
+const CENARIOS_PEQUENO_VALOR_2026 = [
+  { key:'vista_50', nome:'À vista', entrada_pct:0, entrada_parcelas:0, saldo_meses:0, desconto_pct:50, vista:true },
+  { key:'pv_7',  nome:'Entrada + saldo em até 7 meses',  entrada_pct:5, entrada_parcelas:5, saldo_meses:7,  desconto_pct:50 },
+  { key:'pv_12', nome:'Entrada + saldo em até 12 meses', entrada_pct:5, entrada_parcelas:5, saldo_meses:12, desconto_pct:45 },
+  { key:'pv_30', nome:'Entrada + saldo em até 30 meses', entrada_pct:5, entrada_parcelas:5, saldo_meses:30, desconto_pct:40 },
+  { key:'pv_55', nome:'Entrada + saldo em até 55 meses', entrada_pct:5, entrada_parcelas:5, saldo_meses:55, desconto_pct:30 },
 ]
 
 function totalInscricoes(cda) {
@@ -189,203 +372,350 @@ function rotuloCDA(cda, indice) {
 function analisarDecadencia(cda) {
   const tipo = tipoReferenciaCDA(cda)
   const { data_fato_gerador, data_constituicao, modalidade_lancamento } = cda
-  if (!data_fato_gerador && !data_constituicao) return {
-    conclusao:'indefinida', titulo:'Decadência — Análise inconclusiva', cor:'#D97706',
-    passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data do fato gerador e da constituição definitiva.'}],
-    justificativa:'Não foi possível concluir porque não foram informadas a data do fato gerador nem a data da constituição definitiva do crédito.'
+
+  const documentosBase = [
+    'Documento que comprove a data do fato gerador / competência do crédito',
+    'Documento que comprove a constituição definitiva do crédito (lançamento, notificação ou decisão administrativa definitiva)',
+  ]
+
+  if (!data_fato_gerador || !data_constituicao) return {
+    conclusao:'indefinida',
+    titulo:'Decadência — análise inconclusiva',
+    cor:'#D97706',
+    passos:[
+      {label:'Problema',valor:'Dados insuficientes',obs:'São necessários o fato gerador e a constituição definitiva para calcular o prazo.'}
+    ],
+    justificativa:'Não é possível concluir decadência apenas com parte dos marcos. A ausência de dado no FiscalTribe não significa que o marco não exista no processo ou na CDA.',
+    documentosNecessarios:documentosBase
   }
+
   const isHomologacao = modalidade_lancamento === 'homologacao'
-  const artigo = isHomologacao ? 'art. 150, §4º do CTN' : 'art. 173, I do CTN'
-  const textoLegal = isHomologacao
-    ? 'Art. 150, §4º do CTN: Se a lei não fixar prazo à homologação, será ele de 5 (cinco) anos, a contar da ocorrência do fato gerador; expirado esse prazo sem que a Fazenda Pública se tenha pronunciado, considera-se homologado o lançamento e definitivamente extinto o crédito, salvo se comprovada a ocorrência de dolo, fraude ou simulação.'
-    : 'Art. 173, I do CTN: O direito de a Fazenda Pública constituir o crédito tributário extingue-se após 5 (cinco) anos, contados do primeiro dia do exercício seguinte àquele em que o lançamento poderia ter sido efetuado.'
-  const limite = addAnos(data_fato_gerador, 5)
+
+  const textoArt150 = 'Art. 150, §4º do CTN: se a lei não fixar prazo à homologação, o prazo é de 5 anos contado da ocorrência do fato gerador. Após a LC 236/2026, o §5º determina que, em caso de dolo, fraude ou simulação, aplica-se a contagem do art. 173, I; e o §6º explicita que, havendo pagamento parcial em tributo sujeito a lançamento por homologação, o prazo decadencial é contado da ocorrência do fato gerador.'
+  const textoArt173 = 'Art. 173, I do CTN: o direito de a Fazenda Pública constituir o crédito extingue-se após 5 anos, contados do primeiro dia do exercício seguinte àquele em que o lançamento poderia ter sido efetuado.'
+
+  const marcoInicial = isHomologacao
+    ? data_fato_gerador
+    : primeiroDiaExercicioSeguinte(data_fato_gerador)
+
+  const limite = addAnos(marcoInicial, 5)
   const diasConst = diasEntre(data_fato_gerador, data_constituicao)
-  const prazoExcedido = data_constituicao && limite && data_constituicao > limite
+  const prazoExcedido = !!(data_constituicao && limite && data_constituicao > limite)
+
+  const documentosNecessarios = [
+    ...documentosBase,
+    ...(isHomologacao ? [
+      'Comprovante de eventual pagamento antecipado ou parcial, para confirmar a sistemática do lançamento por homologação',
+      'Auto de infração/lançamento que permita verificar eventual alegação de dolo, fraude ou simulação'
+    ] : [
+      'Documento que permita confirmar em qual exercício o lançamento já poderia ter sido efetuado'
+    ])
+  ]
+
+  const artigo = isHomologacao ? 'art. 150, §§4º, 5º e 6º do CTN' : 'art. 173, I do CTN'
+  const textoLegal = isHomologacao ? textoArt150 : textoArt173
 
   let justificativa
-  if (!data_constituicao) {
-    justificativa = 'Não foi possível concluir a existência de decadência porque não foi informada a data da constituição definitiva do crédito.'
-  } else if (prazoExcedido) {
-    justificativa = `Com fundamento no ${artigo} (${textoLegal}), o prazo decadencial de 5 anos para constituição do crédito iniciou-se em ${fmtData(data_fato_gerador)}, com data-limite em ${fmtData(limite)}. O lançamento foi constituído apenas em ${fmtData(data_constituicao)} — ou seja, ${diasConst} dias após o fato gerador —, quando o prazo já havia se esgotado. Portanto, o crédito é DECADENTE, estando extinto por força do ${artigo}, e a respectiva CDA é nula de pleno direito.`
+  if (prazoExcedido) {
+    justificativa = isHomologacao
+      ? `Pelos marcos cadastrados, a hipótese preliminar do art. 150, §4º do CTN parte do fato gerador em ${fmtData(data_fato_gerador)} e alcança a data-limite de ${fmtData(limite)}. A constituição informada ocorreu em ${fmtData(data_constituicao)}, após esse marco. Há forte indício de decadência, mas a conclusão depende de confirmar a natureza do lançamento, eventual pagamento antecipado/parcial e a inexistência de dolo, fraude ou simulação. Se confirmada, prescrição e decadência extinguem o crédito tributário nos termos do art. 156, V do CTN.`
+      : `Nos termos do art. 173, I do CTN, a contagem não começa simplesmente na data do fato gerador: inicia-se no primeiro dia do exercício seguinte àquele em que o lançamento poderia ter sido efetuado. Para o marco informado, foi adotado ${fmtData(marcoInicial)} como início preliminar e ${fmtData(limite)} como data-limite. A constituição ocorreu em ${fmtData(data_constituicao)}, após esse marco. Há forte indício de decadência, sujeito à confirmação do exercício em que o lançamento já poderia ter sido realizado. Se confirmada, a decadência extingue o crédito tributário (art. 156, V do CTN).`
   } else {
-    justificativa = `Com fundamento no ${artigo} (${textoLegal}), o prazo decadencial de 5 anos para constituição do crédito iniciou-se em ${fmtData(data_fato_gerador)}, com data-limite em ${fmtData(limite)}. O lançamento foi constituído em ${fmtData(data_constituicao)}, ${diasConst} dias após o fato gerador, portanto DENTRO do prazo legal. Não há decadência a ser arguida neste caso.`
+    justificativa = isHomologacao
+      ? `Pelos marcos cadastrados, a constituição em ${fmtData(data_constituicao)} ocorreu até a data-limite preliminar de ${fmtData(limite)}, calculada a partir do fato gerador (${fmtData(data_fato_gerador)}) segundo a hipótese do art. 150, §4º do CTN. A conclusão deve ser confirmada à luz de eventual pagamento antecipado/parcial e de possível dolo, fraude ou simulação, conforme §§5º e 6º.`
+      : `Pelo art. 173, I do CTN, foi considerado como marco inicial preliminar ${fmtData(marcoInicial)}, primeiro dia do exercício seguinte ao informado para o fato gerador, com data-limite em ${fmtData(limite)}. A constituição em ${fmtData(data_constituicao)} ocorreu dentro desse intervalo. Não há indício de decadência pelos marcos informados, sem prejuízo da conferência documental do exercício correto do lançamento.`
   }
 
   const passos = [
-    { label:'Natureza de referência (1ª inscrição)', valor:tipo.label, obs:`Legislação: ${tipo.legislacao}` },
-    { label:'Modalidade do lançamento', valor:isHomologacao?'Por homologação':'De ofício / Declaração', obs:artigo },
+    { label:'Natureza de referência', valor:tipo.label, obs:`Legislação: ${tipo.legislacao}` },
+    { label:'Modalidade informada', valor:isHomologacao?'Lançamento por homologação':'Lançamento sujeito ao art. 173, I', obs:artigo },
     { label:'Fundamento legal', valor:artigo, obs:textoLegal },
-    { label:'Data do fato gerador', valor:fmtData(data_fato_gerador), obs:'Marco inicial da contagem do prazo decadencial' },
-    { label:'Prazo legal', valor:'5 anos', obs:`Conforme ${artigo}` },
-    { label:'Data-limite para constituição', valor:fmtData(limite), obs:'Após essa data, o crédito não pode mais ser constituído — é decadente' },
-    { label:'Data da constituição definitiva', valor:fmtData(data_constituicao), obs:diasConst!==null?`${diasConst} dias após o fato gerador`:'Não informada' },
-    { label:'Raciocínio', valor:prazoExcedido?'Constituição APÓS o prazo':'Constituição DENTRO do prazo', obs:prazoExcedido?`${fmtData(data_constituicao)} > ${fmtData(limite)} → decadência configurada`:`${fmtData(data_constituicao)} ≤ ${fmtData(limite)} → prazo respeitado` },
-    { label:'Conclusão', valor:!data_constituicao?'Não verificável':prazoExcedido?'⚠️ CRÉDITO DECADENTE — EXTINTO':'✅ Dentro do prazo — sem decadência', obs:'' },
+    { label:'Fato gerador', valor:fmtData(data_fato_gerador), obs:'Marco documental informado' },
+    { label:'Marco inicial da contagem', valor:fmtData(marcoInicial), obs:isHomologacao?'Ocorrência do fato gerador — hipótese do art. 150, §4º':'Primeiro dia do exercício seguinte — art. 173, I' },
+    { label:'Prazo legal', valor:'5 anos', obs:artigo },
+    { label:'Data-limite preliminar', valor:fmtData(limite), obs:'Depende da confirmação dos marcos e da modalidade de lançamento' },
+    { label:'Constituição definitiva', valor:fmtData(data_constituicao), obs:diasConst!==null?`${diasConst} dias após o fato gerador`:'—' },
+    { label:'Conclusão', valor:prazoExcedido?'⚠️ FORTE INDÍCIO DE DECADÊNCIA':'✅ Sem indício de decadência pelos marcos informados', obs:prazoExcedido?'Confirmação documental necessária':'Conclusão preliminar' },
   ]
 
-  if (!data_constituicao) return { conclusao:'indefinida', titulo:'Decadência — Análise inconclusiva', cor:'#D97706', passos, justificativa }
-  if (prazoExcedido) return { conclusao:'ha_decadencia', titulo:'⚠️ Há decadência — crédito extinto', cor:'#DC2626', passos, justificativa }
-  return { conclusao:'sem_decadencia', titulo:'✅ Não há decadência', cor:'#16A34A', passos, justificativa }
+  if (prazoExcedido) return {
+    conclusao:'ha_decadencia',
+    titulo:'⚠️ Forte indício de decadência — confirmação documental necessária',
+    cor:'#DC2626',
+    passos,
+    justificativa,
+    documentosNecessarios
+  }
+
+  return {
+    conclusao:'sem_decadencia',
+    titulo:'✅ Sem indício de decadência pelos marcos informados',
+    cor:'#16A34A',
+    passos,
+    justificativa,
+    documentosNecessarios
+  }
 }
 
 function analisarPrescricao(cda) {
   const tipo = tipoReferenciaCDA(cda)
-  const { data_constituicao, data_ajuizamento, data_citacao, possui_parcelamento, possui_suspensao } = cda
+  const {
+    data_constituicao,
+    data_ajuizamento,
+    data_despacho_citacao,
+    data_citacao,
+    possui_parcelamento,
+    possui_suspensao
+  } = cda
+
+  const documentosNecessarios = [
+    'Documento que comprove a constituição definitiva do crédito',
+    'Despacho judicial que ordenou a citação na execução fiscal, com a respectiva data',
+    'Certidão/comprovante de citação, quando aplicável à cronologia do caso',
+    'Certidão ou comprovante de protesto extrajudicial da CDA ou protesto judicial, se houver',
+    'Termos de parcelamento, confissão, reconhecimento do débito ou outro ato inequívoco do devedor, se houver',
+    'Documentos de eventual suspensão da exigibilidade (art. 151 do CTN)',
+    'Documentos de mediação, arbitragem, falência/liquidação ou execução fiscal extrajudicial, se existentes'
+  ]
+
   if (!data_constituicao) return {
-    conclusao:'indefinida', titulo:'Prescrição — Análise inconclusiva', cor:'#D97706',
-    passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data da constituição definitiva.'}],
-    justificativa:'Não foi possível concluir porque não foi informada a data da constituição definitiva do crédito.'
+    conclusao:'indefinida',
+    titulo:'Prescrição — análise inconclusiva',
+    cor:'#D97706',
+    passos:[{label:'Problema',valor:'Constituição definitiva não informada',obs:'Sem esse marco não é possível iniciar a contagem do art. 174 do CTN.'}],
+    justificativa:'O art. 174 do CTN conta o prazo prescricional a partir da constituição definitiva. Sem esse documento/marco, não há base segura para conclusão.',
+    documentosNecessarios
   }
 
-  const textoLegal = 'Art. 174 do CTN: A ação para a cobrança do crédito tributário prescreve em 5 (cinco) anos, contados da data da sua constituição definitiva. Parágrafo único — A prescrição se interrompe: I — pelo despacho do juiz que ordenar a citação em execução fiscal; II — pelo protesto judicial; III — por qualquer ato judicial que constitua em mora o devedor; IV — por qualquer ato inequívoco ainda que extrajudicial, que importe em reconhecimento do débito pelo devedor.'
+  const textoLegal = 'Art. 174 do CTN, redação vigente após a LC 236/2026: a ação de cobrança prescreve em 5 anos contados da constituição definitiva. O §1º prevê interrupção pelo despacho que ordena a citação; protesto extrajudicial da CDA ou protesto judicial; ato judicial que constitua em mora; ato inequívoco de reconhecimento do débito; instauração de mediação; arbitragem especial tributária/aduaneira; sentença de extinção da execução nas condições legais; informação do crédito em falência ou liquidação extrajudicial; e ato inicial da execução fiscal extrajudicial. O §3º dispõe que a prescrição interrompida recomeça da data do ato interruptivo ou do último ato do processo apto a interrompê-la.'
 
-  const limite = addAnos(data_constituicao, 5)
-  const prescrito = !data_ajuizamento && !data_citacao && !possui_parcelamento && !possui_suspensao && hoje > limite
-  const interrompidoCitacao = data_citacao && data_citacao <= limite
-  const interrompidoAjuizamento = data_ajuizamento && data_ajuizamento <= limite
-  const suspenso = possui_parcelamento || possui_suspensao
+  const limiteInicial = addAnos(data_constituicao, 5)
+  const hojePassouLimite = !!(limiteInicial && hoje > limiteInicial)
 
-  // Mapear quais interruptores estão presentes
-  const interruptores = []
-  if (interrompidoCitacao) interruptores.push(`citação válida em ${fmtData(data_citacao)} (art. 174, pú., I CTN)`)
-  if (interrompidoAjuizamento && !interrompidoCitacao) interruptores.push(`ajuizamento em ${fmtData(data_ajuizamento)}`)
-  if (possui_parcelamento) interruptores.push('parcelamento ativo — suspensão da exigibilidade (art. 151, VI CTN)')
-  if (possui_suspensao) interruptores.push('suspensão da exigibilidade informada')
+  const despachoAntesLimite = !!(data_despacho_citacao && data_despacho_citacao <= limiteInicial)
+  const citacaoAntesLimite = !!(data_citacao && data_citacao <= limiteInicial)
 
-  let justificativa
-  if (prescrito) {
-    justificativa = `Com fundamento no art. 174 do CTN (${textoLegal}), o prazo prescricional de 5 anos iniciou-se na data da constituição definitiva do crédito (${fmtData(data_constituicao)}), com data-limite em ${fmtData(limite)}. Verificou-se que até a data de hoje (${fmtData(hoje)}) não foram identificados quaisquer dos interruptores previstos no parágrafo único do art. 174 do CTN: não há registro de citação válida, protesto judicial, ato judicial de mora, reconhecimento de débito pelo devedor, parcelamento ou suspensão da exigibilidade. Portanto, o crédito encontra-se PRESCRITO, sendo a execução fiscal inexigível.`
-  } else if (interruptores.length > 0) {
-    justificativa = `Com fundamento no art. 174 do CTN (${textoLegal}), o prazo prescricional de 5 anos iniciou-se em ${fmtData(data_constituicao)}, com data-limite em ${fmtData(limite)}. Foram identificados os seguintes eventos que interromperam ou suspenderam o prazo prescricional: ${interruptores.join('; ')}. Portanto, NÃO há prescrição configurada com base nos dados informados.`
-  } else if (!data_citacao && !data_ajuizamento) {
-    justificativa = `Com fundamento no art. 174 do CTN, o prazo prescricional de 5 anos iniciou-se em ${fmtData(data_constituicao)}, com data-limite em ${fmtData(limite)}. Não foram informadas a data da citação válida nem do ajuizamento, o que impede a verificação conclusiva da interrupção do prazo. Recomenda-se verificar nos autos do processo de execução fiscal a existência de despacho citatório ou citação válida.`
+  // O ajuizamento, isoladamente, NÃO é tratado como interruptor do art. 174.
+  // Ele é apenas marco processual de contexto.
+  const eventoInterruptivoComData = despachoAntesLimite || citacaoAntesLimite
+  const haEventoSemDataSuficiente = !!(possui_parcelamento || possui_suspensao)
+
+  const eventos = []
+  if (data_despacho_citacao) eventos.push(`despacho que ordenou a citação em ${fmtData(data_despacho_citacao)} (art. 174, §1º, I)`)
+  if (data_citacao) eventos.push(`citação válida em ${fmtData(data_citacao)} — ato judicial relevante; conferir o regime temporal e o despacho citatório`)
+  if (possui_parcelamento) eventos.push('parcelamento informado — art. 151, VI; a adesão também pode caracterizar reconhecimento do débito para fins do art. 174, §1º, IV, conforme jurisprudência do STJ')
+  if (possui_suspensao) eventos.push('causa de suspensão da exigibilidade informada — conferir hipótese e período no art. 151 do CTN')
+
+  let conclusao = 'indefinida'
+  let titulo = 'Prescrição — análise inconclusiva'
+  let cor = '#D97706'
+  let justificativa = ''
+
+  if (!hojePassouLimite) {
+    conclusao = 'sem_prescricao'
+    titulo = '✅ Sem indício de prescrição ordinária pelos marcos informados'
+    cor = '#16A34A'
+    justificativa = `A constituição definitiva foi informada em ${fmtData(data_constituicao)}. O prazo quinquenal inicial do art. 174 do CTN alcança, preliminarmente, ${fmtData(limiteInicial)}. Como essa data ainda não foi ultrapassada, não há indício de prescrição ordinária pelos marcos cadastrados.`
+  } else if (eventoInterruptivoComData) {
+    conclusao = 'sem_prescricao'
+    titulo = '✅ Evento interruptivo relevante identificado — revisar a cronologia completa'
+    cor = '#16A34A'
+    justificativa = `O prazo inicial do art. 174 do CTN, contado da constituição definitiva em ${fmtData(data_constituicao)}, alcançaria ${fmtData(limiteInicial)}. Foi identificado evento judicial anterior a esse marco (${eventos.join('; ')}). O ajuizamento, por si só, não é usado como interruptor. A prescrição ordinária não deve ser declarada com base apenas no primeiro quinquênio; é necessário reconstruir os eventos posteriores e, se houver execução fiscal, analisar separadamente a prescrição intercorrente.`
+  } else if (haEventoSemDataSuficiente) {
+    conclusao = 'indefinida'
+    titulo = 'Prescrição — existem eventos informados, mas faltam datas/documentos'
+    cor = '#D97706'
+    justificativa = `O prazo inicial do art. 174 do CTN alcançaria ${fmtData(limiteInicial)}, porém há parcelamento e/ou suspensão informados sem documentação e datas suficientes para recalcular a cronologia. Não é seguro afirmar prescrição nem afastá-la até que esses eventos sejam comprovados.`
   } else {
-    justificativa = `Com fundamento no art. 174 do CTN, o prazo prescricional de 5 anos iniciou-se em ${fmtData(data_constituicao)}, com data-limite em ${fmtData(limite)}. O crédito encontra-se dentro do prazo legal. Não há prescrição configurada.`
+    conclusao = 'ha_prescricao'
+    titulo = '⚠️ Forte indício de prescrição — confirmação documental necessária'
+    cor = '#DC2626'
+    justificativa = `A constituição definitiva foi informada em ${fmtData(data_constituicao)} e o prazo quinquenal inicial do art. 174 do CTN alcançou ${fmtData(limiteInicial)}. Até o momento, os dados cadastrados não demonstram evento interruptivo ou suspensivo anterior a esse marco. Isso NÃO equivale a afirmar que tais eventos não existiram. Há forte indício de prescrição, que somente deve ser confirmado após a conferência do despacho que ordenou a citação, eventual protesto, reconhecimento/parcelamento, atos judiciais de mora e demais hipóteses hoje previstas no art. 174, §1º do CTN. Se confirmada, a prescrição extingue o crédito tributário (art. 156, V do CTN).`
   }
 
   const passos = [
-    { label:'Natureza de referência (1ª inscrição)', valor:tipo.label, obs:`Legislação: ${tipo.legislacao}` },
-    { label:'Fundamento legal', valor:'Art. 174 CTN', obs:textoLegal },
-    { label:'Constituição definitiva', valor:fmtData(data_constituicao), obs:'Marco inicial da contagem prescricional' },
-    { label:'Prazo legal', valor:'5 anos', obs:'Art. 174, caput, CTN' },
-    { label:'Data-limite', valor:fmtData(limite), obs:'Após essa data, sem interrupção ou suspensão, o crédito é prescrito' },
-    { label:'Interruptor I — Citação válida', valor:fmtData(data_citacao)||'Não informada', obs:interrompidoCitacao?`✅ Interrompe o prazo (art. 174, pú., I CTN) — ocorreu em ${fmtData(data_citacao)}, antes do limite`:'⚠️ Não localizada ou não informada' },
-    { label:'Interruptor II — Ajuizamento', valor:fmtData(data_ajuizamento)||'Não informado', obs:interrompidoAjuizamento?`✅ Ajuizamento em ${fmtData(data_ajuizamento)}, antes do limite`:'⚠️ Não localizado ou não informado' },
-    { label:'Interruptor III — Protesto judicial', valor:'Não verificado nos campos', obs:'Verificar nos autos do processo' },
-    { label:'Interruptor IV — Reconhecimento de débito', valor:'Não verificado nos campos', obs:'Verificar nos autos do processo' },
-    { label:'Suspensão — Parcelamento (art. 151, VI CTN)', valor:possui_parcelamento?'Sim':'Não', obs:possui_parcelamento?'✅ Suspende a exigibilidade e o prazo prescricional':'Não identificado' },
-    { label:'Suspensão — Outras causas', valor:possui_suspensao?'Sim':'Não', obs:possui_suspensao?'✅ Suspensão da exigibilidade informada':'Não identificada' },
-    { label:'Conclusão', valor:prescrito?'⚠️ CRÉDITO PRESCRITO':suspenso||interrompidoCitacao||interrompidoAjuizamento?'✅ Prazo interrompido/suspenso':'✅ Dentro do prazo', obs:'' },
+    { label:'Natureza de referência', valor:tipo.label, obs:`Legislação: ${tipo.legislacao}` },
+    { label:'Fundamento legal', valor:'Art. 174, caput, §§1º e 3º do CTN', obs:textoLegal },
+    { label:'Constituição definitiva', valor:fmtData(data_constituicao), obs:'Marco inicial da prescrição' },
+    { label:'Prazo inicial', valor:'5 anos', obs:`Data-limite preliminar: ${fmtData(limiteInicial)}` },
+    { label:'Ajuizamento', valor:fmtData(data_ajuizamento)||'Não informado', obs:'Marco processual de contexto; não é tratado isoladamente como causa interruptiva do art. 174' },
+    { label:'Despacho que ordenou a citação', valor:fmtData(data_despacho_citacao)||'Não informado', obs:despachoAntesLimite?'✅ Evento interruptivo identificado (art. 174, §1º, I)':'⚠️ Documento/data necessários para confirmação' },
+    { label:'Citação válida', valor:fmtData(data_citacao)||'Não informada', obs:citacaoAntesLimite?'✅ Evento judicial relevante localizado; conferir despacho e regime temporal':'⚠️ Não localizada ou posterior ao marco inicial' },
+    { label:'Protesto / outros atos do §1º', valor:'Não verificados nos campos atuais', obs:'Conferir protesto extrajudicial/judicial, atos de mora, reconhecimento, mediação, arbitragem, falência/liquidação e execução extrajudicial' },
+    { label:'Parcelamento', valor:possui_parcelamento?'Informado':'Não informado', obs:possui_parcelamento?'Art. 151, VI + possível reconhecimento do débito (art. 174, §1º, IV) — confirmar datas':'—' },
+    { label:'Suspensão da exigibilidade', valor:possui_suspensao?'Informada':'Não informada', obs:possui_suspensao?'Conferir hipótese, início e fim da suspensão no art. 151 do CTN':'—' },
+    { label:'Conclusão', valor:titulo.replace(/^⚠️ |^✅ /,''), obs:conclusao==='ha_prescricao'?'Não tratar como definitiva sem os documentos listados':'Análise baseada nos marcos atualmente informados' },
   ]
 
-  if (prescrito) return { conclusao:'ha_prescricao', titulo:'⚠️ Há prescrição — execução inexigível', cor:'#DC2626', passos, justificativa }
-  if (interrompidoCitacao || interrompidoAjuizamento || suspenso) return { conclusao:'sem_prescricao', titulo:'✅ Não há prescrição', cor:'#16A34A', passos, justificativa }
-  if (!data_citacao && !data_ajuizamento) return { conclusao:'indefinida', titulo:'Prescrição — Análise inconclusiva', cor:'#D97706', passos, justificativa }
-  return { conclusao:'sem_prescricao', titulo:'✅ Não há prescrição', cor:'#16A34A', passos, justificativa }
+  return { conclusao, titulo, cor, passos, justificativa, documentosNecessarios }
 }
 
 function analisarPrescricaoIntercorrente(cda) {
-  const { data_ajuizamento, data_ultima_movimentacao, possui_embargos, possui_penhora } = cda
+  const {
+    data_ajuizamento,
+    data_ciencia_fazenda_nao_localizacao,
+    data_citacao,
+    data_ultima_movimentacao,
+    possui_penhora
+  } = cda
+
+  const documentosNecessarios = [
+    'Certidão/ato que registre a primeira tentativa frustrada de localização do devedor ou de bens',
+    'Documento que permita fixar a data em que a Fazenda Pública tomou ciência da não localização do devedor ou da inexistência de bens penhoráveis',
+    'Decisão de suspensão e eventual arquivamento da execução, se existentes',
+    'Certidões de citação efetiva ocorrida durante o período',
+    'Documentos de constrição patrimonial efetiva (penhora, bloqueio efetivado ou outro ato útil), com respectivas datas',
+    'Extrato/movimentações completas da execução fiscal no período analisado'
+  ]
+
   if (!data_ajuizamento) return {
-    conclusao:'indefinida', titulo:'Prescrição Intercorrente — Inconclusiva', cor:'#D97706',
-    passos:[{label:'Problema',valor:'Dados insuficientes',obs:'Informe a data do ajuizamento.'}],
-    justificativa:'Não foi possível concluir porque não foi informada a data do ajuizamento da execução fiscal.'
+    conclusao:'indefinida',
+    titulo:'Prescrição intercorrente — análise inconclusiva',
+    cor:'#D97706',
+    passos:[{label:'Problema',valor:'Ajuizamento não informado',obs:'É necessário identificar a execução fiscal e seus marcos processuais.'}],
+    justificativa:'Sem o processo de execução e seus marcos não é possível aplicar com segurança o art. 40 da Lei 6.830/80.',
+    documentosNecessarios
   }
 
-  const textoArt40 = 'Art. 40 da Lei 6.830/80: O juiz suspenderá o curso da execução, enquanto não for localizado o devedor ou encontrados bens sobre os quais possa recair a penhora, e, nesses casos, não correrá o prazo de prescrição. §1º Suspenso o curso da execução, será aberta vista dos autos ao representante judicial da Fazenda Pública. §2º Decorrido o prazo máximo de 1 (um) ano, sem que seja localizado o devedor ou encontrados bens penhoráveis, o juiz ordenará o arquivamento dos autos. §3º Encontrados que sejam, a qualquer tempo, o devedor ou os bens, serão desarquivados os autos para prosseguimento da execução. §4º Se da decisão que ordenar o arquivamento tiver decorrido o prazo prescricional, o juiz, depois de ouvida a Fazenda Pública, poderá, de ofício, reconhecer a prescrição intercorrente e decretá-la de imediato.'
-  const textoTema566 = 'Tema 566 STJ (REsp 1.340.553/RS — recurso repetitivo vinculante): O prazo de 1 ano de suspensão e os 5 anos de arquivamento do art. 40 da Lei 6.830/80 são contados automaticamente, de forma sucessiva, independentemente de intimação da Fazenda Pública.'
-  const textoSumula314 = 'Súmula 314 STJ: Em execução fiscal, não localizados bens penhoráveis, suspende-se o processo por um ano, findo o qual se inicia o prazo da prescrição quinquenal intercorrente.'
+  const textoArt40 = 'Art. 40 da Lei 6.830/80: não localizado o devedor ou não encontrados bens penhoráveis, o curso da execução é suspenso; decorrido o prazo máximo de 1 ano, segue-se o arquivamento, e o §4º disciplina o reconhecimento da prescrição intercorrente.'
+  const textoTema566 = 'Tema 566/STJ: o prazo de 1 ano de suspensão tem início automaticamente na data da ciência da Fazenda Pública sobre a não localização do devedor ou a inexistência de bens penhoráveis.'
+  const textoTema568 = 'Tema 568/STJ: a efetiva constrição patrimonial e a efetiva citação, ainda que por edital, são aptas a interromper a prescrição intercorrente; mero peticionamento requerendo diligências não basta.'
+  const textoTema569 = 'Tema 569/STJ: encerrado o período de 1 ano de suspensão, inicia-se automaticamente o prazo prescricional aplicável, independentemente de petição da Fazenda ou de pronunciamento judicial específico nesse sentido.'
+  const textoSumula314 = 'Súmula 314/STJ: não localizados bens penhoráveis, suspende-se o processo por um ano e, depois, inicia-se a prescrição quinquenal intercorrente.'
 
-  const recomendacaoFinal = 'RECOMENDAÇÃO OBRIGATÓRIA: Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar a existência de períodos de paralisação processual que possam configurar a prescrição intercorrente, nos termos do art. 40 da Lei 6.830/80, do Tema 566 do STJ e da Súmula 314 do STJ. A mera ausência de penhora ou embargos nos dados cadastrados não exclui a possibilidade de prescrição intercorrente — somente a análise completa dos autos poderá confirmar ou afastar essa hipótese com segurança jurídica.'
+  if (!data_ciencia_fazenda_nao_localizacao) {
+    return {
+      conclusao:'indefinida',
+      titulo:'Prescrição intercorrente — falta o marco inicial do art. 40',
+      cor:'#D97706',
+      passos:[
+        { label:'Fundamento legal', valor:'Art. 40 da LEF + Temas 566, 568 e 569/STJ', obs:`${textoTema566} ${textoTema568} ${textoTema569}` },
+        { label:'Ajuizamento', valor:fmtData(data_ajuizamento), obs:'Identifica a execução, mas não fixa sozinho o início da prescrição intercorrente' },
+        { label:'Ciência da Fazenda da não localização', valor:'Não informada', obs:'⚠️ Este é o marco indispensável para a contagem automática do Tema 566/STJ' },
+        { label:'Última movimentação cadastrada', valor:fmtData(data_ultima_movimentacao)||'Não informada', obs:'Serve como contexto; não substitui o marco do Tema 566' },
+      ],
+      justificativa:`Não é juridicamente seguro calcular a prescrição intercorrente simplesmente a partir da última movimentação processual. Pelo Tema 566/STJ, o marco relevante é a ciência da Fazenda Pública da não localização do devedor ou da inexistência de bens penhoráveis. Enquanto essa data não for localizada nos autos, a análise deve permanecer inconclusiva.`,
+      documentosNecessarios
+    }
+  }
 
-  const ref = data_ultima_movimentacao || data_ajuizamento
-  const limiteArquivamento = addAnos(data_ajuizamento, 1)   // 1 ano de suspensão
-  const limitePrescricao = addAnos(limiteArquivamento, 5)    // + 5 anos de arquivamento
-  const limiteSimples = addAnos(ref, 5)
-  const diasParado = diasEntre(ref, hoje)
-  const prescritoInt = !possui_embargos && !possui_penhora && hoje > limiteSimples
+  const fimSuspensao = addAnos(data_ciencia_fazenda_nao_localizacao, 1)
+  const limitePrescricao = addAnos(fimSuspensao, 5)
+  const citacaoPosterior = !!(data_citacao && data_citacao >= data_ciencia_fazenda_nao_localizacao)
+  const hojePassouLimite = hoje > limitePrescricao
 
-  // Interruptores presentes
-  const interruptores = []
-  if (possui_penhora) interruptores.push('penhora de bens — ato processual de impulso útil')
-  if (possui_embargos) interruptores.push('embargos à execução — ato processual de impulso útil')
-
+  let conclusao
+  let titulo
+  let cor
   let justificativa
-  if (prescritoInt) {
-    justificativa = `Com fundamento no art. 40 da Lei 6.830/80 (${textoArt40}), no Tema 566 do STJ (${textoTema566}) e na Súmula 314 do STJ (${textoSumula314}), verifica-se que o processo encontra-se sem movimentação processual útil por ${diasParado} dias desde ${fmtData(ref)}, superando o prazo de 1 ano de suspensão + 5 anos de arquivamento previstos no art. 40 da LEF. Não foram identificados interruptores do prazo (penhora de bens, embargos à execução ou ato judicial de impulso útil). Há POSSÍVEL PRESCRIÇÃO INTERCORRENTE configurada. ${recomendacaoFinal}`
-  } else if (interruptores.length > 0) {
-    justificativa = `Com fundamento no art. 40 da Lei 6.830/80, no Tema 566 do STJ e na Súmula 314 do STJ, foram identificados os seguintes atos processuais que interrompem o prazo da prescrição intercorrente: ${interruptores.join('; ')}. Não há prescrição intercorrente configurada com base nos dados informados. ${recomendacaoFinal}`
+
+  if (possui_penhora || citacaoPosterior) {
+    conclusao = 'indefinida'
+    titulo = 'Prescrição intercorrente — ato útil informado; confirmar data e efeito'
+    cor = '#D97706'
+    justificativa = `A ciência da Fazenda foi informada em ${fmtData(data_ciencia_fazenda_nao_localizacao)}, o período de 1 ano de suspensão alcança ${fmtData(fimSuspensao)} e o quinquênio subsequente, em cálculo preliminar, alcança ${fmtData(limitePrescricao)}. Entretanto, há ${possui_penhora?'penhora/constrição informada':''}${possui_penhora&&citacaoPosterior?' e ':''}${citacaoPosterior?'citação posterior informada':''}. Pelo Tema 568/STJ, somente a efetiva constrição patrimonial e a efetiva citação são aptas a interromper o prazo. É indispensável confirmar a data e a efetividade desses atos antes de concluir.`
+  } else if (hojePassouLimite) {
+    conclusao = 'ha_prescricao_intercorrente'
+    titulo = '⚠️ Forte indício de prescrição intercorrente — confirmação nos autos necessária'
+    cor = '#DC2626'
+    justificativa = `A ciência da Fazenda da não localização do devedor/bens foi informada em ${fmtData(data_ciencia_fazenda_nao_localizacao)}. Pelo art. 40 da LEF e pelo Tema 566/STJ, o período de 1 ano de suspensão alcança ${fmtData(fimSuspensao)}; encerrado esse período, inicia-se automaticamente o prazo prescricional aplicável, conforme Tema 569/STJ. O marco preliminar de 5 anos alcança ${fmtData(limitePrescricao)}. Como os dados cadastrados não demonstram citação efetiva ou constrição patrimonial efetiva no período, há forte indício de prescrição intercorrente. A conclusão depende da conferência integral dos autos, especialmente dos atos descritos no Tema 568/STJ.`
   } else {
-    justificativa = `Com fundamento no art. 40 da Lei 6.830/80, no Tema 566 do STJ e na Súmula 314 do STJ, o processo encontra-se com ${diasParado !== null ? diasParado + ' dias' : 'período indeterminado'} desde a última movimentação (${fmtData(ref)}). O prazo de prescrição intercorrente (1 ano de suspensão + 5 anos de arquivamento) ainda não foi ultrapassado com base nos dados informados. ${recomendacaoFinal}`
+    conclusao = 'sem_prescricao_intercorrente'
+    titulo = '✅ Sem indício de prescrição intercorrente pelo marco informado'
+    cor = '#16A34A'
+    justificativa = `A ciência da Fazenda foi informada em ${fmtData(data_ciencia_fazenda_nao_localizacao)}. O período de 1 ano de suspensão alcança ${fmtData(fimSuspensao)} e o prazo quinquenal subsequente, em cálculo preliminar, alcança ${fmtData(limitePrescricao)}. Pelos marcos cadastrados, esse prazo ainda não foi ultrapassado.`
   }
 
   const passos = [
-    { label:'Fundamento legal', valor:'Art. 40 Lei 6.830/80', obs:textoArt40 },
-    { label:'Jurisprudência vinculante', valor:'Tema 566 STJ', obs:textoTema566 },
-    { label:'Súmula aplicável', valor:'Súmula 314 STJ', obs:textoSumula314 },
-    { label:'Data do ajuizamento', valor:fmtData(data_ajuizamento), obs:'Início da execução fiscal' },
-    { label:'Prazo de suspensão (1 ano)', valor:fmtData(limiteArquivamento), obs:'Após 1 ano sem localizar devedor/bens → arquivamento obrigatório' },
-    { label:'Prazo de arquivamento (5 anos)', valor:fmtData(limitePrescricao), obs:'Após 5 anos arquivado → prescrição intercorrente automática (Tema 566 STJ)' },
-    { label:'Última movimentação processual', valor:fmtData(data_ultima_movimentacao)||'Não informada', obs:'Marco da paralisação para cálculo simplificado' },
-    { label:'Período de paralisação (aprox.)', valor:diasParado!==null?`${diasParado} dias`:'Não calculável', obs:'Contado da última movimentação até hoje' },
-    { label:'Interruptor — Penhora de bens', valor:possui_penhora?'Sim — interrompe o prazo':'Não localizada', obs:possui_penhora?'✅ Ato processual de impulso útil — interrompe a prescrição intercorrente':'⚠️ Ausência não exclui — verificar nos autos' },
-    { label:'Interruptor — Embargos à execução', valor:possui_embargos?'Sim — interrompe o prazo':'Não localizados', obs:possui_embargos?'✅ Ato processual de impulso útil — interrompe a prescrição intercorrente':'⚠️ Ausência não exclui — verificar nos autos' },
-    { label:'Interruptor — Outros atos processuais', valor:'Não verificado nos campos', obs:'Verificar nos autos: citações, penhoras, intimações, despachos de impulso' },
-    { label:'Conclusão', valor:prescritoInt?'⚠️ POSSÍVEL PRESCRIÇÃO INTERCORRENTE':interruptores.length>0?'✅ Prazo interrompido por ato processual útil':'✅ Dentro do prazo — verificar nos autos', obs:recomendacaoFinal },
+    { label:'Fundamento legal', valor:'Art. 40 da Lei 6.830/80', obs:textoArt40 },
+    { label:'Tema 566/STJ', valor:'Marco inicial automático', obs:textoTema566 },
+    { label:'Tema 568/STJ', valor:'Atos interruptivos efetivos', obs:textoTema568 },
+    { label:'Tema 569/STJ', valor:'Início automático após 1 ano', obs:textoTema569 },
+    { label:'Súmula 314/STJ', valor:'1 ano + prescrição quinquenal', obs:textoSumula314 },
+    { label:'Ajuizamento', valor:fmtData(data_ajuizamento), obs:'Contexto processual' },
+    { label:'Ciência da Fazenda da não localização', valor:fmtData(data_ciencia_fazenda_nao_localizacao), obs:'Marco do Tema 566/STJ' },
+    { label:'Fim do período de suspensão', valor:fmtData(fimSuspensao), obs:'1 ano após a ciência da Fazenda' },
+    { label:'Data-limite preliminar', valor:fmtData(limitePrescricao), obs:'Quinquênio subsequente, sujeito a atos interruptivos efetivos' },
+    { label:'Citação efetiva posterior', valor:citacaoPosterior?fmtData(data_citacao):'Não identificada', obs:citacaoPosterior?'⚠️ Confirmar efetividade e impacto na contagem':'Tema 568/STJ' },
+    { label:'Constrição patrimonial efetiva', valor:possui_penhora?'Informada':'Não informada', obs:possui_penhora?'⚠️ Confirmar data e efetividade documentalmente':'Tema 568/STJ' },
+    { label:'Última movimentação', valor:fmtData(data_ultima_movimentacao)||'Não informada', obs:'Dado auxiliar; não é usado isoladamente como marco inicial' },
+    { label:'Conclusão', valor:titulo.replace(/^⚠️ |^✅ /,''), obs:conclusao==='ha_prescricao_intercorrente'?'Confirmação integral dos autos obrigatória':'Análise preliminar pelos marcos informados' },
   ]
 
-  if (prescritoInt) return { conclusao:'ha_prescricao_intercorrente', titulo:'⚠️ Possível prescrição intercorrente', cor:'#DC2626', passos, justificativa }
-  return { conclusao:'sem_prescricao_intercorrente', titulo:'✅ Sem prescrição intercorrente aparente', cor:'#16A34A', passos, justificativa }
+  return { conclusao, titulo, cor, passos, justificativa, documentosNecessarios }
 }
 
 function analisarCDA(cda) {
   const tipo = tipoReferenciaCDA(cda)
   const teses = tesesReferenciaCDA(cda)
   const inscricoesValidas = (cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim())
-  const tiposDistintos = [...new Set((cda.inscricoes||[]).map(ins=>ins.tipo_credito))].length
+  const tiposDistintos = [...new Set((cda.inscricoes||[]).map(ins=>ins.tipo_credito).filter(Boolean))].length
 
-  const textoArt202 = 'Art. 202 do CTN: O termo de inscrição da dívida ativa, autenticado pela autoridade competente, indicará obrigatoriamente: I — o nome do devedor e, sendo caso, o dos co-responsáveis; II — o domicílio ou residência do devedor; III — o montante do crédito; IV — a origem e natureza do crédito, designada especificamente a disposição da lei em que seja fundado; V — a data da inscrição; VI — sendo caso, o número do processo administrativo ou do auto de infração de que se originar o crédito. Parágrafo único: A Certidão de Dívida Ativa conterá os mesmos elementos do Termo de Inscrição e será autenticada pela autoridade competente.'
+  const textoArt202 = 'Art. 202 do CTN, redação vigente após a LC 236/2026: I — nome do devedor e dos corresponsáveis e, sempre que possível, domicílio/residência; II — quantia devida e maneira de calcular os juros de mora acrescidos; III — origem e natureza do crédito, com indicação específica da disposição legal; IV — data da inscrição; V — sendo o caso, número do processo administrativo de origem. O §1º exige ainda, na certidão, a indicação do livro e da folha da inscrição.'
+  const textoArt203 = 'Art. 203 do CTN: a omissão de requisito do art. 202 ou erro a ele relativo é causa de nulidade da inscrição e do processo de cobrança, mas a nulidade pode ser sanada até a decisão de primeira instância mediante substituição da certidão, com devolução do prazo de defesa quanto à parte modificada.'
 
-  // ── Verificação item a item dos requisitos do art. 202 CTN ────────────
-  const req1_devedor = !!(cda.numero_cda && cda.numero_cda.trim()) || inscricoesValidas.length > 0
-  const req2_domicilio = true // não temos campo de domicílio — presumido presente, alertar para verificação
-  const req3_montante = totalInscricoes(cda) > 0
-  const req4_origem = !!(tipo && tipo.label && tipo.legislacao)
-  const req5_dataInscricao = !!cda.data_inscricao
-  const req6_processo = !!cda.data_constituicao // usamos data_constituicao como proxy de processo administrativo
+  const nomeDevedor = cda.devedor || cda.razao_social || ''
+  const domicilio = cda.domicilio || cda.endereco || [cda.municipio,cda.uf].filter(Boolean).join(' / ')
+  const valor = totalInscricoes(cda)
+  const processoAdm = cda.processo_administrativo || ''
+  const livroFolha = cda.livro_folha || ''
+  const fundamento = cda.fundamento_legal || ''
+  const formaJuros = cda.forma_calculo_juros || ''
 
-  const viciosFormais = []
-  if (!req1_devedor) viciosFormais.push('I — Nome do devedor / número de inscrição ausente')
-  if (!req3_montante) viciosFormais.push('III — Montante do crédito não informado (valor = zero)')
-  if (!req5_dataInscricao) viciosFormais.push('V — Data de inscrição em Dívida Ativa não informada')
-  if (!req6_processo) viciosFormais.push('VI — Data de constituição não informada (processo administrativo de origem não identificado)')
-  if (!cda.data_fato_gerador) viciosFormais.push('Fato gerador não informado — prejudica análise de decadência e origem do crédito')
+  const pendencias = []
+  if (!nomeDevedor) pendencias.push('Art. 202, I — nome do devedor/corresponsáveis não confirmado nos dados carregados')
+  if (!domicilio) pendencias.push('Art. 202, I — domicílio/residência não confirmado nos dados carregados')
+  if (!(valor > 0)) pendencias.push('Art. 202, II — quantia devida não confirmada')
+  if (!formaJuros) pendencias.push('Art. 202, II — maneira de calcular os juros de mora deve ser conferida na CDA/discriminativo')
+  if (!fundamento) pendencias.push('Art. 202, III — disposição legal de origem/natureza do crédito deve ser conferida no documento')
+  if (!cda.data_inscricao) pendencias.push('Art. 202, IV — data da inscrição não confirmada')
+  if (!processoAdm) pendencias.push('Art. 202, V — número do processo administrativo, quando aplicável, não confirmado')
+  if (!livroFolha) pendencias.push('Art. 202, §1º — livro e folha da inscrição não confirmados')
 
   const passos = [
-    { label:'Fundamento legal', valor:'Art. 202 CTN', obs:textoArt202 },
-    { label:'Natureza de referência (1ª inscrição)', valor:tipo.label, obs:`Legislação aplicável: ${tipo.legislacao}` },
-    { label:'Tipos distintos na CDA', valor:`${tiposDistintos} tipo(s)`, obs:tiposDistintos>1?'⚠️ CDA com mais de um tipo de crédito — análise usa a 1ª inscrição como referência':'Tipo único — análise integral' },
-    { label:'Requisito I — Nome do devedor / co-responsáveis', valor:req1_devedor?`✅ Presente — ${inscricoesValidas.length} inscrição(ões) informada(s)`:'⚠️ Ausente', obs:req1_devedor?`Inscrições: ${inscricoesValidas.map(i=>i.numero).join(', ')}`:'Nenhum número de inscrição ou identificação do devedor informado — vício formal no art. 202, I CTN' },
-    { label:'Requisito II — Domicílio / residência do devedor', valor:'⚠️ Não verificável neste módulo', obs:'Campo não disponível nos dados importados — recomenda-se verificar no documento físico da CDA se o endereço do devedor está corretamente indicado (art. 202, II CTN)' },
-    { label:'Requisito III — Montante do crédito', valor:req3_montante?`✅ Presente — ${fmtR(totalInscricoes(cda))}`:'⚠️ Ausente — valor zero ou não informado', obs:req3_montante?'Valor informado e identificável na CDA':'Ausência do montante configura vício formal no art. 202, III CTN — CDA potencialmente nula' },
-    { label:'Requisito IV — Origem e natureza do crédito', valor:req4_origem?`✅ Presente — ${tipo.label}`:'⚠️ Não identificado', obs:req4_origem?`Legislação de referência: ${tipo.legislacao}`:'Tipo de crédito não identificado — verificar se a CDA indica a norma legal de origem (art. 202, IV CTN)' },
-    { label:'Requisito V — Data de inscrição em DA', valor:req5_dataInscricao?`✅ Presente — ${fmtData(cda.data_inscricao)}`:'⚠️ Ausente', obs:req5_dataInscricao?'Data de inscrição informada e identificável':'Ausência da data de inscrição configura vício formal no art. 202, V CTN' },
-    { label:'Requisito VI — Processo administrativo / auto de infração', valor:req6_processo?`✅ Identificável — constituição em ${fmtData(cda.data_constituicao)}`:'⚠️ Não informado', obs:req6_processo?'Data de constituição informada — permite identificar o processo de origem':'Ausência da data de constituição impede identificação do processo administrativo de origem (art. 202, VI CTN)' },
-    { label:'Fato gerador', valor:cda.data_fato_gerador?`✅ Informado — ${fmtData(cda.data_fato_gerador)}`:'⚠️ Não informado', obs:cda.data_fato_gerador?'Permite análise completa de decadência':'Ausência do fato gerador prejudica análise de decadência e identificação da origem do crédito' },
-    { label:'Teses aplicáveis identificadas', valor:`${teses.length} tese(s)`, obs:teses.slice(0,3).join('; ') },
-    { label:'Vícios formais identificados', valor:`${viciosFormais.length} item(ns)`, obs:viciosFormais.join('; ')||'Nenhum vício formal identificado nos dados disponíveis' },
+    { label:'Fundamentos legais', valor:'Arts. 202 e 203 do CTN', obs:`${textoArt202} ${textoArt203}` },
+    { label:'Natureza cadastrada', valor:tipo.label, obs:`Classificação do FiscalTribe: ${tipo.legislacao}. Confirmar a base legal no documento.` },
+    { label:'Tipos distintos na CDA', valor:`${tiposDistintos || 0} tipo(s)`, obs:tiposDistintos>1?'⚠️ Conferir cada natureza individualmente':'—' },
+    { label:'Art. 202, I — Devedor/corresponsáveis', valor:nomeDevedor?`✅ ${nomeDevedor}`:'⚠️ Não confirmado', obs:'A falta no sistema não prova ausência na CDA.' },
+    { label:'Art. 202, I — Domicílio/residência', valor:domicilio?`✅ ${domicilio}`:'⚠️ Não confirmado', obs:'Sempre que possível, deve constar no termo de inscrição.' },
+    { label:'Art. 202, II — Quantia devida', valor:valor>0?`✅ ${fmtR(valor)}`:'⚠️ Não confirmada', obs:'Conferir também os componentes e a data-base documental.' },
+    { label:'Art. 202, II — Cálculo dos juros', valor:formaJuros||'⚠️ Não estruturado no sistema', obs:'Conferir a maneira de cálculo dos juros de mora no documento.' },
+    { label:'Art. 202, III — Origem/natureza e disposição legal', valor:fundamento||'⚠️ Não confirmado', obs:`Natureza cadastrada: ${tipo.label}` },
+    { label:'Art. 202, IV — Data da inscrição', valor:cda.data_inscricao?`✅ ${fmtData(cda.data_inscricao)}`:'⚠️ Não confirmada', obs:'' },
+    { label:'Art. 202, V — Processo administrativo', valor:processoAdm||'⚠️ Não confirmado', obs:'Exigido quando for o caso.' },
+    { label:'Art. 202, §1º — Livro/folha', valor:livroFolha||'⚠️ Não confirmado', obs:'Requisito adicional da certidão.' },
+    { label:'Art. 203 — Consequência jurídica', valor:'Nulidade é possível se a omissão/erro estiver realmente no título', obs:'A ausência de dado importado não equivale, sozinha, a vício da CDA; é necessário confrontar o documento.' },
+    { label:'Pendências de conferência', valor:`${pendencias.length} item(ns)`, obs:pendencias.join('; ')||'Nenhuma pendência documental nos campos avaliados' },
   ]
 
-  let justificativa
-  if (viciosFormais.length === 0) {
-    justificativa = `Com fundamento no art. 202 do CTN (${textoArt202}), a CDA foi verificada item a item quanto aos seus requisitos formais obrigatórios. Com base nos dados informados: (I) nome do devedor/inscrições — PRESENTE (${inscricoesValidas.map(i=>i.numero).join(', ')||'número da CDA informado'}); (II) domicílio — não verificável neste módulo, recomenda-se conferir no documento físico; (III) montante do crédito — PRESENTE (${fmtR(totalInscricoes(cda))}); (IV) origem e natureza — PRESENTE (${tipo.label} · ${tipo.legislacao}); (V) data de inscrição — PRESENTE (${fmtData(cda.data_inscricao)}); (VI) processo administrativo de origem — IDENTIFICÁVEL (constituição em ${fmtData(cda.data_constituicao)}). A CDA apresenta todos os requisitos formais verificáveis com base nos dados disponíveis. Recomenda-se confrontar com o documento físico da CDA para confirmação integral.`
-  } else {
-    justificativa = `Com fundamento no art. 202 do CTN (${textoArt202}), a CDA foi verificada item a item quanto aos seus requisitos formais obrigatórios. Foram identificados ${viciosFormais.length} vício(s) formal(is): ${viciosFormais.join('; ')}. A ausência de qualquer dos requisitos do art. 202 do CTN torna a CDA nula, nos termos do parágrafo único do mesmo artigo, sendo possível arguir a nulidade em sede de exceção de pré-executividade ou embargos à execução fiscal, independentemente de garantia do juízo.`
+  const documentosNecessarios = pendencias.length ? [
+    'Cópia integral e legível da CDA',
+    'Discriminativo de crédito / memória de cálculo',
+    'Termo ou certidão de inscrição com livro/folha, quando aplicável',
+    'Processo administrativo ou auto de infração de origem, quando aplicável',
+  ] : []
+
+  if (pendencias.length === 0) {
+    return {
+      conclusao:'cda_ok',
+      titulo:'✅ Requisitos formais verificáveis presentes — arts. 202 e 203 do CTN',
+      cor:'#16A34A',
+      passos,
+      teses,
+      justificativa:`Nos campos atualmente disponíveis, os requisitos verificáveis do art. 202 do CTN estão presentes. O art. 203 é a regra que trata da nulidade por omissão/erro e da possibilidade de saneamento mediante substituição da certidão. A conclusão permanece vinculada à conferência do título original.`,
+      documentosNecessarios
+    }
   }
 
-  if (viciosFormais.length === 0) return { conclusao:'cda_ok', titulo:'✅ CDA sem vícios aparentes (art. 202 CTN)', cor:'#16A34A', passos, teses, justificativa }
-  return { conclusao:'cda_vicio', titulo:`⚠️ Possíveis vícios formais — ${viciosFormais.length} item(ns) (art. 202 CTN)`, cor:'#DC2626', passos, teses, justificativa }
+  return {
+    conclusao:'indefinida',
+    titulo:`⚠️ Validade formal — ${pendencias.length} ponto(s) exigem conferência documental`,
+    cor:'#D97706',
+    passos,
+    teses,
+    justificativa:`Foram encontradas ${pendencias.length} pendência(s) de verificação. Isso não significa que a CDA esteja automaticamente viciada: ausência de informação no FiscalTribe não é prova de omissão no título. Somente se o requisito estiver efetivamente ausente ou incorreto na CDA aplica-se a consequência do art. 203 do CTN, observada a possibilidade legal de saneamento.`,
+    documentosNecessarios
+  }
 }
 
 function analisarElegibilidadeTransacao(cda, regraCapag) {
@@ -413,16 +743,119 @@ function analisarElegibilidadeTransacao(cda, regraCapag) {
   return { conclusao:'nao_elegivel', titulo:'⚠️ Possível inelegibilidade', cor:'#D97706', passos, justificativa:`Foram identificados ${problemas.length} ponto(s) que podem impedir ou exigir modalidade diferente: ${problemas.join('; ')}.` }
 }
 
+function cdaParaInscricao(cda, ins) {
+  const normal = normalizarInscricao(ins, cda)
+  return {
+    ...cda,
+    inscricoes:[normal],
+    modalidade_lancamento: normal.modalidade_lancamento || cda.modalidade_lancamento || 'oficio',
+    data_fato_gerador: normal.data_fato_gerador || cda.data_fato_gerador || '',
+    data_constituicao: normal.data_constituicao || cda.data_constituicao || '',
+    data_inscricao: normal.data_inscricao || cda.data_inscricao || '',
+  }
+}
+
+function resumirAnalisesInscricoes(inscricoesAnalise, campo, tipo) {
+  const total = inscricoesAnalise.length
+  const resultados = inscricoesAnalise.map(x=>x[campo]).filter(Boolean)
+  const positivos = resultados.filter(r=>r.conclusao === `ha_${tipo}`)
+  const indef = resultados.filter(r=>r.conclusao === 'indefinida')
+  const label = tipo === 'decadencia' ? 'decadência' : 'prescrição'
+  const cor = positivos.length ? '#DC2626' : indef.length ? '#D97706' : '#16A34A'
+  const conclusao = positivos.length ? `ha_${tipo}` : indef.length ? 'indefinida' : `sem_${tipo}`
+  const titulo = positivos.length
+    ? `⚠️ ${positivos.length} de ${total} inscrição(ões) com indício de ${label}`
+    : indef.length
+      ? `⚠️ ${indef.length} de ${total} inscrição(ões) com análise de ${label} inconclusiva`
+      : `✅ Nenhuma inscrição com ${label} identificada`
+  const justificativa = total
+    ? `Resultado consolidado da CDA. Cada inscrição/crédito foi analisado separadamente. ${positivos.length} inscrição(ões) apresentou(aram) indício de ${label}; ${indef.length} ficou(aram) inconclusiva(s). Consulte o detalhamento individual abaixo.`
+    : 'Nenhuma inscrição foi informada para análise.'
+  const passos = inscricoesAnalise.map((x,i)=>({
+    label:`Inscrição ${i+1}`,
+    valor:x.inscricao?.numero || 'Sem número',
+    obs:x[campo]?.titulo || 'Sem resultado'
+  }))
+  return { conclusao, titulo, cor, justificativa, passos }
+}
+
+function analisarCDAComInscricoes(cdaOriginal) {
+  const cda = migrarCDA(cdaOriginal)
+  const inscricoesValidas = (cda.inscricoes || []).length ? cda.inscricoes : [novaInscricao({numero:cda.numero_cda||'',valor:totalInscricoes(cda)})]
+  const inscricoesAnalise = inscricoesValidas.map((inscricao, indice) => {
+    const contexto = cdaParaInscricao(cda, inscricao)
+    return {
+      indice,
+      inscricao,
+      decadencia: analisarDecadencia(contexto),
+      prescricao: analisarPrescricao(contexto),
+    }
+  })
+  return {
+    cda,
+    inscricoesAnalise,
+    decadencia: resumirAnalisesInscricoes(inscricoesAnalise, 'decadencia', 'decadencia'),
+    prescricao: resumirAnalisesInscricoes(inscricoesAnalise, 'prescricao', 'prescricao'),
+    prescricaoIntercorrente: analisarPrescricaoIntercorrente(cda),
+    validadeCDA: analisarCDA(cda),
+  }
+}
+
+function analisarConjuntoCDAs(lista) {
+  return consolidarDadosProcessuais(lista || []).map(analisarCDAComInscricoes)
+}
+
+function calcularScoreAnalise(resultados) {
+  let score = 50
+  resultados.forEach(r => {
+    const decadentes = (r.inscricoesAnalise || []).filter(x=>x.decadencia?.conclusao==='ha_decadencia').length
+    const prescritas = (r.inscricoesAnalise || []).filter(x=>x.prescricao?.conclusao==='ha_prescricao').length
+    if (decadentes) score += Math.min(25, 10 + decadentes * 5)
+    if (prescritas) score += Math.min(25, 10 + prescritas * 5)
+    if(r.prescricaoIntercorrente?.conclusao==='ha_prescricao_intercorrente') score+=15
+    if(r.validadeCDA?.conclusao==='cda_vicio') score+=10
+  })
+  return Math.min(100, score)
+}
+
+function resumoFinanceiroInscricoes(resultados) {
+  let total = 0, questionavel = 0, exigivel = 0, inscricoes = 0, questionaveis = 0
+  resultados.forEach(r => {
+    ;(r.inscricoesAnalise || []).forEach(x => {
+      const valor = parseValor(x.inscricao?.valor)
+      const temRisco = x.decadencia?.conclusao === 'ha_decadencia' || x.prescricao?.conclusao === 'ha_prescricao'
+      total += valor
+      inscricoes += 1
+      if (temRisco) { questionavel += valor; questionaveis += 1 }
+      else exigivel += valor
+    })
+  })
+  return { total, questionavel, exigivel, inscricoes, questionaveis }
+}
+
 function gerarParecer(resultados) {
   const parecer = []; let urgente = false
   resultados.forEach((a,i) => {
     const num = rotuloCDA(a.cda, i)
-    if(a.decadencia.conclusao==='ha_decadencia')                            { parecer.push({tipo:'danger',msg:`${num}: Decadência identificada — crédito potencialmente extinto.`}); urgente=true }
-    if(a.prescricao.conclusao==='ha_prescricao')                            { parecer.push({tipo:'danger',msg:`${num}: Prescrição identificada — execução potencialmente extinta.`}); urgente=true }
-    if(a.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') { parecer.push({tipo:'danger',msg:`${num}: Prescrição intercorrente — verificar imediatamente.`}); urgente=true }
-    if(a.validadeCDA.conclusao==='cda_vicio')   parecer.push({tipo:'warning',msg:`${num}: Possíveis vícios formais na CDA.`})
-    if(a.decadencia.conclusao==='indefinida')   parecer.push({tipo:'warning',msg:`${num}: Decadência inconclusiva — complementar dados.`})
-    if(a.prescricao.conclusao==='indefinida')   parecer.push({tipo:'warning',msg:`${num}: Prescrição inconclusiva — informar citação e ajuizamento.`})
+    ;(a.inscricoesAnalise || []).forEach((item, j) => {
+      const numeroInscricao = item.inscricao?.numero || `inscrição ${j+1}`
+      if(item.decadencia?.conclusao==='ha_decadencia') {
+        parecer.push({tipo:'danger',msg:`${num} · ${numeroInscricao}: forte indício de decadência — confirmar os marcos e documentos indicados antes de concluir pela extinção do crédito.`}); urgente=true
+      }
+      if(item.prescricao?.conclusao==='ha_prescricao') {
+        parecer.push({tipo:'danger',msg:`${num} · ${numeroInscricao}: forte indício de prescrição — confirmação documental necessária (despacho citatório, protesto, reconhecimento/parcelamento e demais eventos do art. 174 do CTN).`}); urgente=true
+      }
+      if(item.decadencia?.conclusao==='indefinida') parecer.push({tipo:'warning',msg:`${num} · ${numeroInscricao}: decadência inconclusiva — complementar os marcos e documentos desta inscrição.`})
+      if(item.prescricao?.conclusao==='indefinida') parecer.push({tipo:'warning',msg:`${num} · ${numeroInscricao}: prescrição inconclusiva — reconstruir a cronologia documental dos eventos interruptivos/suspensivos.`})
+    })
+    if(a.prescricaoIntercorrente?.conclusao==='ha_prescricao_intercorrente') {
+      parecer.push({tipo:'danger',msg:`${num}: forte indício de prescrição intercorrente — confirmar nos autos o marco do art. 40 e a existência de citação/constrição efetiva.`}); urgente=true
+    }
+    if(a.prescricaoIntercorrente?.conclusao==='indefinida') {
+      parecer.push({tipo:'warning',msg:`${num}: prescrição intercorrente inconclusiva — localizar a ciência da Fazenda sobre a não localização do devedor/bens e os atos úteis posteriores.`})
+    }
+    if(a.validadeCDA?.conclusao==='cda_vicio') parecer.push({tipo:'warning',msg:`${num}: vício formal confirmado na CDA — verificar consequência e possibilidade de saneamento pelo art. 203 do CTN.`})
+    if(a.validadeCDA?.conclusao==='indefinida') parecer.push({tipo:'warning',msg:`${num}: validade formal da CDA depende de conferência documental dos requisitos dos arts. 202 e 203 do CTN.`})
   })
   return { parecer, urgente }
 }
@@ -439,6 +872,14 @@ function ResultadoAnalise({ resultado }) {
         <span style={{fontSize:12,color:C.muted}}>{expandido?'▲ Ocultar':'▼ Ver raciocínio'}</span>
       </div>
       {resultado.justificativa&&<div style={{fontSize:13,color:C.text,marginTop:8,lineHeight:1.7}}>{resultado.justificativa}</div>}
+      {resultado.documentosNecessarios&&resultado.documentosNecessarios.length>0&&(
+        <div style={{marginTop:10,background:'#FFFFFF',border:'1px solid #E2E8F0',borderRadius:8,padding:'10px 12px'}}>
+          <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:6,textTransform:'uppercase',letterSpacing:0.7}}>Documentos necessários para confirmar ou afastar a conclusão</div>
+          {resultado.documentosNecessarios.map((doc,i)=>(
+            <div key={i} style={{fontSize:11.5,color:C.text,lineHeight:1.55,marginTop:i?4:0}}>• {doc}</div>
+          ))}
+        </div>
+      )}
       {resultado.teses&&resultado.teses.length>0&&(
         <div style={{marginTop:8}}>
           <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:1}}>Teses aplicáveis</div>
@@ -550,9 +991,14 @@ function SeletorCliente({ clienteAtual, onSelecionar, onCadastrarNovo }) {
 
   return (
     <div style={{position:'relative'}}>
-      <button onClick={()=>setAberto(!aberto)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'10px 14px',color:'#fff',fontSize:13,cursor:'pointer',width:340}}>
-        <span>👤 {clienteAtual ? `${clienteAtual.razao_social}${clienteAtual.cnpj?' · '+clienteAtual.cnpj:''}` : 'Selecionar cliente...'}</span>
-        <span>▼</span>
+      <button onClick={()=>setAberto(!aberto)} style={{
+        display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,
+        background:'#FFFFFF',border:'1px solid #CBD5E1',borderRadius:9,
+        padding:'10px 14px',color:'#0F172A',fontSize:13,cursor:'pointer',width:340,
+        boxShadow:'0 1px 2px rgba(15,23,42,0.04)'
+      }}>
+        <span style={{fontWeight:600}}>👤 {clienteAtual ? `${clienteAtual.razao_social}${clienteAtual.cnpj?' · '+clienteAtual.cnpj:''}` : 'Selecionar cliente...'}</span>
+        <span style={{color:'#64748B'}}>▼</span>
       </button>
 
       {aberto&&(
@@ -619,6 +1065,15 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   const [cdas, setCdas] = useState([{...CDA_VAZIA}])
   const [sim, setSim] = useState({ valor:'', modalidade:'transacao_edital', desconto_multa:50, desconto_juros:50, parcelas:60, entrada_pct:5, multa_pct:20, juros_pct:30 })
   const [simResult, setSimResult] = useState(null)
+  const [negociacao, setNegociacao] = useState({
+    valor_atualizado:'',
+    data_base:hoje,
+    origem_valor:'Regularize',
+    tipo_contribuinte:'pf',
+    capag:'',
+    objetivo:'maior_economia'
+  })
+  const [cenariosNegociacao, setCenariosNegociacao] = useState([])
   const [regraCapag, setRegraCapag] = useState(null)
   const [teseTransacao, setTeseTransacao] = useState(null)
   const [sisparDados, setSisparDados] = useState([])
@@ -638,6 +1093,19 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     document.head.appendChild(style)
     return () => document.head.removeChild(style)
   }, [])
+
+  useEffect(() => {
+    const total = (cdas || []).reduce((acc, cda) => acc + totalInscricoes(cda), 0)
+    if (total > 0) {
+      setDados(d => ({ ...d, valor_total: total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }))
+      setNegociacao(n => {
+        const origemDocumento = !n.valor_atualizado || String(n.origem_valor || '').includes('CDA/documento')
+        return origemDocumento
+          ? { ...n, valor_atualizado:String(total), data_base:hoje, origem_valor:'CDA/documento importado — confirmar no Regularize' }
+          : n
+      })
+    }
+  }, [cdas])
 
   useEffect(()=>{
     async function carregarCore() {
@@ -663,15 +1131,31 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda: campos.numero_cda || '',
-      inscricoes: [{ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito }],
+      devedor: campos.devedor || '',
+      cnpj_devedor: campos.cnpj_devedor || '',
+      municipio: campos.municipio || '',
+      uf: campos.uf || '',
+      processo_administrativo: campos.processo_administrativo || '',
+      livro_folha: campos.livro_folha || '',
+      fundamento_legal: campos.fundamento_legal || '',
+      forma_calculo_juros: campos.forma_calculo_juros || '',
+      inscricoes: (Array.isArray(campos.inscricoes) && campos.inscricoes.length
+        ? campos.inscricoes.map(ins=>normalizarInscricao(ins, { tipo_credito: tipoCredito }))
+        : [novaInscricao({ numero: campos.numero_cda || '', valor: String(campos.valor_total || '0'), tipo_credito: tipoCredito, data_fato_gerador:normalizarData(campos.data_fato_gerador)||'', data_constituicao:normalizarData(campos.data_constituicao_definitiva)||normalizarData(campos.data_inscricao)||'', data_inscricao:normalizarData(campos.data_inscricao)||'', modalidade_lancamento:campos.modalidade_lancamento||'oficio' })]),
       situacao: 'Ativa',
       modalidade_lancamento: campos.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(campos.data_fato_gerador) || '',
       data_constituicao:        normalizarData(campos.data_constituicao_definitiva) || normalizarData(campos.data_inscricao) || '',
       data_inscricao:           normalizarData(campos.data_inscricao) || '',
       data_ajuizamento:         normalizarData(campos.data_ajuizamento) || '',
+      data_despacho_citacao:    normalizarData(campos.data_despacho_citacao) || '',
       data_citacao:             normalizarData(campos.data_citacao) || '',
+      data_ciencia_fazenda_nao_localizacao: normalizarData(campos.data_ciencia_fazenda_nao_localizacao) || '',
       data_ultima_movimentacao: normalizarData(campos.data_ultima_movimentacao) || '',
+      possui_execucao_fiscal:   !!(campos.possui_execucao_fiscal || campos.numero_processo_execucao),
+      numero_processo_execucao: campos.numero_processo_execucao || '',
+      trf_regiao:               campos.trf_regiao || '',
+      vara_execucao:            campos.vara_execucao || '',
     }
 
     setDados(d => ({
@@ -679,7 +1163,15 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       cnpj: campos.cnpj_devedor || clienteEfetivo?.cnpj || '',
       valor_total: campos.valor_total ? parseValor(campos.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '',
       orgao_credor: 'PGFN',
+      processo_execucao: d.processo_execucao || campos.numero_processo_execucao || '',
     }))
+    setNegociacao(n => ({
+      ...n,
+      valor_atualizado: n.valor_atualizado || (campos.valor_total ? String(parseValor(campos.valor_total)) : ''),
+      data_base: hoje,
+      origem_valor: n.valor_atualizado ? n.origem_valor : 'CDA/documento importado — confirmar no Regularize'
+    }))
+    setCenariosNegociacao([])
     setCdas([cdaDiag])
     setDiagnostico(null)
     setAnalisesCDA([])
@@ -688,28 +1180,75 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     if (onCdaConsumed) onCdaConsumed()
 
     setTimeout(() => {
-      const resultados = [cdaDiag].map(cda => ({
-        cda,
-        decadencia: analisarDecadencia(cda),
-        prescricao: analisarPrescricao(cda),
-        prescricaoIntercorrente: analisarPrescricaoIntercorrente(cda),
-        validadeCDA: analisarCDA(cda),
-      }))
+      const resultados = analisarConjuntoCDAs([cdaDiag])
       const { parecer, urgente } = gerarParecer(resultados)
-      let score = 50
-      resultados.forEach(r => {
-        if(r.decadencia.conclusao==='ha_decadencia') score+=25
-        if(r.prescricao.conclusao==='ha_prescricao') score+=25
-        if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
-        if(r.validadeCDA.conclusao==='cda_vicio') score+=10
-      })
-      score = Math.min(100, score)
+      const score = calcularScoreAnalise(resultados)
       const diagNovo = { parecer, urgente, score, valor:0, data: new Date().toISOString() }
       setAnalisesCDA(resultados)
       setDiagnostico(diagNovo)
       setAba(1)
     }, 100)
   }, [cdaParaDiagnostico])
+
+  function montarCdaImportada(payload) {
+    const campos = payload?.campos || {}
+    const tipoCredito = campos.tipo_debito || 'tributario_federal'
+    return migrarCDA({
+      ...CDA_VAZIA,
+      numero_cda: campos.numero_cda || '',
+      devedor: campos.devedor || '',
+      cnpj_devedor: campos.cnpj_devedor || '',
+      municipio: campos.municipio || '',
+      uf: campos.uf || '',
+      processo_administrativo: campos.processo_administrativo || '',
+      livro_folha: campos.livro_folha || '',
+      fundamento_legal: campos.fundamento_legal || '',
+      forma_calculo_juros: campos.forma_calculo_juros || '',
+      inscricoes: (Array.isArray(campos.inscricoes) && campos.inscricoes.length)
+        ? campos.inscricoes
+        : [novaInscricao({ numero:campos.numero_cda||'', valor:String(campos.valor_total||'0'), tipo_credito:tipoCredito })],
+      situacao:'Ativa',
+      modalidade_lancamento:campos.modalidade_lancamento || 'oficio',
+      data_fato_gerador:normalizarData(campos.data_fato_gerador)||'',
+      data_constituicao:normalizarData(campos.data_constituicao_definitiva)||normalizarData(campos.data_inscricao)||'',
+      data_inscricao:normalizarData(campos.data_inscricao)||'',
+      data_ajuizamento:normalizarData(campos.data_ajuizamento)||'',
+      data_despacho_citacao:normalizarData(campos.data_despacho_citacao)||'',
+      data_citacao:normalizarData(campos.data_citacao)||'',
+      data_ciencia_fazenda_nao_localizacao:normalizarData(campos.data_ciencia_fazenda_nao_localizacao)||'',
+      data_ultima_movimentacao:normalizarData(campos.data_ultima_movimentacao)||'',
+      possui_execucao_fiscal:!!(campos.possui_execucao_fiscal || campos.numero_processo_execucao),
+      numero_processo_execucao:campos.numero_processo_execucao || '',
+      trf_regiao:campos.trf_regiao || '',
+      vara_execucao:campos.vara_execucao || '',
+    })
+  }
+
+  function adicionarCdaImportada(payload) {
+    if (!payload?.campos) { setMostrarImportarCDA(false); return }
+    const nova = montarCdaImportada(payload)
+    if (payload.clienteEfetivo?.id) {
+      setClienteAtual({ id:payload.clienteEfetivo.id, razao_social:payload.clienteEfetivo.razao_social, cnpj:payload.clienteEfetivo.cnpj || '' })
+    }
+    setDados(d=>({
+      ...d,
+      cnpj:payload.campos.cnpj_devedor || payload.clienteEfetivo?.cnpj || d.cnpj,
+      orgao_credor:'PGFN',
+      processo_execucao:d.processo_execucao || payload.campos.numero_processo_execucao || '',
+    }))
+    setCdas(prev => {
+      const limpas = (prev || []).filter(c => c.numero_cda || (c.inscricoes || []).some(ins=>ins.numero || parseValor(ins.valor)>0))
+      const duplicada = limpas.some(c => c.numero_cda && nova.numero_cda && c.numero_cda === nova.numero_cda)
+      const proximas = duplicada ? limpas.map(c=>c.numero_cda===nova.numero_cda ? nova : c) : [...limpas, nova]
+      return consolidarDadosProcessuais(proximas)
+    })
+    setDiagnostico(null)
+    setAnalisesCDA([])
+    setCenariosNegociacao([])
+    setRegistroId(null)
+    setMostrarImportarCDA(false)
+    setAba(1)
+  }
 
   async function carregarSispar() {
     setSisparLoading(true)
@@ -745,7 +1284,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     const cdaDiag = {
       ...CDA_VAZIA,
       numero_cda:               cda.numero_cda || '',
-      inscricoes: [{ numero: cda.numero_cda || '', valor: parseValor(cda.valor_total) > 0 ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', tipo_credito: tipoCredito }],
+      inscricoes: (Array.isArray(cda.inscricoes_json) && cda.inscricoes_json.length
+        ? cda.inscricoes_json.map(ins=>normalizarInscricao(ins, cda))
+        : [novaInscricao({ numero: cda.numero_cda || '', valor: parseValor(cda.valor_total) > 0 ? parseValor(cda.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', tipo_credito: tipoCredito, data_fato_gerador:normalizarData(cda.data_fato_gerador)||'', data_constituicao:normalizarData(cda.data_constituicao_definitiva)||normalizarData(cda.data_constituicao)||normalizarData(cda.data_inscricao)||'', data_inscricao:normalizarData(cda.data_inscricao)||'', modalidade_lancamento:cda.modalidade_lancamento||'oficio' })]),
       situacao:                 cda.situacao || 'Ativa',
       modalidade_lancamento:    cda.modalidade_lancamento || 'oficio',
       data_fato_gerador:        normalizarData(cda.data_fato_gerador) || '',
@@ -759,25 +1300,16 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       possui_garantia:          cda.possui_garantia || false,
       possui_penhora:           cda.possui_penhora || false,
       possui_embargos:          cda.possui_embargos || false,
+      possui_execucao_fiscal:   !!(cda.possui_execucao_fiscal || cda.numero_processo_execucao),
+      numero_processo_execucao: cda.numero_processo_execucao || '',
+      trf_regiao:               cda.trf_regiao || '',
+      vara_execucao:            cda.vara_execucao || '',
     }
 
     // Roda diagnóstico
-    const resultados = [cdaDiag].map(c => ({
-      cda: c,
-      decadencia: analisarDecadencia(c),
-      prescricao: analisarPrescricao(c),
-      prescricaoIntercorrente: analisarPrescricaoIntercorrente(c),
-      validadeCDA: analisarCDA(c),
-    }))
+    const resultados = analisarConjuntoCDAs([cdaDiag])
     const { parecer, urgente } = gerarParecer(resultados)
-    let score = 50
-    resultados.forEach(r => {
-      if(r.decadencia.conclusao==='ha_decadencia') score+=25
-      if(r.prescricao.conclusao==='ha_prescricao') score+=25
-      if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
-      if(r.validadeCDA.conclusao==='cda_vicio') score+=10
-    })
-    score = Math.min(100, score)
+    const score = calcularScoreAnalise(resultados)
     const diagNovo = { parecer, urgente, score, valor: parseFloat(cda.valor_total)||0, data: new Date().toISOString() }
 
     // Abre VisualizarCDA com CDA completa + diagnóstico
@@ -821,7 +1353,15 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setSalvando(true)
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      const diagFinal = diagOverride ?? diagnostico
+      const diagBase = diagOverride ?? diagnostico ?? {}
+      const diagFinal = {
+        ...diagBase,
+        negociacao: {
+          configuracao: negociacao,
+          cenarios: cenariosNegociacao,
+          atualizado_em: new Date().toISOString()
+        }
+      }
       const payload = {
         usuario_id: user.id,
         razao_social: clienteAtual?.razao_social || dados.cnpj,
@@ -867,6 +1407,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setDados({ cnpj:reg.cnpj||'', valor_total: reg.valor_total ? parseValor(reg.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '', orgao_credor:reg.orgao_credor||'PGFN', processo_execucao:reg.processo_execucao||'', possui_parcelamento:reg.possui_parcelamento||false, possui_transacao_anterior:reg.possui_transacao_anterior||false, possui_garantia:reg.possui_garantia||false, possui_penhora:reg.possui_penhora||false, possui_bloqueio:reg.possui_bloqueio||false, possui_embargos:reg.possui_embargos||false, observacoes:reg.observacoes||'' })
     setCdas(migrarListaCDAs(reg.cdas))
     setDiagnostico(reg.diagnostico||null)
+    const negSalva = reg.diagnostico?.negociacao
+    if (negSalva?.configuracao) setNegociacao(n => ({...n, ...negSalva.configuracao}))
+    else setNegociacao({ valor_atualizado:'', data_base:hoje, origem_valor:'Regularize', tipo_contribuinte:'pf', capag:'', objetivo:'maior_economia' })
+    setCenariosNegociacao(Array.isArray(negSalva?.cenarios) ? negSalva.cenarios : [])
     setAnalisesCDA([])
     setRegistroId(reg.id)
     setAba(reg.diagnostico?0:1)
@@ -879,6 +1423,8 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setCdas([{...CDA_VAZIA}])
     setDiagnostico(null)
     setAnalisesCDA([])
+    setNegociacao({ valor_atualizado:'', data_base:hoje, origem_valor:'Regularize', tipo_contribuinte:'pf', capag:'', objetivo:'maior_economia' })
+    setCenariosNegociacao([])
     setRegistroId(null)
     setAba(0)
   }
@@ -895,16 +1441,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
   function executarDiagnostico() {
     setAnalisando(true)
-    const resultados = cdas.map(cda=>({ cda, decadencia:analisarDecadencia(cda), prescricao:analisarPrescricao(cda), prescricaoIntercorrente:analisarPrescricaoIntercorrente(cda), validadeCDA:analisarCDA(cda) }))
+    const resultados = analisarConjuntoCDAs(cdas)
     const { parecer, urgente } = gerarParecer(resultados)
-    let score = 50
-    resultados.forEach(r=>{
-      if(r.decadencia.conclusao==='ha_decadencia') score+=25
-      if(r.prescricao.conclusao==='ha_prescricao') score+=25
-      if(r.prescricaoIntercorrente.conclusao==='ha_prescricao_intercorrente') score+=15
-      if(r.validadeCDA.conclusao==='cda_vicio') score+=10
-    })
-    score = Math.min(100,score)
+    const score = calcularScoreAnalise(resultados)
     const diagNovo = { parecer, urgente, score, valor:parseFloat((dados.valor_total||'').replace(/\./g,'').replace(',','.'))||0, data:new Date().toISOString() }
     setTimeout(()=>{
       setAnalisesCDA(resultados)
@@ -913,6 +1452,115 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       setAba(2)
       salvar(diagNovo, resultados)
     },1500)
+  }
+
+  function valorBaseNegociacao() {
+    const atual = parseValor(negociacao.valor_atualizado)
+    if (atual > 0) return atual
+    const geral = parseValor(dados.valor_total)
+    if (geral > 0) return geral
+    return cdas.reduce((s,c)=>s+totalInscricoes(c),0)
+  }
+
+  function gerarCenariosPequenoValor() {
+    const valor = valorBaseNegociacao()
+    if (valor <= 0) {
+      alert('Informe o valor atualizado da dívida antes de gerar os cenários.')
+      return
+    }
+
+    const gerados = CENARIOS_PEQUENO_VALOR_2026.map(regra => {
+      if (regra.vista) {
+        const totalPago = valor * (1 - regra.desconto_pct/100)
+        return {
+          id:regra.key,
+          modalidade:'Pequeno Valor — Edital PGDAU 6/2026',
+          nome:regra.nome,
+          valor_base:valor,
+          entrada:0,
+          entrada_parcelas:0,
+          parcela_entrada:0,
+          saldo_meses:0,
+          parcela_saldo:0,
+          desconto_pct:regra.desconto_pct,
+          economia:valor-totalPago,
+          total_pago_base:totalPago,
+          prazo_total_meses:0,
+          observacao:'Pagamento à vista. Confirmar elegibilidade e valor oficial no REGULARIZE.'
+        }
+      }
+
+      const entrada = valor * (regra.entrada_pct/100)
+      const saldoSemDesconto = valor - entrada
+      const saldoComDesconto = saldoSemDesconto * (1 - regra.desconto_pct/100)
+      const totalPago = entrada + saldoComDesconto
+      return {
+        id:regra.key,
+        modalidade:'Pequeno Valor — Edital PGDAU 6/2026',
+        nome:regra.nome,
+        valor_base:valor,
+        entrada,
+        entrada_parcelas:regra.entrada_parcelas,
+        parcela_entrada:regra.entrada_parcelas ? entrada/regra.entrada_parcelas : entrada,
+        saldo_meses:regra.saldo_meses,
+        parcela_saldo:regra.saldo_meses ? saldoComDesconto/regra.saldo_meses : saldoComDesconto,
+        desconto_pct:regra.desconto_pct,
+        economia:valor-totalPago,
+        total_pago_base:totalPago,
+        prazo_total_meses:regra.entrada_parcelas + regra.saldo_meses,
+        observacao:'Estimativa-base sem projetar Selic. As prestações são corrigidas conforme as regras da PGFN; confirme o cálculo oficial no REGULARIZE.'
+      }
+    })
+    setCenariosNegociacao(gerados)
+    setAba(5)
+  }
+
+  function adicionarCenarioRegularize() {
+    const valor = valorBaseNegociacao()
+    const totalTxt = window.prompt('Qual é o valor total final mostrado pelo REGULARIZE para esta opção?')
+    if (totalTxt === null) return
+    const total = parseValor(totalTxt)
+    if (total <= 0) return alert('Informe um valor válido.')
+    const nome = window.prompt('Nome da opção (ex.: CPF — 17 meses / CNPJ — 60 meses):', 'Proposta do REGULARIZE') || 'Proposta do REGULARIZE'
+    const entradaTxt = window.prompt('Valor total da entrada (se houver):', '0')
+    const parcelasTxt = window.prompt('Quantidade total de meses/parcelas:', '1')
+    const parcelaTxt = window.prompt('Valor aproximado da parcela principal:', '0')
+    const entrada = parseValor(entradaTxt)
+    const prazo = parseInt(parcelasTxt||'1',10) || 1
+    const parcela = parseValor(parcelaTxt)
+    const novo = {
+      id:`regularize_${Date.now()}`,
+      modalidade:'Proposta real do REGULARIZE',
+      nome,
+      valor_base:valor,
+      entrada,
+      entrada_parcelas:entrada>0?1:0,
+      parcela_entrada:entrada,
+      saldo_meses:prazo,
+      parcela_saldo:parcela,
+      desconto_pct:valor>0?Math.max(0,((valor-total)/valor)*100):0,
+      economia:valor>0?Math.max(0,valor-total):0,
+      total_pago_base:total,
+      prazo_total_meses:prazo,
+      observacao:'Cenário informado a partir da simulação efetiva do REGULARIZE.'
+    }
+    setCenariosNegociacao(lista => [...lista, novo])
+  }
+
+  function removerCenarioNegociacao(id) {
+    setCenariosNegociacao(lista => lista.filter(c => c.id !== id))
+  }
+
+  function melhoresCenarios() {
+    if (!cenariosNegociacao.length) return {}
+    const positivosEntrada = cenariosNegociacao.filter(c=>parseValor(c.entrada)>0)
+    return {
+      maiorEconomia:[...cenariosNegociacao].sort((a,b)=>parseValor(b.economia)-parseValor(a.economia))[0],
+      menorEntrada:(positivosEntrada.length?[...positivosEntrada]:[...cenariosNegociacao]).sort((a,b)=>parseValor(a.entrada)-parseValor(b.entrada))[0],
+      menorParcela:[...cenariosNegociacao].filter(c=>parseValor(c.parcela_saldo)>0).sort((a,b)=>parseValor(a.parcela_saldo)-parseValor(b.parcela_saldo))[0] || null,
+      menorCusto:[...cenariosNegociacao].sort((a,b)=>parseValor(a.total_pago_base)-parseValor(b.total_pago_base))[0],
+      maiorPrazo:[...cenariosNegociacao].sort((a,b)=>(b.prazo_total_meses||0)-(a.prazo_total_meses||0))[0],
+    }
   }
 
   function calcularSimulacao() {
@@ -945,14 +1593,18 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       '(3) QUALIDADE DE QUEM RECEBEU A NOTIFICAÇÃO: se pessoa estranha ao estabelecimento',
       '    ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.',
       '',
-      '(4) PERÍODOS DE PARALISAÇÃO PROCESSUAL: verificar se houve paralisação superior',
-      '    a 1 ano sem localização do devedor ou bens, seguida de arquivamento — configurando',
-      '    o início da contagem da prescrição intercorrente nos termos do art. 40 da Lei',
-      '    6.830/80, Tema 566 STJ e Súmula 314 STJ.',
+      '(4) MARCO DO ART. 40 / TEMA 566 STJ: localizar a primeira tentativa frustrada',
+      '    de localização do devedor ou de bens e a data em que a Fazenda Pública tomou',
+      '    ciência desse fato. O prazo de 1 ano de suspensão inicia-se automaticamente',
+      '    a partir dessa ciência; a última movimentação, sozinha, não substitui esse marco.',
       '',
-      '(5) INTIMAÇÃO DA FAZENDA PÚBLICA: verificar se a Fazenda foi devidamente intimada',
-      '    do despacho de suspensão/arquivamento — conforme Tema 566 STJ, o prazo corre',
-      '    independentemente dessa intimação, mas sua ausência pode ser arguida.',
+      '(5) ATOS ÚTEIS POSTERIORES — TEMA 568 STJ: verificar citação efetiva e constrição',
+      '    patrimonial efetiva, com as respectivas datas. Mero peticionamento requerendo',
+      '    diligências não basta para interromper a prescrição intercorrente.',
+      '',
+      '(6) INÍCIO AUTOMÁTICO APÓS 1 ANO — TEMA 569 STJ: encerrado o período de suspensão,',
+      '    o prazo prescricional aplicável inicia-se automaticamente, independentemente',
+      '    de petição da Fazenda ou de pronunciamento judicial específico.',
       '',
       'A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma',
       'dessas hipóteses — somente a análise completa dos autos, página por página, poderá',
@@ -1058,20 +1710,48 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     return <input value={dados[k]} onChange={handleChange} onBlur={handleBlur} placeholder={ph} type={tp} style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
   }
 
-  const addCDA = () => setCdas([...cdas,{...CDA_VAZIA}])
-  const removeCDA = i => setCdas(cdas.filter((_,idx)=>idx!==i))
-  const updateCDA = (i,k,v) => { const novo=[...cdas]; novo[i]={...novo[i],[k]:v}; setCdas(novo) }
+  // Começa com uma única CDA. O botão "+ Nova CDA" acrescenta quantas forem necessárias.
+  // Quando já existe um processo de execução informado, a nova CDA herda apenas os dados
+  // processuais comuns para evitar retrabalho; os dados próprios da CDA/inscrições começam vazios.
+  const addCDA = () => {
+    setCdas(prev => {
+      const referencia = prev[prev.length - 1] || CDA_VAZIA
+      const nova = {
+        ...CDA_VAZIA,
+        inscricoes:[novaInscricao()],
+        possui_execucao_fiscal: !!referencia.possui_execucao_fiscal,
+        numero_processo_execucao: referencia.numero_processo_execucao || '',
+        trf_regiao: referencia.trf_regiao || '',
+        vara_execucao: referencia.vara_execucao || '',
+        data_ajuizamento: referencia.data_ajuizamento || '',
+        data_despacho_citacao: referencia.data_despacho_citacao || '',
+        data_citacao: referencia.data_citacao || '',
+        data_ciencia_fazenda_nao_localizacao: referencia.data_ciencia_fazenda_nao_localizacao || '',
+        data_ultima_movimentacao: referencia.data_ultima_movimentacao || '',
+      }
+      return [...prev, nova]
+    })
+  }
+  const removeCDA = i => setCdas(prev => {
+    const proximas = prev.filter((_,idx)=>idx!==i)
+    return proximas.length ? proximas : [{...CDA_VAZIA, inscricoes:[novaInscricao()]}]
+  })
+  const updateCDA = (i,k,v) => {
+    const novo=[...cdas]
+    novo[i]={...novo[i],[k]:v}
+    setCdas(['numero_processo_execucao','data_ajuizamento','data_despacho_citacao','data_citacao','data_ciencia_fazenda_nao_localizacao','data_ultima_movimentacao','trf_regiao','vara_execucao'].includes(k) ? consolidarDadosProcessuais(novo) : novo)
+  }
 
   const addInscricao = (i) => {
     const novo=[...cdas]
-    novo[i]={...novo[i],inscricoes:[...(novo[i].inscricoes||[]),{numero:'',valor:'',tipo_credito:'tributario_federal'}]}
+    novo[i]={...novo[i],inscricoes:[...(novo[i].inscricoes||[]),novaInscricao()]}
     setCdas(novo)
   }
   const removeInscricao = (i,j) => {
     const novo=[...cdas]
     const lista=[...(novo[i].inscricoes||[])]
     lista.splice(j,1)
-    novo[i]={...novo[i],inscricoes:lista.length>0?lista:[{numero:'',valor:'',tipo_credito:'tributario_federal'}]}
+    novo[i]={...novo[i],inscricoes:lista.length>0?lista:[novaInscricao()]}
     setCdas(novo)
   }
   const updateInscricao = (i,j,campo,v) => {
@@ -1090,7 +1770,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     setCdas(novo)
   }
 
-  const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','⚡ Estratégias','💰 Transação Tributária','📊 Simulador','📄 Parecer']
+  const ABAS = ['📋 Visão Geral','📝 Dados da Dívida','🧠 Diagnóstico Inteligente','📚 Editais & Enquadramento','💰 Cenários de Negociação','📊 Comparativo','📄 Parecer']
+  const resumoGlobalInscricoes = resumoFinanceiroInscricoes(analisesCDA)
+  const gruposProcessos = agruparCdasPorProcesso(cdas)
+  const processosIdentificados = gruposProcessos.filter(g=>!g.semProcesso)
 
   const sisparTotais = sisparDados.reduce((acc, r) => {
     const _t = parseValor(r.total_sem_desconto || 0)
@@ -1132,8 +1815,8 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
     return (
       <ImportarCDA
         active={active}
-        onSalvo={() => setMostrarImportarCDA(false)}
-        onDiagnostico={() => setMostrarImportarCDA(false)}
+        onSalvo={adicionarCdaImportada}
+        onDiagnostico={adicionarCdaImportada}
         onVoltar={() => setMostrarImportarCDA(false)}
       />
     )
@@ -1154,22 +1837,66 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
   return (
     <div style={{maxWidth:'100%',margin:'0 auto',position:'relative'}}>
 
-      {/* BANNER */}
-      <div style={{background:'#0B1F4D',borderRadius:14,padding:'18px 24px',color:'#fff',marginBottom:20,boxSizing:'border-box'}}>
+      {/* CABEÇALHO — padrão visual claro do FiscalTribe */}
+      <div style={{
+        background:'linear-gradient(135deg,#F8FAFC 0%,#EEF2F6 100%)',
+        borderRadius:14,padding:'18px 22px',marginBottom:20,boxSizing:'border-box',
+        border:'1px solid #D7DEE8',
+        boxShadow:'0 3px 12px rgba(15,23,42,0.05)'
+      }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
-          <div>
-            <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>FISCALTRIB — DIAGNÓSTICO</div>
-            <div style={{fontSize:18,fontWeight:700,marginBottom:4,color:'#fff'}}><span style={{fontSize:'0.6em'}}>⚖️</span> Diagnóstico da Dívida Ativa</div>
-            <div style={{fontSize:13,color:'#93c5fd'}}>Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA</div>
+          <div style={{display:'flex',alignItems:'center',gap:13,minWidth:300}}>
+            <div style={{
+              width:48,height:48,borderRadius:12,background:'#FFFFFF',
+              border:'1px solid #D8DEE8',display:'flex',alignItems:'center',justifyContent:'center',
+              boxShadow:'0 2px 8px rgba(15,23,42,0.06)',flexShrink:0
+            }}>
+              <JusticeScaleIcon size={35}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:'#64748B',fontWeight:800,letterSpacing:1.4,marginBottom:3}}>
+                e-FISCALTRIBE — DIAGNÓSTICO
+              </div>
+              <div style={{fontSize:19,fontWeight:800,marginBottom:3,color:'#0F172A'}}>
+                Diagnóstico da Dívida Ativa
+              </div>
+              <div style={{fontSize:12.5,color:'#64748B'}}>
+                Motor de inteligência jurídica · Decadência · Prescrição · Validade da CDA
+              </div>
+            </div>
           </div>
-          <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>setMostrarImportarCDA(true)} style={{background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📄 Importar CDA</button>
-            <button onClick={novaAnalise} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>+ Nova análise</button>
-            <button onClick={abrirPainelHistorico} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📂 Análises salvas</button>
-            <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }} style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:'#fff',fontSize:13,cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>📋 CDAs Salvas</button>
+
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
+            <button onClick={()=>setMostrarImportarCDA(true)} style={{
+              background:'#0B1F4D',border:'1px solid #0B1F4D',borderRadius:8,
+              padding:'8px 14px',color:'#fff',fontSize:12.5,cursor:'pointer',
+              fontWeight:700,whiteSpace:'nowrap',boxShadow:'0 2px 5px rgba(11,31,77,0.15)'
+            }}>📄 {cdas.some(c=>c.numero_cda || (c.inscricoes||[]).some(ins=>ins.numero)) ? 'Adicionar outra CDA' : 'Importar CDA'}</button>
+
+            <button onClick={novaAnalise} style={{
+              background:'#FFFFFF',border:'1px solid #CBD5E1',borderRadius:8,
+              padding:'8px 14px',color:'#334155',fontSize:12.5,cursor:'pointer',
+              fontWeight:650,whiteSpace:'nowrap'
+            }}>+ Nova análise</button>
+
+            <button onClick={abrirPainelHistorico} style={{
+              background:'#FFFFFF',border:'1px solid #CBD5E1',borderRadius:8,
+              padding:'8px 14px',color:'#334155',fontSize:12.5,cursor:'pointer',
+              fontWeight:650,whiteSpace:'nowrap'
+            }}>📂 Análises salvas</button>
+
+            <button onClick={()=>{ setMostrarCdasSalvas(true); carregarCdasSalvas() }} style={{
+              background:'#FFFFFF',border:'1px solid #CBD5E1',borderRadius:8,
+              padding:'8px 14px',color:'#334155',fontSize:12.5,cursor:'pointer',
+              fontWeight:650,whiteSpace:'nowrap'
+            }}>📋 CDAs Salvas</button>
           </div>
         </div>
-        <div style={{marginTop:16}}>
+
+        <div style={{
+          marginTop:15,paddingTop:14,borderTop:'1px solid #DDE3EA',
+          display:'flex',alignItems:'center',gap:10
+        }}>
           <SeletorCliente clienteAtual={clienteAtual} onSelecionar={selecionarCliente} onCadastrarNovo={selecionarCliente}/>
         </div>
       </div>
@@ -1338,23 +2065,102 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
 
       {aba===0&&<>
         {!diagnostico?(
-          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center'}}>
-            <div style={{fontSize:48,marginBottom:12}}>⚖️</div>
-            <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:8}}>Nenhum diagnóstico realizado ainda</div>
-            <div style={{fontSize:13,color:C.muted,marginBottom:20}}>Acesse "Dados da Dívida", preencha os dados e execute o diagnóstico.</div>
-            <button onClick={()=>setAba(1)} style={btnPrimary}>Inserir dados →</button>
+          <div style={{
+            background:C.white,borderRadius:12,border:`1px solid ${C.border}`,
+            padding:'34px 32px',textAlign:'center',boxShadow:'0 2px 8px rgba(15,23,42,0.035)'
+          }}>
+            <div style={{
+              width:78,height:78,margin:'0 auto 14px',borderRadius:20,
+              background:'linear-gradient(145deg,#FFFFFF 0%,#F1F5F9 100%)',
+              border:'1px solid #D8DEE8',display:'flex',alignItems:'center',justifyContent:'center',
+              boxShadow:'0 6px 18px rgba(15,23,42,0.07)'
+            }}>
+              <JusticeScaleIcon size={52}/>
+            </div>
+
+            <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:14}}>
+              Nenhum diagnóstico realizado ainda
+            </div>
+
+            <div style={{
+              maxWidth:650,margin:'0 auto 14px',padding:'16px 18px',
+              background:'#F8FAFC',border:'1px solid #D7DEE8',borderRadius:10
+            }}>
+              <div style={{fontSize:14,fontWeight:800,color:'#0B1F4D',marginBottom:5}}>
+                📄 Importe a CDA automaticamente
+              </div>
+              <div style={{fontSize:12.5,color:'#475569',lineHeight:1.55,marginBottom:14}}>
+                Carregue o PDF da CDA e o e-FiscalTribe faz a leitura dos dados para você,
+                deixando as informações prontas para conferência e diagnóstico.
+              </div>
+
+              <button
+                onClick={()=>setMostrarImportarCDA(true)}
+                style={{
+                  background:'#0B1F4D',color:'#FFFFFF',border:'1px solid #0B1F4D',
+                  borderRadius:8,padding:'10px 20px',fontSize:13,fontWeight:800,
+                  cursor:'pointer',boxShadow:'0 3px 8px rgba(11,31,77,0.16)'
+                }}
+              >
+                📄 Importar CDA automaticamente →
+              </button>
+            </div>
+
+            <div style={{fontSize:11.5,color:'#64748B',marginBottom:9}}>
+              Se preferir, ou se não conseguir importar o documento, você também pode preencher os dados manualmente.
+            </div>
+
+            <button
+              onClick={()=>setAba(1)}
+              style={{
+                background:'#FFFFFF',color:'#475569',border:'1px solid #CBD5E1',
+                borderRadius:8,padding:'8px 16px',fontSize:12,fontWeight:650,
+                cursor:'pointer'
+              }}
+            >
+              Inserir dados manualmente
+            </button>
           </div>
         ):<>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
             <ScoreDividaAtiva score={diagnostico.score}/>
             <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px'}}>
               <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:1}}>Resumo</div>
-              {[['Valor total',dados.valor_total||'—','#DC2626'],['CDAs analisadas',cdas.length,'#0B1F4D'],['Órgão',dados.orgao_credor,'#0B1F4D'],['Data da análise',new Date(diagnostico.data).toLocaleDateString('pt-BR'),'#0B1F4D']].map(([lb,val,cor])=>(
+              {[['Valor total',fmtR(resumoGlobalInscricoes.total || parseValor(dados.valor_total)),'#DC2626'],['Processos de execução',processosIdentificados.length,'#0B1F4D'],['CDAs analisadas',cdas.length,'#0B1F4D'],['Inscrições analisadas',resumoGlobalInscricoes.inscricoes,'#0B1F4D'],['Valor potencialmente questionável',fmtR(resumoGlobalInscricoes.questionavel),'#DC2626'],['Órgão',dados.orgao_credor,'#0B1F4D'],['Data da análise',new Date(diagnostico.data).toLocaleDateString('pt-BR'),'#0B1F4D']].map(([lb,val,cor])=>(
                 <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
                   <span style={{fontSize:13,color:C.muted}}>{lb}</span>
                   <span style={{fontSize:14,fontWeight:700,color:cor}}>{val}</span>
                 </div>
               ))}
+            </div>
+          </div>
+          {processosIdentificados.length>0&&<div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'16px 18px',marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:800,color:C.navy,marginBottom:10}}>🏛️ Processos de execução fiscal vinculados</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:10}}>
+              {processosIdentificados.map((grupo,idx)=>(
+                <div key={grupo.key} style={{background:'#F8FAFC',border:'1px solid #CBD5E1',borderRadius:9,padding:'12px 14px'}}>
+                  <div style={{fontSize:11,color:C.muted,fontWeight:700,marginBottom:3}}>PROCESSO {idx+1}</div>
+                  <div style={{fontSize:13,fontWeight:800,color:C.navy,marginBottom:7}}>{grupo.processo}</div>
+                  <div style={{fontSize:11,color:C.text,lineHeight:1.6}}><strong>{grupo.cdas.length}</strong> CDA(s) · <strong>{grupo.inscricoes}</strong> inscrição(ões) · <strong>{fmtR(grupo.valor)}</strong></div>
+                  <div style={{fontSize:10.5,color:C.muted,marginTop:5}}>CDAs: {grupo.cdas.map(c=>c.numero_cda||'sem nº').join(' · ')}</div>
+                  {(grupo.data_ajuizamento||grupo.data_citacao)&&<div style={{fontSize:10.5,color:'#1E40AF',marginTop:5}}>Eventos do processo: ajuizamento {grupo.data_ajuizamento?fmtData(grupo.data_ajuizamento):'—'} · citação {grupo.data_citacao?fmtData(grupo.data_citacao):'—'}</div>}
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:10.5,color:C.muted,marginTop:9}}>As datas do processo são compartilhadas entre as CDAs vinculadas, mas decadência e prescrição são calculadas individualmente por inscrição/crédito.</div>
+          </div>}
+
+          <div style={{background:'linear-gradient(135deg,#0B1F4D,#163A79)',borderRadius:12,padding:'18px 20px',color:'#fff',marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:1.2,color:'#93C5FD',marginBottom:10}}>NEGOCIAÇÃO — RESUMO EXECUTIVO</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+              <div><div style={{fontSize:10,color:'#BFDBFE'}}>VALOR DA CDA / BASE</div><div style={{fontSize:18,fontWeight:800}}>{fmtR(parseValor(dados.valor_total)||cdas.reduce((s,c)=>s+totalInscricoes(c),0))}</div></div>
+              <div><div style={{fontSize:10,color:'#BFDBFE'}}>VALOR ATUALIZADO</div><div style={{fontSize:18,fontWeight:800}}>{valorBaseNegociacao()>0?fmtR(valorBaseNegociacao()):'A informar'}</div></div>
+              <div><div style={{fontSize:10,color:'#BFDBFE'}}>MELHOR ECONOMIA</div><div style={{fontSize:18,fontWeight:800,color:'#86EFAC'}}>{melhoresCenarios().maiorEconomia?fmtR(melhoresCenarios().maiorEconomia.economia):'—'}</div></div>
+              <div><div style={{fontSize:10,color:'#BFDBFE'}}>CENÁRIOS COMPARADOS</div><div style={{fontSize:18,fontWeight:800}}>{cenariosNegociacao.length}</div></div>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
+              <button onClick={()=>setAba(4)} style={{background:'#fff',color:'#0B1F4D',border:'none',borderRadius:7,padding:'8px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Ver opções de negociação →</button>
+              {cenariosNegociacao.length>0&&<button onClick={()=>setAba(5)} style={{background:'transparent',color:'#fff',border:'1px solid #93C5FD',borderRadius:7,padding:'8px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Comparar cenários</button>}
             </div>
           </div>
           {diagnostico.parecer.length>0&&<div style={{marginBottom:16}}>
@@ -1368,7 +2174,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
             <button onClick={()=>setAba(6)} style={btnOutline}>📄 Gerar parecer</button>
             <button onClick={()=>{
               const w=window.open('','_blank')
-              const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Períodos de paralisação processual:</strong> verificar se houve paralisação superior a 1 ano sem localização do devedor ou bens, seguida de arquivamento — configurando o início da contagem da prescrição intercorrente nos termos do art. 40 da Lei 6.830/80, Tema 566 STJ e Súmula 314 STJ.</li><li><strong>Intimação da Fazenda Pública:</strong> verificar se a Fazenda foi devidamente intimada do despacho de suspensão/arquivamento — conforme Tema 566 STJ, o prazo corre independentemente dessa intimação, mas sua ausência pode ser arguida.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
+              const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Marco do art. 40 / Tema 566 STJ:</strong> localizar a primeira tentativa frustrada de localização do devedor ou de bens e a data em que a Fazenda Pública tomou ciência desse fato. O prazo de 1 ano de suspensão inicia-se automaticamente a partir dessa ciência; a última movimentação, sozinha, não substitui esse marco.</li><li><strong>Atos úteis posteriores — Tema 568 STJ:</strong> verificar citação efetiva e constrição patrimonial efetiva, com as respectivas datas. Mero peticionamento requerendo diligências não basta para interromper a prescrição intercorrente.</li><li><strong>Início automático após 1 ano — Tema 569 STJ:</strong> encerrado o período de suspensão, o prazo prescricional aplicável inicia-se automaticamente, independentemente de petição da Fazenda ou de pronunciamento judicial específico.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
               const scoreCor = diagnostico.score>=70?'#16A34A':diagnostico.score>=40?'#D97706':'#DC2626'
               const scoreLabel = diagnostico.score>=70?'Alto potencial de regularização':diagnostico.score>=40?'Potencial moderado':'Situação crítica'
               const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Parecer — Dívida Ativa</title><style>
@@ -1456,13 +2262,26 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                 <option>PGFN</option><option>Receita Federal</option><option>Estado</option><option>Município</option><option>Outro</option>
               </select>
             </div>
-            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Processo de execução fiscal</label>{inp('processo_execucao','Ex: 0001234-56.2019.4.03.6100')}</div>
+            <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Processo de execução fiscal (quando único)</label>{inp('processo_execucao','Ex: 0001234-56.2019.4.03.6100')}</div>
           </div>
         </div>
+        {processosIdentificados.length>0&&<div style={{background:'#F8FAFC',border:'1px solid #CBD5E1',borderRadius:12,padding:'14px 16px',marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:800,color:C.navy,marginBottom:8}}>🏛️ Estrutura processual identificada</div>
+          {processosIdentificados.map(grupo=>(
+            <div key={grupo.key} style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',padding:'8px 10px',background:'#fff',border:`1px solid ${C.border}`,borderRadius:8,marginBottom:6,flexWrap:'wrap'}}>
+              <div><div style={{fontSize:11,fontWeight:800,color:C.navy}}>{grupo.processo}</div><div style={{fontSize:10.5,color:C.muted}}>{grupo.cdas.map(c=>`CDA ${c.numero_cda||'sem nº'}`).join(' · ')}</div></div>
+              <div style={{fontSize:11,color:C.text,fontWeight:700}}>{grupo.cdas.length} CDA(s) · {grupo.inscricoes} inscrição(ões) · {fmtR(grupo.valor)}</div>
+            </div>
+          ))}
+        </div>}
+
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy}}>📄 CDAs — Certidões de Dívida Ativa</div>
-            <button onClick={addCDA} style={{...btnPrimary,padding:'6px 14px',fontSize:12}}>+ Adicionar CDA</button>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:16,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:C.navy}}>📄 CDAs — Certidões de Dívida Ativa</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:3}}>Comece com uma CDA. Se houver outras no mesmo processo ou em outro processo, use <strong>+ Nova CDA</strong>.</div>
+            </div>
+            <div style={{fontSize:11,fontWeight:800,color:C.navy,background:'#EFF6FF',border:'1px solid #BFDBFE',padding:'5px 10px',borderRadius:999}}>{cdas.length} CDA(s)</div>
           </div>
           {cdas.map((cda,i)=>(
             <div key={i} style={{background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`,padding:'16px 20px',marginBottom:12}}>
@@ -1473,6 +2292,18 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4,color:C.text}}>Número da CDA</label>
                 <input value={cda.numero_cda||''} onChange={e=>updateCDA(i,'numero_cda',e.target.value)} placeholder="Ex: 80.6.18.123456-78" style={{padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',maxWidth:320,boxSizing:'border-box'}}/>
+              </div>
+              <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8,padding:'10px 12px',marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <input type="checkbox" checked={!!cda.possui_execucao_fiscal} onChange={e=>updateCDA(i,'possui_execucao_fiscal',e.target.checked)} style={{accentColor:C.navy}}/>
+                  <span style={{fontSize:11,fontWeight:800,color:'#1E40AF'}}>CDA ajuizada em execução fiscal</span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1.5fr',gap:8}}>
+                  <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>Nº DO PROCESSO</label><input value={cda.numero_processo_execucao||''} onChange={e=>updateCDA(i,'numero_processo_execucao',e.target.value)} placeholder="0001234-56.2019.4.03.6100" style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>TRF</label><input value={cda.trf_regiao||''} onChange={e=>updateCDA(i,'trf_regiao',e.target.value)} placeholder="TRF3" style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>VARA / JUÍZO</label><input value={cda.vara_execucao||''} onChange={e=>updateCDA(i,'vara_execucao',e.target.value)} placeholder="Ex: 6ª Vara Federal" style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                </div>
+                {cda.numero_processo_execucao&&cdas.filter((outra,idx)=>idx!==i&&chaveProcesso(outra)===chaveProcesso(cda)).length>0&&<div style={{fontSize:10.5,color:'#166534',fontWeight:700,marginTop:7}}>✅ Esta CDA está vinculada ao mesmo processo de outra CDA desta análise.</div>}
               </div>
               <div style={{marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
@@ -1504,6 +2335,22 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                           </select>
                         </div>
                         {tipoInfo&&<div style={{fontSize:10,color:'#1E40AF',marginTop:4}}>📖 {tipoInfo.legislacao}</div>}
+                        <details style={{marginTop:9}}>
+                          <summary style={{fontSize:11,fontWeight:700,color:C.navy,cursor:'pointer'}}>Datas e valores próprios desta inscrição</summary>
+                          <div style={{marginTop:10,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>PERÍODO INÍCIO</label><input value={ins.periodo_inicio||''} onChange={e=>updateInscricao(i,j,'periodo_inicio',e.target.value)} placeholder="MM/AAAA" style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>PERÍODO FIM</label><input value={ins.periodo_fim||''} onChange={e=>updateInscricao(i,j,'periodo_fim',e.target.value)} placeholder="MM/AAAA" style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>FATO GERADOR</label><input type="date" value={ins.data_fato_gerador||''} onChange={e=>updateInscricao(i,j,'data_fato_gerador',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>VENCIMENTO</label><input type="date" value={ins.data_vencimento||''} onChange={e=>updateInscricao(i,j,'data_vencimento',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>CONSTITUIÇÃO</label><input type="date" value={ins.data_constituicao||''} onChange={e=>updateInscricao(i,j,'data_constituicao',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>INSCRIÇÃO DA</label><input type="date" value={ins.data_inscricao||''} onChange={e=>updateInscricao(i,j,'data_inscricao',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>PRINCIPAL ATUALIZADO</label><input value={ins.principal_atualizado||''} onChange={e=>updateInscricao(i,j,'principal_atualizado',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>JUROS</label><input value={ins.juros||''} onChange={e=>updateInscricao(i,j,'juros',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>MULTA</label><input value={ins.multa||''} onChange={e=>updateInscricao(i,j,'multa',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>ENCARGO LEGAL</label><input value={ins.encargo_legal||''} onChange={e=>updateInscricao(i,j,'encargo_legal',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%',boxSizing:'border-box'}}/></div>
+                            <div><label style={{fontSize:9,fontWeight:700,color:C.muted,display:'block',marginBottom:2}}>LANÇAMENTO</label><select value={ins.modalidade_lancamento||cda.modalidade_lancamento||'oficio'} onChange={e=>updateInscricao(i,j,'modalidade_lancamento',e.target.value)} style={{padding:'5px 7px',border:`1px solid ${C.border}`,borderRadius:5,fontSize:11,width:'100%'}}><option value="oficio">De ofício / declaração</option><option value="homologacao">Por homologação</option></select></div>
+                          </div>
+                        </details>
                       </div>
                     )
                   })}
@@ -1526,7 +2373,9 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
                   <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da constituição definitiva</label><input type="date" value={cda.data_constituicao} onChange={e=>updateCDA(i,'data_constituicao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
                   <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data de inscrição em DA</label><input type="date" value={cda.data_inscricao} onChange={e=>updateCDA(i,'data_inscricao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
                   <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data do ajuizamento</label><input type="date" value={cda.data_ajuizamento} onChange={e=>updateCDA(i,'data_ajuizamento',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Despacho que ordenou a citação</label><input type="date" value={cda.data_despacho_citacao||''} onChange={e=>updateCDA(i,'data_despacho_citacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
                   <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Data da citação válida</label><input type="date" value={cda.data_citacao} onChange={e=>updateCDA(i,'data_citacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
+                  <div><label style={{fontSize:11,fontWeight:600,display:'block',marginBottom:3,color:'#5B21B6'}}>Ciência da Fazenda — não localização do devedor/bens</label><input type="date" value={cda.data_ciencia_fazenda_nao_localizacao||''} onChange={e=>updateCDA(i,'data_ciencia_fazenda_nao_localizacao',e.target.value)} style={{padding:'6px 10px',border:'1.5px solid #7C3AED',borderRadius:6,fontSize:12,width:'100%'}}/></div>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
@@ -1547,6 +2396,10 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               </div>
             </div>
           ))}
+          <div style={{display:'flex',justifyContent:'center',paddingTop:4}}>
+            <button onClick={addCDA} style={{...btnPrimary,padding:'9px 22px',fontSize:13,minWidth:170}}>+ Nova CDA</button>
+          </div>
+          <div style={{fontSize:10.5,color:C.muted,textAlign:'center',marginTop:7}}>Você pode adicionar quantas CDAs forem necessárias. Se o processo for o mesmo, os dados processuais da CDA anterior são reaproveitados automaticamente.</div>
         </div>
         <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:20}}>
           <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:12}}>📝 Observações</div>
@@ -1567,18 +2420,46 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
           </div>
         ):<>
           {analisesCDA.map((a,i)=>{
-            const tipo = tipoReferenciaCDA(a.cda)
+            const resumoFin = resumoFinanceiroInscricoes([a])
             return (
               <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                  <div style={{fontSize:15,fontWeight:700,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
-                  <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:600}}>{tipo.label} (referência)</span>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:6,flexWrap:'wrap'}}>
+                  <div style={{fontSize:15,fontWeight:800,color:C.navy}}>{rotuloCDA(a.cda, i)}</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <span style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:10,fontWeight:700}}>{(a.inscricoesAnalise||[]).length} inscrição(ões)</span>
+                    {resumoFin.questionaveis>0&&<span style={{background:'#FEF2F2',color:'#B91C1C',padding:'3px 8px',borderRadius:12,fontSize:10,fontWeight:700}}>{resumoFin.questionaveis} com indício relevante</span>}
+                  </div>
                 </div>
-                <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{fmtR(totalInscricoes(a.cda))} · {a.cda.situacao}</div>
-                <ResultadoAnalise resultado={a.decadencia}/>
-                <ResultadoAnalise resultado={a.prescricao}/>
-                <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
-                <ResultadoAnalise resultado={{...a.validadeCDA,teses:tesesReferenciaCDA(a.cda)}}/>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:14}}>
+                  <div style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 10px'}}><div style={{fontSize:9,color:C.muted,fontWeight:700}}>VALOR TOTAL</div><div style={{fontSize:14,fontWeight:800,color:C.navy}}>{fmtR(resumoFin.total)}</div></div>
+                  <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'9px 10px'}}><div style={{fontSize:9,color:'#991B1B',fontWeight:700}}>POTENCIALMENTE QUESTIONÁVEL</div><div style={{fontSize:14,fontWeight:800,color:'#B91C1C'}}>{fmtR(resumoFin.questionavel)}</div></div>
+                  <div style={{background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:8,padding:'9px 10px'}}><div style={{fontSize:9,color:'#166534',fontWeight:700}}>SEM INDÍCIO NESTA TRIAGEM</div><div style={{fontSize:14,fontWeight:800,color:'#15803D'}}>{fmtR(resumoFin.exigivel)}</div></div>
+                </div>
+
+                {(a.inscricoesAnalise||[]).map((item,j)=>{
+                  const tipo = TIPOS_CREDITO.find(t=>t.key===item.inscricao?.tipo_credito) || TIPOS_CREDITO[0]
+                  const valor = parseValor(item.inscricao?.valor)
+                  const risco = item.decadencia?.conclusao==='ha_decadencia' || item.prescricao?.conclusao==='ha_prescricao'
+                  return (
+                    <div key={j} style={{border:`1px solid ${risco?'#FCA5A5':C.border}`,borderLeft:`5px solid ${risco?'#DC2626':'#2563EB'}`,borderRadius:10,padding:'13px 15px',marginBottom:12,background:risco?'#FFF7F7':'#fff'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start',marginBottom:9,flexWrap:'wrap'}}>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:800,color:C.navy}}>Inscrição {j+1} · {item.inscricao?.numero || 'Sem número'}</div>
+                          <div style={{fontSize:10.5,color:C.muted,marginTop:2}}>{tipo.label} · {item.inscricao?.periodo_inicio || 'período não informado'}{item.inscricao?.periodo_fim?` a ${item.inscricao.periodo_fim}`:''}</div>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:800,color:risco?'#B91C1C':C.navy}}>{fmtR(valor)}</div>
+                      </div>
+                      <ResultadoAnalise resultado={item.decadencia}/>
+                      <ResultadoAnalise resultado={item.prescricao}/>
+                    </div>
+                  )
+                })}
+
+                <div style={{marginTop:14,paddingTop:12,borderTop:`1px dashed ${C.border}`}}>
+                  <div style={{fontSize:11,fontWeight:800,color:C.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:.6}}>Análises comuns à CDA / processo</div>
+                  <ResultadoAnalise resultado={a.prescricaoIntercorrente}/>
+                  <ResultadoAnalise resultado={{...a.validadeCDA,teses:tesesReferenciaCDA(a.cda)}}/>
+                </div>
               </div>
             )
           })}
@@ -1590,96 +2471,160 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
       </>}
 
       {aba===3&&<>
-        <div style={{background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#166534'}}>
-          ✅ Modalidades baseadas nas regras vigentes da PGFN — Portaria 6.757/2022 e editais em vigor.
-        </div>
-        {MODALIDADES_PGFN.map(m=>(
-          <div key={m.key} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,borderLeft:'5px solid #0B1F4D',padding:'18px 22px',marginBottom:12}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:8}}>{m.label}</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:10}}>
-              {[['Desconto multa',`${m.desconto_multa[0]}–${m.desconto_multa[1]}%`,'#7C3AED'],['Desconto juros',`${m.desconto_juros[0]}–${m.desconto_juros[1]}%`,'#0D9488'],['Entrada mínima',`${m.entrada_min}%`,'#D97706'],['Parcelas máx.',`${m.parcelas_max}x`,'#2563EB']].map(([lb,val,cor])=>(
-                <div key={lb} style={{background:'#F8FAFC',borderRadius:8,padding:'8px 10px',textAlign:'center'}}>
-                  <div style={{fontSize:14,fontWeight:700,color:cor}}>{val}</div>
-                  <div style={{fontSize:10,color:C.muted}}>{lb}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'6px 10px'}}>📋 {m.elegibilidade}</div>
+        <div style={{background:'#FFF7ED',border:'1px solid #FDBA74',borderRadius:12,padding:'16px 18px',marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:'#9A3412',marginBottom:7}}>Antes de simular sua dívida, entenda isto</div>
+          <div style={{fontSize:12.5,color:'#7C2D12',lineHeight:1.7}}>
+            Uma mesma dívida pode ter várias formas de negociação. Valor de entrada, desconto, quantidade de parcelas e custo total mudam conforme o edital, o enquadramento do contribuinte, a condição da dívida e a proposta efetivamente disponibilizada no REGULARIZE. Por isso, não escolha a primeira opção sem comparar os cenários disponíveis.
           </div>
-        ))}
-      </>}
-
-      {aba===4&&<>
-        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#1E40AF'}}>
-          ℹ️ Análise baseada no Core de Inteligência Fiscal e Tributária — {regraCapag?'regra carregada da base jurídica viva':'carregando regra...'}.
         </div>
+
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'18px 20px',marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:800,color:C.navy,marginBottom:12}}>📚 Editais e modalidades em análise</div>
+          <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:14}}>Base inicial do motor. A proposta real e a elegibilidade definitiva devem ser confirmadas no REGULARIZE/SISPAR.</div>
+          {EDITAIS_VIGENTES_2026.map(e=>(
+            <div key={e.key} style={{border:`1px solid ${C.border}`,borderLeft:`5px solid ${e.status==='simulavel'?'#16A34A':'#2563EB'}`,borderRadius:10,padding:'13px 15px',marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,color:C.navy}}>{e.modalidade}</div>
+                  <div style={{fontSize:11,color:'#1E40AF',marginTop:2}}>{e.edital}</div>
+                </div>
+                <span style={{fontSize:10,fontWeight:800,background:e.status==='simulavel'?'#DCFCE7':'#DBEAFE',color:e.status==='simulavel'?'#166534':'#1E40AF',borderRadius:12,padding:'3px 8px',whiteSpace:'nowrap'}}>{e.status==='simulavel'?'SIMULAÇÃO DISPONÍVEL':'VALIDAR NO REGULARIZE'}</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:10}}>
+                <div style={{fontSize:11.5,color:C.text}}><strong>Quem pode:</strong> {e.publico}</div>
+                <div style={{fontSize:11.5,color:C.text}}><strong>Prazo de adesão:</strong> {e.prazo_adesao}</div>
+              </div>
+              <div style={{fontSize:11.5,color:C.muted,marginTop:8,lineHeight:1.5}}>{e.regra}</div>
+            </div>
+          ))}
+        </div>
+
         {cdas.map((cda,i)=>{
           const elegibilidade = analisarElegibilidadeTransacao(cda, regraCapag)
           return (
-            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginBottom:16}}>
-              <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:12}}>{rotuloCDA(cda,i)}</div>
+            <div key={i} style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'18px 20px',marginBottom:12}}>
+              <div style={{fontSize:14,fontWeight:800,color:C.navy,marginBottom:10}}>{rotuloCDA(cda,i)} — análise existente</div>
               <ResultadoAnalise resultado={elegibilidade}/>
             </div>
           )
         })}
-        {teseTransacao&&(
-          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'20px 24px',marginTop:8}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:10}}>📚 Tese aplicável — {teseTransacao.nome_tese}</div>
-            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>Requisitos:</strong> {teseTransacao.requisitos}</div>
-            <div style={{fontSize:13,color:C.text,marginBottom:8,lineHeight:1.7}}><strong>Exceções:</strong> {teseTransacao.excecoes}</div>
-            <div style={{fontSize:13,color:C.text,lineHeight:1.7}}><strong>Estratégia recomendada:</strong> {teseTransacao.estrategia_recomendada}</div>
+      </>}
+
+      {aba===4&&<>
+        <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+          <div style={{fontSize:16,fontWeight:800,color:C.navy,marginBottom:4}}>💰 Quanto você deve hoje?</div>
+          <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:16}}>Informe o valor atualizado exibido no REGULARIZE. O valor histórico da CDA continua preservado; este campo representa a data-base da negociação.</div>
+          <div style={{display:'grid',gridTemplateColumns:'1.2fr 0.8fr 1fr 0.8fr',gap:12}}>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:5}}>Valor atualizado (R$)</label>
+              <input value={negociacao.valor_atualizado} onChange={e=>setNegociacao({...negociacao,valor_atualizado:e.target.value})} placeholder="Ex.: 103280,42" style={{padding:'9px 10px',border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:5}}>Data-base</label>
+              <input type="date" value={negociacao.data_base} onChange={e=>setNegociacao({...negociacao,data_base:e.target.value})} style={{padding:'9px 10px',border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,width:'100%',boxSizing:'border-box'}}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:5}}>Origem do valor</label>
+              <select value={negociacao.origem_valor} onChange={e=>setNegociacao({...negociacao,origem_valor:e.target.value})} style={{padding:'9px 10px',border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,width:'100%'}}>
+                <option>Regularize</option>
+                <option>CDA/documento importado — confirmar no Regularize</option>
+                <option>Informado manualmente</option>
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:5}}>Contribuinte</label>
+              <select value={negociacao.tipo_contribuinte} onChange={e=>setNegociacao({...negociacao,tipo_contribuinte:e.target.value})} style={{padding:'9px 10px',border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,width:'100%'}}>
+                <option value="pf">Pessoa física</option>
+                <option value="mei">MEI</option>
+                <option value="me">Microempresa</option>
+                <option value="epp">EPP</option>
+                <option value="pj">Outra pessoa jurídica</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:12,padding:'16px 18px',marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:'#1E40AF',marginBottom:6}}>Pequeno Valor — cenários automáticos</div>
+          <div style={{fontSize:12,color:'#1E40AF',lineHeight:1.6,marginBottom:12}}>Para contribuintes elegíveis, o sistema calcula à vista e as faixas com entrada de 5% em até 5 parcelas, seguidas do saldo em 7, 12, 30 ou 55 meses. A elegibilidade e o cálculo final precisam ser confirmados no REGULARIZE.</div>
+          <button onClick={gerarCenariosPequenoValor} style={btnPrimary}>⚙️ Gerar todos os cenários de Pequeno Valor</button>
+        </div>
+
+        <div style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:12,padding:'16px 18px',marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:C.navy,marginBottom:6}}>Propostas reais do REGULARIZE</div>
+          <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:12}}>Use este botão para registrar opções que o REGULARIZE mostrou para CPF, CNPJ ou outra modalidade. Assim o FiscalTribe compara a proposta oficial com os cenários calculados.</div>
+          <button onClick={adicionarCenarioRegularize} style={btnOutline}>＋ Adicionar proposta do REGULARIZE</button>
+        </div>
+
+        {cenariosNegociacao.length>0&&(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20}}>
+            <div style={{fontSize:14,fontWeight:800,color:C.navy,marginBottom:12}}>Cenários gerados ({cenariosNegociacao.length})</div>
+            {cenariosNegociacao.map(c=>(
+              <div key={c.id} style={{display:'grid',gridTemplateColumns:'2fr repeat(5,1fr) auto',gap:10,alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+                <div><div style={{fontSize:12.5,fontWeight:700,color:C.text}}>{c.nome}</div><div style={{fontSize:10.5,color:C.muted}}>{c.modalidade}</div></div>
+                <div><div style={{fontSize:10,color:C.muted}}>Entrada</div><strong style={{fontSize:12}}>{fmtR(c.entrada)}</strong></div>
+                <div><div style={{fontSize:10,color:C.muted}}>Desconto</div><strong style={{fontSize:12,color:'#16A34A'}}>{Number(c.desconto_pct||0).toFixed(1)}%</strong></div>
+                <div><div style={{fontSize:10,color:C.muted}}>Parcela-base</div><strong style={{fontSize:12}}>{c.parcela_saldo?fmtR(c.parcela_saldo):'—'}</strong></div>
+                <div><div style={{fontSize:10,color:C.muted}}>Prazo</div><strong style={{fontSize:12}}>{c.prazo_total_meses?`${c.prazo_total_meses} meses`:'À vista'}</strong></div>
+                <div><div style={{fontSize:10,color:C.muted}}>Total-base</div><strong style={{fontSize:12,color:C.navy}}>{fmtR(c.total_pago_base)}</strong></div>
+                <button onClick={()=>removerCenarioNegociacao(c.id)} style={{background:'none',border:'none',color:'#DC2626',cursor:'pointer',fontSize:16}}>×</button>
+              </div>
+            ))}
+            <div style={{fontSize:10.5,color:'#92400E',background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:7,padding:'8px 10px',marginTop:12}}>⚠️ Valores parcelados são estimativas-base e não projetam a Selic futura. Para decisão final, use os valores exibidos no REGULARIZE.</div>
           </div>
         )}
       </>}
 
       {aba===5&&<>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚙️ Parâmetros</div>
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              <div><label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Valor total (R$)</label><input value={sim.valor} onChange={e=>setSim({...sim,valor:e.target.value})} type="number" placeholder="Ex: 500000" style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%',boxSizing:'border-box'}}/></div>
-              <div>
-                <label style={{fontSize:13,fontWeight:500,display:'block',marginBottom:6,color:C.text}}>Modalidade</label>
-                <select value={sim.modalidade} onChange={e=>{const m=MODALIDADES_PGFN.find(x=>x.key===e.target.value);setSim({...sim,modalidade:e.target.value,desconto_multa:m.desconto_multa[1],desconto_juros:m.desconto_juros[1],entrada_pct:m.entrada_min||5,parcelas:m.parcelas_max})}} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,width:'100%'}}>
-                  {MODALIDADES_PGFN.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}
-                </select>
-              </div>
-              {[['% multa','multa_pct',0,80],['% juros','juros_pct',0,80],['Desconto multa (%)','desconto_multa',0,100],['Desconto juros (%)','desconto_juros',0,100],['Entrada (%)','entrada_pct',0,30],['Parcelas','parcelas',1,120]].map(([lb,k,min,max])=>(
-                <div key={k}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                    <label style={{fontSize:13,fontWeight:500,color:C.text}}>{lb}</label>
-                    <span style={{fontSize:13,fontWeight:700,color:C.navy}}>{sim[k]}{k==='parcelas'?'x':'%'}</span>
-                  </div>
-                  <input type="range" min={min} max={max} value={sim[k]} onChange={e=>setSim({...sim,[k]:parseInt(e.target.value)})} style={{width:'100%',accentColor:C.navy}}/>
+        {cenariosNegociacao.length===0?(
+          <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'36px',textAlign:'center'}}>
+            <div style={{fontSize:38,marginBottom:10}}>📊</div>
+            <div style={{fontSize:15,fontWeight:800,color:C.navy,marginBottom:6}}>Ainda não há cenários para comparar</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Vá em “Cenários de Negociação”, informe o valor atualizado e gere as opções.</div>
+            <button onClick={()=>setAba(4)} style={btnPrimary}>Gerar cenários →</button>
+          </div>
+        ):(()=>{
+          const melhores = melhoresCenarios()
+          return <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+              {[
+                ['🏆 Maior economia',melhores.maiorEconomia, c=>fmtR(c.economia)],
+                ['💵 Menor entrada',melhores.menorEntrada, c=>fmtR(c.entrada)],
+                ['📉 Menor parcela',melhores.menorParcela, c=>c?fmtR(c.parcela_saldo):'—'],
+                ['🧾 Menor custo total',melhores.menorCusto, c=>fmtR(c.total_pago_base)],
+              ].map(([titulo,c,fn])=>(
+                <div key={titulo} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,padding:'14px 15px'}}>
+                  <div style={{fontSize:10.5,fontWeight:800,color:C.muted,marginBottom:6}}>{titulo}</div>
+                  <div style={{fontSize:17,fontWeight:900,color:C.navy}}>{c?fn(c):'—'}</div>
+                  <div style={{fontSize:10.5,color:C.muted,marginTop:4}}>{c?.nome||'—'}</div>
                 </div>
               ))}
-              <button onClick={calcularSimulacao} style={btnPrimary}>📊 Simular →</button>
             </div>
-          </div>
-          <div>
-            {!simResult?(
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:'32px',textAlign:'center',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                <div style={{fontSize:40,marginBottom:12}}>📊</div>
-                <div style={{fontSize:14,color:C.muted}}>Preencha os parâmetros e clique em Simular</div>
+
+            <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,overflowX:'auto'}}>
+              <div style={{fontSize:15,fontWeight:800,color:C.navy,marginBottom:12}}>Suas opções para esta dívida</div>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:11.5}}>
+                <thead><tr style={{background:'#0B1F4D',color:'#fff'}}>
+                  {['Opção','Entrada','Prazo','Desconto','Parcela-base','Total-base','Economia'].map(h=><th key={h} style={{padding:'8px 9px',textAlign:h==='Opção'?'left':'right'}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {cenariosNegociacao.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+                    <td style={{padding:'8px 9px',fontWeight:700,color:C.text}}>{c.nome}</td>
+                    <td style={{padding:'8px 9px',textAlign:'right'}}>{fmtR(c.entrada)}</td>
+                    <td style={{padding:'8px 9px',textAlign:'right'}}>{c.prazo_total_meses?`${c.prazo_total_meses} m`:'À vista'}</td>
+                    <td style={{padding:'8px 9px',textAlign:'right',color:'#16A34A',fontWeight:700}}>{Number(c.desconto_pct||0).toFixed(1)}%</td>
+                    <td style={{padding:'8px 9px',textAlign:'right'}}>{c.parcela_saldo?fmtR(c.parcela_saldo):'—'}</td>
+                    <td style={{padding:'8px 9px',textAlign:'right',fontWeight:700}}>{fmtR(c.total_pago_base)}</td>
+                    <td style={{padding:'8px 9px',textAlign:'right',color:'#16A34A',fontWeight:800}}>{fmtR(c.economia)}</td>
+                  </tr>)}
+                </tbody>
+              </table>
+              <div style={{marginTop:14,padding:'12px 14px',background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,fontSize:12,color:'#166534',lineHeight:1.6}}>
+                <strong>Leitura rápida:</strong> “melhor” depende do objetivo. Quem tem caixa pode priorizar menor custo total; quem precisa preservar caixa pode preferir menor entrada, menor parcela ou maior prazo. Compare antes de confirmar a adesão no REGULARIZE.
               </div>
-            ):(
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>📊 Resultado</div>
-                {[['Valor original',fmtR(parseFloat(sim.valor)||0),'#DC2626'],['Multa ('+sim.multa_pct+'%)',fmtR(simResult.multa),'#D97706'],['Juros ('+sim.juros_pct+'%)',fmtR(simResult.juros),'#D97706'],['Desconto multa','-'+fmtR(simResult.descMulta),'#16A34A'],['Desconto juros','-'+fmtR(simResult.descJuros),'#16A34A']].map(([lb,val,cor])=>(
-                  <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${C.border}`,fontSize:13}}>
-                    <span style={{color:C.muted}}>{lb}</span><span style={{fontWeight:600,color:cor}}>{val}</span>
-                  </div>
-                ))}
-                <div style={{background:'#F0FDF4',borderRadius:10,padding:'14px 16px',marginTop:14,marginBottom:14}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:14,fontWeight:700,color:C.text}}>Valor final</span><span style={{fontSize:18,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.valorFinal)}</span></div>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Economia total</span><span style={{fontSize:14,fontWeight:700,color:'#16A34A'}}>{fmtR(simResult.economia)}</span></div>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:C.muted}}>Entrada ({sim.entrada_pct}%)</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.entrada)}</span></div>
-                  <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:13,color:C.muted}}>{sim.parcelas>1?sim.parcelas-1:'1'} parcela(s) de</span><span style={{fontSize:13,fontWeight:600,color:C.navy}}>{fmtR(simResult.parcela)}</span></div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        })()}
       </>}
 
       {aba===6&&<>
@@ -1702,25 +2647,27 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               ))}
             </div>
             {analisesCDA.map((a,i)=>{
-              const inscricoesTxt = (a.cda.inscricoes||[]).filter(ins=>ins.numero&&ins.numero.trim()).map(ins=>`${ins.numero} [${TIPOS_CREDITO.find(t=>t.key===ins.tipo_credito)?.label||'—'}]`).join(' / ')
-              const tipo = tipoReferenciaCDA(a.cda)
+              const resumoFin = resumoFinanceiroInscricoes([a])
               return (
                 <div key={i} style={{borderLeft:`4px solid ${C.navy}`,paddingLeft:16,marginBottom:20}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
-                  <div style={{fontSize:12,color:'#1E40AF',marginBottom:8}}>{tipo.label} (referência) · {tipo.legislacao}</div>
-                  <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Inscrições: {inscricoesTxt||'Sem número'}</div>
-                  {[['Decadência',a.decadencia],['Prescrição',a.prescricao],['Prescrição Intercorrente',a.prescricaoIntercorrente],['Validade da CDA',a.validadeCDA]].map(([titulo,res])=>(
-                    <div key={titulo} style={{marginBottom:12}}>
-                      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{titulo}</div>
-                      <div style={{fontSize:13,fontWeight:700,color:res.cor,marginBottom:4}}>{res.titulo}</div>
-                      <div style={{fontSize:13,color:C.text,lineHeight:1.7}}>{res.justificativa}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:C.navy,marginBottom:4}}>{rotuloCDA(a.cda, i)}</div>
+                  <div style={{fontSize:12,color:C.muted,marginBottom:10}}>{(a.inscricoesAnalise||[]).length} inscrição(ões) · {fmtR(resumoFin.total)} · potencialmente questionável: {fmtR(resumoFin.questionavel)}</div>
+                  {(a.inscricoesAnalise||[]).map((item,j)=>(
+                    <div key={j} style={{background:'#F8FAFC',border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px',marginBottom:8}}>
+                      <div style={{fontSize:12,fontWeight:800,color:C.navy,marginBottom:5}}>Inscrição {j+1} · {item.inscricao?.numero || 'Sem número'} · {fmtR(parseValor(item.inscricao?.valor))}</div>
+                      <div style={{fontSize:11,color:item.decadencia?.cor,fontWeight:700,marginBottom:3}}>Decadência: {item.decadencia?.titulo}</div>
+                      <div style={{fontSize:11,color:item.prescricao?.cor,fontWeight:700}}>Prescrição: {item.prescricao?.titulo}</div>
                     </div>
                   ))}
-                  <div style={{marginTop:12}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:0.5}}>Teses aplicáveis</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                      {tesesReferenciaCDA(a.cda).map((t,j)=><span key={j} style={{background:'#EFF6FF',color:'#1E40AF',padding:'3px 8px',borderRadius:12,fontSize:11,fontWeight:500}}>{t}</span>)}
-                    </div>
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',marginBottom:4}}>Prescrição intercorrente / processo</div>
+                    <div style={{fontSize:12,fontWeight:700,color:a.prescricaoIntercorrente.cor,marginBottom:3}}>{a.prescricaoIntercorrente.titulo}</div>
+                    <div style={{fontSize:11.5,color:C.text,lineHeight:1.6}}>{a.prescricaoIntercorrente.justificativa}</div>
+                  </div>
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',marginBottom:4}}>Validade formal da CDA</div>
+                    <div style={{fontSize:12,fontWeight:700,color:a.validadeCDA.cor,marginBottom:3}}>{a.validadeCDA.titulo}</div>
+                    <div style={{fontSize:11.5,color:C.text,lineHeight:1.6}}>{a.validadeCDA.justificativa}</div>
                   </div>
                 </div>
               )
@@ -1733,7 +2680,7 @@ export default function DiagnosticoDividaAtiva({ active, cdaParaDiagnostico, onC
               <button onClick={()=>{
                 if(!diagnostico||analisesCDA.length===0){alert('Execute o diagnóstico antes.');return}
                 const w=window.open('','_blank')
-                const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Períodos de paralisação processual:</strong> verificar se houve paralisação superior a 1 ano sem localização do devedor ou bens, seguida de arquivamento — configurando o início da contagem da prescrição intercorrente nos termos do art. 40 da Lei 6.830/80, Tema 566 STJ e Súmula 314 STJ.</li><li><strong>Intimação da Fazenda Pública:</strong> verificar se a Fazenda foi devidamente intimada do despacho de suspensão/arquivamento — conforme Tema 566 STJ, o prazo corre independentemente dessa intimação, mas sua ausência pode ser arguida.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
+                const recomendacaoHTML = `<div class="recomendacao"><strong>⚠️ RECOMENDAÇÃO FINAL — ANÁLISE DOS AUTOS DO PROCESSO DE EXECUÇÃO FISCAL</strong><p>Recomenda-se a análise detalhada dos autos do processo de execução fiscal, página por página, a fim de verificar:</p><ol><li><strong>Vícios na citação/notificação:</strong> verificar se o Aviso de Recebimento (AR) foi assinado pelo próprio devedor ou por terceiro — caso tenha sido recebido por pessoa sem poderes de representação, a citação pode ser nula (art. 248 CPC).</li><li><strong>Endereço de citação:</strong> verificar se o endereço constante nos autos corresponde ao domicílio fiscal do devedor à época — citação em endereço incorreto ou desatualizado configura nulidade processual.</li><li><strong>Qualidade de quem recebeu a notificação:</strong> se pessoa estranha ao estabelecimento ou sem vínculo com o devedor assinou o AR, a citação não produz efeitos válidos.</li><li><strong>Marco do art. 40 / Tema 566 STJ:</strong> localizar a primeira tentativa frustrada de localização do devedor ou de bens e a data em que a Fazenda Pública tomou ciência desse fato. O prazo de 1 ano de suspensão inicia-se automaticamente a partir dessa ciência; a última movimentação, sozinha, não substitui esse marco.</li><li><strong>Atos úteis posteriores — Tema 568 STJ:</strong> verificar citação efetiva e constrição patrimonial efetiva, com as respectivas datas. Mero peticionamento requerendo diligências não basta para interromper a prescrição intercorrente.</li><li><strong>Início automático após 1 ano — Tema 569 STJ:</strong> encerrado o período de suspensão, o prazo prescricional aplicável inicia-se automaticamente, independentemente de petição da Fazenda ou de pronunciamento judicial específico.</li></ol><p><strong>A mera ausência de penhora ou embargos nos dados cadastrados não exclui nenhuma dessas hipóteses — somente a análise completa dos autos, página por página, poderá confirmar ou afastar cada uma delas com segurança jurídica.</strong></p></div>`
                 const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Parecer — Dívida Ativa</title><style>
                   body{font-family:Arial,sans-serif;font-size:12px;margin:28px;color:#1E293B}
                   h1{font-size:15px;color:#0B1F4D;border-bottom:2px solid #0B1F4D;padding-bottom:6px;margin-bottom:4px}

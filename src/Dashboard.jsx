@@ -1,4 +1,5 @@
 import Simuladores from './Simuladores'
+import CalculadorasTributarias from './CalculadorasTributarias'
 import PrazosFiscais from './PrazosFiscais'
 import { useState, useEffect, useRef } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
@@ -145,9 +146,10 @@ const MENU_SECOES = [
     titulo: 'PLANEJAMENTO',
     itens: [
       { label:'Análise Fiscal',          module:'analise',      tab:0, icon:'📈' },
-      { label:'Teses Tributárias',       module:'analise',      tab:2, icon:'⚖️' },
-      { label:'Simuladores',             module:'analise',      tab:3, icon:'🧮' },
-      { label:'Calculadoras',            module:'analise',      tab:4, icon:'🔢' },
+{ label:'Análise IA',              module:'analise',      tab:1, icon:'🤖' },
+{ label:'Teses Tributárias',       module:'analise',      tab:2, icon:'⚖️' },
+{ label:'Simuladores',             module:'analise',      tab:3, icon:'🧮' },
+{ label:'Calculadoras',            module:'analise',      tab:4, icon:'🔢' },
       { label:'Prazos Prescricionais',   module:'prazos',       tab:0, icon:'⏳' },
       { label:'Prazos Fiscais',          module:'prazos',       tab:1, icon:'📅' },
       { label:'Inteligência Tributária', module:'inteligencia', tab:0, icon:'🧠' },
@@ -588,7 +590,7 @@ function DetailMetric({ label, value, accent='#2563EB', helper='' }) {
 
 function DonutLegend({ data, total, money=false }) {
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:0}}>
+    <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:0,paddingLeft:16}}>
       {data.map(item => {
         const pct = total > 0 ? Math.round((item.value / total) * 100) : 0
         return (
@@ -1058,10 +1060,10 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
   const pctCriticos = totalOpp ? Math.round((criticos / totalOpp) * 100) : 0
 
   const regimeColors = {
-    'Simples Nacional':'#DC2626',
-    'Lucro Presumido':'#EF4444',
-    'Lucro Real':'#B91C1C',
-    'Outros':'#F87171',
+    'Simples Nacional':'#EF4444',
+    'Lucro Presumido':'#EAB308',
+    'Lucro Real':'#16A34A',
+    'Outros':'#2563EB',
   }
   const regimeCounts = clientes.reduce((acc,c) => {
     const regime = c.regime || 'Outros'
@@ -1074,13 +1076,15 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     {name:'Lucro Real',value:regimeCounts['Lucro Real'] || 0,color:regimeColors['Lucro Real']},
     {name:'Outros',value:Object.entries(regimeCounts).filter(([k])=>!['Simples Nacional','Lucro Presumido','Lucro Real'].includes(k)).reduce((a,[,v])=>a+v,0),color:regimeColors.Outros},
   ]
-  const regimeChartData = regimeData.some(x=>x.value>0) ? regimeData : [{name:'Sem clientes',value:1,color:'#FF0000'}]
+  const regimeTemDados = regimeData.some(x=>x.value>0)
+  const regimeBaseData = regimeData.map(item=>({...item,value:1}))
+  const regimeChartData = regimeTemDados ? regimeData : regimeBaseData
 
   const potencialCategorias = {
-    'PIS/COFINS': {value:0,color:'#EAB308'},
-    'ICMS': {value:0,color:'#FACC15'},
-    'IRPJ/CSLL': {value:0,color:'#FCD34D'},
-    'Outros': {value:0,color:'#FDE68A'},
+    'PIS/COFINS': {value:0,color:'#16A34A'},
+    'ICMS': {value:0,color:'#EAB308'},
+    'IRPJ/CSLL': {value:0,color:'#2563EB'},
+    'Outros': {value:0,color:'#F97316'},
   }
   todasEntradas.forEach(e => {
     const trib = String(e.tributo || '').toUpperCase()
@@ -1092,7 +1096,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
     else potencialCategorias.Outros.value += valor
   })
   const potencialData = Object.entries(potencialCategorias).map(([name,v])=>({name,value:v.value,color:v.color}))
-  const potencialChartData = potencialData.some(x=>x.value>0) ? potencialData : [{name:'Sem potencial',value:1,color:'#009C3B'}]
+  const potencialTemDados = potencialData.some(x=>x.value>0)
+  const potencialBaseData = potencialData.map(item=>({...item,value:1}))
+  const potencialChartData = potencialTemDados ? potencialData : potencialBaseData
 
   const mesesEvolucao = Array.from({length:6},(_,i)=>{
     const d = new Date(hoje.getFullYear(), hoje.getMonth()-5+i, 1)
@@ -1244,9 +1250,27 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
           {isMobile && (
             <button onClick={() => setMenuAberto(true)} style={{background:'none',border:'none',color:C.text,fontSize:22,cursor:'pointer',padding:'4px 8px',flexShrink:0}}>Menu</button>
           )}
-          <div style={{width:263,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <img src="/Logo6.png" alt="e-FiscalTribe" style={{height:54,objectFit:'contain',borderRadius:6}} />
-          </div>
+          <div
+  style={{
+    width: isMobile ? 'auto' : 263,
+    flex: isMobile ? 1 : '0 0 auto',
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }}
+>
+  <img
+    src="/Logo6.png"
+    alt="e-FiscalTribe"
+    style={{
+      height: isMobile ? 44 : 54,
+      maxWidth: '100%',
+      objectFit: 'contain',
+      borderRadius: 6
+    }}
+  />
+</div>
 
           {!isMobile && <span style={{fontSize:13,color:C.muted,flex:1,marginLeft:18}}>Plataforma de Diagnóstico, Inteligência e Recuperação Tributária</span>}
 
@@ -1281,7 +1305,9 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
         />
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-          <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
+          {module !== 'analise' && (
+  <TabBar tabs={currentTabs} activeTab={activeTab} onTab={handleTab} />
+)}
 
           <div ref={contentRef} style={{flex:1,overflowY:'auto',overflowX:'hidden',padding,background:C.bg,minWidth:0}}>
 
@@ -1318,10 +1344,43 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
 
               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'minmax(0,1fr) minmax(0,1fr) minmax(0,1.12fr)',gap:12,marginBottom:14}}>
                 <ChartShell title="Distribuição da Base de Clientes" subtitle="Composição por regime tributário" icon="◔" accent="#EF4444" onClick={()=>setPainelDetalhe({tipo:'regimes',title:'Distribuição da base de clientes',subtitle:'Detalhamento da carteira por regime tributário.',accent:'#EF4444',icon:'◔'})}>
-                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'145px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'165px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
                     <div style={{height:165,position:'relative'}}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart><Pie data={regimeChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={72} paddingAngle={2} cornerRadius={6} stroke="none">{regimeChartData.map((entry,i)=><Cell key={i} fill={entry.color} />)}</Pie><Tooltip formatter={(v,n)=>[v,n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} /></PieChart>
+                        <PieChart>
+                          {regimeTemDados && (
+                            <Pie
+                              data={regimeBaseData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={73}
+                              outerRadius={76}
+                              paddingAngle={2}
+                              cornerRadius={3}
+                              stroke="none"
+                              isAnimationActive={false}
+                            >
+                              {regimeBaseData.map((entry,i)=><Cell key={`base-reg-${i}`} fill={entry.color} fillOpacity={0.78} />)}
+                            </Pie>
+                          )}
+                          <Pie
+                            data={regimeChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={52}
+                            outerRadius={72}
+                            paddingAngle={2}
+                            cornerRadius={5}
+                            stroke="none"
+                          >
+                            {regimeChartData.map((entry,i)=><Cell key={i} fill={entry.color} fillOpacity={regimeTemDados ? 1 : 0.88} />)}
+                          </Pie>
+                          <Tooltip formatter={(v,n)=>[regimeTemDados ? v : 0,n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} />
+                        </PieChart>
                       </ResponsiveContainer>
                       <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}}><div style={{textAlign:'center'}}><div style={{fontSize:25,fontWeight:900,color:C.text,lineHeight:1}}>{clientes.length}</div><div style={{fontSize:9.5,color:C.muted,marginTop:5,fontWeight:700}}>CLIENTES</div></div></div>
                     </div>
@@ -1330,8 +1389,41 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
                 </ChartShell>
 
                 <ChartShell title="Potencial de Recuperação" subtitle="Estimativa por categoria tributária" icon="◕" accent="#16A34A" onClick={()=>setPainelDetalhe({tipo:'potencial',title:'Potencial de recuperação',subtitle:'Composição do valor estimado por categoria e cliente.',accent:'#EAB308',icon:'R$'})}>
-                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'145px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
-                    <div style={{height:165,position:'relative'}}><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={potencialChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={72} paddingAngle={2} cornerRadius={6} stroke="none">{potencialChartData.map((entry,i)=><Cell key={i} fill={entry.color} />)}</Pie><Tooltip formatter={(v,n)=>[fmtR(v),n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} /></PieChart></ResponsiveContainer><div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}}><div style={{textAlign:'center',maxWidth:100}}><div style={{fontSize:13,fontWeight:900,color:'#059669',lineHeight:1.2}}>{fmtR(totalGeral)}</div><div style={{fontSize:9.5,color:C.muted,marginTop:5,fontWeight:700}}>POTENCIAL</div></div></div></div>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'165px minmax(0,1fr)',alignItems:'center',gap:12,minHeight:190}}>
+                    <div style={{height:165,position:'relative'}}><ResponsiveContainer width="100%" height="100%"><PieChart>
+                      {potencialTemDados && (
+                        <Pie
+                          data={potencialBaseData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={73}
+                          outerRadius={76}
+                          paddingAngle={2}
+                          cornerRadius={3}
+                          stroke="none"
+                          isAnimationActive={false}
+                        >
+                          {potencialBaseData.map((entry,i)=><Cell key={`base-pot-${i}`} fill={entry.color} fillOpacity={0.78} />)}
+                        </Pie>
+                      )}
+                      <Pie
+                        data={potencialChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={72}
+                        paddingAngle={2}
+                        cornerRadius={5}
+                        stroke="none"
+                      >
+                        {potencialChartData.map((entry,i)=><Cell key={i} fill={entry.color} fillOpacity={potencialTemDados ? 1 : 0.88} />)}
+                      </Pie>
+                      <Tooltip formatter={(v,n)=>[potencialTemDados ? fmtR(v) : fmtR(0),n]} contentStyle={{borderRadius:12,border:`1px solid ${C.border}`,fontSize:11,boxShadow:'0 10px 26px rgba(15,23,42,.10)'}} />
+                    </PieChart></ResponsiveContainer><div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}}><div style={{textAlign:'center',maxWidth:100}}><div style={{fontSize:13,fontWeight:900,color:'#059669',lineHeight:1.2}}>{fmtR(totalGeral)}</div><div style={{fontSize:9.5,color:C.muted,marginTop:5,fontWeight:700}}>POTENCIAL</div></div></div></div>
                     <DonutLegend data={potencialData} total={totalGeral} money />
                   </div>
                 </ChartShell>
@@ -1683,26 +1775,7 @@ export default function Dashboard({ nomeUsuario, onLogout, onAdmin, isAdmin }) {
             {module==='analise' && activeTab===1 && <AnaliseFiscal clienteAtivo={activeId} />}
             {module==='analise' && activeTab===2 && <TesesTributarias />}
             {module==='analise' && activeTab===3 && <Simuladores />}
-            {module==='analise' && activeTab===4 && <>
-              <div style={{background:'#0B1F4D',borderRadius:14,padding:isMobile?'16px 18px':'18px 24px',marginBottom:16,color:'#fff',boxSizing:'border-box'}}>
-                <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:1.5,marginBottom:4}}>e-FISCALTRIBE — PLANEJAMENTO</div>
-                <div style={{fontSize:isMobile?16:18,fontWeight:700,color:'#fff',marginBottom:4}}>Calculadoras Tributárias</div>
-                <div style={{fontSize:13,color:'#93c5fd'}}>Estimativas rápidas para diagnóstico tributário.</div>
-              </div>
-              <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:`2px solid ${C.border}`,overflowX:'auto'}}>
-                {[['fator-r','Fator R'],['das','DAS'],['regime','Regime'],['irpj','IRPJ'],['prescricao','Prescricao']].map(([id,lb])=>(
-                  <div key={id} onClick={()=>{setCalcTab(id);setCalcResult('')}} style={{padding:'8px 14px',fontSize:12,fontWeight:calcTab===id?600:500,color:calcTab===id?C.blue:C.muted,cursor:'pointer',borderBottom:`2px solid ${calcTab===id?C.blue:'transparent'}`,marginBottom:-2,whiteSpace:'nowrap'}}>{lb}</div>
-                ))}
-              </div>
-              <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:20,maxWidth:580}}>
-                {calcTab==='fator-r'    && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Fator R</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Folha 12 meses (R$)</label>{inp(cFolha,setCFolha,'Ex: 120000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta 12 meses (R$)</label>{inp(cRb,setCRb,'Ex: 480000','number')}</div></div><button onClick={calcFatorR} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='das'        && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>DAS Simples Nacional</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>RBT12 (R$)</label>{inp(cRbt12,setCRbt12,'Ex: 720000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita do mes (R$)</label>{inp(cRmes,setCRmes,'Ex: 60000','number')}</div></div><button onClick={calcDAS} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='regime'     && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Simulador de regime</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Faturamento anual (R$)</label>{inp(cFat,setCFat,'Ex: 1200000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Margem liquida (%)</label>{inp(cMarg,setCMarg,'Ex: 15','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv,setCAtv,[['comercio','Comercio'],['industria','Industria'],['servicos','Servicos']])}</div></div><button onClick={calcRegime} style={btnPrimary}>Simular</button></>}
-                {calcTab==='irpj'       && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>IRPJ/CSLL</div><div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:14,marginBottom:14}}><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Receita bruta trimestral (R$)</label>{inp(cRbt,setCRbt,'Ex: 300000','number')}</div><div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Atividade</label>{sel(cAtv2,setCAtv2,[['8','Comercio/Industria (8%)'],['16','Transporte (16%)'],['32','Servicos (32%)']])}</div></div><button onClick={calcIRPJ} style={btnPrimary}>Calcular</button></>}
-                {calcTab==='prescricao' && <><div style={{fontSize:14,fontWeight:600,color:C.blue,marginBottom:14}}>Prescricao</div><div style={{marginBottom:14}}><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:5,color:C.text}}>Data de pagamento indevido</label><input type="date" value={cDtpag} onChange={e=>setCDtpag(e.target.value)} style={{padding:'8px 12px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}} /></div><button onClick={calcPrescricao} style={btnPrimary}>Calcular</button></>}
-                {calcResult && <div style={{marginTop:16,background:'#F0FDF4',border:'1px solid #86EFAC',borderRadius:8,padding:'14px',fontSize:13,color:'#166534',whiteSpace:'pre-line'}}>{calcResult}</div>}
-              </div>
-            </>}
+            {module==='analise' && activeTab===4 && <CalculadorasTributarias />}
 
             {module==='prazos' && activeTab===0 && <PrazosPrescricionais active={active} />}
             {module==='prazos' && activeTab===1 && <PrazosFiscais />}

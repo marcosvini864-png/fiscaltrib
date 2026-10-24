@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
 
-const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+const fmtR = v => 'R$ ' + parseFloat(v || 0).toLocaleString('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+})
 const fmtP = v => parseFloat(v || 0).toFixed(1) + '%'
+const fmtP4 = v => parseFloat(v || 0).toLocaleString('pt-BR', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4
+}) + '%'
 
 function parseMoeda(str) {
   return parseFloat(String(str).replace(/\./g, '').replace(',', '.')) || 0
@@ -246,7 +253,7 @@ function SimRegimeReforma({ isMobile }) {
             </div>
             {abaRes === 'hoje' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {result.fatorR > 0 && (
+                {atividade === 'servicos' && result.fatorR > 0 && (
                   <div style={{ background: result.fatorR >= 0.28 ? '#f0fdf4' : '#fffbeb', border: `1px solid ${result.fatorR >= 0.28 ? '#86efac' : '#fde68a'}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: result.fatorR >= 0.28 ? '#166534' : '#92400e' }}>
                     <strong>Fator R: {(result.fatorR * 100).toFixed(1)}%</strong> — {result.fatorR >= 0.28 ? '✅ Elegível ao Anexo III' : '⚠️ Abaixo de 28% — Anexo V'}
                   </div>
@@ -279,35 +286,203 @@ function SimRegimeReforma({ isMobile }) {
             {abaRes === 'reforma' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Carga tributária estimada por regime em cada ano (valores mensais):</div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        {['Ano','Simples','L. Presumido','L. Real','CBS','IBS','⭐ Melhor'].map(h => (
-                          <th key={h} style={{ padding: '8px 10px', textAlign: 'center', color: C.muted, fontWeight: 700, borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap', fontSize: 11 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.projecao.map((p, i) => {
-                        const melhorVal = Math.min(p.snTotal, p.lpTotal, p.lrTotal)
-                        return (
-                          <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                            <td style={{ padding: '8px 10px', fontWeight: 700, color: C.navy, textAlign: 'center' }}>{p.ano}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.snTotal === melhorVal ? C.verde : C.text, fontWeight: p.snTotal === melhorVal ? 700 : 400 }}>{fmtR(p.snTotal)}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lpTotal === melhorVal ? C.verde : C.text, fontWeight: p.lpTotal === melhorVal ? 700 : 400 }}>{fmtR(p.lpTotal)}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lrTotal === melhorVal ? C.verde : C.text, fontWeight: p.lrTotal === melhorVal ? 700 : 400 }}>{fmtR(p.lrTotal)}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>{fmtR(p.cbs)}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>{fmtR(p.ibs)}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                              <span style={{ background: C.verde + '20', color: C.verde, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{p.melhorLabel}</span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {isMobile ? (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {result.projecao.map((p, i) => {
+      const melhorVal = Math.min(p.snTotal, p.lpTotal, p.lrTotal)
+
+      const ItemValor = ({ label, valor, destaque = false }) => (
+        <div
+          style={{
+            background: destaque ? '#f0fdf4' : '#f8fafc',
+            border: `1px solid ${destaque ? '#bbf7d0' : C.border}`,
+            borderRadius: 8,
+            padding: '9px 10px',
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              color: C.muted,
+              marginBottom: 3,
+              fontWeight: 600,
+            }}
+          >
+            {label}
+          </div>
+
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: destaque ? 800 : 600,
+              color: destaque ? C.verde : C.text,
+              wordBreak: 'break-word',
+            }}
+          >
+            {fmtR(valor)}
+          </div>
+        </div>
+      )
+
+      return (
+        <div
+          key={i}
+          style={{
+            border: `1px solid ${C.border}`,
+            borderRadius: 12,
+            padding: 12,
+            background: C.white,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 900,
+                color: C.navy,
+              }}
+            >
+              {p.ano}
+            </div>
+
+            <span
+              style={{
+                background: C.verde + '20',
+                color: C.verde,
+                padding: '4px 8px',
+                borderRadius: 20,
+                fontSize: 10,
+                fontWeight: 700,
+                textAlign: 'right',
+              }}
+            >
+              ⭐ {p.melhorLabel}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 8,
+            }}
+          >
+            <ItemValor
+              label="Simples Nacional"
+              valor={p.snTotal}
+              destaque={p.snTotal === melhorVal}
+            />
+
+            <ItemValor
+              label="Lucro Presumido"
+              valor={p.lpTotal}
+              destaque={p.lpTotal === melhorVal}
+            />
+
+            <ItemValor
+              label="Lucro Real"
+              valor={p.lrTotal}
+              destaque={p.lrTotal === melhorVal}
+            />
+
+            <ItemValor label="CBS" valor={p.cbs} />
+
+            <ItemValor label="IBS" valor={p.ibs} />
+          </div>
+        </div>
+      )
+    })}
+  </div>
+) : (
+  <div style={{ overflowX: 'auto' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <thead>
+        <tr style={{ background: '#f8fafc' }}>
+          {['Ano','Simples','L. Presumido','L. Real','CBS','IBS','⭐ Melhor'].map(h => (
+            <th
+              key={h}
+              style={{
+                padding: '8px 10px',
+                textAlign: 'center',
+                color: C.muted,
+                fontWeight: 700,
+                borderBottom: `2px solid ${C.border}`,
+                whiteSpace: 'nowrap',
+                fontSize: 11
+              }}
+            >
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody>
+        {result.projecao.map((p, i) => {
+          const melhorVal = Math.min(p.snTotal, p.lpTotal, p.lrTotal)
+
+          return (
+            <tr
+              key={i}
+              style={{
+                borderBottom: `1px solid ${C.border}`,
+                background: i % 2 === 0 ? '#fff' : '#f8fafc'
+              }}
+            >
+              <td style={{ padding: '8px 10px', fontWeight: 700, color: C.navy, textAlign: 'center' }}>
+                {p.ano}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center', color: p.snTotal === melhorVal ? C.verde : C.text, fontWeight: p.snTotal === melhorVal ? 700 : 400 }}>
+                {fmtR(p.snTotal)}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lpTotal === melhorVal ? C.verde : C.text, fontWeight: p.lpTotal === melhorVal ? 700 : 400 }}>
+                {fmtR(p.lpTotal)}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center', color: p.lrTotal === melhorVal ? C.verde : C.text, fontWeight: p.lrTotal === melhorVal ? 700 : 400 }}>
+                {fmtR(p.lrTotal)}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>
+                {fmtR(p.cbs)}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center', color: C.muted }}>
+                {fmtR(p.ibs)}
+              </td>
+
+              <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                <span
+                  style={{
+                    background: C.verde + '20',
+                    color: C.verde,
+                    padding: '2px 8px',
+                    borderRadius: 20,
+                    fontSize: 10,
+                    fontWeight: 700
+                  }}
+                >
+                  {p.melhorLabel}
+                </span>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
                 <Card style={{ padding: '16px 20px' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 14 }}>Evolução CBS + IBS (mensal)</div>
                   {result.projecao.map((p, i) => {
@@ -349,42 +524,222 @@ function SimRegimeReforma({ isMobile }) {
 // ─────────────────────────────────────────────────────────────
 
 function SimRecuperacao({ isMobile }) {
-  const [fat,    setFat]    = useState('')
-  const [meses,  setMeses]  = useState('60')
-  const [regime, setRegime] = useState('Simples Nacional')
+  const [rbt12, setRbt12] = useState('')
+  const [receitaMono, setReceitaMono] = useState('')
+  const [meses, setMeses] = useState('12')
   const [result, setResult] = useState(null)
 
+  const faixasAnexoI = [
+    {
+      faixa: 1,
+      limite: 180000,
+      nominal: 0.04,
+      deducao: 0,
+      cofins: 0.1274,
+      pis: 0.0276,
+    },
+    {
+      faixa: 2,
+      limite: 360000,
+      nominal: 0.073,
+      deducao: 5940,
+      cofins: 0.1274,
+      pis: 0.0276,
+    },
+    {
+      faixa: 3,
+      limite: 720000,
+      nominal: 0.095,
+      deducao: 13860,
+      cofins: 0.1274,
+      pis: 0.0276,
+    },
+    {
+      faixa: 4,
+      limite: 1800000,
+      nominal: 0.107,
+      deducao: 22500,
+      cofins: 0.1274,
+      pis: 0.0276,
+    },
+    {
+      faixa: 5,
+      limite: 3600000,
+      nominal: 0.143,
+      deducao: 87300,
+      cofins: 0.1274,
+      pis: 0.0276,
+    },
+    {
+      faixa: 6,
+      limite: 4800000,
+      nominal: 0.19,
+      deducao: 378000,
+      cofins: 0.2827,
+      pis: 0.0613,
+    },
+  ]
+
   function calcular() {
-    const f = parseMoeda(fat)
-    const m = parseInt(meses) || 60
-    if (!f) { alert('Informe o faturamento.'); return }
-    let taxaMin, taxaMax, teses
-    if (regime === 'Simples Nacional') {
-      taxaMin = 0.02; taxaMax = 0.06
-      teses = ['ICMS-ST indevido', 'PIS/COFINS monofásico', 'Segregação de receitas', 'Fator R']
-    } else if (regime === 'Lucro Presumido') {
-      taxaMin = 0.03; taxaMax = 0.08
-      teses = ['PIS/COFINS não cumulativo', 'IRPJ/CSLL base reduzida', 'Exclusão ICMS base PIS/COFINS', 'INSS sobre verbas indenizatórias']
-    } else {
-      taxaMin = 0.04; taxaMax = 0.10
-      teses = ['Créditos de insumos PIS/COFINS', 'IRPJ/CSLL — prejuízo fiscal', 'Exclusão ICMS base PIS/COFINS', 'CSLL — base de cálculo']
+    const rbt = parseMoeda(rbt12)
+    const mono = parseMoeda(receitaMono)
+    const qtdMeses = parseInt(meses) || 1
+
+    if (!rbt || rbt <= 0) {
+      alert('Informe o RBT12 de referência.')
+      return
     }
-    const faturamentoTotal = f * m
-    const creditoMin  = faturamentoTotal * taxaMin
-    const creditoMax  = faturamentoTotal * taxaMax
-    const creditoMed  = (creditoMin + creditoMax) / 2
-    const mediaMensal = creditoMed / m
-    setResult({ creditoMin, creditoMax, creditoMed, mediaMensal, teses, taxaMin, taxaMax })
+
+    if (rbt > 4800000) {
+      alert('O RBT12 informado ultrapassa o limite de R$ 4,8 milhões do Simples Nacional.')
+      return
+    }
+
+    if (!mono || mono <= 0) {
+      alert('Informe a receita monofásica média mensal identificada.')
+      return
+    }
+
+    const faixa = faixasAnexoI.find(f => rbt <= f.limite)
+
+    if (!faixa) {
+      alert('Não foi possível identificar a faixa do Anexo I.')
+      return
+    }
+
+    const aliquotaEfetiva =
+      ((rbt * faixa.nominal) - faixa.deducao) / rbt
+
+    const percentualPisEfetivo =
+      aliquotaEfetiva * faixa.pis
+
+    const percentualCofinsEfetivo =
+      aliquotaEfetiva * faixa.cofins
+
+    const percentualRecuperavel =
+      percentualPisEfetivo + percentualCofinsEfetivo
+
+    const pisMensal =
+      mono * percentualPisEfetivo
+
+    const cofinsMensal =
+      mono * percentualCofinsEfetivo
+
+    const creditoMensal =
+      pisMensal + cofinsMensal
+
+    const receitaMonoPeriodo =
+      mono * qtdMeses
+
+    const pisPeriodo =
+      pisMensal * qtdMeses
+
+    const cofinsPeriodo =
+      cofinsMensal * qtdMeses
+
+    const creditoPeriodo =
+      creditoMensal * qtdMeses
+
+    setResult({
+      faixa,
+      rbt,
+      mono,
+      qtdMeses,
+      aliquotaEfetiva,
+      percentualPisEfetivo,
+      percentualCofinsEfetivo,
+      percentualRecuperavel,
+      receitaMonoPeriodo,
+      pisMensal,
+      cofinsMensal,
+      creditoMensal,
+      pisPeriodo,
+      cofinsPeriodo,
+      creditoPeriodo,
+    })
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+        gap: 24,
+      }}
+    >
       <Card>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>💰 Dados para simulação</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Faturamento mensal médio (R$)"><InputMoeda value={fat} onChange={setFat} placeholder="Ex: 150.000" /></Campo>
-          <Campo label="Período analisado (meses)">
-            <select value={meses} onChange={e => setMeses(e.target.value)} style={selectStyle}>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: C.navy,
+            marginBottom: 6,
+          }}
+        >
+          💰 Recuperação — PIS/Cofins Monofásicos
+        </div>
+
+        <div
+          style={{
+            fontSize: 12,
+            color: C.muted,
+            lineHeight: 1.55,
+            marginBottom: 18,
+          }}
+        >
+          Triagem para comércio/revenda no Simples Nacional — Anexo I.
+          Calcula a parcela de PIS e Cofins que teria integrado o DAS
+          sobre receitas monofásicas não segregadas.
+        </div>
+
+        <div
+          style={{
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: 8,
+            padding: '10px 12px',
+            marginBottom: 18,
+            fontSize: 11,
+            lineHeight: 1.5,
+            color: '#1e40af',
+          }}
+        >
+          <strong>Escopo:</strong> competências até 31/12/2026.
+          Para cálculo definitivo, a apuração deve ser refeita
+          competência por competência com os dados reais do PGDAS-D
+          e das receitas monofásicas.
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          <Campo label="RBT12 de referência (R$)">
+            <InputMoeda
+              value={rbt12}
+              onChange={setRbt12}
+              placeholder="Ex: 712.430,66"
+            />
+          </Campo>
+
+          <Campo label="Receita monofásica média mensal (R$)">
+            <InputMoeda
+              value={receitaMono}
+              onChange={setReceitaMono}
+              placeholder="Ex: 25.000,00"
+            />
+          </Campo>
+
+          <Campo label="Período estimado">
+            <select
+              value={meses}
+              onChange={e => setMeses(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="1">1 competência</option>
               <option value="12">12 meses (1 ano)</option>
               <option value="24">24 meses (2 anos)</option>
               <option value="36">36 meses (3 anos)</option>
@@ -392,39 +747,238 @@ function SimRecuperacao({ isMobile }) {
               <option value="60">60 meses (5 anos)</option>
             </select>
           </Campo>
-          <Campo label="Regime tributário">
-            <select value={regime} onChange={e => setRegime(e.target.value)} style={selectStyle}>
-              <option>Simples Nacional</option>
-              <option>Lucro Presumido</option>
-              <option>Lucro Real</option>
-            </select>
-          </Campo>
-          <button onClick={calcular} style={btnCalc}>⚡ Simular recuperação</button>
+
+          <div
+            style={{
+              background: '#f8fafc',
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 11,
+              color: C.muted,
+              lineHeight: 1.5,
+            }}
+          >
+            <strong style={{ color: C.text }}>
+              Regime utilizado:
+            </strong>
+            <br />
+            Simples Nacional — Anexo I — Comércio/Revenda
+          </div>
+
+          <button
+            onClick={calcular}
+            style={btnCalc}
+          >
+            ⚡ Calcular crédito estimado
+          </button>
         </div>
       </Card>
+
       {result ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-            <ResultCard label="Estimativa mínima" valor={fmtR(result.creditoMin)} cor="#d97706" sub={fmtP(result.taxaMin * 100) + ' do faturamento'} />
-            <ResultCard label="Estimativa máxima" valor={fmtR(result.creditoMax)} cor="#16a34a" sub={fmtP(result.taxaMax * 100) + ' do faturamento'} />
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <ResultCard
+            label="Crédito estimado no período"
+            valor={fmtR(result.creditoPeriodo)}
+            cor="#16a34a"
+            sub={`${result.qtdMeses} competência(s) — média de ${fmtR(result.creditoMensal)}/mês`}
+          />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+              gap: 12,
+            }}
+          >
+            <ResultCard
+              label="PIS estimado"
+              valor={fmtR(result.pisPeriodo)}
+              cor="#2563eb"
+              sub={`${fmtP4(result.percentualPisEfetivo * 100)} sobre a receita monofásica`}
+            />
+
+            <ResultCard
+              label="Cofins estimada"
+              valor={fmtR(result.cofinsPeriodo)}
+              cor="#7c3aed"
+              sub={`${fmtP4(result.percentualCofinsEfetivo * 100)} sobre a receita monofásica`}
+            />
           </div>
-          <ResultCard label="Potencial estimado (mediana)" valor={fmtR(result.creditoMed)} cor="#0B1F4D" sub={`Média mensal: ${fmtR(result.mediaMensal)}`} />
-          <Card style={{ padding: '16px 20px' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>🎯 Teses aplicáveis ao {regime}</div>
-            {result.teses.map((t, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 13, color: C.text }}>
-                <span style={{ color: '#16a34a', fontWeight: 700 }}>✓</span> {t}
+
+          <Card style={{ padding: isMobile ? 14 : '16px 20px' }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: C.navy,
+                marginBottom: 12,
+              }}
+            >
+              🧮 Memória do cálculo
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                fontSize: 12,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>RBT12</span>
+                <strong>{fmtR(result.rbt)}</strong>
               </div>
-            ))}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Faixa do Anexo I</span>
+                <strong>{result.faixa.faixa}ª faixa</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Alíquota nominal</span>
+                <strong>{fmtP(result.faixa.nominal * 100)}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Parcela a deduzir</span>
+                <strong>{fmtR(result.faixa.deducao)}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Alíquota efetiva do Simples</span>
+                <strong>{fmtP4(result.aliquotaEfetiva * 100)}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Participação PIS + Cofins</span>
+                <strong>
+                  {fmtP(
+                    (result.faixa.pis + result.faixa.cofins) * 100
+                  )}
+                </strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: C.muted }}>Percentual efetivo PIS + Cofins</span>
+                <strong style={{ color: '#16a34a' }}>
+                  {fmtP4(result.percentualRecuperavel * 100)}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  borderTop: `1px solid ${C.border}`,
+                  paddingTop: 8,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <span style={{ color: C.muted }}>
+                  Receita monofásica no período
+                </span>
+                <strong>{fmtR(result.receitaMonoPeriodo)}</strong>
+              </div>
+
+              <div
+                style={{
+                  borderTop: `1px solid ${C.border}`,
+                  paddingTop: 8,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <span style={{ color: C.muted }}>
+                  Crédito estimado
+                </span>
+                <strong style={{ color: '#16a34a' }}>
+                  {fmtR(result.creditoPeriodo)}
+                </strong>
+              </div>
+            </div>
           </Card>
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 11, color: '#92400e' }}>
-            ⚠️ Estimativa baseada em médias de mercado. Valores reais dependem de análise documental detalhada.
+
+          <div
+            style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 8,
+              padding: '11px 14px',
+              fontSize: 11,
+              color: '#92400e',
+              lineHeight: 1.55,
+            }}
+          >
+            ⚠️ <strong>Estimativa de triagem.</strong> Para períodos com
+            várias competências, este simulador mantém constantes o RBT12
+            de referência e a receita monofásica média informada.
+            O crédito definitivo deve ser recalculado mês a mês,
+            considerando o RBT12, a classificação dos produtos,
+            o PGDAS-D e o DAS efetivamente pago em cada competência.
+          </div>
+
+          <div
+            style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: 8,
+              padding: '11px 14px',
+              fontSize: 11,
+              color: '#166534',
+              lineHeight: 1.55,
+            }}
+          >
+            <strong>Próxima etapa no FiscalTribe:</strong> confirmar os
+            produtos monofásicos nos XMLs, confrontar com o PGDAS-D,
+            recalcular cada competência e gerar a memória de apuração
+            para retificação e restituição/compensação do Simples Nacional.
           </div>
         </div>
       ) : (
-        <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300 }}>
+        <Card
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            color: C.muted,
+            minHeight: 300,
+            textAlign: 'center',
+          }}
+        >
           <div style={{ fontSize: 48, marginBottom: 12 }}>💰</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Preencha os dados e simule</div>
+
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: C.text,
+              marginBottom: 6,
+            }}
+          >
+            Calcule uma oportunidade real
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              lineHeight: 1.5,
+              maxWidth: 260,
+            }}
+          >
+            Informe o RBT12 e a receita de produtos monofásicos
+            identificada para estimar a parcela de PIS/Cofins
+            que pode ter sido recolhida indevidamente no DAS.
+          </div>
         </Card>
       )}
     </div>
@@ -436,89 +990,353 @@ function SimRecuperacao({ isMobile }) {
 // ─────────────────────────────────────────────────────────────
 
 function SimEconomia({ isMobile }) {
+  const [atividade, setAtividade] = useState('comercio')
+  const [trimestre, setTrimestre] = useState('4')
   const [receita, setReceita] = useState('')
-  const [folha,   setFolha]   = useState('')
-  const [margem,  setMargem]  = useState('')
-  const [result,  setResult]  = useState(null)
+  const [receitaTrimestre, setReceitaTrimestre] = useState('')
+  const [rbt12, setRbt12] = useState('')
+  const [fs12, setFs12] = useState('')
+  const [folha, setFolha] = useState('')
+  const [margem, setMargem] = useState('20')
+  const [tributoLocal, setTributoLocal] = useState('')
+  const [encargosFolha, setEncargosFolha] = useState('28')
+  const [creditosLR, setCreditosLR] = useState('')
+  const [result, setResult] = useState(null)
+
+  const parsePercentual = valor => {
+    const n = parseFloat(String(valor ?? '').replace(',', '.'))
+    return Number.isFinite(n) ? n : 0
+  }
 
   function calcular() {
     const r = parseMoeda(receita)
+    const rTrim = parseMoeda(receitaTrimestre)
+    const rbt = parseMoeda(rbt12)
+    const fs = parseMoeda(fs12)
     const f = parseMoeda(folha)
-    const m = parseFloat(margem) || 20
-    if (!r) { alert('Informe a receita.'); return }
-    const lucro = r * (m / 100)
-    let aliqSN = 6
-    if (r * 12 > 180000)  aliqSN = 11.2
-    if (r * 12 > 360000)  aliqSN = 13.5
-    if (r * 12 > 720000)  aliqSN = 16.0
-    if (r * 12 > 1800000) aliqSN = 21.0
-    if (r * 12 > 3600000) aliqSN = 33.0
-    const impostoSN = r * (aliqSN / 100)
-    const pis = r * 0.0065; const cofins = r * 0.03
-    const csll = (r * 0.32) * 0.09
-    const irpj = (r * 0.32) * 0.15 + Math.max(0, (r * 0.32 * 3 - 60000)) * 0.10 / 3
-    const inss = f * 0.26
-    const impostoLP = pis + cofins + csll + irpj + inss
-    const pisLR = r * 0.0165; const cofinsLR = r * 0.076
-    const csllLR = lucro * 0.09
-    const irpjLR = lucro * 0.15 + Math.max(0, lucro - 20000) * 0.10
-    const impostoLR = pisLR + cofinsLR + csllLR + irpjLR + inss
-    const pior = Math.max(impostoSN, impostoLP, impostoLR)
-    const melhor = Math.min(impostoSN, impostoLP, impostoLR)
-    setResult({ impostoSN, impostoLP, impostoLR, economia: pior - melhor, aliqSN })
+    const margemPct = parsePercentual(margem)
+    const tributoLocalPct = parsePercentual(tributoLocal)
+    const encargosPct = parsePercentual(encargosFolha)
+    const creditosPisCofins = parseMoeda(creditosLR)
+
+    if (!r || r <= 0) { alert('Informe a receita mensal de referência.'); return }
+    if (!rTrim || rTrim <= 0) { alert('Informe a receita bruta do trimestre.'); return }
+    if (!rbt || rbt <= 0) { alert('Informe o RBT12.'); return }
+    if (rbt > 4800000) { alert('O RBT12 informado ultrapassa R$ 4,8 milhões. O Simples Nacional não será comparável neste escopo.'); return }
+    if (atividade === 'servico_fator_r' && (!fs12 || fs12 === '')) { alert('Informe a FS12 para calcular o Fator R.'); return }
+    if (tributoLocal === '') { alert('Informe a alíquota efetiva de ICMS/ISS fora do Simples. Use 0 se não houver no cenário.'); return }
+    if (creditosLR === '') { alert('Informe os créditos mensais de PIS/Cofins no Lucro Real. Use 0,00 se não houver.'); return }
+    if (margemPct < 0) { alert('A margem de lucro não pode ser negativa neste simulador.'); return }
+    if (tributoLocalPct < 0 || encargosPct < 0) { alert('As alíquotas informadas não podem ser negativas.'); return }
+
+    const fatorR = atividade === 'servico_fator_r' ? (rbt > 0 ? fs / rbt : 0) : null
+    const anexoSN = atividade === 'comercio' ? 'I' : fatorR >= 0.28 ? 'III' : 'V'
+    const aliqEfSN = calcAliqEfetivaSN(rbt, anexoSN)
+    const simples = r * aliqEfSN
+
+    const presIrpj = atividade === 'comercio' ? 0.08 : 0.32
+    const presCsll = atividade === 'comercio' ? 0.12 : 0.32
+    const limiteTrim = 1250000
+    const receitaNormal = Math.min(rTrim, limiteTrim)
+    const receitaExcedente = Math.max(0, rTrim - limiteTrim)
+
+    const baseIrpjLP =
+      (receitaNormal * presIrpj) +
+      (receitaExcedente * presIrpj * 1.10)
+
+    const aplicaAcrescimoCsll = trimestre !== '1'
+    const baseCsllLP =
+      (receitaNormal * presCsll) +
+      (receitaExcedente * presCsll * (aplicaAcrescimoCsll ? 1.10 : 1))
+
+    const irpjLPTrim =
+      (baseIrpjLP * 0.15) +
+      (Math.max(0, baseIrpjLP - 60000) * 0.10)
+
+    const csllLPTrim = baseCsllLP * 0.09
+    const irpjLPMensal = irpjLPTrim / 3
+    const csllLPMensal = csllLPTrim / 3
+    const pisCofinsLP = r * 0.0365
+    const encargosPatronais = f * (encargosPct / 100)
+    const icmsIss = r * (tributoLocalPct / 100)
+    const presumido = irpjLPMensal + csllLPMensal + pisCofinsLP + encargosPatronais + icmsIss
+
+    const lucroEstimado = r * (margemPct / 100)
+    const irpjLR =
+      (lucroEstimado * 0.15) +
+      (Math.max(0, lucroEstimado - 20000) * 0.10)
+    const csllLR = lucroEstimado * 0.09
+    const pisCofinsDebitoLR = r * 0.0925
+    const pisCofinsLR = Math.max(0, pisCofinsDebitoLR - creditosPisCofins)
+    const real = irpjLR + csllLR + pisCofinsLR + encargosPatronais + icmsIss
+
+    const cargas = [
+      { regime: 'Simples Nacional', valor: simples },
+      { regime: 'Lucro Presumido', valor: presumido },
+      { regime: 'Lucro Real', valor: real },
+    ]
+    const menor = Math.min(...cargas.map(x => x.valor))
+    const maior = Math.max(...cargas.map(x => x.valor))
+    const menorRegime = cargas.find(x => x.valor === menor)?.regime || ''
+
+    setResult({
+      atividade,
+      trimestre,
+      r,
+      rTrim,
+      rbt,
+      fs,
+      f,
+      fatorR,
+      anexoSN,
+      aliqEfSN,
+      simples,
+      presIrpj,
+      presCsll,
+      receitaNormal,
+      receitaExcedente,
+      baseIrpjLP,
+      baseCsllLP,
+      irpjLPMensal,
+      csllLPMensal,
+      pisCofinsLP,
+      encargosPatronais,
+      icmsIss,
+      presumido,
+      margemPct,
+      lucroEstimado,
+      irpjLR,
+      csllLR,
+      pisCofinsDebitoLR,
+      creditosPisCofins,
+      pisCofinsLR,
+      real,
+      menor,
+      maior,
+      menorRegime,
+      diferenca: maior - menor,
+      tributoLocalPct,
+      encargosPct,
+      aplicaAcrescimoCsll,
+    })
   }
 
-  const comparar = (val, todos) => {
-    const min = Math.min(...todos); const max = Math.max(...todos)
-    if (val === min) return { cor: '#16a34a', label: '⭐ Melhor opção' }
-    if (val === max) return { cor: '#dc2626', label: '⚠️ Maior carga' }
-    return { cor: '#d97706', label: '• Intermediário' }
+  const statusCarga = (valor, todos) => {
+    const min = Math.min(...todos)
+    const max = Math.max(...todos)
+    if (valor === min) return { cor: C.verde, label: 'Menor carga estimada' }
+    if (valor === max) return { cor: C.vermelho, label: 'Maior carga estimada' }
+    return { cor: C.laranja, label: 'Carga intermediária' }
   }
+
+  const LinhaMemoria = ({ label, valor, destaque = false }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '5px 0' }}>
+      <span style={{ color: C.muted }}>{label}</span>
+      <strong style={{ color: destaque ? C.verde : C.text, textAlign: 'right' }}>{valor}</strong>
+    </div>
+  )
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
-      <Card>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>📊 Dados da empresa</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Campo label="Receita mensal (R$)"><InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 80.000" /></Campo>
-          <Campo label="Folha de pagamento mensal (R$)"><InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 20.000" /></Campo>
-          <Campo label="Margem líquida estimada (%)">
-            <input value={margem} onChange={e => setMargem(e.target.value)} type="number" placeholder="Ex: 20"
-              style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }} />
-          </Campo>
-          <button onClick={calcular} style={btnCalc}>⚡ Comparar regimes</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ background: '#F0F4FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: isMobile ? 14 : '16px 20px' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.navy, marginBottom: 5 }}>📊 Economia Fiscal — Comparador 2026</div>
+        <div style={{ fontSize: 12, lineHeight: 1.55, color: '#1e40af' }}>
+          Compara cargas mensais estimadas de Simples Nacional, Lucro Presumido e Lucro Real com premissas explícitas. O resultado é uma triagem de planejamento, não uma indicação automática de regime.
         </div>
-      </Card>
-      {result ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {[
-            { regime: 'Simples Nacional', valor: result.impostoSN, desc: `Alíquota efetiva: ${fmtP(result.aliqSN)}` },
-            { regime: 'Lucro Presumido',  valor: result.impostoLP, desc: 'PIS+COFINS+IRPJ+CSLL+INSS' },
-            { regime: 'Lucro Real',       valor: result.impostoLR, desc: 'Regime não cumulativo' },
-          ].map((r, i) => {
-            const comp = comparar(r.valor, [result.impostoSN, result.impostoLP, result.impostoLR])
-            return (
-              <div key={i} style={{ background: comp.cor + '10', border: `2px solid ${comp.cor}33`, borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{r.regime}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{r.desc}</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: comp.cor, marginTop: 4 }}>{comp.label}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: comp.cor }}>{fmtR(r.valor)}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>carga mensal est.</div>
-                </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
+        <Card style={{ padding: isMobile ? 18 : '24px 28px' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 18 }}>Dados do cenário</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <Campo label="Atividade principal">
+              <select value={atividade} onChange={e => { setAtividade(e.target.value); setResult(null) }} style={selectStyle}>
+                <option value="comercio">Comércio / revenda — Anexo I</option>
+                <option value="servico_fator_r">Serviço sujeito ao Fator R — Anexo III ou V</option>
+              </select>
+            </Campo>
+
+            <Campo label="Trimestre de 2026">
+              <select value={trimestre} onChange={e => setTrimestre(e.target.value)} style={selectStyle}>
+                <option value="1">1º trimestre</option>
+                <option value="2">2º trimestre</option>
+                <option value="3">3º trimestre</option>
+                <option value="4">4º trimestre</option>
+              </select>
+            </Campo>
+
+            <Campo label="Receita mensal de referência (R$)">
+              <InputMoeda value={receita} onChange={setReceita} placeholder="Ex: 150.000,00" />
+            </Campo>
+
+            <Campo label="Receita bruta do trimestre (R$)">
+              <InputMoeda value={receitaTrimestre} onChange={setReceitaTrimestre} placeholder="Ex: 450.000,00" />
+            </Campo>
+
+            <Campo label="RBT12 — 12 meses anteriores ao PA (R$)">
+              <InputMoeda value={rbt12} onChange={setRbt12} placeholder="Ex: 1.800.000,00" />
+            </Campo>
+
+            {atividade === 'servico_fator_r' && (
+              <Campo label="FS12 — folha + encargos dos 12 meses anteriores (R$)">
+                <InputMoeda value={fs12} onChange={setFs12} placeholder="Ex: 540.000,00" />
+              </Campo>
+            )}
+
+            <Campo label="Folha mensal atual (R$)">
+              <InputMoeda value={folha} onChange={setFolha} placeholder="Ex: 40.000,00" />
+            </Campo>
+
+            <Campo label="Margem de lucro tributável estimada no Lucro Real (%)">
+              <input
+                value={margem}
+                onChange={e => setMargem(e.target.value)}
+                inputMode="decimal"
+                placeholder="Ex: 20"
+                style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+              />
+            </Campo>
+
+            <Campo label={atividade === 'comercio' ? 'ICMS efetivo fora do Simples (%)' : 'ISS efetivo fora do Simples (%)'}>
+              <input
+                value={tributoLocal}
+                onChange={e => setTributoLocal(e.target.value)}
+                inputMode="decimal"
+                placeholder={atividade === 'comercio' ? 'Ex: 12' : 'Ex: 5'}
+                style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+              />
+            </Campo>
+
+            <Campo label="Encargos patronais efetivos fora do Simples (%)">
+              <input
+                value={encargosFolha}
+                onChange={e => setEncargosFolha(e.target.value)}
+                inputMode="decimal"
+                placeholder="Ex: 28"
+                style={{ padding: '10px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+              />
+              <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>
+                Ajuste conforme CPP, RAT/FAP, terceiros, FPAS e eventual regime específico da empresa. O valor inicial de 28% é apenas referência editável.
               </div>
-            )
-          })}
-          <ResultCard label="Economia potencial (melhor vs pior)" valor={fmtR(result.economia)} cor="#0B1F4D" sub={`${fmtR(result.economia * 12)} por ano`} />
-        </div>
-      ) : (
-        <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Compare os regimes tributários</div>
+            </Campo>
+
+            <Campo label="Créditos mensais aproveitáveis de PIS/Cofins no Lucro Real (R$)">
+              <InputMoeda value={creditosLR} onChange={setCreditosLR} placeholder="Informe 0,00 se não houver" />
+            </Campo>
+
+            <button onClick={calcular} style={btnCalc}>⚡ Comparar cenário 2026</button>
+          </div>
         </Card>
-      )}
+
+        {result ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <ResultCard
+              label="Menor carga estimada no cenário"
+              valor={fmtR(result.menor)}
+              cor={C.verde}
+              sub={`${result.menorRegime} — comparação mensal`}
+            />
+
+            {[
+              {
+                regime: 'Simples Nacional',
+                valor: result.simples,
+                desc: `Anexo ${result.anexoSN} — alíquota efetiva ${fmtP4(result.aliqEfSN * 100)}`,
+              },
+              {
+                regime: 'Lucro Presumido',
+                valor: result.presumido,
+                desc: 'IRPJ + CSLL + PIS/Cofins + encargos + ICMS/ISS informado',
+              },
+              {
+                regime: 'Lucro Real',
+                valor: result.real,
+                desc: 'IRPJ + CSLL + PIS/Cofins líquidos de créditos + encargos + ICMS/ISS informado',
+              },
+            ].map((item, i) => {
+              const comp = statusCarga(item.valor, [result.simples, result.presumido, result.real])
+              return (
+                <div key={i} style={{ background: comp.cor + '10', border: `2px solid ${comp.cor}33`, borderRadius: 12, padding: isMobile ? 14 : '16px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{item.regime}</div>
+                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.45, marginTop: 3 }}>{item.desc}</div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: comp.cor, marginTop: 6 }}>{comp.label}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: comp.cor }}>{fmtR(item.valor)}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>carga mensal estimada</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            <ResultCard
+              label="Diferença entre maior e menor estimativa"
+              valor={fmtR(result.diferenca)}
+              cor={C.navy}
+              sub={`${fmtR(result.diferenca * 12)} em 12 meses, se as premissas permanecerem constantes`}
+            />
+
+            {result.atividade === 'servico_fator_r' && (
+              <Card style={{ padding: isMobile ? 14 : '16px 20px' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Fator R</div>
+                <LinhaMemoria label="FS12" valor={fmtR(result.fs)} />
+                <LinhaMemoria label="RBT12" valor={fmtR(result.rbt)} />
+                <LinhaMemoria label="Fator R" valor={fmtP4(result.fatorR * 100)} />
+                <LinhaMemoria label="Enquadramento usado" valor={`Anexo ${result.anexoSN}`} destaque />
+              </Card>
+            )}
+
+            <Card style={{ padding: isMobile ? 14 : '16px 20px' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Memória — Lucro Presumido</div>
+              <LinhaMemoria label="Receita do trimestre" valor={fmtR(result.rTrim)} />
+              <LinhaMemoria label="Receita até R$ 1,25 mi" valor={fmtR(result.receitaNormal)} />
+              <LinhaMemoria label="Receita excedente" valor={fmtR(result.receitaExcedente)} />
+              <LinhaMemoria label="Presunção IRPJ normal" valor={fmtP(result.presIrpj * 100)} />
+              <LinhaMemoria label="Presunção IRPJ no excedente" valor={fmtP(result.presIrpj * 110)} />
+              <LinhaMemoria label="Presunção CSLL normal" valor={fmtP(result.presCsll * 100)} />
+              <LinhaMemoria
+                label="Presunção CSLL no excedente"
+                valor={result.aplicaAcrescimoCsll ? fmtP(result.presCsll * 110) : `${fmtP(result.presCsll * 100)} — 1º tri/2026`}
+              />
+              <LinhaMemoria label="IRPJ mensal equivalente" valor={fmtR(result.irpjLPMensal)} />
+              <LinhaMemoria label="CSLL mensal equivalente" valor={fmtR(result.csllLPMensal)} />
+              <LinhaMemoria label="PIS/Cofins cumulativos" valor={fmtR(result.pisCofinsLP)} />
+              <LinhaMemoria label="Encargos patronais informados" valor={fmtR(result.encargosPatronais)} />
+              <LinhaMemoria label={result.atividade === 'comercio' ? 'ICMS informado' : 'ISS informado'} valor={fmtR(result.icmsIss)} />
+              <LinhaMemoria label="Total mensal estimado" valor={fmtR(result.presumido)} destaque />
+            </Card>
+
+            <Card style={{ padding: isMobile ? 14 : '16px 20px' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Memória — Lucro Real</div>
+              <LinhaMemoria label="Lucro tributável estimado" valor={`${fmtR(result.lucroEstimado)} (${fmtP(result.margemPct)})`} />
+              <LinhaMemoria label="IRPJ estimado" valor={fmtR(result.irpjLR)} />
+              <LinhaMemoria label="CSLL estimada" valor={fmtR(result.csllLR)} />
+              <LinhaMemoria label="Débito PIS/Cofins a 9,25%" valor={fmtR(result.pisCofinsDebitoLR)} />
+              <LinhaMemoria label="Créditos PIS/Cofins informados" valor={`− ${fmtR(result.creditosPisCofins)}`} />
+              <LinhaMemoria label="PIS/Cofins líquidos estimados" valor={fmtR(result.pisCofinsLR)} />
+              <LinhaMemoria label="Encargos patronais informados" valor={fmtR(result.encargosPatronais)} />
+              <LinhaMemoria label={result.atividade === 'comercio' ? 'ICMS informado' : 'ISS informado'} valor={fmtR(result.icmsIss)} />
+              <LinhaMemoria label="Total mensal estimado" valor={fmtR(result.real)} destaque />
+            </Card>
+
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '11px 14px', fontSize: 11, color: '#92400e', lineHeight: 1.55 }}>
+              ⚠️ <strong>Triagem de planejamento 2026.</strong> O comparador pressupõe uma única atividade e não contempla, entre outros pontos, benefícios específicos, monofásicos, substituição tributária, sublimites, Anexo IV, CPRB, incentivos, adições/exclusões do Lucro Real, diferenças estaduais/municipais ou particularidades de créditos. A decisão de regime exige conferência contábil e fiscal completa.
+            </div>
+          </div>
+        ) : (
+          <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: C.muted, minHeight: 300, textAlign: 'center', padding: isMobile ? 18 : '24px 28px' }}>
+            <div style={{ fontSize: 46, marginBottom: 12 }}>📊</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Compare com premissas visíveis</div>
+            <div style={{ fontSize: 12, lineHeight: 1.5, maxWidth: 300 }}>
+              O FiscalTribe mostrará a memória de cada regime para que o resultado possa ser conferido e ajustado ao caso real.
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
@@ -537,8 +1355,13 @@ function SimTransacao({ isMobile }) {
   const [result,     setResult]     = useState(null)
 
   const EDITAL = {
-    numero: '6/2026', publicacao: '01/06/2026', prazoAdesao: '30/09/2026',
-    limiteDebito: 45000000, portal: 'regularize.pgfn.gov.br',
+    numero: '6/2026',
+    publicacao: '01/06/2026',
+    prazoAdesao: '30/09/2026',
+    prazoAdesaoCompleto: '30/09/2026 às 19h',
+    status: 'encerrado',
+    limiteDebito: 45000000,
+    portal: 'regularize.pgfn.gov.br',
     inscricaoLimite: { pequeno_valor: '01/06/2025', demais: '03/03/2026' },
   }
 
@@ -561,7 +1384,7 @@ function SimTransacao({ isMobile }) {
 
   const GRUPOS = [
     {
-      label: '📋 Edital PGFN 6/2026 — Vigente até 30/09/2026',
+      label: '📋 Edital PGFN 6/2026 — ENCERRADO — uso histórico/estimativo',
       modalidades: {
         capag:          { label: 'Capacidade de Pagamento (CAPAG)',            descricao: 'Para contribuintes cuja capacidade financeira é insuficiente para quitar o passivo em até 5 anos.', inscricaoAte: EDITAL.inscricaoLimite.demais,        usaCapag: true,  fonte: 'Edital PGFN 6/2026 — Art. 3º' },
         dificil:        { label: 'Débitos de Difícil Recuperação/Irrecuperáveis', descricao: 'Entrada reduzida de 5% em até 12x. Desconto até 65% (70% pequeno porte). Saldo em até 108 parcelas.', inscricaoAte: EDITAL.inscricaoLimite.demais,  usaCapag: false, fonte: 'Edital PGFN 6/2026 — Art. 9º' },
@@ -580,7 +1403,7 @@ function SimTransacao({ isMobile }) {
     {
       label: '📦 Parcelamento Ordinário',
       modalidades: {
-        parcelamento_ordinario: { label: 'Parcelamento Ordinário (Lei 10.522/2002)',   descricao: 'Parcelamento simples em até 60 meses sem desconto. Não há redução de multas ou juros. Indicado para quem não se enquadra nos editais.', inscricaoAte: 'Sem restrição', usaCapag: false, fonte: 'Lei 10.522/2002 — Art. 10; IN RFB 1.891/2019' },
+        parcelamento_ordinario: { label: 'Parcelamento Ordinário (Lei 10.522/2002)',   descricao: 'Parcelamento próprio da PGFN, fora do Edital 6/2026, em até 60 prestações e sem desconto. A elegibilidade e as condições finais devem ser confirmadas no Regularize.', inscricaoAte: 'Sem prazo de edital — verificar elegibilidade no Regularize', usaCapag: false, fonte: 'Lei 10.522/2002 — arts. 10 a 13; Portaria PGFN 448/2019' },
         parcelamento_especial:  { label: 'Parcelamento Especial / REFIS (histórico)', descricao: 'Parcelamentos de programas anteriores (REFIS, PAES, PAEX, PERT). Verificar saldo em aberto ou rescisão a regularizar.',               inscricaoAte: 'Verificar programa específico', usaCapag: false, fonte: 'Lei 9.964/2000 (REFIS); Lei 10.684/2003 (PAES); Lei 13.496/2017 (PERT)' },
       },
     },
@@ -705,22 +1528,59 @@ function SimTransacao({ isMobile }) {
   }
 
   const modAtual = TODAS_MODALIDADES[modalidade]
+  const MODALIDADES_EDITAL_6 = ['capag', 'dificil', 'pequeno_valor', 'garantido']
+  const isEdital6Encerrado = MODALIDADES_EDITAL_6.includes(modalidade)
+  const isParcelamentoOrdinario = modalidade === 'parcelamento_ordinario'
+  const isParcelamentoHistorico = modalidade === 'parcelamento_especial'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '14px 18px' : '16px 24px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, boxSizing: 'border-box' }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>EDITAL PGFN Nº {EDITAL.numero} — VIGENTE</div>
-          <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#fff' }}>Transação Tributária — Dívida Ativa da União</div>
-          <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 4 }}>Publicado em {EDITAL.publicacao} · {EDITAL.portal}</div>
+      {isEdital6Encerrado ? (
+        <>
+          <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '14px 18px' : '16px 24px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, boxSizing: 'border-box' }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#fde68a', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>EDITAL PGFN Nº {EDITAL.numero} — PRAZO ENCERRADO</div>
+              <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#fff' }}>Transação Tributária — Dívida Ativa da União</div>
+              <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 4 }}>Publicado em {EDITAL.publicacao} · {EDITAL.portal}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: '#fecaca', fontWeight: 800, marginBottom: 2 }}>⛔ ADESÃO ENCERRADA</div>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#fecaca' }}>30/09/2026</div>
+              <div style={{ fontSize: 11, color: '#93c5fd' }}>encerrado às 19h — horário de Brasília</div>
+            </div>
+          </div>
+
+          <div style={{ background: '#fff7ed', border: '2px solid #fdba74', borderRadius: 12, padding: isMobile ? '12px 14px' : '13px 18px', color: '#9a3412', fontSize: 12, lineHeight: 1.55 }}>
+            <strong>⚠️ Edital com prazo de adesão encerrado.</strong> Esta simulação permanece disponível exclusivamente para estudo e estimativa histórica das condições do Edital PGFN nº {EDITAL.numero}. O resultado não representa modalidade atualmente disponível para adesão. O FiscalTribe aguarda nova orientação oficial da PGFN ou publicação de novo edital aplicável; após validação, a nova regra poderá ser incorporada ao sistema.
+          </div>
+        </>
+      ) : isParcelamentoOrdinario ? (
+        <>
+          <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '14px 18px' : '16px 24px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, boxSizing: 'border-box' }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>PARCELAMENTO ORDINÁRIO — LEI 10.522/2002</div>
+              <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#fff' }}>Parcelamento de Dívida Ativa da União</div>
+              <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 4 }}>PGFN / Regularize · modalidade fora do Edital 6/2026</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: '#bbf7d0', fontWeight: 800, marginBottom: 2 }}>✓ NÃO VINCULADO AO PRAZO DO EDITAL</div>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#bbf7d0' }}>ATÉ 60 PRESTAÇÕES</div>
+              <div style={{ fontSize: 11, color: '#93c5fd' }}>sem desconto na simulação</div>
+            </div>
+          </div>
+
+          <div style={{ background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: 12, padding: isMobile ? '12px 14px' : '13px 18px', color: '#1e40af', fontSize: 12, lineHeight: 1.55 }}>
+            <strong>ℹ️ Parcelamento Ordinário não integra o Edital PGFN nº 6/2026.</strong> Portanto, o encerramento do edital em 30/09/2026 não encerra esta modalidade. A simulação considera parcelamento sem desconto; elegibilidade, quantidade efetiva de prestações, valor mínimo e demais condições devem ser confirmados no Portal Regularize.
+          </div>
+        </>
+      ) : (
+        <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '14px 18px' : '16px 24px', color: '#fff', boxSizing: 'border-box' }}>
+          <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>NEGOCIAÇÃO PGFN — MODALIDADE ESPECÍFICA</div>
+          <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#fff' }}>{modAtual?.label || 'Negociação de Dívida Ativa da União'}</div>
+          <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 4 }}>Verifique as condições e a disponibilidade atual no Portal Regularize.</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: '#fde68a', fontWeight: 700, marginBottom: 2 }}>⏰ PRAZO EDITAL 6/2026</div>
-          <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: '#fde68a' }}>30/09/2026</div>
-          <div style={{ fontSize: 11, color: '#93c5fd' }}>até 19h — Portal Regularize</div>
-        </div>
-      </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
         <Card>
@@ -745,16 +1605,20 @@ function SimTransacao({ isMobile }) {
               <select value={tipoPessoa} onChange={e => setTipoPessoa(e.target.value)} style={selectStyle}>
                 {Object.entries(TIPOS_PESSOA).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              {isPP && (
+              {isPP && ['capag', 'dificil'].includes(modalidade) && (
                 <div style={{ fontSize: 11, color: '#16a34a', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '4px 8px', marginTop: 4 }}>
-                  ✅ Pequeno porte — desconto ampliado (70%) e entrada em até 12x
+                  ✅ Pequeno porte — limite global de desconto pode chegar a 70%, conforme as regras e a modalidade aplicável
                 </div>
               )}
             </Campo>
 
             <Campo label="Valor total da dívida (R$) *">
               <InputMoeda value={divida} onChange={setDivida} placeholder="Ex: 500.000" />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Limite Edital 6/2026: R$ 45 milhões por sujeito passivo</div>
+              {isEdital6Encerrado ? (
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Referência histórica do Edital 6/2026: limite de R$ 45 milhões por sujeito passivo.</div>
+              ) : isParcelamentoOrdinario ? (
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>PGFN: até R$ 15 milhões, parcelamento sem garantia; acima desse valor, verificar exigência de garantia no Regularize.</div>
+              ) : null}
             </Campo>
 
             <Campo label="Modalidade *">
@@ -799,16 +1663,26 @@ function SimTransacao({ isMobile }) {
             </Campo>
 
             <button onClick={calcular} style={btnCalc}>⚡ Simular</button>
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e' }}>
-              ⚠️ Simulação estimativa. Composição real da dívida e CAPAG oficial impactam os valores. Consulte o Portal Regularize e um especialista tributário.
-            </div>
+            {isEdital6Encerrado ? (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e' }}>
+                ⚠️ Simulação estimativa/histórica de modalidade do Edital 6/2026 encerrado. Composição real da dívida e CAPAG oficial podem impactar os valores. Consulte o Portal Regularize para verificar modalidades atualmente disponíveis.
+              </div>
+            ) : isParcelamentoOrdinario ? (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#1e40af' }}>
+                ℹ️ Simulação de Parcelamento Ordinário, fora do Edital 6/2026. Não há desconto aplicado. O valor final das prestações e a elegibilidade devem ser confirmados no Regularize.
+              </div>
+            ) : (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#475569' }}>
+                ℹ️ Simulação indicativa. Confirme no Regularize a disponibilidade e as condições oficiais da modalidade selecionada.
+              </div>
+            )}
           </div>
         </Card>
 
         {result ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: '#0B1F4D', borderRadius: 12, padding: '14px 18px', color: '#fff' }}>
-              <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>SIMULAÇÃO DE TRANSAÇÃO / PARCELAMENTO</div>
+              <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, marginBottom: 4 }}>{isParcelamentoOrdinario ? 'SIMULAÇÃO DE PARCELAMENTO ORDINÁRIO' : 'SIMULAÇÃO DE TRANSAÇÃO / NEGOCIAÇÃO'}</div>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{result.modLabel}</div>
               <div style={{ fontSize: 12, color: '#93c5fd' }}>{result.naturezaLabel} · {TIPOS_PESSOA[tipoPessoa]?.label}</div>
             </div>
@@ -821,24 +1695,37 @@ function SimTransacao({ isMobile }) {
               </div>
             )}
 
-            <Card style={{ padding: '14px 18px' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>📊 Composição estimada da dívida</div>
-              {[
-                { label: 'Principal (est. 45%)', valor: result.estimPrincipal, cor: '#0B1F4D' },
-                { label: 'Multas (est. 30%)',    valor: result.estimMultas,    cor: '#dc2626' },
-                { label: 'Juros (est. 20%)',     valor: result.estimJuros,     cor: '#d97706' },
-                { label: 'Encargos (est. 5%)',   valor: result.estimEncargos,  cor: '#7c3aed' },
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < 3 ? `1px solid ${C.border}` : 'none', fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>{item.label}</span>
-                  <span style={{ fontWeight: 700, color: item.cor }}>{fmtR(item.valor)}</span>
+            {isParcelamentoOrdinario ? (
+              <Card style={{ padding: '14px 18px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>📊 Base da simulação</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', fontSize: 12 }}>
+                  <span style={{ color: C.muted }}>Valor total informado</span>
+                  <span style={{ fontWeight: 800, color: C.navy, textAlign: 'right' }}>{fmtR(result.d)}</span>
                 </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: 12, marginTop: 4 }}>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Total acréscimos legais</span>
-                <span style={{ fontWeight: 700, color: '#dc2626' }}>{fmtR(result.acrescimos)}</span>
-              </div>
-            </Card>
+                <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.55 }}>
+                  Para o Parcelamento Ordinário, o FiscalTribe não cria uma composição estimada entre principal, multas, juros e encargos, porque não há desconto aplicado nesta simulação.
+                </div>
+              </Card>
+            ) : !isParcelamentoHistorico && (
+              <Card style={{ padding: '14px 18px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 10 }}>📊 Composição estimada da dívida</div>
+                {[
+                  { label: 'Principal (est. 45%)', valor: result.estimPrincipal, cor: '#0B1F4D' },
+                  { label: 'Multas (est. 30%)',    valor: result.estimMultas,    cor: '#dc2626' },
+                  { label: 'Juros (est. 20%)',     valor: result.estimJuros,     cor: '#d97706' },
+                  { label: 'Encargos (est. 5%)',   valor: result.estimEncargos,  cor: '#7c3aed' },
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < 3 ? `1px solid ${C.border}` : 'none', fontSize: 12 }}>
+                    <span style={{ color: C.muted }}>{item.label}</span>
+                    <span style={{ fontWeight: 700, color: item.cor }}>{fmtR(item.valor)}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: 12, marginTop: 4 }}>
+                  <span style={{ color: C.muted, fontWeight: 600 }}>Total acréscimos legais</span>
+                  <span style={{ fontWeight: 700, color: '#dc2626' }}>{fmtR(result.acrescimos)}</span>
+                </div>
+              </Card>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <ResultCard label="Desconto estimado"   valor={fmtR(result.totalDesconto)} cor="#16a34a" sub={`${result.pctDesconto.toFixed(1)}% do valor`} />
@@ -856,15 +1743,30 @@ function SimTransacao({ isMobile }) {
             )}
 
             {['capag','dificil','pequeno_valor','garantido','desenrola_rural','individual'].includes(modalidade) && (
-              <div style={{ background: '#f0fdf4', border: '2px solid #86efac', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
-                🌐 {['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? `Adesão pelo Regularize até ${EDITAL.prazoAdesao}` : 'Negociação contínua — sem prazo de edital'}<br />
-                <span style={{ fontWeight: 400, color: '#16a34a' }}>{EDITAL.portal}</span>
+              <div style={{ background: ['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? '#fff7ed' : '#f0fdf4', border: `2px solid ${['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? '#fdba74' : '#86efac'}`, borderRadius: 10, padding: '12px 16px', fontSize: 12, color: ['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? '#9a3412' : '#166534', fontWeight: 600, textAlign: 'center' }}>
+                {['capag','dificil','pequeno_valor','garantido','desenrola_rural'].includes(modalidade) ? (
+                  <>
+                    ⛔ Prazo de adesão encerrado em {EDITAL.prazoAdesaoCompleto}. Simulação mantida para estudo/estimativa histórica.<br />
+                    <span style={{ fontWeight: 400, color: '#b45309' }}>Consulte o Regularize para modalidades atualmente disponíveis · {EDITAL.portal}</span>
+                  </>
+                ) : (
+                  <>
+                    🌐 Negociação contínua — sem prazo deste edital<br />
+                    <span style={{ fontWeight: 400, color: '#16a34a' }}>{EDITAL.portal}</span>
+                  </>
+                )}
               </div>
             )}
 
-            {['parcelamento_ordinario','parcelamento_especial'].includes(modalidade) && (
+            {isParcelamentoOrdinario && (
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#475569' }}>
-                ℹ️ Parcelamento sem desconto. Considere avaliar as modalidades de transação do Edital 6/2026 — podem oferecer condições mais vantajosas.
+                ℹ️ Parcelamento Ordinário fora do Edital PGFN 6/2026. Nesta simulação não há desconto: o saldo informado é distribuído pelo número de prestações selecionado, sem projetar a atualização futura das parcelas. Confirme as condições finais no Regularize.
+              </div>
+            )}
+
+            {isParcelamentoHistorico && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#475569' }}>
+                ℹ️ Parcelamento especial histórico. As condições dependem do programa específico; confirme saldo, situação e regras aplicáveis antes de utilizar a estimativa.
               </div>
             )}
           </div>
@@ -876,7 +1778,7 @@ function SimTransacao({ isMobile }) {
               Selecione a natureza do débito, tipo de contribuinte e modalidade desejada.
             </div>
             <div style={{ marginTop: 16, background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 14px', fontSize: 11, color: '#92400e', textAlign: 'center' }}>
-              ⏰ Edital 6/2026 — prazo até <strong>30/09/2026 às 19h</strong>
+              ⛔ Edital 6/2026 — prazo encerrado em <strong>30/09/2026 às 19h</strong>. Simulação disponível para estudo histórico.
             </div>
           </Card>
         )}
@@ -1043,17 +1945,74 @@ export default function Simuladores() {
       <div style={{ background: '#0B1F4D', borderRadius: 14, padding: isMobile ? '16px 18px' : '18px 24px', marginBottom: 16, color: '#fff', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 11, color: '#7CC4FF', fontWeight: 700, letterSpacing: 1.5, marginBottom: 4 }}>e-FISCALTRIBE — FERRAMENTAS COMERCIAIS</div>
         <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Simuladores Tributários</div>
-        <div style={{ fontSize: 13, color: '#93c5fd' }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo Reforma Tributária 2026–2032 e Edital PGFN 6/2026.</div>
+        <div style={{ fontSize: 13, color: '#93c5fd' }}>Demonstre oportunidades e feche contratos com simulações rápidas e profissionais — incluindo Reforma Tributária 2026–2032, transações PGFN e histórico de editais.</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {ABAS.map(a => (
-          <button key={a.id} onClick={() => setAba(a.id)}
-            style={{ padding: '10px 16px', background: aba === a.id ? C.navy : C.white, color: aba === a.id ? '#fff' : C.text, border: `2px solid ${aba === a.id ? C.navy : C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {a.icon} {a.label}
-          </button>
-        ))}
-      </div>
+      {isMobile ? (
+  <div style={{ marginBottom: 18 }}>
+    <label
+      htmlFor="simulador-mobile"
+      style={{
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 700,
+        color: C.text,
+        marginBottom: 6
+      }}
+    >
+      Escolha o simulador
+    </label>
+
+    <select
+      id="simulador-mobile"
+      value={aba}
+      onChange={(e) => setAba(e.target.value)}
+      style={{
+        width: '100%',
+        height: 48,
+        padding: '0 14px',
+        background: C.white,
+        color: C.text,
+        border: `2px solid ${C.navy}`,
+        borderRadius: 10,
+        fontSize: 14,
+        fontWeight: 700,
+        boxSizing: 'border-box',
+        cursor: 'pointer'
+      }}
+    >
+      {ABAS.map(a => (
+        <option key={a.id} value={a.id}>
+          {a.icon} {a.label}
+        </option>
+      ))}
+    </select>
+  </div>
+) : (
+  <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+    {ABAS.map(a => (
+      <button
+        key={a.id}
+        onClick={() => setAba(a.id)}
+        style={{
+          padding: '10px 16px',
+          background: aba === a.id ? C.navy : C.white,
+          color: aba === a.id ? '#fff' : C.text,
+          border: `2px solid ${aba === a.id ? C.navy : C.border}`,
+          borderRadius: 10,
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6
+        }}
+      >
+        {a.icon} {a.label}
+      </button>
+    ))}
+  </div>
+)}
 
       {aba === 'regime'       && <SimRegimeReforma isMobile={isMobile} />}
       {aba === 'recuperacao'  && <SimRecuperacao   isMobile={isMobile} />}

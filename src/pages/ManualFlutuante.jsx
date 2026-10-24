@@ -36,6 +36,9 @@ export default function ManualFlutuante({
   onAbrirPaginaCompleta = null,
 }) {
   const [layout, setLayout] = useState('lateral')
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  )
   const [busca, setBusca] = useState('')
   const [resultados, setResultados] = useState([])
   const [resultadoAtual, setResultadoAtual] = useState(-1)
@@ -75,6 +78,8 @@ export default function ManualFlutuante({
   useEffect(() => {
     function ajustarAoRedimensionar() {
       if (typeof window === 'undefined') return
+
+      setIsMobile(window.innerWidth <= 768)
 
       setTamanho((atual) => {
         const width = Math.min(
@@ -218,6 +223,11 @@ export default function ManualFlutuante({
   }
 
   function tornarFlutuante() {
+    if (isMobile) {
+      setLayout('lateral')
+      return
+    }
+
     if (typeof window !== 'undefined') {
       const width = Math.min(LARGURA_PAINEL, window.innerWidth - 24)
       const height = Math.max(
@@ -240,6 +250,11 @@ export default function ManualFlutuante({
   }
 
   function alternarMaximizado() {
+    if (isMobile) {
+      setLayout('lateral')
+      return
+    }
+
     setLayout((atual) => (atual === 'maximizado' ? 'lateral' : 'maximizado'))
   }
 
@@ -256,7 +271,7 @@ export default function ManualFlutuante({
   }
 
   function iniciarArraste(e) {
-    if (!flutuante) return
+    if (isMobile || !flutuante) return
     if (e.button !== undefined && e.button !== 0) return
 
     const origemX = e.clientX
@@ -282,7 +297,7 @@ export default function ManualFlutuante({
   }
 
   function moverArraste(e) {
-    if (!flutuante || !dragRef.current) return
+    if (isMobile || !flutuante || !dragRef.current) return
 
     const dx = e.clientX - dragRef.current.origemX
     const dy = e.clientY - dragRef.current.origemY
@@ -328,10 +343,11 @@ export default function ManualFlutuante({
         style={{
           position: 'fixed',
           right: 0,
-          top: '42%',
+          top: isMobile ? '44%' : '42%',
           zIndex: 3000,
-          width: 42,
-          minHeight: 106,
+          width: isMobile ? 44 : 42,
+          minHeight: isMobile ? 44 : 106,
+          height: isMobile ? 44 : 'auto',
           border: `1px solid ${C.border}`,
           borderRight: 'none',
           background: C.white,
@@ -343,19 +359,20 @@ export default function ManualFlutuante({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 5,
-          padding: '9px 5px',
+          gap: isMobile ? 1 : 5,
+          padding: isMobile ? '4px 3px' : '9px 5px',
+          boxSizing: 'border-box',
         }}
       >
-        <span style={{ fontSize: 19, lineHeight: 1 }}>📖</span>
+        <span style={{ fontSize: isMobile ? 16 : 19, lineHeight: 1 }}>📖</span>
 
         <span
           style={{
-            fontSize: 9,
+            fontSize: isMobile ? 7 : 9,
             fontWeight: 800,
-            letterSpacing: 0.7,
-            writingMode: 'vertical-rl',
-            transform: 'rotate(180deg)',
+            letterSpacing: isMobile ? 0.1 : 0.7,
+            writingMode: isMobile ? 'horizontal-tb' : 'vertical-rl',
+            transform: isMobile ? 'none' : 'rotate(180deg)',
             whiteSpace: 'nowrap',
           }}
         >
@@ -365,39 +382,49 @@ export default function ManualFlutuante({
     )
   }
 
-  const painelStyle = maximizado
+  const painelStyle = isMobile
     ? {
         position: 'fixed',
         inset: 0,
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         borderRadius: 0,
         border: 'none',
         boxShadow: 'none',
       }
-    : flutuante
+    : maximizado
       ? {
           position: 'fixed',
-          left: posicao.x,
-          top: posicao.y,
-          width: tamanho.width,
-          height: tamanho.height,
-          borderRadius: 12,
-          border: `1px solid ${C.border}`,
-          boxShadow: '0 18px 48px rgba(15,23,42,.24)',
-          overflow: 'hidden',
-        }
-      : {
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 'min(438px, 100vw)',
+          inset: 0,
+          width: '100vw',
           height: '100vh',
           borderRadius: 0,
-          borderLeft: `1px solid ${C.border}`,
-          boxShadow: '-12px 0 36px rgba(15,23,42,.18)',
+          border: 'none',
+          boxShadow: 'none',
         }
+      : flutuante
+        ? {
+            position: 'fixed',
+            left: posicao.x,
+            top: posicao.y,
+            width: tamanho.width,
+            height: tamanho.height,
+            borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            boxShadow: '0 18px 48px rgba(15,23,42,.24)',
+            overflow: 'hidden',
+          }
+        : {
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 'min(438px, 100vw)',
+            height: '100vh',
+            borderRadius: 0,
+            borderLeft: `1px solid ${C.border}`,
+            boxShadow: '-12px 0 36px rgba(15,23,42,.18)',
+          }
 
   return (
     <aside
@@ -408,7 +435,7 @@ export default function ManualFlutuante({
         display: 'flex',
         flexDirection: 'column',
         maxWidth: '100vw',
-        maxHeight: '100vh',
+        maxHeight: isMobile ? '100dvh' : '100vh',
       }}
     >
       <div
@@ -417,17 +444,17 @@ export default function ManualFlutuante({
         onPointerUp={finalizarArraste}
         onPointerCancel={finalizarArraste}
         style={{
-          minHeight: 50,
+          minHeight: isMobile ? 54 : 50,
           background: C.navy,
           color: C.white,
-          padding: '7px 9px 7px 11px',
+          padding: isMobile ? '8px 10px' : '7px 9px 7px 11px',
           display: 'flex',
           alignItems: 'center',
           gap: 8,
           flexShrink: 0,
-          cursor: flutuante ? 'grab' : 'default',
+          cursor: flutuante && !isMobile ? 'grab' : 'default',
           userSelect: 'none',
-          touchAction: 'none',
+          touchAction: isMobile ? 'auto' : 'none',
         }}
       >
         <div
@@ -469,7 +496,11 @@ export default function ManualFlutuante({
               textOverflow: 'ellipsis',
             }}
           >
-            {flutuante ? 'Arraste esta barra para mover' : 'Consulte enquanto trabalha'}
+            {isMobile
+              ? 'Consulta rápida durante o atendimento'
+              : flutuante
+                ? 'Arraste esta barra para mover'
+                : 'Consulte enquanto trabalha'}
           </div>
         </div>
 
@@ -482,7 +513,7 @@ export default function ManualFlutuante({
             aria-label="Abrir página completa"
             style={{
               ...btnCabecalho,
-              width: 60,
+              width: isMobile ? 54 : 60,
               padding: '0 7px',
               gap: 4,
               fontSize: 9,
@@ -494,16 +525,18 @@ export default function ManualFlutuante({
           </button>
         )}
 
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={flutuante ? fixarDireita : tornarFlutuante}
-          title={flutuante ? 'Fixar à direita' : 'Tornar janela flutuante'}
-          aria-label={flutuante ? 'Fixar à direita' : 'Tornar janela flutuante'}
-          style={btnCabecalho}
-        >
-          {flutuante ? '📌' : '↔'}
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={flutuante ? fixarDireita : tornarFlutuante}
+            title={flutuante ? 'Fixar à direita' : 'Tornar janela flutuante'}
+            aria-label={flutuante ? 'Fixar à direita' : 'Tornar janela flutuante'}
+            style={btnCabecalho}
+          >
+            {flutuante ? '📌' : '↔'}
+          </button>
+        )}
 
         <button
           type="button"
@@ -513,26 +546,28 @@ export default function ManualFlutuante({
           aria-label="Recolher manual"
           style={btnCabecalho}
         >
-          ⌃
+          {isMobile ? '✕' : '⌃'}
         </button>
 
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={alternarMaximizado}
-          title={maximizado ? 'Restaurar painel lateral' : 'Maximizar manual'}
-          aria-label={maximizado ? 'Restaurar painel lateral' : 'Maximizar manual'}
-          style={btnCabecalho}
-        >
-          {maximizado ? '↙' : '⛶'}
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={alternarMaximizado}
+            title={maximizado ? 'Restaurar painel lateral' : 'Maximizar manual'}
+            aria-label={maximizado ? 'Restaurar painel lateral' : 'Maximizar manual'}
+            style={btnCabecalho}
+          >
+            {maximizado ? '↙' : '⛶'}
+          </button>
+        )}
       </div>
 
       <div
         style={{
           background: C.white,
           borderBottom: `1px solid ${C.borderSoft}`,
-          padding: '8px 10px',
+          padding: isMobile ? '8px' : '8px 10px',
           flexShrink: 0,
         }}
       >
@@ -657,7 +692,7 @@ export default function ManualFlutuante({
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: maximizado ? '18px 24px' : 10,
+          padding: isMobile ? 8 : maximizado ? '18px 24px' : 10,
           scrollBehavior: 'smooth',
         }}
       >

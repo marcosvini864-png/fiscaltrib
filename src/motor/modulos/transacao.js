@@ -1,28 +1,13 @@
 /**
- * modulos/transacao.js — FiscalTrib
- * Motor de Transação Tributária com a PGFN.
+ * modulos/transacao.js — e-FiscalTribe
+ * Motor único de Transação Tributária / PGFN.
  *
- * Modalidades:
- * 1. Transação por Adesão — editais periódicos PGFN
- * 2. Transação Individual — dívidas > R$ 10 milhões
- * 3. Transação Extraordinária — situações excepcionais
- * 4. Transação no Contencioso Administrativo — CARF/DRJ
- *
- * Simulação completa:
- * — Desconto sobre multas e juros conforme CAPAG
- * — Entrada mínima
- * — Parcelamento máximo
- * — SELIC como atualização das parcelas
- * — Impacto no fluxo de caixa
- *
- * Base legal:
- * — Lei 13.988/2020 — Transação Tributária
- * — Portaria PGFN 6.757/2022
- * — Portaria ME 247/2020 — Transação Extraordinária
- * — Art. 171 CTN
- *
- * Versão: 1.0
- * Data: 2026-07-30
+ * REVISÃO 04/10/2026:
+ * — usa composição REAL da CDA quando disponível;
+ * — não presume 45% principal / 30% multa / 25% juros;
+ * — CAPAG A/B não recebe desconto automático no Edital 6/2026;
+ * — CAPAG C/D: desconto é potencial ("até"), limitado aos acréscimos e ao teto global;
+ * — regras operacionais ficam centralizadas em regras_pgfn.js.
  */
 
 import {
@@ -34,320 +19,384 @@ import {
 } from '../contratos/ResultadoPadrao.js'
 
 import { scoreOportunidade, scoreMotor } from '../contratos/Score.js'
-
-// ─────────────────────────────────────────────────────────────
-// CONSTANTES
-// ─────────────────────────────────────────────────────────────
-
-const SELIC_MENSAL = 0.0089  // aproximação agosto/2026
-
-const MODALIDADES = {
-  ADESAO: {
-    id:          'ADESAO',
-    nome:        'Transação por Adesão',
-    descricao:   'Adesão a editais periódicos publicados pela PGFN no REGULARIZE',
-    limiteMin:   0,
-    limiteMax:   10_000_000,
-    prazoMax:    120,
-    disponivel:  true,
-  },
-  INDIVIDUAL: {
-    id:          'INDIVIDUAL',
-    nome:        'Transação Individual',
-    descricao:   'Negociação direta com a PGFN para dívidas acima de R$ 10 milhões',
-    limiteMin:   10_000_000,
-    limiteMax:   Infinity,
-    prazoMax:    120,
-    disponivel:  true,
-  },
-  CONTENCIOSO: {
-    id:          'CONTENCIOSO',
-    nome:        'Transação no Contencioso Administrativo',
-    descricao:   'Resolução de litígios no CARF ou DRJ mediante transação',
-    limiteMin:   0,
-    limiteMax:   Infinity,
-    prazoMax:    72,
-    disponivel:  true,
-  },
-  EXTRAORDINARIA: {
-    id:          'EXTRAORDINARIA',
-    nome:        'Transação Extraordinária',
-    descricao:   'Situações excepcionais — calamidade, crise setorial',
-    limiteMin:   0,
-    limiteMax:   Infinity,
-    prazoMax:    133,
-    disponivel:  false,  // sob condições específicas
-  },
-}
-
-const DESCONTOS_POR_CAPAG = {
-  A: { multas: 0.20, juros: 0.20, entrada: 0.10 },
-  B: { multas: 0.40, juros: 0.40, entrada: 0.10 },
-  C: { multas: 0.50, juros: 0.50, entrada: 0.05 },
-  D: { multas: 0.70, juros: 0.70, entrada: 0.00 },
-}
+import {
+  PGFN_RULESET,
+  calcularLimiteMaximoDesconto,
+  regrasCapagEdital6,
+  regrasDificilRecuperacao,
+} from './regras_pgfn.js'
 
 const FUNDAMENTACAO = {
   teseJuridica: 'Transação Tributária — Negociação de Dívida Ativa com a PGFN',
-  resumo: 'A Transação Tributária (Lei 13.988/2020) permite que contribuintes com dívidas na PGFN negociem descontos em multas e juros, parcelamento ampliado e outras condições especiais, com base no CAPAG e na modalidade de transação escolhida.',
+  resumo: 'Simulação indicativa com dados documentais da CDA e regras vigentes cadastradas no FiscalTribe. O resultado oficial deve ser confirmado no REGULARIZE/SISPAR.',
   baseLegal: [
-    { norma: 'Lei 13.988/2020',           descricao: 'Marco legal da Transação Tributária' },
-    { norma: 'Art. 171 CTN',              descricao: 'Autorização constitucional para transação' },
-    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Regulamentação da transação individual e por adesão' },
-    { norma: 'Portaria ME 247/2020',      descricao: 'Transação Extraordinária' },
-    { norma: 'Lei 14.375/2022',           descricao: 'Ampliação dos descontos e modalidades de transação' },
-  ],
-  jurisprudencia: [
-    'STF — ADI 6.357 — constitucionalidade da Transação Tributária',
-    'CARF — Portaria CARF 10.956/2022 — transação no contencioso administrativo',
+    { norma: 'Lei 13.988/2020', descricao: 'Marco legal da transação tributária' },
+    { norma: 'Lei 14.375/2022', descricao: 'Alterações dos limites e instrumentos de transação' },
+    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Regulamentação da transação na cobrança da União e FGTS' },
+    { norma: 'Edital PGDAU 6/2026 + Edital PGDAU 10/2026', descricao: 'Modalidades por adesão vigentes em 04/10/2026' },
+    { norma: 'Art. 171 CTN', descricao: 'Transação tributária' },
   ],
   via: 'ADMINISTRATIVA',
-  prazoRetroativo: 'N/A — negociação prospectiva',
+  prazoRetroativo: 'N/A',
   riscoContestacao: 5,
 }
 
-// ─────────────────────────────────────────────────────────────
-// FUNÇÕES AUXILIARES
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Calcula a parcela com correção pela SELIC mensal.
- */
-function calcularParcela(principal, nparcelas, taxaMensal = SELIC_MENSAL) {
-  if (nparcelas <= 0) return 0
-  if (taxaMensal === 0) return principal / nparcelas
-  return (principal * taxaMensal) / (1 - Math.pow(1 + taxaMensal, -nparcelas))
+const MODALIDADES = {
+  EDITAL_6_CAPAG: {
+    id: 'EDITAL_6_CAPAG',
+    nome: 'Edital 6/2026 — Capacidade de Pagamento',
+    tipo: 'adesao',
+  },
+  EDITAL_6_DIFICIL: {
+    id: 'EDITAL_6_DIFICIL',
+    nome: 'Edital 6/2026 — Difícil Recuperação / Irrecuperável',
+    tipo: 'adesao',
+  },
+  TIS: {
+    id: 'TIS',
+    nome: 'Transação Individual Simplificada',
+    tipo: 'individual_simplificada',
+  },
+  INDIVIDUAL: {
+    id: 'INDIVIDUAL',
+    nome: 'Transação Individual',
+    tipo: 'individual',
+  },
+  CONTENCIOSO: {
+    id: 'CONTENCIOSO',
+    nome: 'Transação no Contencioso',
+    tipo: 'contencioso',
+  },
 }
 
-/**
- * Determina a modalidade mais adequada para a dívida.
- */
-function determinarModalidade(totalDivida, emContencioso = false) {
+function determinarModalidadePadrao(totalDivida, emContencioso = false) {
   if (emContencioso) return MODALIDADES.CONTENCIOSO
-  if (totalDivida >= MODALIDADES.INDIVIDUAL.limiteMin) return MODALIDADES.INDIVIDUAL
-  return MODALIDADES.ADESAO
+  if (totalDivida >= 10_000_000) return MODALIDADES.INDIVIDUAL
+  if (totalDivida > 1_000_000 && totalDivida < 10_000_000) return MODALIDADES.TIS
+  return MODALIDADES.EDITAL_6_CAPAG
 }
 
-// ─────────────────────────────────────────────────────────────
-// FUNÇÃO PRINCIPAL
-// ─────────────────────────────────────────────────────────────
+function parcelaSemAtualizacao(saldo, n) {
+  if (!n || n <= 0) return 0
+  return saldo / n
+}
+
+function fmt(v) {
+  return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })
+}
 
 export async function analisarTransacao(nfes, cliente, opcoes = {}, BaseTributaria) {
-  const inicio    = Date.now()
-  const modulo    = 'TRANSACAO'
+  const inicio = Date.now()
+  const modulo = 'TRANSACAO'
   const resultado = criarResultado(modulo)
-
-  resultado.descricaoModulo = 'Simulação de Transação Tributária com a PGFN (Lei 13.988/2020)'
+  resultado.descricaoModulo = 'Transação Tributária PGFN — dados reais da CDA + regras vigentes'
 
   try {
-
-    // ── 1. Validações ───────────────────────────────────────────
     const {
-      totalDivida        = 0,
-      valorPrincipal     = 0,
-      valorMultas        = 0,
-      valorJuros         = 0,
-      capag              = 'C',      // CAPAG do CAPAG motor ou informado
-      faturamentoMensal  = 0,
-      emContencioso      = false,
-      modalidadeForced   = null,
+      totalDivida = 0,
+      valorPrincipal = 0,
+      valorMultas = 0,
+      valorJuros = 0,
+      valorEncargos = 0,
+      capag = null,
+      capagOficial = false,
+      faturamentoMensal = 0,
+      emContencioso = false,
+      dificilRecuperacao = false,
+      modalidadeForced = null,
       nParcelasDesejadas = null,
+      tipoPessoa = 'pj_demais',
+      tipoDebito = '',
+      emRecuperacaoJudicial = false,
+      dataInscricao = null,
+      cdas = [],
     } = opcoes
 
-    if (totalDivida === 0) {
+    if (!totalDivida) {
       resultado.status = STATUS_ANALISE.SEM_DADOS
-      resultado.erro   = 'Informe o total da dívida em opcoes.totalDivida.'
+      resultado.erro = 'Informe o total da dívida ou selecione CDA(s) cadastrada(s).'
       return finalizarResultado(resultado, inicio)
     }
 
-    // ── 2. Determina composição da dívida ───────────────────────
-    // Se não informou o detalhamento, estima a composição
-    const principal = valorPrincipal || totalDivida * 0.45
-    const multas    = valorMultas    || totalDivida * 0.30
-    const juros     = valorJuros     || totalDivida * 0.25
+    const principal = Number(valorPrincipal) || 0
+    const multas = Number(valorMultas) || 0
+    const juros = Number(valorJuros) || 0
+    const encargos = Number(valorEncargos) || 0
+    const acrescimos = multas + juros + encargos
+    const composicaoCompleta = principal > 0 && acrescimos > 0
+
+    const modalidade = modalidadeForced && MODALIDADES[modalidadeForced]
+      ? MODALIDADES[modalidadeForced]
+      : dificilRecuperacao
+        ? MODALIDADES.EDITAL_6_DIFICIL
+        : determinarModalidadePadrao(totalDivida, emContencioso)
+
+    let entradaPct = 0
+    let entradaParcelas = 0
+    let maxParcelas = 0
+    let limiteGlobalDescontoPct = 0
+    let permiteDesconto = false
+    let observacaoRegra = ''
+    let regra = null
+
+    if (modalidade.id === 'EDITAL_6_CAPAG') {
+      regra = regrasCapagEdital6({ capag, tipoPessoa, tipoDebito, emRecuperacaoJudicial })
+      entradaPct = regra.entradaPct
+      entradaParcelas = regra.entradaParcelas
+      maxParcelas = regra.saldoParcelasMax
+      limiteGlobalDescontoPct = regra.limiteGlobalDescontoPct
+      permiteDesconto = regra.permiteDesconto
+      observacaoRegra = regra.observacao
+    } else if (modalidade.id === 'EDITAL_6_DIFICIL') {
+      regra = regrasDificilRecuperacao({ tipoPessoa, tipoDebito, emRecuperacaoJudicial })
+      entradaPct = regra.entradaPct
+      entradaParcelas = regra.entradaParcelas
+      maxParcelas = regra.saldoParcelasMax
+      limiteGlobalDescontoPct = regra.limiteGlobalDescontoPct
+      permiteDesconto = true
+      observacaoRegra = 'Difícil recuperação/irrecuperável: a elegibilidade depende dos critérios objetivos do Edital 6/2026; não basta selecionar a modalidade.'
+    } else if (modalidade.id === 'TIS') {
+      maxParcelas = 120
+      limiteGlobalDescontoPct = ['pf','mei','me','epp'].includes(tipoPessoa) || emRecuperacaoJudicial ? 0.70 : 0.65
+      permiteDesconto = ['C','D'].includes(String(capag || '').toUpperCase())
+      observacaoRegra = 'Transação Individual Simplificada: proposta entre R$ 1 milhão e R$ 10 milhões. Condições são negociadas/propostas e dependem da capacidade de pagamento; não há desconto automático.'
+    } else if (modalidade.id === 'INDIVIDUAL') {
+      maxParcelas = 120
+      limiteGlobalDescontoPct = ['pf','mei','me','epp'].includes(tipoPessoa) || emRecuperacaoJudicial ? 0.70 : 0.65
+      permiteDesconto = ['C','D'].includes(String(capag || '').toUpperCase())
+      observacaoRegra = 'Transação Individual: negociação personalizada. O FiscalTribe mostra limites e capacidade financeira, não substitui a proposta/homologação da PGFN.'
+    } else {
+      maxParcelas = 72
+      observacaoRegra = 'Contencioso: as condições dependem do edital/tese específica. Não aplicar desconto genérico sem identificar o edital correspondente.'
+    }
+
+    let limite = {
+      composicaoCompleta,
+      acrescimosInformados: acrescimos,
+      tetoSemPrincipal: Math.max(0, totalDivida - principal),
+      tetoGlobal: totalDivida * limiteGlobalDescontoPct,
+      descontoMaximoTeorico: 0,
+    }
+
+    if (permiteDesconto && limiteGlobalDescontoPct > 0 && composicaoCompleta) {
+      limite = calcularLimiteMaximoDesconto({
+        totalDivida,
+        valorPrincipal: principal,
+        valorMultas: multas,
+        valorJuros: juros,
+        valorEncargos: encargos,
+        limiteGlobalPct: limiteGlobalDescontoPct,
+      })
+    }
+
+    // "Até" não é promessa: usamos o teto como cenário máximo teórico.
+    const descontoMaximoTeorico = permiteDesconto ? limite.descontoMaximoTeorico : 0
+    const saldoCenarioMax = totalDivida - descontoMaximoTeorico
+    const entrada = entradaPct > 0 ? totalDivida * entradaPct : 0
+    const saldoAParcelar = Math.max(0, saldoCenarioMax - entrada)
+    const nParcelas = Math.max(1, Math.min(Number(nParcelasDesejadas) || maxParcelas || 1, maxParcelas || 1))
+    const parcelaBase = parcelaSemAtualizacao(saldoAParcelar, nParcelas)
+    const comprometimento = faturamentoMensal > 0 ? (parcelaBase / faturamentoMensal) * 100 : null
+
+    const faltas = []
+    if (!composicaoCompleta && permiteDesconto) faltas.push('composição completa da CDA (principal, multa, juros e encargo)')
+    if (['EDITAL_6_CAPAG','TIS','INDIVIDUAL'].includes(modalidade.id) && !capag) faltas.push('CAPAG')
+    if (!tipoPessoa) faltas.push('tipo de contribuinte')
 
     resultado.diagnostico = {
-      totalDocumentosAnalisados: 1,
-      totalItensAnalisados:      1,
-      competenciasAnalisadas:    [],
-      periodoInicio:             '',
-      periodoFim:                '',
-      situacoesEncontradas:      [`CAPAG ${capag} — Simulação de Transação`],
+      totalDocumentosAnalisados: cdas.length || 1,
+      totalItensAnalisados: cdas.length || 1,
+      competenciasAnalisadas: [],
+      periodoInicio: '',
+      periodoFim: '',
+      situacoesEncontradas: [
+        `${modalidade.nome}`,
+        `Dívida analisada: R$ ${fmt(totalDivida)}`,
+        composicaoCompleta ? 'Composição documental disponível' : 'Composição documental incompleta',
+      ],
       observacoes: [
-        `Total da dívida: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Principal: R$ ${principal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Multas: R$ ${multas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `Juros: R$ ${juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `CAPAG: ${capag}`,
-        `Em contencioso: ${emContencioso ? 'Sim' : 'Não'}`,
+        `Principal: ${principal ? 'R$ '+fmt(principal) : 'não informado'}`,
+        `Multas: ${multas ? 'R$ '+fmt(multas) : 'não informado'}`,
+        `Juros: ${juros ? 'R$ '+fmt(juros) : 'não informado'}`,
+        `Encargos: ${encargos ? 'R$ '+fmt(encargos) : 'não informado'}`,
+        `CAPAG: ${capag || 'não informado'}${capag && !capagOficial ? ' (confirmar no REGULARIZE)' : ''}`,
+        observacaoRegra,
       ].join('. '),
     }
 
-    // ── 3. Aplica descontos conforme CAPAG ──────────────────────
-    const descCAPAG = DESCONTOS_POR_CAPAG[capag] || DESCONTOS_POR_CAPAG['C']
+    resultado.grauConfianca = faltas.length === 0 && (capagOficial || !['EDITAL_6_CAPAG','TIS','INDIVIDUAL'].includes(modalidade.id))
+      ? GRAU_CONFIANCA.ALTO
+      : GRAU_CONFIANCA.MEDIO
 
-    const descontoMultas    = multas  * descCAPAG.multas
-    const descontoJuros     = juros   * descCAPAG.juros
-    const totalDesconto     = descontoMultas + descontoJuros
-    const valorAposDesconto = totalDivida - totalDesconto
-    const entradaMinima     = valorAposDesconto * descCAPAG.entrada
-
-    // ── 4. Determina modalidade ─────────────────────────────────
-    const modalidade = modalidadeForced
-      ? MODALIDADES[modalidadeForced]
-      : determinarModalidade(totalDivida, emContencioso)
-
-    const maxParcelas = modalidade.prazoMax
-    const nParcelas   = Math.min(nParcelasDesejadas || maxParcelas, maxParcelas)
-
-    // ── 5. Simula planos de parcelamento ────────────────────────
-    const valorParcelar    = valorAposDesconto - entradaMinima
-    const parcelaSemJuros  = valorParcelar / nParcelas
-    const parcelaComSelic  = calcularParcela(valorParcelar, nParcelas)
-
-    // Simula 3 cenários de parcelas
-    const cenarios = [
-      { nparcelas: Math.min(24,  maxParcelas), label: '24 meses' },
-      { nparcelas: Math.min(60,  maxParcelas), label: '60 meses' },
-      { nparcelas: Math.min(120, maxParcelas), label: '120 meses' },
-    ].map(c => ({
-      ...c,
-      parcela: calcularParcela(valorParcelar, c.nparcelas),
-      totalPago: calcularParcela(valorParcelar, c.nparcelas) * c.nparcelas + entradaMinima,
-    }))
-
-    // ── 6. Verifica comprometimento da receita ──────────────────
-    const comprometimento = faturamentoMensal > 0
-      ? (parcelaSemJuros / faturamentoMensal) * 100
-      : null
-
-    resultado.grauConfianca          = GRAU_CONFIANCA.ALTO
-    resultado.justificativaConfianca = `Simulação com base no CAPAG ${capag} e na ${modalidade.nome}.`
+    resultado.justificativaConfianca = faltas.length
+      ? `Simulação parcial. Falta confirmar: ${faltas.join(', ')}.`
+      : 'Simulação baseada na composição documental informada e na regra cadastrada. O valor final oficial deve ser confirmado no REGULARIZE/SISPAR.'
 
     const scoreOp = scoreOportunidade({
-      modulo, label: `Transação ${modalidade.nome}`,
-      qualidadeDados: 85, forcaJuridica: 95,
-      volumeEvidencias: 80,
-      valorCredito: Math.min(100, (totalDesconto / 20000) * 100),
+      modulo,
+      label: modalidade.nome,
+      qualidadeDados: composicaoCompleta ? 90 : 55,
+      forcaJuridica: 95,
+      volumeEvidencias: cdas.length ? 90 : 60,
+      valorCredito: descontoMaximoTeorico > 0 ? Math.min(100,(descontoMaximoTeorico/20000)*100) : 0,
       riscoContestacao: FUNDAMENTACAO.riscoContestacao,
     })
 
+    const tituloDesconto = descontoMaximoTeorico > 0
+      ? `Teto estimado de desconto: R$ ${fmt(descontoMaximoTeorico)}`
+      : permiteDesconto && !composicaoCompleta
+        ? 'Desconto em reais: a confirmar com a composição da CDA'
+        : 'Sem desconto automático calculado'
+
     const recomendacao = {
-      tipo:       'ACAO_IMEDIATA',
+      tipo: 'ORIENTACAO',
       prioridade: 'ALTA',
-      titulo:     `Aderir à ${modalidade.nome} — Desconto de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      descricao:  `CAPAG ${capag}. Desconto total de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% (R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x.`,
+      titulo: `${modalidade.nome} — ${tituloDesconto}`,
+      descricao: [
+        observacaoRegra,
+        descontoMaximoTeorico > 0
+          ? `Cenário máximo teórico: redução de até R$ ${fmt(descontoMaximoTeorico)}, respeitando os acréscimos existentes e o teto global.`
+          : '',
+        faltas.length ? `Antes de fechar a simulação, confirmar: ${faltas.join(', ')}.` : '',
+      ].filter(Boolean).join(' '),
       passos: [
-        'Acessar REGULARIZE (regularize.pgfn.gov.br) e verificar o CAPAG oficial',
-        'Consultar os editais de transação vigentes e prazo de adesão',
-        `Selecionar a modalidade: ${modalidade.nome}`,
-        `Calcular a entrada: R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${(descCAPAG.entrada * 100).toFixed(0)}% do valor após desconto)`,
-        `Escolher o número de parcelas (máximo ${maxParcelas}x) com base no fluxo de caixa`,
-        'Protocolar a proposta no REGULARIZE e aguardar homologação da PGFN',
-        'Emitir certidão positiva com efeito de negativa após a adesão',
+        'Confirmar no REGULARIZE/SISPAR quais inscrições estão elegíveis',
+        ...(capag ? [] : ['Consultar o CAPAG oficial']),
+        ...(composicaoCompleta ? [] : ['Usar os valores reais da CDA/REGULARIZE: principal, multa, juros e encargo']),
+        'Confirmar a modalidade/editais efetivamente disponíveis na data da adesão',
+        'Simular no SISPAR e confrontar o resultado oficial com a memória do FiscalTribe',
       ],
     }
 
     resultado.oportunidades = [{
-      id:            `TRANSACAO_${Date.now()}`,
-      tese:          `${modalidade.nome} — Lei 13.988/2020`,
-      descricao:     `Dívida de R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (CAPAG ${capag}). Desconto estimado: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x.`,
-      score:         scoreOp,
-      grauConfianca: GRAU_CONFIANCA.ALTO,
-      evidencias:    [],
+      id: `TRANSACAO_${Date.now()}`,
+      tese: modalidade.nome,
+      descricao: recomendacao.descricao,
+      score: scoreOp,
+      grauConfianca: resultado.grauConfianca,
+      evidencias: cdas.map(c=>({ tipo:'CDA', identificador:c.numero || c.numero_cda || '' })),
       fundamentacao: FUNDAMENTACAO,
       calculos: {
-        totalDivida, principal, multas, juros,
-        capag, modalidade: modalidade.id,
-        descontoMultas, descontoJuros, totalDesconto,
-        valorAposDesconto, entradaMinima,
-        parcelaSemJuros, parcelaComSelic,
-        maxParcelas, nParcelas,
-        cenarios,
+        totalDivida,
+        principal,
+        multas,
+        juros,
+        encargos,
+        acrescimos,
+        capag,
+        capagOficial,
+        modalidade: modalidade.id,
+        permiteDesconto,
+        limiteGlobalDescontoPct,
+        descontoMaximoTeorico,
+        totalDesconto: descontoMaximoTeorico,
+        valorAposDesconto: saldoCenarioMax,
+        entrada,
+        entradaPct,
+        entradaParcelas,
+        saldoAParcelar,
+        parcelaSemJuros: parcelaBase,
+        maxParcelas,
+        nParcelas,
         comprometimento,
-        creditoTotal:      totalDesconto,
-        creditoEstimado:   totalDesconto,
-        economiaEstimada:  totalDesconto,
-        creditoMensalMedio: totalDesconto / 60,
-        creditoPor12Meses: totalDesconto,
-        creditoPor60Meses: totalDesconto,
+        composicaoCompleta,
+        regra,
+        creditoTotal: descontoMaximoTeorico,
+        creditoEstimado: descontoMaximoTeorico,
+        economiaEstimada: descontoMaximoTeorico,
         memoriaCalculo: [
-          `Dívida total: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Composição estimada — Principal: R$ ${principal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Multas: R$ ${multas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Juros: R$ ${juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `CAPAG ${capag} → Desconto multas: ${(descCAPAG.multas * 100).toFixed(0)}% | Desconto juros: ${(descCAPAG.juros * 100).toFixed(0)}%`,
-          `Desconto total: R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Valor após desconto: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `Entrada: R$ ${entradaMinima.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${nParcelas}x de R$ ${parcelaSemJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `Dívida total: R$ ${fmt(totalDivida)}`,
+          principal ? `Principal documental: R$ ${fmt(principal)}` : 'Principal documental não informado',
+          `Acréscimos documentais: R$ ${fmt(acrescimos)} (multas R$ ${fmt(multas)} + juros R$ ${fmt(juros)} + encargos R$ ${fmt(encargos)})`,
+          limiteGlobalDescontoPct ? `Teto global da modalidade usado na triagem: ${(limiteGlobalDescontoPct*100).toFixed(0)}%` : 'Sem teto genérico aplicado',
+          permiteDesconto && composicaoCompleta ? `Desconto máximo teórico: R$ ${fmt(descontoMaximoTeorico)}` : 'Desconto em reais não calculado automaticamente',
+          entradaPct ? `Entrada nominal da modalidade: ${(entradaPct*100).toFixed(0)}% = R$ ${fmt(entrada)} (sem desconto na entrada)` : 'Condição de entrada depende da proposta/modalidade',
+          maxParcelas ? `Prazo de referência: até ${maxParcelas} parcelas de saldo` : 'Prazo depende do edital/proposta',
+          'Parcelas oficiais sofrem atualização prevista pela PGFN; o valor exibido sem atualização é referência de fluxo de caixa.',
         ],
       },
       recomendacao,
     }]
 
     resultado.calculos = {
-      valorAnalisado:    totalDivida,
-      baseCalculo:       totalDivida,
-      creditoEstimado:   totalDesconto,
-      economiaEstimada:  totalDesconto,
-      moeda:             'BRL',
-      creditoPor12Meses: totalDesconto,
-      creditoPor24Meses: totalDesconto,
-      creditoPor36Meses: totalDesconto,
-      creditoPor60Meses: totalDesconto,
-      creditoMensalMedio: totalDesconto / 60,
-      totalDocumentos:   1,
+      valorAnalisado: totalDivida,
+      baseCalculo: totalDivida,
+      creditoEstimado: descontoMaximoTeorico,
+      economiaEstimada: descontoMaximoTeorico,
+      moeda: 'BRL',
+      totalDocumentos: cdas.length || 1,
       totalCompetencias: 0,
-      memoriaCalculo:    resultado.oportunidades[0].calculos.memoriaCalculo,
+      descontoEstimado: descontoMaximoTeorico,
+      valorAposTransacao: saldoCenarioMax,
+      parcelaEstimada: parcelaBase,
+      maxParcelas,
+      memoriaCalculo: resultado.oportunidades[0].calculos.memoriaCalculo,
     }
 
     resultado.score = scoreMotor({
       modulo,
-      coberturaPeriodo: 80, completudeDocs: 85,
-      consistencia: 90,
-      oportunidadesFound: 85,
+      coberturaPeriodo: 75,
+      completudeDocs: composicaoCompleta ? 95 : 55,
+      consistencia: faltas.length ? 65 : 90,
+      oportunidadesFound: 80,
     })
 
     resultado.riscos = [
-      { descricao: 'Descumprimento da transação rescinde o acordo automaticamente', nivel: 'ALTO', mitigacao: 'Garantir fluxo de caixa antes de aderir — simular impacto mensal' },
-      { descricao: 'Editais de transação têm prazo — perder a janela pode custar meses', nivel: 'ALTO', mitigacao: 'Monitorar publicação de novos editais no REGULARIZE e DOU' },
-      { descricao: 'CAPAG pode ser revisto pela PGFN', nivel: 'MEDIO', mitigacao: 'Confirmar o CAPAG oficial no REGULARIZE antes de protocolar' },
+      {
+        descricao: 'Desconto indicado como "até" não é direito automático ao teto máximo.',
+        nivel: 'MEDIO',
+        mitigacao: 'Confirmar o resultado oficial no SISPAR conforme CAPAG, recuperabilidade e modalidade.',
+      },
+      {
+        descricao: 'Regras de editais podem ser alteradas, prorrogadas ou encerradas.',
+        nivel: 'MEDIO',
+        mitigacao: `Atualizar o catálogo PGFN. Versão atual do FiscalTribe: ${PGFN_RULESET.versao}.`,
+      },
+      {
+        descricao: 'Negociar CDA prescrita/decadente sem análise jurídica prévia pode ser economicamente inadequado.',
+        nivel: 'ALTO',
+        mitigacao: 'Executar primeiro o diagnóstico de Dívida Ativa e enviar à transação somente CDAs ativas.',
+      },
     ]
 
     resultado.recomendacaoPrincipal = recomendacao
-    resultado.todasRecomendacoes    = [recomendacao]
-
+    resultado.todasRecomendacoes = [recomendacao]
     resultado.relatorio = {
-      resumoExecutivo:    `${modalidade.nome} — CAPAG ${capag}. Desconto estimado de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((totalDesconto / totalDivida) * 100).toFixed(1)}%). Valor final: R$ ${valorAposDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em até ${maxParcelas}x de R$ ${parcelaSemJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-      objetivoAnalise:    'Simular as condições de transação com a PGFN e identificar a modalidade mais vantajosa para o contribuinte.',
-      escopoAnalise:      `Dívida: R$ ${totalDivida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. CAPAG: ${capag}. Modalidade: ${modalidade.nome}.`,
-      diagnosticoTecnico: `Composição — Principal: ${((principal / totalDivida) * 100).toFixed(0)}% | Multas: ${((multas / totalDivida) * 100).toFixed(0)}% | Juros: ${((juros / totalDivida) * 100).toFixed(0)}%.`,
-      oportunidadesTexto: `Desconto de ${((totalDesconto / totalDivida) * 100).toFixed(1)}% = R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Cenários: ${cenarios.map(c => `${c.label}: R$ ${c.parcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`).join(' | ')}.`,
-      riscosTexto:        resultado.riscos.map(r => `[${r.nivel}] ${r.descricao}`).join('. '),
-      fundamentacaoTexto: `Lei 13.988/2020. Portaria PGFN 6.757/2022. Art. 171 CTN.`,
+      resumoExecutivo: `${modalidade.nome}. Dívida: R$ ${fmt(totalDivida)}. ${tituloDesconto}.`,
+      objetivoAnalise: 'Simular transação sem inventar composição da dívida.',
+      escopoAnalise: `${cdas.length || 1} CDA(s)/conjunto analisado.`,
+      diagnosticoTecnico: resultado.diagnostico.observacoes,
+      oportunidadesTexto: recomendacao.descricao,
+      riscosTexto: resultado.riscos.map(r=>`[${r.nivel}] ${r.descricao}`).join('. '),
+      fundamentacaoTexto: 'Lei 13.988/2020; Lei 14.375/2022; Portaria PGFN 6.757/2022; Editais PGFN vigentes cadastrados.',
       recomendacoesTexto: recomendacao.descricao,
-      planoAcao:          recomendacao.passos,
-      conclusaoExecutiva: `Economia de R$ ${totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} via ${modalidade.nome}. ${comprometimento ? `Comprometimento da receita: ${comprometimento.toFixed(1)}%/mês.` : ''} Recomenda-se adesão imediata ao edital vigente.`,
+      planoAcao: recomendacao.passos,
+      conclusaoExecutiva: descontoMaximoTeorico > 0
+        ? `Há potencial de redução de até R$ ${fmt(descontoMaximoTeorico)} no cenário máximo teórico. Confirmar no SISPAR.`
+        : 'Não foi criado desconto fictício. Complemente os dados e confirme a modalidade oficial.',
     }
 
     resultado.auditTrail = {
       motoresExecutados: [modulo],
       regrasAplicadas: [
-        { id: 'TRANS_001', descricao: 'Determinação da modalidade',       resultado: modalidade.nome },
-        { id: 'TRANS_002', descricao: 'Desconto em multas',               resultado: `${(descCAPAG.multas * 100).toFixed(0)}% = R$ ${descontoMultas.toFixed(2)}` },
-        { id: 'TRANS_003', descricao: 'Desconto em juros',                resultado: `${(descCAPAG.juros * 100).toFixed(0)}% = R$ ${descontoJuros.toFixed(2)}` },
-        { id: 'TRANS_004', descricao: 'Cálculo da parcela',               resultado: `R$ ${parcelaSemJuros.toFixed(2)}/mês em ${nParcelas}x` },
-        { id: 'TRANS_005', descricao: 'Comprometimento da receita mensal', resultado: comprometimento ? `${comprometimento.toFixed(1)}%` : 'Não informado' },
+        { id:'TRANS_001', descricao:'Modalidade de referência', resultado: modalidade.nome },
+        { id:'TRANS_002', descricao:'Composição documental', resultado: composicaoCompleta ? 'Completa' : 'Incompleta' },
+        { id:'TRANS_003', descricao:'Teto de desconto', resultado: descontoMaximoTeorico ? `R$ ${descontoMaximoTeorico.toFixed(2)}` : 'Não calculado/zero' },
+        { id:'TRANS_004', descricao:'Versão de regras PGFN', resultado: PGFN_RULESET.versao },
       ],
-      documentosUtilizados: [],
-      legislacaoVersao: BaseTributaria.versao.codigo,
+      documentosUtilizados: cdas.map(c=>({ tipo:'CDA', identificador:c.numero || c.numero_cda || 'não identificado' })),
+      legislacaoVersao: BaseTributaria?.versao?.codigo || 'N/I',
       execucoes: [],
     }
 
     resultado.status = STATUS_ANALISE.CONCLUIDA
     return finalizarResultado(resultado, inicio, {
-      regime: cliente.regime, capag, totalDivida,
-      totalDesconto, modalidade: modalidade.id,
+      regime: cliente?.regime || '',
+      capag: capag || '',
+      totalDivida,
+      totalDesconto: descontoMaximoTeorico,
+      modalidade: modalidade.id,
     })
-
   } catch (erro) {
     return resultadoErro(modulo, `Erro no Motor de Transação: ${erro.message}`)
   }

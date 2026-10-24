@@ -41,7 +41,7 @@ const CAMPOS_VAZIOS = {
   periodo_divida_inicio:'', periodo_divida_fim:'',
   data_fato_gerador:'', data_constituicao_definitiva:'',
   data_ajuizamento:'', data_citacao:'', data_ultima_movimentacao:'',
-  valor_originario:'', principal_atualizado:'', juros:'', multa:'', valor_total:'',
+  valor_originario:'', principal_atualizado:'', juros:'', multa:'', encargo_legal:'', valor_total:'',
   total_sem_desconto:'', fundamento_legal:'',
   municipio:'', uf:'', tipo_debito:'previdenciario',
   modalidade_lancamento:'oficio',
@@ -54,7 +54,8 @@ const CAMPOS_VAZIOS = {
   trf_regiao:'',
   vara_execucao:'',
   observacoes:'',
-  data_vencimento_original:''
+  data_vencimento_original:'',
+  inscricoes:[]
 }
 
 const TIPOS_DEBITO = [
@@ -73,15 +74,6 @@ const MODALIDADES_LANCAMENTO = [
   { key:'homologacao', label:'Por homologação (art. 150 CTN)' },
 ]
 
-const MODALIDADES = [
-  { key:'transacao_excepcional', label:'Transação Excepcional',       desconto_multa:100, desconto_juros:100, entrada_pct:0,  parcelas_max:60 },
-  { key:'transacao_individual',  label:'Transação Individual',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:84 },
-  { key:'transacao_edital',      label:'Transação por Edital',        desconto_multa:50,  desconto_juros:50,  entrada_pct:5,  parcelas_max:60 },
-  { key:'prdi',                  label:'PRDI',                        desconto_multa:70,  desconto_juros:70,  entrada_pct:0,  parcelas_max:84 },
-  { key:'parcelamento_ordinario',label:'Parcelamento Ordinário',      desconto_multa:0,   desconto_juros:0,   entrada_pct:0,  parcelas_max:60 },
-  { key:'njp',                   label:'Negócio Jurídico Processual', desconto_multa:40,  desconto_juros:40,  entrada_pct:10, parcelas_max:60 },
-]
-
 const TRF_REGIOES = [
   { key:'',     label:'— Selecione o TRF —' },
   { key:'TRF1', label:'TRF 1ª Região — DF, GO, MT, PA, AM, RO, AC, RR, AP, MA, PI, BA, MG, TO' },
@@ -92,53 +84,76 @@ const TRF_REGIOES = [
   { key:'TRF6', label:'TRF 6ª Região — MG' },
 ]
 
-function calcularNegociacao(vTotal, modalidadeKey) {
-  const mod = MODALIDADES.find(m => m.key === modalidadeKey) || MODALIDADES[2]
-  const vMulta = vTotal * 0.20
-  const vJuros = vTotal * 0.30
-  const descMultaVal = vMulta * (mod.desconto_multa / 100)
-  const descJurosVal = vJuros * (mod.desconto_juros / 100)
-  const totalDesc = descMultaVal + descJurosVal
-  const vFinal = vTotal - totalDesc
-  const vEntrada = vFinal * (mod.entrada_pct / 100)
-  const saldo = vFinal - vEntrada
-  const vParcela = mod.parcelas_max > 1 ? saldo / (mod.parcelas_max - 1) : saldo
-  return {
-    desconto_valor: fmtExibir(totalDesc),
-    desconto_percentual: mod.desconto_multa,
-    valor_entrada: fmtExibir(vEntrada),
-    qt_parcelas: mod.parcelas_max,
-    valor_parcela: fmtExibir(vParcela),
-  }
-}
+let pdfjsLoadPromise = null
 
 async function carregarPDFJS() {
   const PDFJS_VERSION = '3.11.174'
-  if (!window['pdfjs-dist/build/pdf']) {
-    await new Promise((resolve, reject) => {
+
+  if (window['pdfjs-dist/build/pdf']) {
+    const pdfjsLib = window['pdfjs-dist/build/pdf']
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+    return pdfjsLib
+  }
+
+  if (!pdfjsLoadPromise) {
+    pdfjsLoadPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script')
       script.src = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`
-      script.onload = resolve
+      script.onload = () => resolve()
       script.onerror = reject
       document.head.appendChild(script)
     })
   }
+
+  await pdfjsLoadPromise
+
   const pdfjsLib = window['pdfjs-dist/build/pdf']
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+  if (!pdfjsLib) throw new Error('PDF.js não foi carregado corretamente.')
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
+
   return pdfjsLib
 }
 
-async function extrairTextoPDF(file) {
+async function extrairTextoPDF(file, onProgress) {
+  const inicio = performance.now()
+  onProgress?.(10, 'Preparando o PDF...')
+
   const pdfjsLib = await carregarPDFJS()
+  onProgress?.(15, 'Lendo o arquivo...')
+
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  let textoTotal = ''
-  for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
-    const page = await pdf.getPage(i)
-    const textContent = await page.getTextContent()
-    const texto = textContent.items.map(item => item.str).join(' ')
-    if (texto.trim()) textoTotal += `\n--- PÁGINA ${i} ---\n${texto}`
-  }
+  const totalPaginas = Math.min(pdf.numPages, 20)
+
+  // Mesmo padrão do PGDAS-D: PDF.js primeiro, até 20 páginas; Promise.all preserva a ordem final.
+  let concluidas = 0
+  const paginas = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+
+  const textos = await Promise.all(
+    paginas.map(async numeroPagina => {
+      const page = await pdf.getPage(numeroPagina)
+      const textContent = await page.getTextContent()
+      const texto = textContent.items.map(item => item.str).join(' ')
+
+      concluidas += 1
+      const pct = 15 + Math.round((concluidas / totalPaginas) * 30)
+      onProgress?.(pct, `Lendo páginas... ${concluidas}/${totalPaginas}`)
+
+      return texto.trim()
+        ? `\n--- PÁGINA ${numeroPagina} ---\n${texto}`
+        : ''
+    })
+  )
+
+  const textoTotal = textos.join('')
+  console.info(
+    `[CDA] PDF.js: ${totalPaginas} página(s), ${textoTotal.trim().length} caracteres, ` +
+    `${((performance.now() - inicio) / 1000).toFixed(2)}s`
+  )
+
   return textoTotal
 }
 
@@ -167,7 +182,7 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 8. "data_inscricao" = campo "Data de Inscricao" — formato DD/MM/AAAA
 9. "data_calculo" = campo "Data do Calculo" ou "Calculado em" — formato DD/MM/AAAA
 10. "data_referencia_valores" = data para a qual os valores foram atualizados (ex: "01/2022")
-11. "ufir_conversao" = valor numérico da UFIR mencionado na CDA (ex: 0.9108)
+11. "ufir_conversao" = procure na CDA e no Discriminativo de Crédito por "UFIR de conversão" (ou equivalente) e retorne exatamente o valor impresso (ex: 0.9108); nunca estime.
 12. "periodo_divida_inicio" = primeiro mês/ano do período da dívida — formato MM/AAAA
 13. "periodo_divida_fim" = último mês/ano do período da dívida — formato MM/AAAA
 14. "data_fato_gerador" = primeiro período de competência do discriminativo — formato AAAA-MM-DD
@@ -176,8 +191,13 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 17. "data_citacao" = data de citação do executado — formato AAAA-MM-DD
 18. "modalidade_lancamento" = se mencionar "homologação" use "homologacao"; caso contrário use "oficio"
 19. "tipo_debito" = Lei 8.212/91 = "previdenciario"; LC 123/2006 = "simples_nacional"; Lei 8.036/90 = "fgts"; outros = "tributario_federal"
-20. "fundamento_legal" = códigos F.Legal encontrados na CDA
-21. "socio_1", "socio_2", "socio_3" = nomes de sócios/responsáveis solidários
+20. "encargo_legal" = valor do encargo legal expressamente indicado na CDA/discriminativo; se não houver valor destacado, use 0 — NÃO estime
+21. "fundamento_legal" = códigos F.Legal encontrados na CDA
+22. "socio_1", "socio_2", "socio_3" = nomes de sócios/responsáveis solidários
+23. "numero_processo_execucao" = número CNJ da execução fiscal, quando houver (ex: 0001234-56.2019.4.03.6100). Não confundir com processo administrativo.
+24. "possui_execucao_fiscal" = true quando houver petição inicial, número de processo judicial, vara/juízo ou indicação inequívoca de execução fiscal; caso contrário false.
+25. "trf_regiao" = TRF1, TRF2, TRF3, TRF4, TRF5 ou TRF6 quando identificável no processo.
+26. "vara_execucao" = vara/juízo da execução fiscal exatamente como constar no documento.
 
 JSON a retornar:
 {
@@ -204,16 +224,125 @@ JSON a retornar:
   "principal_atualizado": 0,
   "juros": 0,
   "multa": 0,
+  "encargo_legal": 0,
   "valor_total": 0,
   "fundamento_legal": "",
   "municipio": "",
   "uf": "",
   "tipo_debito": "previdenciario",
   "modalidade_lancamento": "oficio",
+  "possui_execucao_fiscal": false,
+  "numero_processo_execucao": "",
+  "trf_regiao": "",
+  "vara_execucao": "",
   "socio_1": "",
   "socio_2": "",
   "socio_3": ""
 }`
+
+
+const PROMPT_INSCRICOES = `Analise o documento e retorne APENAS JSON válido neste formato:
+{
+  \"inscricoes\": [
+    {
+      \"numero\": \"\",
+      \"tipo_credito\": \"tributario_federal\",
+      \"periodo_inicio\": \"\",
+      \"periodo_fim\": \"\",
+      \"data_fato_gerador\": \"\",
+      \"data_vencimento\": \"\",
+      \"data_constituicao\": \"\",
+      \"data_inscricao\": \"\",
+      \"valor_originario\": 0,
+      \"principal_atualizado\": 0,
+      \"juros\": 0,
+      \"multa\": 0,
+      \"encargo_legal\": 0,
+      \"valor\": 0,
+      \"fundamento_legal\": \"\",
+      \"modalidade_lancamento\": \"oficio\"
+    }
+  ]
+}
+
+REGRAS:
+- Liste cada inscrição/crédito individual separadamente quando o documento trouxer créditos, competências ou inscrições distintas.
+- Não invente dados. Campo não encontrado = string vazia ou 0.
+- Preserve datas e valores próprios de cada crédito quando existirem.
+- Use números sem formatação brasileira.
+- Retorne somente o objeto JSON, sem markdown ou explicações.`
+
+function obterUfirExtraida(dados = {}) {
+  const candidatos = [
+    dados.ufir_conversao,
+    dados.ufir,
+    dados.valor_ufir,
+    dados.valorUfir,
+    dados.ufirConversao,
+    dados.fator_ufir,
+    dados.fatorUfir,
+  ]
+
+  for (const valor of candidatos) {
+    if (valor === null || valor === undefined) continue
+    const texto = String(valor).trim()
+    if (!texto) continue
+
+    const normalizado = texto
+      .replace(/\s/g, '')
+      .replace(',', '.')
+      .replace(/[^0-9.\-]/g, '')
+
+    if (normalizado && Number.isFinite(Number(normalizado))) {
+      return normalizado
+    }
+  }
+
+  return ''
+}
+
+function normalizarInscricoesExtraidas(dados = {}) {
+  const lista = Array.isArray(dados.inscricoes) ? dados.inscricoes : []
+  const tipoPadrao = dados.tipo_debito || 'tributario_federal'
+  const fallback = {
+    numero: dados.numero_cda || '',
+    tipo_credito: tipoPadrao,
+    periodo_inicio: dados.periodo_divida_inicio || '',
+    periodo_fim: dados.periodo_divida_fim || '',
+    data_fato_gerador: dados.data_fato_gerador || '',
+    data_vencimento: dados.data_vencimento_original || '',
+    data_constituicao: dados.data_constituicao_definitiva || dados.data_inscricao || '',
+    data_inscricao: dados.data_inscricao || '',
+    valor_originario: dados.valor_originario || 0,
+    principal_atualizado: dados.principal_atualizado || 0,
+    juros: dados.juros || 0,
+    multa: dados.multa || 0,
+    encargo_legal: dados.encargo_legal || 0,
+    valor: dados.valor_total || 0,
+    fundamento_legal: dados.fundamento_legal || '',
+    modalidade_lancamento: dados.modalidade_lancamento || 'oficio',
+  }
+
+  const origem = lista.length ? lista : [fallback]
+  return origem.map((ins, idx) => ({
+    numero: String(ins?.numero || (idx === 0 ? dados.numero_cda : '') || '').trim(),
+    tipo_credito: ins?.tipo_credito || tipoPadrao,
+    periodo_inicio: ins?.periodo_inicio || ins?.periodo_divida_inicio || (idx === 0 ? dados.periodo_divida_inicio : '') || '',
+    periodo_fim: ins?.periodo_fim || ins?.periodo_divida_fim || (idx === 0 ? dados.periodo_divida_fim : '') || '',
+    data_fato_gerador: ins?.data_fato_gerador || (idx === 0 ? dados.data_fato_gerador : '') || '',
+    data_vencimento: ins?.data_vencimento || ins?.data_vencimento_original || '',
+    data_constituicao: ins?.data_constituicao || ins?.data_constituicao_definitiva || (idx === 0 ? (dados.data_constituicao_definitiva || dados.data_inscricao) : '') || '',
+    data_inscricao: ins?.data_inscricao || (idx === 0 ? dados.data_inscricao : '') || '',
+    valor_originario: Number(ins?.valor_originario || 0),
+    principal_atualizado: Number(ins?.principal_atualizado || 0),
+    juros: Number(ins?.juros || 0),
+    multa: Number(ins?.multa || 0),
+    encargo_legal: Number(ins?.encargo_legal || 0),
+    valor: Number(ins?.valor ?? ins?.valor_total ?? 0),
+    fundamento_legal: ins?.fundamento_legal || '',
+    modalidade_lancamento: ins?.modalidade_lancamento || dados.modalidade_lancamento || 'oficio',
+  }))
+}
 
 async function parsearJSON(resposta) {
   if (resposta && typeof resposta === 'object') return resposta
@@ -225,68 +354,243 @@ async function parsearJSON(resposta) {
   catch (e) { throw new Error('IA retornou JSON malformado: ' + e.message) }
 }
 
-async function chamarIA(session, body) {
-  const resp = await fetch('https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify(body)
-  })
-  const data = await resp.json()
-  if (!resp.ok || data?.error) {
-    const msg = typeof data?.error === 'string' ? data.error : data?.error?.message || `Erro HTTP ${resp.status}`
-    console.error('ERRO API:', data)
-    throw new Error('Erro na IA: ' + msg)
+const esperar = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+async function respostaIndicaQuotaEsgotada(resp) {
+  if (!resp || resp.ok) return false
+  try {
+    const texto = (await resp.clone().text()).toLowerCase()
+    return (
+      texto.includes('exceeded your current quota') ||
+      texto.includes('quota exceeded') ||
+      texto.includes('resource_exhausted') ||
+      texto.includes('check your plan and billing') ||
+      texto.includes('current quota')
+    )
+  } catch {
+    return false
   }
-  console.log('RESPOSTA API:', data)
-  return data?.resposta ?? data?.resultado ?? data?.content ?? ''
+}
+
+async function fetchComRetry(url, options, tentativas = 3) {
+  let ultimaResposta = null
+
+  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    try {
+      const resp = await fetch(url, options)
+      ultimaResposta = resp
+
+      if (resp.ok) return resp
+
+      // Cota esgotada não melhora com retry. Para na primeira resposta.
+      if (await respostaIndicaQuotaEsgotada(resp)) return resp
+
+      const podeRepetir = [429, 500, 502, 503, 504].includes(resp.status)
+      if (!podeRepetir || tentativa === tentativas) return resp
+
+      await esperar(tentativa * 1500)
+    } catch (erro) {
+      if (tentativa === tentativas) throw erro
+      await esperar(tentativa * 1500)
+    }
+  }
+
+  return ultimaResposta
+}
+
+function traduzirErroIA(mensagem = '', status = 0) {
+  const msg = String(mensagem || '').toLowerCase()
+
+  if (
+    msg.includes('exceeded your current quota') ||
+    msg.includes('quota exceeded') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('check your plan and billing') ||
+    msg.includes('current quota')
+  ) {
+    return 'O limite de uso da inteligência artificial foi atingido no momento. Aguarde a liberação da cota e tente novamente mais tarde.'
+  }
+
+  if (
+    msg.includes('high demand') ||
+    msg.includes('experiencing high demand') ||
+    msg.includes('try again later')
+  ) {
+    return 'O serviço de inteligência artificial está com alta demanda no momento. Aguarde alguns instantes e tente novamente.'
+  }
+
+  if (status === 429 || msg.includes('rate limit') || msg.includes('too many requests')) {
+    return 'O serviço recebeu muitas solicitações em pouco tempo. Aguarde alguns instantes e tente novamente.'
+  }
+
+  if ([500, 502, 503, 504].includes(Number(status))) {
+    return 'O serviço de inteligência artificial está temporariamente indisponível. Tente novamente em alguns instantes.'
+  }
+
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'A análise demorou mais do que o esperado e foi interrompida. Tente novamente.'
+  }
+
+  if (
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('connection')
+  ) {
+    return 'Não foi possível conectar ao serviço de análise. Verifique sua conexão e tente novamente.'
+  }
+
+  return mensagem
+    ? `Não foi possível concluir a análise: ${mensagem}`
+    : 'Não foi possível concluir a análise da CDA. Tente novamente.'
+}
+
+async function chamarIA(session, body) {
+  const inicio = performance.now()
+
+  const resp = await fetchComRetry(
+    'https://ikodyhxukvclgzydvztu.supabase.co/functions/v1/consulta-ia',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  const data = await resp.json()
+
+  console.info(
+    `[CDA] IA ${body?.model || 'modelo'}: ${((performance.now() - inicio) / 1000).toFixed(2)}s`
+  )
+
+  if (!resp.ok || data?.error) {
+    const msg = typeof data?.error === 'string'
+      ? data.error
+      : data?.error?.message || `Erro HTTP ${resp.status}`
+
+    const mensagemPtBr = traduzirErroIA(msg, resp.status)
+
+    console.error('ERRO NA ANÁLISE DA CDA:', {
+      status: resp.status,
+      mensagem: mensagemPtBr,
+      detalheTecnico: msg,
+    })
+
+    throw new Error(mensagemPtBr)
+  }
+
+  return data?.resposta ?? data?.resultado ?? data?.content ?? data?.message ?? ''
 }
 
 async function analisarTextoComIA(texto, session) {
-  const resposta = await chamarIA(session, {
+  // 1) Extração principal: mantém exatamente o prompt legado que já estava homologado.
+  const respostaBase = await chamarIA(session, {
     model: 'llama-3.3-70b-versatile',
     system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
-    messages: [{ role: 'user', content: `${PROMPT_JSON}\n\nTEXTO DOS DOCUMENTOS:\n${texto.slice(0, 12000)}` }]
+    messages: [{ role: 'user', content: `${PROMPT_JSON}\n\nTEXTO DOS DOCUMENTOS:\n${texto.slice(0, 20000)}` }]
   })
-  return parsearJSON(resposta)
+  const dados = await parsearJSON(respostaBase)
+
+  // 2) Inscrições individualizadas em chamada separada. Se falhar, NÃO derruba a importação.
+  try {
+    const respostaInscricoes = await chamarIA(session, {
+      model: 'llama-3.3-70b-versatile',
+      system: 'Extraia inscrições/créditos individualizados de CDA. Retorne somente JSON válido.',
+      messages: [{ role: 'user', content: `${PROMPT_INSCRICOES}\n\nTEXTO DOS DOCUMENTOS:\n${texto.slice(0, 20000)}` }]
+    })
+    const objInscricoes = await parsearJSON(respostaInscricoes)
+    if (Array.isArray(objInscricoes?.inscricoes)) dados.inscricoes = objInscricoes.inscricoes
+  } catch (e) {
+    console.warn('[CDA] Extração individual das inscrições falhou; mantendo importação principal.', e?.message || e)
+  }
+
+  return dados
 }
 
 async function analisarPDFEscaneadoComGemini(file, session) {
   console.log('PDF escaneado — enviando PDF completo ao Gemini...')
   const base64 = await pdfParaBase64(file)
-  const resposta = await chamarIA(session, {
+  const conteudoPdf = {
+    type: 'inline_data',
+    inline_data: { mime_type: 'application/pdf', data: base64 }
+  }
+
+  // 1) Extração principal com o prompt legado que já funcionava antes da V4.
+  const respostaBase = await chamarIA(session, {
     model: 'gemini-3.5-flash',
     system: 'Você é um extrator especializado de dados de CDA da PGFN e Execução Fiscal brasileira. Retorne APENAS JSON válido, sem markdown, sem explicações.',
     messages: [{
       role: 'user',
-      content: [
-        {
-          type: 'inline_data',
-          inline_data: {
-            mime_type: 'application/pdf',
-            data: base64
-          }
-        },
-        {
-          type: 'text',
-          text: PROMPT_JSON
-        }
-      ]
+      content: [conteudoPdf, { type: 'text', text: PROMPT_JSON }]
     }]
   })
-  return parsearJSON(resposta)
+
+  let dados
+  try {
+    dados = await parsearJSON(respostaBase)
+  } catch (e) {
+    console.error('[CDA] Resposta principal do Gemini sem JSON reconhecível:', String(respostaBase || '').slice(0, 800))
+    throw e
+  }
+
+  // 2) Segunda leitura só para as inscrições. É opcional: se falhar, a CDA continua importando.
+  try {
+    const respostaInscricoes = await chamarIA(session, {
+      model: 'gemini-3.5-flash',
+      system: 'Extraia inscrições/créditos individualizados de CDA. Retorne somente JSON válido.',
+      messages: [{
+        role: 'user',
+        content: [conteudoPdf, { type: 'text', text: PROMPT_INSCRICOES }]
+      }]
+    })
+    const objInscricoes = await parsearJSON(respostaInscricoes)
+    if (Array.isArray(objInscricoes?.inscricoes)) dados.inscricoes = objInscricoes.inscricoes
+  } catch (e) {
+    console.warn('[CDA] Extração individual das inscrições falhou; mantendo importação principal.', e?.message || e)
+  }
+
+  return dados
 }
 
-async function analisarComIA(file) {
-  const { data: { session } } = await supabase.auth.getSession()
-  console.log('Tentando extração de texto direto...')
-  const texto = await extrairTextoPDF(file)
-  console.log('Caracteres extraídos pelo PDF.js:', texto?.trim().length || 0)
-  if (texto && texto.trim().length >= 50) {
-    console.log('PDF com texto pesquisável — usando Groq textual')
-    return analisarTextoComIA(texto, session)
+async function analisarComIA(file, onProgress) {
+  const inicioTotal = performance.now()
+  onProgress?.(5, 'Preparando importação...')
+
+  // Ganha tempo fazendo autenticação e leitura do PDF simultaneamente.
+  const sessaoPromise = supabase.auth.getSession()
+  const textoPromise = extrairTextoPDF(file, onProgress)
+
+  const [
+    { data: { session } },
+    texto,
+  ] = await Promise.all([sessaoPromise, textoPromise])
+
+  if (!session?.access_token) {
+    throw new Error('Sessão expirada. Entre novamente no sistema.')
   }
-  console.log('PDF escaneado — enviando PDF completo ao Gemini (1 chamada)')
-  return analisarPDFEscaneadoComGemini(file, session)
+
+  const caracteres = texto?.trim().length || 0
+  console.info(`[CDA] Texto pesquisável encontrado: ${caracteres} caracteres`)
+
+  if (caracteres >= 50) {
+    console.info('[CDA] MODO RÁPIDO: PDF.js + Groq textual')
+    onProgress?.(55, 'Texto encontrado. Extraindo os dados da CDA...')
+    const dados = await analisarTextoComIA(texto, session)
+    onProgress?.(94, 'Dados recebidos. Organizando a CDA...')
+    console.info(`[CDA] TEMPO TOTAL: ${((performance.now() - inicioTotal) / 1000).toFixed(2)}s`)
+    return dados
+  }
+
+  // PDF sem camada de texto: este caminho é naturalmente mais lento,
+  // pois exige análise visual do documento completo.
+  console.info('[CDA] MODO VISUAL: PDF escaneado → Gemini')
+  onProgress?.(52, 'PDF escaneado. Iniciando leitura visual...')
+  const dados = await analisarPDFEscaneadoComGemini(file, session)
+  onProgress?.(94, 'Leitura visual concluída. Organizando a CDA...')
+  console.info(`[CDA] TEMPO TOTAL: ${((performance.now() - inicioTotal) / 1000).toFixed(2)}s`)
+  return dados
 }
 
 function SeletorClienteInterno({ onSelecionar }) {
@@ -412,14 +716,11 @@ function imprimirCDA(campos, clienteEfetivo) {
     </tr>
   </table>
 
-  <h2>⚖️ Negociação</h2>
+  <h2>⚖️ Dados para Transação</h2>
   <div class="grid">
     <div class="campo"><div class="label">Tipo de Débito</div><div class="valor">${campos.tipo_debito||'—'}</div></div>
-    <div class="campo"><div class="label">Modalidade Transação</div><div class="valor">${campos.modalidade_transacao||'—'}</div></div>
-    <div class="campo"><div class="label">Desconto R$</div><div class="valor">${campos.desconto_valor||'—'}</div></div>
-    <div class="campo"><div class="label">Valor Entrada</div><div class="valor">${campos.valor_entrada||'—'}</div></div>
-    <div class="campo"><div class="label">Qtd. Parcelas</div><div class="valor">${campos.qt_parcelas||'—'}</div></div>
-    <div class="campo"><div class="label">Valor Parcela</div><div class="valor">${campos.valor_parcela||'—'}</div></div>
+    <div class="campo"><div class="label">Encargo Legal</div><div class="valor">R$ ${campos.encargo_legal||'0,00'}</div></div>
+    <div class="campo"><div class="label">Encaminhamento</div><div class="valor">Simular no módulo Transação Tributária após salvar a CDA</div></div>
   </div>
 
   ${campos.possui_execucao_fiscal ? `
@@ -451,51 +752,96 @@ function imprimirCDA(campos, clienteEfetivo) {
 export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }) {
   const [etapa, setEtapa] = useState('upload')
   const [extraindo, setExtraindo] = useState(false)
+  const [progressoImportacao, setProgressoImportacao] = useState(0)
+  const [faseImportacao, setFaseImportacao] = useState('')
   const [campos, setCampos] = useState({...CAMPOS_VAZIOS})
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [cdaSalvaId, setCdaSalvaId] = useState(null)
+  const [numeroCdaSessao, setNumeroCdaSessao] = useState(1)
   const inputRef = useRef()
 
   const [clienteEfetivo, setClienteEfetivo] = useState(active?.id ? active : null)
   useEffect(() => { setClienteEfetivo(active?.id ? active : null) }, [active])
 
+  // Pré-aquece o mesmo leitor usado no PGDAS-D enquanto o usuário escolhe o arquivo.
+  useEffect(() => {
+    carregarPDFJS().catch(() => {})
+    supabase.auth.getSession().catch(() => {})
+  }, [])
+
   async function handleArquivo(file) {
     if (!file || file.type !== 'application/pdf') { setErro('Selecione um arquivo PDF válido.'); return }
     setErro('')
     setExtraindo(true)
+    setProgressoImportacao(3)
+    setFaseImportacao('Iniciando importação da CDA...')
+
+    let progressoVisualTimer = null
+    const atualizarProgresso = (pct, fase) => {
+      setProgressoImportacao(atual => Math.max(atual, pct))
+      if (fase) setFaseImportacao(fase)
+    }
+
     try {
-      const dados = await analisarComIA(file)
+      // Enquanto a chamada de IA estiver aguardando resposta, a barra continua avançando
+      // suavemente até 88%, sem fingir que o processamento já terminou.
+      progressoVisualTimer = setInterval(() => {
+        setProgressoImportacao(atual => {
+          if (atual < 60) return atual
+          if (atual >= 88) return atual
+          return Math.min(88, atual + 1)
+        })
+      }, 650)
+
+      const dados = await analisarComIA(file, atualizarProgresso)
+      atualizarProgresso(96, 'Preenchendo os campos para conferência...')
+
       const vTotal = parseFloat(dados.valor_total) || 0
-      const modalidadeKey = dados.modalidade_transacao || 'transacao_edital'
-      const negociacao = calcularNegociacao(vTotal, modalidadeKey)
+      const inscricoesExtraidas = normalizarInscricoesExtraidas(dados)
+      const inscricaoInicial = inscricoesExtraidas.length ? [inscricoesExtraidas[0]] : []
       setCampos(prev => ({
         ...prev, ...dados,
+        inscricoes: inscricaoInicial,
         valor_originario:             fmtExibir(dados.valor_originario),
         principal_atualizado:         fmtExibir(dados.principal_atualizado),
         juros:                        fmtExibir(dados.juros),
         multa:                        fmtExibir(dados.multa),
+        encargo_legal:                fmtExibir(dados.encargo_legal),
         valor_total:                  fmtExibir(vTotal),
         total_sem_desconto:           vTotal,
-        modalidade_transacao:         modalidadeKey,
+        modalidade_transacao:         '',
         modalidade_lancamento:        dados.modalidade_lancamento || 'oficio',
         socio_1:                      dados.socio_1 || '',
         socio_2:                      dados.socio_2 || '',
         socio_3:                      dados.socio_3 || '',
         documento_origem:             dados.documento_origem || '',
         orgao_origem:                 dados.orgao_origem || '',
-        ufir_conversao:               dados.ufir_conversao || '',
+        ufir_conversao:               obterUfirExtraida(dados),
         data_referencia_valores:      dados.data_referencia_valores || '',
         data_fato_gerador:            dados.data_fato_gerador || '',
         data_constituicao_definitiva: dados.data_constituicao_definitiva || '',
-        data_ajuizamento:             dados.data_ajuizamento || '',
-        data_citacao:                 dados.data_citacao || '',
-        data_ultima_movimentacao:     dados.data_ultima_movimentacao || '',
-        ...negociacao,
+        devedor:                      dados.devedor || prev.devedor || '',
+        cnpj_devedor:                 dados.cnpj_devedor || prev.cnpj_devedor || '',
+        data_ajuizamento:             dados.data_ajuizamento || prev.data_ajuizamento || '',
+        data_citacao:                 dados.data_citacao || prev.data_citacao || '',
+        data_ultima_movimentacao:     dados.data_ultima_movimentacao || prev.data_ultima_movimentacao || '',
+        possui_execucao_fiscal:       !!(dados.possui_execucao_fiscal || dados.numero_processo_execucao || prev.possui_execucao_fiscal || prev.numero_processo_execucao),
+        numero_processo_execucao:     dados.numero_processo_execucao || prev.numero_processo_execucao || '',
+        trf_regiao:                   dados.trf_regiao || prev.trf_regiao || '',
+        vara_execucao:                dados.vara_execucao || prev.vara_execucao || '',
       }))
+
+      atualizarProgresso(100, 'Importação concluída!')
       setEtapa('revisao')
-    } catch(e) { setErro('Erro ao processar PDF: ' + e.message) }
-    setExtraindo(false)
+    } catch(e) {
+      const mensagem = String(e?.message || 'Não foi possível concluir a importação.')
+      setErro(mensagem)
+      setFaseImportacao('Não foi possível concluir a importação. Tente novamente em alguns instantes.')
+    } finally {
+      if (progressoVisualTimer) clearInterval(progressoVisualTimer)
+      setExtraindo(false)
+    }
   }
 
   async function salvar() {
@@ -519,6 +865,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
         principal_atualizado: fmtVal(campos.principal_atualizado),
         juros: fmtVal(campos.juros),
         multa: fmtVal(campos.multa),
+        encargo_legal: fmtVal(campos.encargo_legal),
         valor_total: fmtVal(campos.valor_total),
         total_sem_desconto: fmtVal(campos.total_sem_desconto||campos.valor_total),
         desconto_valor: fmtVal(campos.desconto_valor),
@@ -549,22 +896,91 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
         orgao_origem: campos.orgao_origem || '',
         documento_origem: campos.documento_origem || '',
         data_referencia_valores: campos.data_referencia_valores || '',
+        inscricoes_json: Array.isArray(campos.inscricoes) ? campos.inscricoes : [],
       }
-      const { data, error } = await supabase.from('cdas').insert([payload]).select()
+      let { data, error } = await supabase.from('cdas').insert([payload]).select()
+      // Compatibilidade: se a coluna inscricoes_json ainda não foi criada, salva a CDA normalmente
+      // e orienta a execução da migration fornecida junto com esta versão.
+      if (error && /inscricoes_json|column/i.test(String(error.message || ''))) {
+        const { inscricoes_json, ...payloadLegado } = payload
+        const tentativaLegada = await supabase.from('cdas').insert([payloadLegado]).select()
+        data = tentativaLegada.data
+        error = tentativaLegada.error
+      }
       if (error) throw error
       if (data?.[0]) setCdaSalvaId(data[0].id)
       setEtapa('sucesso')
-      if (onSalvo) onSalvo()
+      if (onSalvo) onSalvo({ campos, clienteEfetivo, cdaSalva: data?.[0] || null })
     } catch(e) { setErro('Erro ao salvar: ' + e.message) }
     setSalvando(false)
   }
 
   function novaImportacao() {
-    setEtapa('upload'); setCampos({...CAMPOS_VAZIOS}); setErro(''); setCdaSalvaId(null)
+    setEtapa('upload')
+    setCampos({...CAMPOS_VAZIOS})
+    setErro('')
+    setCdaSalvaId(null)
+    setNumeroCdaSessao(1)
+    setProgressoImportacao(0)
+    setFaseImportacao('')
+  }
+
+  function novaCDA() {
+    // Abre uma nova CDA dentro do mesmo contribuinte/processo, mantendo apenas
+    // os dados comuns. Todo o restante começa limpo para a nova certidão.
+    const dadosComuns = {
+      devedor: campos.devedor || '',
+      cnpj_devedor: campos.cnpj_devedor || '',
+      possui_execucao_fiscal: !!campos.possui_execucao_fiscal,
+      numero_processo_execucao: campos.numero_processo_execucao || '',
+      trf_regiao: campos.trf_regiao || '',
+      vara_execucao: campos.vara_execucao || '',
+      data_ajuizamento: campos.data_ajuizamento || '',
+      data_citacao: campos.data_citacao || '',
+      data_ultima_movimentacao: campos.data_ultima_movimentacao || '',
+    }
+    setCampos({ ...CAMPOS_VAZIOS, ...dadosComuns })
+    setEtapa('upload')
+    setErro('')
+    setCdaSalvaId(null)
+    setNumeroCdaSessao(n => n + 1)
+    setProgressoImportacao(0)
+    setFaseImportacao('')
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   function irParaDiagnostico() {
     if (onDiagnostico) onDiagnostico({ campos, clienteEfetivo })
+  }
+
+  function atualizarInscricao(index, campo, valor) {
+    setCampos(prev => {
+      const lista = Array.isArray(prev.inscricoes) ? [...prev.inscricoes] : []
+      lista[index] = { ...(lista[index] || {}), [campo]: valor }
+      return { ...prev, inscricoes: lista }
+    })
+  }
+
+  function adicionarInscricao() {
+    setCampos(prev => ({
+      ...prev,
+      inscricoes: [
+        ...(Array.isArray(prev.inscricoes) ? prev.inscricoes : []),
+        {
+          numero:'', tipo_credito:prev.tipo_debito || 'tributario_federal',
+          periodo_inicio:'', periodo_fim:'', data_fato_gerador:'', data_vencimento:'',
+          data_constituicao:'', data_inscricao:'', valor_originario:0, principal_atualizado:0,
+          juros:0, multa:0, encargo_legal:0, valor:0, fundamento_legal:'', modalidade_lancamento:prev.modalidade_lancamento || 'oficio'
+        }
+      ]
+    }))
+  }
+
+  function removerInscricao(index) {
+    setCampos(prev => ({
+      ...prev,
+      inscricoes: (Array.isArray(prev.inscricoes) ? prev.inscricoes : []).filter((_, i) => i !== index)
+    }))
   }
 
   const inp = (k, label, tipo='text') => (
@@ -590,10 +1006,6 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
       <label style={{fontSize:11,fontWeight:600,color:C.muted,display:'block',marginBottom:3,textTransform:'uppercase',letterSpacing:0.5}}>{label}</label>
       <select value={campos[k]||''} onChange={e=>{
         const val=e.target.value
-        if(k==='modalidade_transacao'){
-          const neg=calcularNegociacao(fmtVal(campos.valor_total),val)
-          setCampos(p=>({...p,modalidade_transacao:val,...neg})); return
-        }
         setCampos(p=>({...p,[k]:val}))
       }} style={{width:'100%',padding:'7px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:13}}>
         {opcoes.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
@@ -610,10 +1022,9 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
     </div>
   )
 
-  const camposCriticosFaltando = [
+  const camposConfirmacaoManual = [
     !campos.data_fato_gerador && 'Data do Fato Gerador',
     !campos.data_constituicao_definitiva && 'Data da Constituição Definitiva',
-    !campos.data_inscricao && 'Data de Inscrição',
     !campos.data_ajuizamento && 'Data do Ajuizamento',
   ].filter(Boolean)
 
@@ -622,8 +1033,8 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
 
       <div style={{background:'linear-gradient(135deg, #0B1F4D 0%, #163B8C 100%)',borderRadius:16,padding:'24px 28px',color:'#fff',marginBottom:20}}>
         <div style={{fontSize:11,color:'#7CC4FF',fontWeight:700,letterSpacing:2,marginBottom:6}}>FISCALTRIB — DÍVIDA ATIVA</div>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:4,color:'#fff'}}>📄 Importar CDA via PDF</div>
-        <div style={{fontSize:13,color:'#93c5fd'}}>Faça upload do PDF completo — CDA + Execução Fiscal + Discriminativo de Crédito para diagnóstico completo</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4,color:'#fff'}}>📄 Importar CDA via PDF — CDA {numeroCdaSessao}</div>
+        <div style={{fontSize:13,color:'#93c5fd'}}>Faça upload do PDF completo — CDA + Discriminativo de Crédito para diagnóstico completo</div>
         {clienteEfetivo && (
           <div style={{marginTop:12,background:'rgba(255,255,255,0.12)',borderRadius:8,padding:'8px 14px',fontSize:12,color:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <span><strong>{clienteEfetivo.razao_social}</strong>{clienteEfetivo.cnpj&&<span style={{marginLeft:10,color:'#93c5fd'}}>{clienteEfetivo.cnpj}</span>}</span>
@@ -650,19 +1061,70 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
           style={{background:C.white,borderRadius:12,border:`2px dashed ${C.border}`,padding:'60px 32px',textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}>
           <input ref={inputRef} type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleArquivo(e.target.files[0])}/>
           {extraindo ? (
-            <div>
-              <div style={{marginBottom:16,display:'flex',justifyContent:'center'}}>
-                <div style={{width:48,height:48,border:'5px solid #e2e8f0',borderTop:'5px solid #1e3a5f',borderRadius:'50%',animation:'spin 0.9s linear infinite'}}/>
+            <div style={{maxWidth:560,margin:'0 auto'}} onClick={e=>e.stopPropagation()}>
+              <style>{`
+                @keyframes cdaHourglassFlip {
+                  0% { transform: rotate(0deg) scale(1); }
+                  45% { transform: rotate(180deg) scale(1.08); }
+                  55% { transform: rotate(180deg) scale(1.08); }
+                  100% { transform: rotate(360deg) scale(1); }
+                }
+                @keyframes cdaProgressGlow {
+                  0%, 100% { opacity: .65; }
+                  50% { opacity: 1; }
+                }
+              `}</style>
+
+              <div style={{
+                width:48,height:48,margin:'0 auto 10px',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                borderRadius:12,background:'#F8FAFC',
+                border:'1px solid #D8DEE8',
+                boxShadow:'0 4px 12px rgba(15,23,42,.06)'
+              }}>
+                <div style={{
+                  fontSize:27,lineHeight:1,
+                  animation:'cdaHourglassFlip 1.15s linear infinite',
+                  transformOrigin:'center'
+                }}>⏳</div>
               </div>
-              <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Processando PDF...</div>
-              <div style={{fontSize:13,color:C.muted}}>Analisando CDA, Execução Fiscal e Discriminativo com IA Vision</div>
+
+              <div style={{fontSize:15,fontWeight:800,color:C.navy,marginBottom:5}}>
+                Importando e analisando a CDA
+              </div>
+
+              <div style={{fontSize:12,color:C.muted,minHeight:18,marginBottom:12}}>
+                {faseImportacao || 'Preparando processamento...'}
+              </div>
+
+              <div style={{
+                height:6,background:'#E2E8F0',borderRadius:999,
+                overflow:'hidden'
+              }}>
+                <div style={{
+                  width:`${progressoImportacao}%`,
+                  height:'100%',
+                  borderRadius:999,
+                  background:'#2563EB',
+                  transition:'width .25s ease',
+                  animation:'cdaProgressGlow .9s ease-in-out infinite'
+                }}/>
+              </div>
+
+              <div style={{
+                display:'flex',justifyContent:'space-between',alignItems:'center',
+                marginTop:6,fontSize:10.5,color:'#64748B'
+              }}>
+                <span>CDA + Discriminativo de Crédito</span>
+                <strong style={{fontSize:12,color:C.navy}}>{progressoImportacao}%</strong>
+              </div>
             </div>
           ) : (
             <div>
               <div style={{fontSize:48,marginBottom:16}}>📄</div>
               <div style={{fontSize:16,fontWeight:700,color:C.navy,marginBottom:8}}>Clique ou arraste o PDF completo aqui</div>
-              <div style={{fontSize:13,color:C.muted,marginBottom:8}}>CDA + Petição Inicial da Execução Fiscal + Discriminativo de Crédito</div>
-              <div style={{fontSize:12,color:'#7C3AED',marginBottom:16,fontWeight:600}}>💡 Quanto mais páginas do processo, mais completo o diagnóstico</div>
+              <div style={{fontSize:13,color:C.muted,marginBottom:8}}>CDA + Discriminativo de Crédito</div>
+              <div style={{fontSize:12,color:'#7C3AED',marginBottom:16,fontWeight:600}}>💡 Envie a CDA e o discriminativo completos para uma extração mais precisa</div>
               <div style={{display:'inline-block',background:C.navy,color:'#fff',padding:'10px 24px',borderRadius:8,fontSize:13,fontWeight:600}}>Selecionar PDF</div>
             </div>
           )}
@@ -675,11 +1137,47 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
             ✅ <strong>Dados extraídos!</strong> Revise todos os campos — especialmente as datas jurídicas — antes de salvar.
           </div>
 
-          {camposCriticosFaltando.length > 0 && (
-            <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'12px 16px',marginBottom:16,fontSize:12,color:'#991B1B'}}>
-              ⚠️ <strong>Campos críticos para diagnóstico não encontrados no PDF — preencha manualmente:</strong>
-              <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap'}}>
-                {camposCriticosFaltando.map(c=><span key={c} style={{background:'#FEE2E2',padding:'2px 8px',borderRadius:4,fontWeight:600}}>{c}</span>)}
+          {camposConfirmacaoManual.length > 0 && (
+            <div style={{
+              background:'#FFF9E8',
+              border:'1px solid #F4C95D',
+              borderRadius:10,
+              padding:'14px 16px',
+              marginBottom:16,
+              fontSize:12,
+              color:'#78350F'
+            }}>
+              <div style={{fontWeight:900,fontSize:13,marginBottom:5,color:'#92400E'}}>
+                ⚠️ Complete {camposConfirmacaoManual.length === 1 ? '1 informação' : `${camposConfirmacaoManual.length} informações`} manualmente antes do diagnóstico
+              </div>
+
+              <div style={{lineHeight:1.6,color:'#92400E'}}>
+                A importação automática foi concluída, mas
+                {camposConfirmacaoManual.length === 1 ? ' o campo abaixo não pôde ser confirmado' : ' os campos abaixo não puderam ser confirmados'}
+                {' '}com segurança no PDF. Consulte a CDA ou, quando necessário, os autos do processo e preencha
+                {camposConfirmacaoManual.length === 1 ? ' essa informação' : ' essas informações'} antes de executar o diagnóstico.
+              </div>
+
+              <div style={{marginTop:9,display:'flex',gap:8,flexWrap:'wrap'}}>
+                {camposConfirmacaoManual.map(c=>(
+                  <span
+                    key={c}
+                    style={{
+                      background:'#FFFFFF',
+                      border:'1px solid #F4C95D',
+                      padding:'4px 10px',
+                      borderRadius:6,
+                      fontWeight:800,
+                      color:'#9A5A00'
+                    }}
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+
+              <div style={{marginTop:9,fontSize:11,color:'#A16207'}}>
+                Sem essa confirmação, algumas análises jurídicas podem ficar incompletas.
               </div>
             </div>
           )}
@@ -748,14 +1246,46 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
               <span style={{fontSize:13,fontWeight:700,color:C.navy}}>Valor Total da CDA</span>
               <input type="text" value={campos.valor_total||''}
                 onChange={e=>setCampos(p=>({...p,valor_total:e.target.value,total_sem_desconto:e.target.value}))}
-                onBlur={e=>{const n=fmtVal(e.target.value);if(n>0){const neg=calcularNegociacao(n,campos.modalidade_transacao);setCampos(p=>({...p,valor_total:fmtExibir(n),total_sem_desconto:n,...neg}))}}}
+                onBlur={e=>{const n=fmtVal(e.target.value);if(n>0)setCampos(p=>({...p,valor_total:fmtExibir(n),total_sem_desconto:n}))}}
                 style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:15,fontWeight:700,width:180,textAlign:'right'}}/>
             </div>
           </div>
 
+          <div style={{background:'#F8FAFC',borderRadius:12,border:'2px solid #0B1F4D',padding:24,marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:800,color:C.navy}}>🧾 Inscrições / créditos desta CDA</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:3}}>Cada inscrição será analisada separadamente para decadência e prescrição quando houver marcos próprios.</div>
+              </div>
+              <button type="button" onClick={adicionarInscricao} style={{padding:'7px 12px',background:C.navy,color:'#fff',border:'none',borderRadius:7,fontSize:11,fontWeight:700,cursor:'pointer'}}>+ Adicionar inscrição</button>
+            </div>
+
+            {(Array.isArray(campos.inscricoes) ? campos.inscricoes : []).map((ins, index) => (
+              <div key={index} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:10,padding:'14px 16px',marginTop:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{fontSize:12,fontWeight:800,color:C.navy}}>Inscrição {index + 1}</div>
+                  {(campos.inscricoes || []).length > 1 && <button type="button" onClick={()=>removerInscricao(index)} style={{padding:'4px 8px',background:'#FEF2F2',color:'#B91C1C',border:'1px solid #FECACA',borderRadius:6,fontSize:10,cursor:'pointer'}}>Remover</button>}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:10,marginBottom:10}}>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>NÚMERO</label><input value={ins.numero||''} onChange={e=>atualizarInscricao(index,'numero',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>TIPO</label><select value={ins.tipo_credito||campos.tipo_debito||'tributario_federal'} onChange={e=>atualizarInscricao(index,'tipo_credito',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12}}>{TIPOS_DEBITO.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>VALOR</label><input value={ins.valor||''} onChange={e=>atualizarInscricao(index,'valor',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,boxSizing:'border-box'}}/></div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>FATO GERADOR</label><input type="date" value={ins.data_fato_gerador||''} onChange={e=>atualizarInscricao(index,'data_fato_gerador',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>VENCIMENTO</label><input type="date" value={ins.data_vencimento||''} onChange={e=>atualizarInscricao(index,'data_vencimento',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>CONSTITUIÇÃO</label><input type="date" value={ins.data_constituicao||''} onChange={e=>atualizarInscricao(index,'data_constituicao',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,boxSizing:'border-box'}}/></div>
+                  <div><label style={{fontSize:10,fontWeight:700,color:C.muted,display:'block',marginBottom:3}}>INSCRIÇÃO EM DA</label><input type="date" value={ins.data_inscricao||''} onChange={e=>atualizarInscricao(index,'data_inscricao',e.target.value)} style={{width:'100%',padding:'6px 8px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,boxSizing:'border-box'}}/></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div style={{background:'#F0FDF4',borderRadius:12,border:'2px solid #16A34A',padding:24,marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:'#15803D',marginBottom:4}}>🧮 Atualização Monetária — Bases PGFN</div>
-            <div style={{fontSize:12,color:'#64748B',marginBottom:16}}>Cálculo automático com SELIC acumulada (RFB) + Multa 20% + Encargo legal 10% — mesmas bases utilizadas pela PGFN.</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#15803D',marginBottom:4}}>🧮 Atualização Monetária / Conferência — Bases PGFN</div>
+            <div style={{fontSize:12,color:'#64748B',marginBottom:16}}>
+              A tabela SELIC foi preservada para referência e planejamento. Multa, juros e encargo usados na análise devem ser os valores documentais da CDA/PGFN — o FiscalTribe não cria percentuais para completar a dívida.
+            </div>
 
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
               <div>
@@ -772,7 +1302,7 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
                     style={{accentColor:'#0B1F4D',width:15,height:15}}/>
                   Há execução fiscal ajuizada
                 </label>
-                <div style={{fontSize:10,color:'#64748B'}}>Se marcado, aplica encargo legal de 10% (Decreto-Lei 1.025/69)</div>
+                <div style={{fontSize:10,color:'#64748B'}}>A informação de ajuizamento é mantida para o diagnóstico. O encargo não é criado automaticamente: use o valor que constar da CDA/discriminativo.</div>
               </div>
             </div>
 
@@ -828,15 +1358,14 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
               }
 
               const vPrincipal = fmtVal(campos.principal_atualizado || campos.valor_originario)
+              const vMulta = fmtVal(campos.multa)
+              const vJuros = fmtVal(campos.juros)
+              const vEncargo = fmtVal(campos.encargo_legal)
               const vTotal = fmtVal(campos.valor_total)
               const selicPct = calcularSELIC(campos.data_vencimento_original)
-              const multaPct = 20
-              const encargoPct = campos.possui_execucao_fiscal ? 10 : 0
-
-              const vMulta = vPrincipal * (multaPct / 100)
-              const vSelic = selicPct != null ? vPrincipal * (selicPct / 100) : null
-              const vEncargo = (vPrincipal + vMulta + (vSelic||0)) * (encargoPct / 100)
-              const vAtualizado = vPrincipal + vMulta + (vSelic||0) + vEncargo
+              const vSelicReferencia = selicPct != null && vPrincipal > 0 ? vPrincipal * (selicPct / 100) : null
+              const somaDocumental = vPrincipal + vMulta + vJuros + vEncargo
+              const diferencaDocumental = vTotal > 0 ? vTotal - somaDocumental : 0
 
               const temDados = vPrincipal > 0
 
@@ -844,10 +1373,10 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
                 <div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:12}}>
                     {[
-                      {label:'Principal / Atualizado',valor:fmtR(vPrincipal),cor:'#1E293B',base:'Art. 61 Lei 9.430/96'},
-                      {label:`Multa de Mora (${multaPct}%)`,valor:temDados?fmtR(vMulta):'—',cor:'#D97706',base:'Art. 61 §1º Lei 9.430/96 — limite 20%'},
-                      {label:`Juros SELIC${selicPct!=null?` (${selicPct.toFixed(2)}%)`:''}`,valor:temDados&&vSelic!=null?fmtR(vSelic):campos.data_vencimento_original?'Mês fora da tabela':'Informe data vencimento',cor:'#DC2626',base:'SELIC acumulada RFB — Lei 9.250/95 + Lei 9.430/96'},
-                      {label:`Encargo Legal${encargoPct>0?` (${encargoPct}%)`:''}`,valor:encargoPct>0&&temDados?fmtR(vEncargo):'Sem execução fiscal',cor:'#7C3AED',base:'Decreto-Lei 1.025/69 — aplica-se após ajuizamento'},
+                      {label:'Principal / Atualizado',valor:temDados?fmtR(vPrincipal):'—',cor:'#1E293B',base:'Valor documental extraído da CDA'},
+                      {label:'Multa constante da CDA',valor:vMulta>0?fmtR(vMulta):'—',cor:'#D97706',base:'Valor documental — não estimado'},
+                      {label:'Juros constantes da CDA',valor:vJuros>0?fmtR(vJuros):'—',cor:'#DC2626',base:'Valor documental — não estimado'},
+                      {label:'Encargo Legal',valor:vEncargo>0?fmtR(vEncargo):'—',cor:'#7C3AED',base:'Valor documental — não estimado'},
                     ].map((k,i)=>(
                       <div key={i} style={{background:'#fff',borderRadius:8,padding:'10px 12px',border:'1px solid #E2E8F0'}}>
                         <div style={{fontSize:10,color:'#64748B',fontWeight:700,marginBottom:4,textTransform:'uppercase',letterSpacing:0.4}}>{k.label}</div>
@@ -856,18 +1385,57 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
                       </div>
                     ))}
                   </div>
-                  <div style={{background:'#15803D',borderRadius:10,padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:11,color:'#BBF7D0',fontWeight:700,marginBottom:2,textTransform:'uppercase',letterSpacing:0.5}}>Total Atualizado na Data de Hoje ({new Date().toLocaleDateString('pt-BR')})</div>
-                      <div style={{fontSize:10,color:'#86EFAC'}}>
-                        Principal + Multa 20% + SELIC acumulada{encargoPct>0?' + Encargo 10% (DL 1.025/69)':''}
-                        {' · '}Bases: Lei 9.250/95, Lei 9.430/96{encargoPct>0?', DL 1.025/69':''}
+                  <div style={{
+                    background:'#15803D',
+                    borderRadius:10,
+                    padding:'14px 18px',
+                    display:'grid',
+                    gridTemplateColumns:'minmax(0,1fr) auto',
+                    alignItems:'center',
+                    columnGap:24
+                  }}>
+                    <div style={{minWidth:0}}>
+                      <div style={{
+                        fontSize:11,
+                        color:'#FFFFFF',
+                        fontWeight:800,
+                        marginBottom:4,
+                        textTransform:'uppercase',
+                        letterSpacing:0.5
+                      }}>
+                        Valor documental da CDA
+                      </div>
+                      <div style={{
+                        fontSize:10.5,
+                        color:'#FFFFFF',
+                        lineHeight:1.55,
+                        fontWeight:500
+                      }}>
+                        Principal + multa + juros + encargo conforme documento. A SELIC abaixo é apenas referência e não é somada automaticamente ao total.
                       </div>
                     </div>
-                    <div style={{fontSize:22,fontWeight:900,color:'#fff'}}>
-                      {temDados && vSelic != null ? fmtR(vAtualizado) : vTotal > 0 ? `≈ ${fmtR(vTotal)} (valor da CDA)` : '—'}
+                    <div style={{
+                      fontSize:22,
+                      lineHeight:1,
+                      fontWeight:900,
+                      color:'#FFFFFF',
+                      whiteSpace:'nowrap',
+                      minWidth:145,
+                      textAlign:'right'
+                    }}>
+                      {vTotal > 0 ? fmtR(vTotal) : somaDocumental > 0 ? fmtR(somaDocumental) : '—'}
                     </div>
                   </div>
+                  {vTotal > 0 && Math.abs(diferencaDocumental) > 0.02 && (
+                    <div style={{marginTop:8,fontSize:11,color:'#92400E',background:'#FFFBEB',borderRadius:6,padding:'8px 12px'}}>
+                      ⚠️ A soma dos componentes informados difere do total da CDA em {fmtR(diferencaDocumental)}. Pode existir rubrica/atualização não individualizada no PDF.
+                    </div>
+                  )}
+                  {selicPct != null && vSelicReferencia != null && (
+                    <div style={{marginTop:8,fontSize:11,color:'#1E40AF',background:'#EFF6FF',borderRadius:6,padding:'8px 12px'}}>
+                      ℹ️ SELIC acumulada de referência desde a data informada: <strong>{selicPct.toFixed(2)}%</strong> (aprox. {fmtR(vSelicReferencia)} sobre o principal). Não incorporada automaticamente à dívida.
+                    </div>
+                  )}
                   {selicPct == null && campos.data_vencimento_original && (
                     <div style={{marginTop:8,fontSize:11,color:'#92400E',background:'#FFFBEB',borderRadius:6,padding:'8px 12px'}}>
                       ⚠️ Data de vencimento fora do intervalo da tabela SELIC disponível (fev/1995 a jul/2026). Informe uma data válida para cálculo automático.
@@ -879,30 +1447,21 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
                     </div>
                   )}
                   <div style={{marginTop:10,fontSize:10,color:'#94A3B8',lineHeight:1.6}}>
-                    ⚠️ Cálculo estimado para fins de planejamento — valores oficiais devem ser obtidos via SICALC (Receita Federal) ou sistema PGFN.
-                    A tabela SELIC utilizada é a publicada pela RFB (fonte: vriconsulting.com.br/indices/selic.php), atualizada até jul/2026.
+                    ⚠️ Referência para planejamento. Para transação, prevalecem os valores oficiais da CDA/REGULARIZE/SISPAR.
+                    A tabela SELIC foi mantida do arquivo original e continua identificada como referência até jul/2026.
                   </div>
                 </div>
               )
             })()}
           </div>
 		  <div style={{background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Natureza e Negociação</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:16}}>⚖️ Natureza do Débito e Encaminhamento</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
               {sel('tipo_debito','Tipo de Débito',TIPOS_DEBITO)}
-              {sel('modalidade_transacao','Modalidade de Transação',MODALIDADES)}
+              {inpValor('encargo_legal','Encargo legal constante da CDA (R$)')}
             </div>
-            <div style={{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',marginBottom:14,fontSize:12,color:C.muted}}>
-              💡 Valores calculados automaticamente com base na modalidade selecionada.
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:14}}>
-              {inpValor('desconto_valor','Desconto R$')}
-              {inp('desconto_percentual','Desconto %','number')}
-              {inpValor('valor_entrada','Valor Entrada')}
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-              {inp('qt_parcelas','Qtd. Parcelas','number')}
-              {inpValor('valor_parcela','Valor Parcela')}
+            <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8,padding:'12px 16px',fontSize:12,color:'#1E40AF',lineHeight:1.55}}>
+              💡 Esta tela registra e confere os dados documentais. A simulação de desconto, entrada e parcelas é feita no motor <strong>Transação Tributária</strong>, usando a CDA salva + CAPAG + regras/editais vigentes.
             </div>
           </div>
 
@@ -953,14 +1512,14 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
             </div>
           </div>
 
-          <div style={{display:'flex',gap:12,marginBottom:32}}>
+          <div style={{display:'flex',gap:12,marginBottom:32,flexWrap:'wrap'}}>
             <button onClick={salvar} disabled={salvando}
               style={{padding:'12px 28px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer',opacity:salvando?0.7:1}}>
               {salvando?'💾 Salvando...':'💾 Salvar CDA'}
             </button>
             <button onClick={novaImportacao}
               style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,cursor:'pointer'}}>
-              📄 Nova importação
+              ↻ Novo processo / nova importação
             </button>
           </div>
         </div>
@@ -983,9 +1542,13 @@ export default function ImportarCDA({ active, onSalvo, onDiagnostico, onVoltar }
               style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.navy}`,borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>
               🖨️ Imprimir CDA
             </button>
+            <button onClick={novaCDA}
+              style={{padding:'12px 22px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:800,cursor:'pointer'}}>
+              ＋ Nova CDA
+            </button>
             <button onClick={novaImportacao}
               style={{padding:'12px 20px',background:C.white,color:C.navy,border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:'pointer'}}>
-              📄 Importar outra
+              ↻ Novo processo / nova importação
             </button>
           </div>
         </div>

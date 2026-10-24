@@ -2,27 +2,12 @@
  * modulos/divida_ativa.js — e-FiscalTribe
  * Motor de Dívida Ativa — Orquestrador de CDAs.
  *
- * Este módulo orquestra os sub-motores:
- * — PRESCRICAO  → verifica prescrição ordinária e intercorrente
- * — DECADENCIA  → verifica decadência dos lançamentos
- * — CAPAG       → calcula capacidade de pagamento
- * — TRANSACAO   → simula condições de negociação
- *
- * Entradas aceitas:
- * — CDAs importadas via ImportarCDA.jsx (Groq/Gemini)
- * — Relatório SISPAR
- * — Dados manuais via opcoes
- *
- * CONTRATO:
- * — Recebe: nfes (não usado aqui), cliente, opcoes, BaseTributaria
- * — opcoes.cdas = [{ numero, tributo, competencia, valor, dataInscricao,
- *                    dataAjuizamento, dataUltimaMovimentacao, situacao }]
- * — opcoes.financeiro = { totalDivida, faturamentoAnual, faturamentoMensal,
- *                          bensPenhoraveis, emRecuperacao }
- * — Retorna: ResultadoPadrao completo com análise consolidada
- *
- * Versão: 1.0
- * Data: 2026-07-30
+ * REVISÃO 04/10/2026:
+ * 1) normaliza CDAs vindas do ImportarCDA/Supabase;
+ * 2) analisa prescrição/decadência ANTES da transação;
+ * 3) envia para transação apenas as CDAs classificadas como ativas;
+ * 4) soma principal, multa, juros e encargo reais das CDAs ativas;
+ * 5) CAPAG não calcula mais desconto; desconto pertence ao motor Transação.
  */
 
 import {
@@ -35,512 +20,437 @@ import {
 
 import { scoreOportunidade, scoreMotor } from '../contratos/Score.js'
 
-// Sub-motores
 import { analisarPrescricao } from './prescricao.js'
 import { analisarDecadencia } from './decadencia.js'
-import { analisarCAPAG }      from './capag.js'
-import { analisarTransacao }  from './transacao.js'
-
-// ─────────────────────────────────────────────────────────────
-// CONSTANTES
-// ─────────────────────────────────────────────────────────────
+import { analisarCAPAG } from './capag.js'
+import { analisarTransacao } from './transacao.js'
 
 const FUNDAMENTACAO = {
   teseJuridica: 'Análise Integrada de Dívida Ativa — Prescrição, Decadência, CAPAG e Transação',
-  resumo: 'Análise completa de CDAs inscritas em Dívida Ativa: verificação de prescrição e decadência para extinção de créditos indevidos, cálculo do CAPAG e simulação das melhores condições de transação com a PGFN.',
+  resumo: 'Analisa CDAs, prioriza hipóteses de extinção e somente depois encaminha o passivo remanescente para simulação de transação.',
   baseLegal: [
-    { norma: 'Art. 174 CTN',              descricao: 'Prescrição do crédito tributário' },
-    { norma: 'Art. 150 e 173 CTN',        descricao: 'Decadência do lançamento tributário' },
-    { norma: 'Art. 40 Lei 6.830/1980',    descricao: 'Prescrição intercorrente na execução fiscal' },
-    { norma: 'Lei 13.988/2020',           descricao: 'Transação Tributária federal' },
-    { norma: 'Portaria PGFN 6.757/2022', descricao: 'CAPAG e condições de transação' },
-    { norma: 'Tema 566 STJ',              descricao: 'Marco inicial da prescrição intercorrente' },
-    { norma: 'Tema 444 STJ',              descricao: 'Prescrição do redirecionamento aos sócios' },
-  ],
-  jurisprudencia: [
-    'STF — RE 636.562 (Tema 390) — prescrição intercorrente constitucional',
-    'STF — RE 556.664 — decadência e prescrição apenas por LC',
-    'STJ — Tema 566 — prazo da prescrição intercorrente',
-    'STJ — Tema 444 — prescrição do redirecionamento',
-    'STJ — Súmula 314 — prescrição intercorrente na execução fiscal',
+    { norma: 'Art. 174 CTN', descricao: 'Prescrição do crédito tributário' },
+    { norma: 'Art. 150 e 173 CTN', descricao: 'Decadência' },
+    { norma: 'Art. 40 Lei 6.830/1980', descricao: 'Prescrição intercorrente' },
+    { norma: 'Lei 13.988/2020', descricao: 'Transação tributária federal' },
+    { norma: 'Portaria PGFN 6.757/2022', descricao: 'Transação e capacidade de pagamento' },
+    { norma: 'Tema 566 STJ', descricao: 'Prescrição intercorrente' },
+    { norma: 'Tema 444 STJ', descricao: 'Prescrição do redirecionamento' },
   ],
   via: 'ADMINISTRATIVA_JUDICIAL',
-  prazoRetroativo: 'Verificar data de cada CDA',
+  prazoRetroativo: 'Verificar cada CDA',
   riscoContestacao: 20,
 }
 
-// ─────────────────────────────────────────────────────────────
-// FUNÇÕES AUXILIARES
-// ─────────────────────────────────────────────────────────────
+const n = v => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+  const s = String(v ?? '').trim()
+  if (!s) return 0
+  if (s.includes(',') && s.includes('.')) return Number(s.replace(/\./g,'').replace(',','.')) || 0
+  if (s.includes(',')) return Number(s.replace(',','.')) || 0
+  return Number(s) || 0
+}
 
-/**
- * Converte CDA para formato esperado pelo Motor de Prescrição.
- */
-function cdaParaDivida(cda, idx) {
+const fmtVal = v => n(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })
+
+function normalizarCDA(cda = {}, idx = 0) {
   return {
-    id:                     cda.numero || `CDA_${idx}`,
-    numero:                 cda.numero || `CDA ${idx + 1}`,
-    valor:                  parseFloat(cda.valorTotal || cda.valor || 0),
-    dataConstituicao:       cda.dataInscricao || null,
-    dataCitacao:            cda.dataAjuizamento || null,
-    dataUltimaMovimentacao: cda.dataUltimaMovimentacao || null,
-    redirecionado:          cda.redirecionado || false,
-    dataRedirecionamento:   cda.dataRedirecionamento || null,
+    ...cda,
+    id: cda.id || cda.numero_cda || cda.numero || `CDA_${idx}`,
+    numero: cda.numero || cda.numero_cda || `CDA ${idx + 1}`,
+    tributo: cda.tributo || cda.tipo_debito || cda.tipoTributo || '',
+    competencia: cda.competencia || cda.periodo_divida_inicio || '',
+    valorTotal: n(cda.valorTotal ?? cda.valor_total ?? cda.valor),
+    valorPrincipal: n(cda.valorPrincipal ?? cda.principal_atualizado ?? cda.valor_principal),
+    valorMultas: n(cda.valorMultas ?? cda.multa ?? cda.valor_multas),
+    valorJuros: n(cda.valorJuros ?? cda.juros ?? cda.valor_juros),
+    valorEncargos: n(cda.valorEncargos ?? cda.encargo_legal ?? cda.valor_encargos),
+    dataInscricao: cda.dataInscricao || cda.data_inscricao || null,
+    dataFatoGerador: cda.dataFatoGerador || cda.data_fato_gerador || null,
+    dataConstituicao: cda.dataConstituicao || cda.data_constituicao_definitiva || cda.dataInscricao || cda.data_inscricao || null,
+    dataAjuizamento: cda.dataAjuizamento || cda.data_ajuizamento || null,
+    dataCitacao: cda.dataCitacao || cda.data_citacao || null,
+    dataUltimaMovimentacao: cda.dataUltimaMovimentacao || cda.data_ultima_movimentacao || null,
+    redirecionado: !!cda.redirecionado,
+    dataRedirecionamento: cda.dataRedirecionamento || cda.data_redirecionamento || null,
+    possuiExecucaoFiscal: !!(cda.possui_execucao_fiscal || cda.data_ajuizamento || cda.dataAjuizamento),
+    tipoDebito: cda.tipo_debito || cda.tipoDebito || '',
   }
 }
 
-/**
- * Converte CDA para formato esperado pelo Motor de Decadência.
- */
-function cdaParaLancamento(cda, idx) {
+function cdaParaDivida(cda) {
   return {
-    id:              cda.numero || `CDA_${idx}`,
-    numero:          cda.numero || `CDA ${idx + 1}`,
-    tributo:         cda.tributo || cda.tipoTributo || '',
-    valor:           parseFloat(cda.valorTotal || cda.valor || 0),
-    dataFatoGerador: cda.competencia
-      ? `${cda.competencia}-01`
-      : cda.dataFatoGerador || null,
-    dataLancamento:  cda.dataInscricao || null,
-    dolo:            cda.dolo || false,
+    id: cda.numero,
+    numero: cda.numero,
+    valor: cda.valorTotal,
+    dataConstituicao: cda.dataConstituicao,
+    dataCitacao: cda.dataCitacao,
+    dataAjuizamento: cda.dataAjuizamento,
+    dataUltimaMovimentacao: cda.dataUltimaMovimentacao,
+    redirecionado: cda.redirecionado,
+    dataRedirecionamento: cda.dataRedirecionamento,
   }
 }
 
-/**
- * Classifica a situação de cada CDA após a análise.
- */
+function cdaParaLancamento(cda) {
+  return {
+    id: cda.numero,
+    numero: cda.numero,
+    tributo: cda.tributo,
+    valor: cda.valorTotal,
+    dataFatoGerador: cda.dataFatoGerador || (cda.competencia && /^\d{4}-\d{2}$/.test(cda.competencia) ? `${cda.competencia}-01` : null),
+    dataLancamento: cda.dataConstituicao || cda.dataInscricao,
+    dolo: !!cda.dolo,
+  }
+}
+
+function encontrouCDA(resultado, numero) {
+  if (!resultado || !numero) return false
+  return resultado?.oportunidades?.some(o =>
+    String(o.id || '').includes(numero) ||
+    String(o.descricao || '').includes(numero) ||
+    (o.calculos?.cdasAfetadas || []).some(c => String(c.numero || c.id || '').includes(numero))
+  )
+}
+
 function classificarCDA(cda, resultPrescricao, resultDecadencia) {
-  const numCDA    = cda.numero
-  const prescrita = resultPrescricao?.oportunidades?.some(o =>
-    o.id?.includes(numCDA) || o.descricao?.includes(numCDA)
-  )
-  const decadente = resultDecadencia?.oportunidades?.some(o =>
-    o.id?.includes(numCDA) || o.descricao?.includes(numCDA)
-  )
+  const decadente = encontrouCDA(resultDecadencia, cda.numero)
+  const prescrita = encontrouCDA(resultPrescricao, cda.numero)
 
-  if (decadente)  return { status: 'DECADENTE',  label: '🔴 Decadente — lançamento inválido',          prioridade: 1 }
-  if (prescrita)  return { status: 'PRESCRITA',  label: '🟠 Prescrita — crédito extinto',              prioridade: 2 }
-  return           { status: 'ATIVA',    label: '🟡 Ativa — verificar transação',             prioridade: 3 }
+  if (decadente) return { status:'DECADENTE', label:'🔴 Decadente — revisar/extinguir antes de negociar', prioridade:1 }
+  if (prescrita) return { status:'PRESCRITA', label:'🟠 Prescrita — revisar/extinguir antes de negociar', prioridade:2 }
+  return { status:'ATIVA', label:'🟡 Ativa — apta a seguir para análise de transação', prioridade:3 }
 }
 
-/**
- * Formata valor monetário.
- */
-function fmtVal(v) {
-  return (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+function somarComposicao(cdas) {
+  return cdas.reduce((acc,c) => {
+    acc.total += c.valorTotal
+    acc.principal += c.valorPrincipal
+    acc.multas += c.valorMultas
+    acc.juros += c.valorJuros
+    acc.encargos += c.valorEncargos
+    return acc
+  }, { total:0, principal:0, multas:0, juros:0, encargos:0 })
 }
-
-// ─────────────────────────────────────────────────────────────
-// FUNÇÃO PRINCIPAL
-// ─────────────────────────────────────────────────────────────
 
 export async function analisarDividaAtiva(nfes, cliente, opcoes = {}, BaseTributaria) {
-  const inicio    = Date.now()
-  const modulo    = 'DIVIDA_ATIVA'
+  const inicio = Date.now()
+  const modulo = 'DIVIDA_ATIVA'
   const resultado = criarResultado(modulo)
-
   resultado.descricaoModulo = 'Análise Integrada de Dívida Ativa — Prescrição, Decadência, CAPAG e Transação'
 
   try {
-
-    // ── 1. Validações ───────────────────────────────────────────
-    const cdas       = opcoes.cdas       || []
     const financeiro = opcoes.financeiro || {}
+    const cdasEntrada = (opcoes.cdas || []).map(normalizarCDA)
 
-    if (cdas.length === 0 && !financeiro.totalDivida) {
+    if (cdasEntrada.length === 0 && !financeiro.totalDivida) {
       resultado.status = STATUS_ANALISE.SEM_DADOS
-      resultado.erro   = 'Informe as CDAs em opcoes.cdas ou o total da dívida em opcoes.financeiro.totalDivida.'
+      resultado.erro = 'Informe as CDAs ou o total da dívida.'
       return finalizarResultado(resultado, inicio)
     }
 
-    // ── 2. Diagnóstico inicial ──────────────────────────────────
-    const totalDivida = financeiro.totalDivida
-      || cdas.reduce((s, c) => s + parseFloat(c.valorTotal || c.valor || 0), 0)
-
-    const competencias = [...new Set(cdas.map(c => c.competencia).filter(Boolean))].sort()
+    const totalDividaDocumental = cdasEntrada.length
+      ? cdasEntrada.reduce((s,c)=>s+c.valorTotal,0)
+      : n(financeiro.totalDivida)
 
     resultado.diagnostico = {
-      totalDocumentosAnalisados: cdas.length,
-      totalItensAnalisados:      cdas.length,
-      competenciasAnalisadas:    competencias,
-      periodoInicio:             competencias[0]  || '',
-      periodoFim:                competencias[competencias.length - 1] || '',
-      situacoesEncontradas:      [`${cdas.length} CDA(s) identificadas — Dívida total: R$ ${fmtVal(totalDivida)}`],
-      observacoes: [
-        `${cdas.length} CDA(s) analisadas`,
-        `Total da dívida: R$ ${fmtVal(totalDivida)}`,
-        `Tributos: ${[...new Set(cdas.map(c => c.tributo).filter(Boolean))].join(', ') || 'não informados'}`,
-        `Competências: ${competencias.join(', ') || 'não informadas'}`,
-      ].join('. '),
+      totalDocumentosAnalisados: cdasEntrada.length,
+      totalItensAnalisados: cdasEntrada.length,
+      competenciasAnalisadas: [...new Set(cdasEntrada.map(c=>c.competencia).filter(Boolean))],
+      periodoInicio: '',
+      periodoFim: '',
+      situacoesEncontradas: [`${cdasEntrada.length} CDA(s) — total documental R$ ${fmtVal(totalDividaDocumental)}`],
+      observacoes: 'Fluxo: primeiro prescrição/decadência; depois CAPAG; somente o saldo ativo segue para transação.',
     }
 
-    // ── 3. Executa sub-motores em paralelo ──────────────────────
-    const [
-      resultPrescricao,
-      resultDecadencia,
-      resultCAPAG,
-      resultTransacao,
-    ] = await Promise.all([
-
-      // PRESCRICAO
-      cdas.length > 0
-        ? analisarPrescricao([], cliente, {
-            dividas: cdas.map(cdaParaDivida),
-          }, BaseTributaria)
+    // 1) Extinção primeiro.
+    const [resultPrescricao, resultDecadencia] = await Promise.all([
+      cdasEntrada.length
+        ? analisarPrescricao([], cliente, { dividas: cdasEntrada.map(cdaParaDivida) }, BaseTributaria)
         : Promise.resolve(null),
-
-      // DECADENCIA
-      cdas.length > 0
-        ? analisarDecadencia([], cliente, {
-            lancamentos: cdas.map(cdaParaLancamento),
-          }, BaseTributaria)
+      cdasEntrada.length
+        ? analisarDecadencia([], cliente, { lancamentos: cdasEntrada.map(cdaParaLancamento) }, BaseTributaria)
         : Promise.resolve(null),
-
-      // CAPAG
-      analisarCAPAG([], cliente, {
-        totalDivida,
-        faturamentoAnual:  financeiro.faturamentoAnual  || 0,
-        bensPenhoraveis:   financeiro.bensPenhoraveis   || 0,
-        emRecuperacao:     financeiro.emRecuperacao     || false,
-        inadimplente:      true,
-        capagInformado:    financeiro.capag             || null,
-      }, BaseTributaria),
-
-      // TRANSACAO
-      analisarTransacao([], cliente, {
-        totalDivida,
-        valorPrincipal:    financeiro.valorPrincipal    || 0,
-        valorMultas:       financeiro.valorMultas       || 0,
-        valorJuros:        financeiro.valorJuros        || 0,
-        capag:             financeiro.capag             || 'C',
-        faturamentoMensal: financeiro.faturamentoMensal || 0,
-        emContencioso:     financeiro.emContencioso     || false,
-      }, BaseTributaria),
     ])
 
-    // ── 4. Classifica cada CDA ──────────────────────────────────
-    const cdasClassificadas = cdas.map((cda, idx) => ({
+    const cdasClassificadas = cdasEntrada.map(cda => ({
       ...cda,
-      idx,
       classificacao: classificarCDA(cda, resultPrescricao, resultDecadencia),
-      valor: parseFloat(cda.valorTotal || cda.valor || 0),
-    })).sort((a, b) => a.classificacao.prioridade - b.classificacao.prioridade)
+      valor: cda.valorTotal,
+    })).sort((a,b)=>a.classificacao.prioridade-b.classificacao.prioridade)
 
-    const cdasDecadentes  = cdasClassificadas.filter(c => c.classificacao.status === 'DECADENTE')
-    const cdasPrescritas  = cdasClassificadas.filter(c => c.classificacao.status === 'PRESCRITA')
-    const cdasAtivas      = cdasClassificadas.filter(c => c.classificacao.status === 'ATIVA')
+    const cdasDecadentes = cdasClassificadas.filter(c=>c.classificacao.status==='DECADENTE')
+    const cdasPrescritas = cdasClassificadas.filter(c=>c.classificacao.status==='PRESCRITA')
+    const cdasAtivas = cdasClassificadas.filter(c=>c.classificacao.status==='ATIVA')
 
-    const valorDecadente  = cdasDecadentes.reduce((s, c) => s + c.valor, 0)
-    const valorPrescrito  = cdasPrescritas.reduce((s, c) => s + c.valor, 0)
-    const valorAtivo      = cdasAtivas.reduce((s, c)    => s + c.valor, 0)
+    const valorDecadente = cdasDecadentes.reduce((s,c)=>s+c.valorTotal,0)
+    const valorPrescrito = cdasPrescritas.reduce((s,c)=>s+c.valorTotal,0)
+    const valorAtivo = cdasAtivas.length
+      ? cdasAtivas.reduce((s,c)=>s+c.valorTotal,0)
+      : (cdasEntrada.length ? 0 : totalDividaDocumental)
     const valorExtinguivel = valorDecadente + valorPrescrito
 
-    // ── 5. Oportunidades consolidadas ───────────────────────────
-    const oportunidades = []
-    let creditoTotal    = 0
+    const compAtiva = cdasAtivas.length
+      ? somarComposicao(cdasAtivas)
+      : {
+          total: valorAtivo,
+          principal: n(financeiro.valorPrincipal),
+          multas: n(financeiro.valorMultas),
+          juros: n(financeiro.valorJuros),
+          encargos: n(financeiro.valorEncargos),
+        }
 
-    // Oportunidade 1 — Extinção por decadência
-    if (resultDecadencia?.oportunidades?.length > 0) {
+    // 2) CAPAG e Transação só sobre o saldo ativo/remanescente.
+    let resultCAPAG = null
+    let resultTransacao = null
+
+    if (valorAtivo > 0) {
+      resultCAPAG = await analisarCAPAG([], cliente, {
+        totalDivida: valorAtivo,
+        faturamentoAnual: n(financeiro.faturamentoAnual),
+        bensPenhoraveis: n(financeiro.bensPenhoraveis),
+        emRecuperacao: !!financeiro.emRecuperacao,
+        inadimplente: true,
+        capagInformado: financeiro.capag || null,
+      }, BaseTributaria)
+
+      const capagEfetivo =
+        financeiro.capag ||
+        resultCAPAG?.calculos?.capag ||
+        resultCAPAG?.oportunidades?.[0]?.calculos?.capag ||
+        null
+
+      resultTransacao = await analisarTransacao([], cliente, {
+        totalDivida: valorAtivo,
+        valorPrincipal: compAtiva.principal,
+        valorMultas: compAtiva.multas,
+        valorJuros: compAtiva.juros,
+        valorEncargos: compAtiva.encargos,
+        capag: capagEfetivo,
+        capagOficial: !!financeiro.capag,
+        faturamentoMensal: n(financeiro.faturamentoMensal),
+        emContencioso: !!financeiro.emContencioso,
+        dificilRecuperacao: !!financeiro.dificilRecuperacao,
+        modalidadeForced: financeiro.modalidadeTransacao || null,
+        nParcelasDesejadas: financeiro.nParcelasDesejadas || null,
+        tipoPessoa: financeiro.tipoPessoa || cliente?.tipoPessoa || 'pj_demais',
+        tipoDebito: financeiro.tipoDebito || cdasAtivas[0]?.tipoDebito || '',
+        emRecuperacaoJudicial: !!financeiro.emRecuperacao,
+        dataInscricao: cdasAtivas[0]?.dataInscricao || null,
+        cdas: cdasAtivas,
+      }, BaseTributaria)
+    }
+
+    const oportunidades = []
+    let creditoTotal = 0
+
+    if (resultDecadencia?.oportunidades?.length && valorDecadente > 0) {
       const credDecad = resultDecadencia.calculos?.creditoEstimado || valorDecadente
       creditoTotal += credDecad
       oportunidades.push({
-        id:            `DA_DECAD_${Date.now()}`,
-        tese:          'Decadência — Extinção de Lançamentos Inválidos',
-        descricao:     `${cdasDecadentes.length} CDA(s) com lançamento após o prazo decadencial de 5 anos. Valor extinguível: R$ ${fmtVal(credDecad)}.`,
-        score:         scoreOportunidade({ modulo, label: 'Decadência', qualidadeDados: 85, forcaJuridica: 90, volumeEvidencias: 75, valorCredito: Math.min(100, (credDecad / 50000) * 100), riscoContestacao: 20 }),
-        grauConfianca: GRAU_CONFIANCA.ALTO,
-        evidencias:    [],
-        fundamentacao: { teseJuridica: 'Decadência — Art. 150/173 CTN', baseLegal: FUNDAMENTACAO.baseLegal.slice(1, 3) },
-        calculos: {
-          creditoTotal: credDecad, economiaTotal: credDecad,
-          creditoEstimado: credDecad, creditoPor12Meses: credDecad,
-          creditoPor60Meses: credDecad, creditoMensalMedio: credDecad / 12,
-          cdasAfetadas: cdasDecadentes.map(c => ({ numero: c.numero, valor: c.valor, tributo: c.tributo })),
-          memoriaCalculo: [
-            `${cdasDecadentes.length} CDA(s) decadentes identificadas`,
-            `Valor total extinguível: R$ ${fmtVal(credDecad)}`,
-            `Base: Art. 150 §4º e Art. 173 CTN`,
-          ],
-        },
-        recomendacao: {
-          tipo: 'ACAO_IMEDIATA', prioridade: 'URGENTE',
-          titulo: `Arguir decadência em ${cdasDecadentes.length} CDA(s)`,
-          descricao: `Extinção imediata de R$ ${fmtVal(credDecad)} por decadência.`,
-          passos: [
-            'Verificar a data do fato gerador e do lançamento de cada CDA decadente',
-            'Calcular precisamente o prazo decadencial (art. 150 §4º ou 173 CTN)',
-            'Protocolar impugnação administrativa ou exceção de pré-executividade',
-            'Requerer extinção do crédito e emissão de certidão negativa',
-          ],
+        id:`DA_DECAD_${Date.now()}`,
+        tese:'Decadência — revisar antes de negociar',
+        descricao:`${cdasDecadentes.length} CDA(s) sinalizada(s) com potencial de decadência. Valor documental: R$ ${fmtVal(valorDecadente)}.`,
+        score:scoreOportunidade({modulo,label:'Decadência',qualidadeDados:85,forcaJuridica:90,volumeEvidencias:75,valorCredito:Math.min(100,(credDecad/50000)*100),riscoContestacao:20}),
+        grauConfianca:GRAU_CONFIANCA.ALTO,
+        evidencias:[],
+        fundamentacao:{ teseJuridica:'Decadência — CTN', baseLegal:FUNDAMENTACAO.baseLegal.slice(1,2) },
+        calculos:{ creditoTotal:credDecad, creditoEstimado:credDecad, economiaTotal:credDecad, cdasAfetadas:cdasDecadentes.map(c=>({numero:c.numero,valor:c.valorTotal})) },
+        recomendacao:{
+          tipo:'ACAO_IMEDIATA', prioridade:'URGENTE',
+          titulo:`Revisar decadência em ${cdasDecadentes.length} CDA(s)`,
+          descricao:'Não negociar automaticamente uma CDA potencialmente extinguível.',
+          passos:['Conferir fato gerador e constituição definitiva','Validar a hipótese legal aplicável','Definir a medida administrativa/judicial cabível antes da negociação'],
         },
       })
     }
 
-    // Oportunidade 2 — Extinção por prescrição
-    if (resultPrescricao?.oportunidades?.length > 0) {
+    if (resultPrescricao?.oportunidades?.length && valorPrescrito > 0) {
       const credPresc = resultPrescricao.calculos?.creditoEstimado || valorPrescrito
       creditoTotal += credPresc
       oportunidades.push({
-        id:            `DA_PRESC_${Date.now() + 1}`,
-        tese:          'Prescrição — Extinção de Créditos Prescritos',
-        descricao:     `${cdasPrescritas.length} CDA(s) com prescrição identificada. Valor extinguível: R$ ${fmtVal(credPresc)}.`,
-        score:         scoreOportunidade({ modulo, label: 'Prescrição', qualidadeDados: 80, forcaJuridica: 88, volumeEvidencias: 70, valorCredito: Math.min(100, (credPresc / 50000) * 100), riscoContestacao: 25 }),
-        grauConfianca: GRAU_CONFIANCA.ALTO,
-        evidencias:    [],
-        fundamentacao: { teseJuridica: 'Prescrição — Art. 174 CTN e Art. 40 LEF', baseLegal: FUNDAMENTACAO.baseLegal.slice(0, 2) },
-        calculos: {
-          creditoTotal: credPresc, economiaTotal: credPresc,
-          creditoEstimado: credPresc, creditoPor12Meses: credPresc,
-          creditoPor60Meses: credPresc, creditoMensalMedio: credPresc / 12,
-          cdasAfetadas: cdasPrescritas.map(c => ({ numero: c.numero, valor: c.valor, tributo: c.tributo })),
-          memoriaCalculo: [
-            `${cdasPrescritas.length} CDA(s) prescritas identificadas`,
-            `Valor total extinguível: R$ ${fmtVal(credPresc)}`,
-            `Base: Art. 174 CTN — 5 anos do despacho de citação`,
-          ],
-        },
-        recomendacao: {
-          tipo: 'ACAO_IMEDIATA', prioridade: 'URGENTE',
-          titulo: `Arguir prescrição em ${cdasPrescritas.length} CDA(s)`,
-          descricao: `Extinção de R$ ${fmtVal(credPresc)} por prescrição.`,
-          passos: [
-            'Levantar os autos de cada execução fiscal (petições, citação, movimentações)',
-            'Calcular o prazo prescricional com base na última movimentação válida',
-            'Protocolar petição de extinção por prescrição (art. 156, V, CTN)',
-            'Verificar se há prescrição do redirecionamento para sócios (Tema 444 STJ)',
-            'Requerer certidão negativa após extinção',
-          ],
+        id:`DA_PRESC_${Date.now()+1}`,
+        tese:'Prescrição — revisar antes de negociar',
+        descricao:`${cdasPrescritas.length} CDA(s) sinalizada(s) com potencial de prescrição. Valor documental: R$ ${fmtVal(valorPrescrito)}.`,
+        score:scoreOportunidade({modulo,label:'Prescrição',qualidadeDados:80,forcaJuridica:88,volumeEvidencias:70,valorCredito:Math.min(100,(credPresc/50000)*100),riscoContestacao:25}),
+        grauConfianca:GRAU_CONFIANCA.ALTO,
+        evidencias:[],
+        fundamentacao:{ teseJuridica:'Prescrição — CTN/LEF', baseLegal:[FUNDAMENTACAO.baseLegal[0],FUNDAMENTACAO.baseLegal[2]] },
+        calculos:{ creditoTotal:credPresc, creditoEstimado:credPresc, economiaTotal:credPresc, cdasAfetadas:cdasPrescritas.map(c=>({numero:c.numero,valor:c.valorTotal})) },
+        recomendacao:{
+          tipo:'ACAO_IMEDIATA', prioridade:'URGENTE',
+          titulo:`Revisar prescrição em ${cdasPrescritas.length} CDA(s)`,
+          descricao:'Validar a íntegra do processo e causas suspensivas/interruptivas antes de negociar.',
+          passos:['Consultar os autos','Conferir citação e movimentações','Validar prescrição ordinária/intercorrente e eventual redirecionamento'],
         },
       })
     }
 
-    // Oportunidade 3 — Transação para CDAs ativas
-    if (resultTransacao?.oportunidades?.length > 0 && valorAtivo > 0) {
-      const oportunidadeTransacao = resultTransacao.oportunidades[0]
-      creditoTotal += oportunidadeTransacao.calculos?.creditoTotal || 0
+    if (resultTransacao?.oportunidades?.length && valorAtivo > 0) {
+      const opTrans = resultTransacao.oportunidades[0]
+      const economiaTrans = n(opTrans.calculos?.creditoTotal)
+      creditoTotal += economiaTrans
       oportunidades.push({
-        ...oportunidadeTransacao,
-        id:       `DA_TRANS_${Date.now() + 2}`,
-        descricao: `${cdasAtivas.length} CDA(s) ativa(s) com valor total de R$ ${fmtVal(valorAtivo)}. ${oportunidadeTransacao.descricao}`,
+        ...opTrans,
+        id:`DA_TRANS_${Date.now()+2}`,
+        descricao:`${cdasAtivas.length || 1} CDA(s)/saldo ativo de R$ ${fmtVal(valorAtivo)} encaminhado para transação. ${opTrans.descricao || ''}`,
       })
     }
 
-    // ── 6. Grau de confiança global ─────────────────────────────
-    const temDatas = cdas.some(c => c.dataInscricao || c.dataAjuizamento)
-    resultado.grauConfianca = temDatas ? GRAU_CONFIANCA.ALTO : GRAU_CONFIANCA.MEDIO
-    resultado.justificativaConfianca = temDatas
-      ? 'Datas das CDAs disponíveis — análise de prescrição e decadência confiável.'
-      : 'Datas parciais — confirmar no sistema REGULARIZE/PGFN para análise precisa.'
+    const temDatasEssenciais = cdasEntrada.length === 0 || cdasEntrada.every(c =>
+      c.dataConstituicao && (c.dataCitacao || c.dataAjuizamento || c.dataUltimaMovimentacao)
+    )
+    resultado.grauConfianca = temDatasEssenciais ? GRAU_CONFIANCA.ALTO : GRAU_CONFIANCA.MEDIO
+    resultado.justificativaConfianca = temDatasEssenciais
+      ? 'Dados jurídicos suficientes para triagem integrada; validar documentos originais antes de qualquer medida.'
+      : 'Há datas jurídicas faltantes; prescrição/decadência podem ficar inconclusivas.'
 
     resultado.oportunidades = oportunidades
 
-    // ── 7. Cálculos consolidados ────────────────────────────────
-    const capagResult = resultCAPAG?.oportunidades?.[0]?.calculos
-    const transResult = resultTransacao?.oportunidades?.[0]?.calculos
+    const transCalc = resultTransacao?.calculos || resultTransacao?.oportunidades?.[0]?.calculos || {}
+    const capagCalc = resultCAPAG?.calculos || resultCAPAG?.oportunidades?.[0]?.calculos || {}
 
     resultado.calculos = {
-      valorAnalisado:    totalDivida,
-      baseCalculo:       totalDivida,
-      creditoEstimado:   creditoTotal,
-      economiaEstimada:  creditoTotal,
-      moeda:             'BRL',
-      creditoPor12Meses: creditoTotal,
-      creditoPor24Meses: creditoTotal,
-      creditoPor36Meses: creditoTotal,
-      creditoPor60Meses: creditoTotal,
-      creditoMensalMedio: creditoTotal / 12,
-      totalDocumentos:   cdas.length,
-      totalCompetencias: competencias.length,
+      valorAnalisado: totalDividaDocumental,
+      baseCalculo: totalDividaDocumental,
+      creditoEstimado: creditoTotal,
+      economiaEstimada: creditoTotal,
+      moeda:'BRL',
+      totalDocumentos:cdasEntrada.length,
+      totalCompetencias:resultado.diagnostico.competenciasAnalisadas.length,
 
-      // Resumo das CDAs
-      totalCDAs:         cdas.length,
-      cdasDecadentes:    cdasDecadentes.length,
-      cdasPrescritas:    cdasPrescritas.length,
-      cdasAtivas:        cdasAtivas.length,
+      totalCDAs:cdasEntrada.length,
+      cdasDecadentes:cdasDecadentes.length,
+      cdasPrescritas:cdasPrescritas.length,
+      cdasAtivas:cdasAtivas.length,
       valorDecadente,
       valorPrescrito,
       valorAtivo,
       valorExtinguivel,
 
-      // CAPAG e transação
-      capag:             financeiro.capag || resultCAPAG?.oportunidades?.[0]?.calculos?.capag || 'C',
-      descontoEstimado:  capagResult?.totalDesconto || 0,
-      valorAposTransacao: transResult?.valorAposDesconto || valorAtivo,
-      parcelaEstimada:   transResult?.parcelaSemJuros   || 0,
-      maxParcelas:       transResult?.maxParcelas        || 120,
+      composicaoAtiva:{
+        principal:compAtiva.principal,
+        multas:compAtiva.multas,
+        juros:compAtiva.juros,
+        encargos:compAtiva.encargos,
+        total:compAtiva.total,
+      },
 
-      memoriaCalculo: [
-        `Total da dívida: R$ ${fmtVal(totalDivida)}`,
-        `CDAs decadentes: ${cdasDecadentes.length} — R$ ${fmtVal(valorDecadente)}`,
-        `CDAs prescritas: ${cdasPrescritas.length} — R$ ${fmtVal(valorPrescrito)}`,
-        `CDAs ativas para transação: ${cdasAtivas.length} — R$ ${fmtVal(valorAtivo)}`,
-        `Desconto estimado na transação: R$ ${fmtVal(capagResult?.totalDesconto || 0)}`,
-        `Crédito/economia total: R$ ${fmtVal(creditoTotal)}`,
+      capag:capagCalc.capag || '',
+      descontoEstimado:n(transCalc.descontoEstimado ?? transCalc.totalDesconto),
+      valorAposTransacao:n(transCalc.valorAposTransacao ?? transCalc.valorAposDesconto) || valorAtivo,
+      parcelaEstimada:n(transCalc.parcelaEstimada ?? transCalc.parcelaSemJuros),
+      maxParcelas:n(transCalc.maxParcelas),
+
+      memoriaCalculo:[
+        `Dívida documental total: R$ ${fmtVal(totalDividaDocumental)}`,
+        `Potencialmente decadente: ${cdasDecadentes.length} — R$ ${fmtVal(valorDecadente)}`,
+        `Potencialmente prescrita: ${cdasPrescritas.length} — R$ ${fmtVal(valorPrescrito)}`,
+        `Saldo ativo encaminhado à transação: ${cdasAtivas.length || (valorAtivo>0?1:0)} — R$ ${fmtVal(valorAtivo)}`,
+        `Composição ativa documental: principal R$ ${fmtVal(compAtiva.principal)}, multa R$ ${fmtVal(compAtiva.multas)}, juros R$ ${fmtVal(compAtiva.juros)}, encargos R$ ${fmtVal(compAtiva.encargos)}`,
+        `Desconto potencial calculado pelo motor de Transação: R$ ${fmtVal(transCalc.descontoEstimado ?? transCalc.totalDesconto)}`,
       ],
-
-      observacoesTecnicas: !temDatas
-        ? 'Datas parciais — análise de prescrição e decadência estimada. Confirmar no REGULARIZE.'
-        : '',
+      observacoesTecnicas: temDatasEssenciais ? '' : 'Completar datas jurídicas e confirmar a íntegra dos autos/REGULARIZE.',
     }
 
-    // ── 8. Score ────────────────────────────────────────────────
     resultado.score = scoreMotor({
       modulo,
-      coberturaPeriodo:   competencias.length > 0 ? Math.min(100, (competencias.length / 12) * 100) : 50,
-      completudeDocs:     temDatas ? 85 : 55,
-      consistencia:       oportunidades.length > 0 ? 88 : 60,
-      oportunidadesFound: Math.min(100, (oportunidades.length / 3) * 100),
+      coberturaPeriodo: resultado.diagnostico.competenciasAnalisadas.length ? 80 : 60,
+      completudeDocs: temDatasEssenciais ? 90 : 60,
+      consistencia: oportunidades.length ? 88 : 65,
+      oportunidadesFound: Math.min(100,(oportunidades.length/3)*100),
     })
 
-    // ── 9. Riscos ───────────────────────────────────────────────
     resultado.riscos = [
       {
-        descricao: 'Datas de citação/movimentação não informadas podem prejudicar análise de prescrição',
-        nivel:     temDatas ? 'BAIXO' : 'ALTO',
-        mitigacao: 'Consultar os autos das execuções fiscais e o sistema REGULARIZE',
+        descricao:'Negociar antes de revisar prescrição/decadência pode consolidar uma estratégia economicamente desfavorável.',
+        nivel:'ALTO',
+        mitigacao:'Executar o diagnóstico jurídico antes da transação.',
       },
       {
-        descricao: 'Fazenda pode arguir causa interruptiva ou suspensiva não identificada',
-        nivel:     'MEDIO',
-        mitigacao: 'Verificar íntegra dos autos antes de protocolar arguição de prescrição/decadência',
+        descricao:'Datas incompletas podem gerar falso positivo/negativo de prescrição.',
+        nivel:temDatasEssenciais?'BAIXO':'ALTO',
+        mitigacao:'Consultar a íntegra da execução fiscal e documentos da PGFN.',
       },
       {
-        descricao: 'Descumprimento de transação rescinde o acordo e restaura a dívida integral',
-        nivel:     'ALTO',
-        mitigacao: 'Planejar o fluxo de caixa antes de aderir à transação',
+        descricao:'A simulação de transação não substitui o resultado oficial do SISPAR.',
+        nivel:'MEDIO',
+        mitigacao:'Confrontar a proposta final no REGULARIZE antes da adesão.',
       },
     ]
 
-    // ── 10. Recomendações priorizadas ───────────────────────────
     const recomendacoes = oportunidades
-      .map(o => o.recomendacao)
-      .sort((a, b) => {
-        const ordem = { URGENTE: 0, ALTA: 1, MEDIA: 2, BAIXA: 3 }
-        return (ordem[a.prioridade] || 99) - (ordem[b.prioridade] || 99)
+      .map(o=>o.recomendacao)
+      .filter(Boolean)
+      .sort((a,b)=>{
+        const ordem={URGENTE:0,ALTA:1,MEDIA:2,BAIXA:3}
+        return (ordem[a.prioridade] ?? 99) - (ordem[b.prioridade] ?? 99)
       })
 
-    if (recomendacoes.length === 0) {
+    if (!recomendacoes.length) {
       recomendacoes.push({
-        tipo:       'ORIENTACAO',
-        prioridade: 'MEDIA',
-        titulo:     'Verificar REGULARIZE e consultar datas das execuções',
-        descricao:  'Sem dados suficientes para análise de prescrição/decadência. Consultar REGULARIZE.',
-        passos: [
-          'Acessar regularize.pgfn.gov.br e verificar situação das CDAs',
-          'Levantar datas de citação e última movimentação de cada execução',
-          'Importar relatório SISPAR para análise detalhada',
-        ],
+        tipo:'ORIENTACAO', prioridade:'MEDIA',
+        titulo:'Completar dados da Dívida Ativa',
+        descricao:'Não há dados suficientes para concluir a estratégia.',
+        passos:['Importar a CDA completa','Conferir datas jurídicas','Consultar CAPAG e modalidades no REGULARIZE'],
       })
     }
 
     resultado.recomendacaoPrincipal = recomendacoes[0]
-    resultado.todasRecomendacoes    = recomendacoes
-
-    // ── 11. Relatório executivo ─────────────────────────────────
+    resultado.todasRecomendacoes = recomendacoes
     resultado.relatorio = {
-      resumoExecutivo: [
-        `Análise de ${cdas.length} CDA(s) — Dívida total: R$ ${fmtVal(totalDivida)}.`,
-        cdasDecadentes.length > 0
-          ? `${cdasDecadentes.length} CDA(s) decadente(s) — R$ ${fmtVal(valorDecadente)} extinguíveis por decadência.`
-          : '',
-        cdasPrescritas.length > 0
-          ? `${cdasPrescritas.length} CDA(s) prescrita(s) — R$ ${fmtVal(valorPrescrito)} extinguíveis por prescrição.`
-          : '',
-        cdasAtivas.length > 0
-          ? `${cdasAtivas.length} CDA(s) ativa(s) — R$ ${fmtVal(valorAtivo)} para negociação via transação.`
-          : '',
-      ].filter(Boolean).join(' '),
-
-      objetivoAnalise: 'Identificar CDAs extintas por decadência ou prescrição, calcular o CAPAG e simular as melhores condições de transação com a PGFN para as dívidas remanescentes.',
-
-      escopoAnalise: `${cdas.length} CDA(s) analisada(s). Tributos: ${[...new Set(cdas.map(c => c.tributo).filter(Boolean))].join(', ') || 'não informados'}. Dívida total: R$ ${fmtVal(totalDivida)}.`,
-
-      diagnosticoTecnico: [
-        `Decadentes: ${cdasDecadentes.length} CDA(s) — R$ ${fmtVal(valorDecadente)}`,
-        `Prescritas: ${cdasPrescritas.length} CDA(s) — R$ ${fmtVal(valorPrescrito)}`,
-        `Ativas: ${cdasAtivas.length} CDA(s) — R$ ${fmtVal(valorAtivo)}`,
-        `CAPAG estimado: ${financeiro.capag || 'C'}`,
-        `Desconto estimado na transação: R$ ${fmtVal(capagResult?.totalDesconto || 0)}`,
+      resumoExecutivo:`${cdasEntrada.length} CDA(s), total R$ ${fmtVal(totalDividaDocumental)}. Antes da transação: ${cdasDecadentes.length} sinalizada(s) por decadência e ${cdasPrescritas.length} por prescrição. Saldo ativo: R$ ${fmtVal(valorAtivo)}.`,
+      objetivoAnalise:'Separar extinção e negociação, evitando que o FiscalTribe transacione automaticamente créditos que precisam ser revisados.',
+      escopoAnalise:`${cdasEntrada.length} CDA(s); saldo ativo R$ ${fmtVal(valorAtivo)}.`,
+      diagnosticoTecnico:[
+        `Decadentes: ${cdasDecadentes.length} — R$ ${fmtVal(valorDecadente)}`,
+        `Prescritas: ${cdasPrescritas.length} — R$ ${fmtVal(valorPrescrito)}`,
+        `Ativas: ${cdasAtivas.length} — R$ ${fmtVal(valorAtivo)}`,
+        `CAPAG: ${capagCalc.capag || 'não confirmado'}`,
+        `Desconto potencial da transação: R$ ${fmtVal(transCalc.descontoEstimado ?? transCalc.totalDesconto)}`,
       ].join(' | '),
-
-      oportunidadesTexto: oportunidades.length > 0
-        ? oportunidades.map(o => `${o.tese}: R$ ${fmtVal(o.calculos?.creditoTotal || 0)}`).join(' | ')
-        : 'Nenhuma oportunidade imediata identificada — verificar datas no REGULARIZE.',
-
-      riscosTexto: resultado.riscos.map(r => `[${r.nivel}] ${r.descricao}`).join('. '),
-
-      fundamentacaoTexto: 'Art. 174 CTN (prescrição), Art. 150/173 CTN (decadência), Art. 40 LEF (intercorrente), Lei 13.988/2020 (transação), Temas 566 e 444 STJ.',
-
-      evidenciasTexto: cdasClassificadas.slice(0, 10).map(c =>
-        `${c.numero || 'CDA'} (${c.tributo || '-'}): R$ ${fmtVal(c.valor)} — ${c.classificacao.label}`
-      ).join('\n'),
-
-      scoreTexto: `Score Motor Dívida Ativa: ${resultado.score?.valor || 0}/100. Grau de confiança: ${resultado.grauConfianca}. ${resultado.justificativaConfianca}`,
-
-      recomendacoesTexto: recomendacoes.map(r => `[${r.prioridade}] ${r.titulo}`).join(' | '),
-
-      planoAcao: [
-        cdasDecadentes.length > 0
-          ? `1. Arguir decadência em ${cdasDecadentes.length} CDA(s) — R$ ${fmtVal(valorDecadente)}`
-          : null,
-        cdasPrescritas.length > 0
-          ? `2. Arguir prescrição em ${cdasPrescritas.length} CDA(s) — R$ ${fmtVal(valorPrescrito)}`
-          : null,
-        cdasAtivas.length > 0
-          ? `3. Negociar transação para ${cdasAtivas.length} CDA(s) ativa(s) — R$ ${fmtVal(valorAtivo)}`
-          : null,
-        `4. Verificar CAPAG oficial no REGULARIZE`,
-        `5. Monitorar editais de transação vigentes`,
+      oportunidadesTexto:oportunidades.length ? oportunidades.map(o=>o.tese).join(' | ') : 'Nenhuma oportunidade concluída.',
+      riscosTexto:resultado.riscos.map(r=>`[${r.nivel}] ${r.descricao}`).join('. '),
+      fundamentacaoTexto:'Art. 174 CTN; arts. 150/173 CTN; art. 40 LEF; Lei 13.988/2020; Portaria PGFN 6.757/2022.',
+      evidenciasTexto:cdasClassificadas.slice(0,10).map(c=>`${c.numero}: R$ ${fmtVal(c.valorTotal)} — ${c.classificacao.label}`).join('\n'),
+      scoreTexto:`Score Motor Dívida Ativa: ${resultado.score?.valor || 0}/100. Grau de confiança: ${resultado.grauConfianca}.`,
+      recomendacoesTexto:recomendacoes.map(r=>`[${r.prioridade}] ${r.titulo}`).join(' | '),
+      planoAcao:[
+        cdasDecadentes.length ? `1. Revisar decadência em ${cdasDecadentes.length} CDA(s)` : null,
+        cdasPrescritas.length ? `2. Revisar prescrição em ${cdasPrescritas.length} CDA(s)` : null,
+        valorAtivo > 0 ? `3. Simular transação somente sobre R$ ${fmtVal(valorAtivo)} de saldo ativo` : null,
+        '4. Confirmar CAPAG oficial e resultado no REGULARIZE/SISPAR',
       ].filter(Boolean),
-
-      conclusaoExecutiva: creditoTotal > 0
-        ? `Potencial total de R$ ${fmtVal(creditoTotal)} entre extinção por decadência/prescrição e economia via transação. Prioridade: arguir decadência e prescrição imediatamente antes de negociar.`
-        : `Nenhuma extinção imediata identificada. Recomenda-se negociar transação tributária com base no CAPAG ${financeiro.capag || 'C'}.`,
+      conclusaoExecutiva: valorAtivo > 0
+        ? `Após a triagem jurídica, R$ ${fmtVal(valorAtivo)} permanecem ativos para análise de negociação.`
+        : 'Nenhum saldo foi encaminhado automaticamente à transação após a triagem.',
     }
 
-    // ── 12. Trilha de auditoria ─────────────────────────────────
     resultado.auditTrail = {
-      motoresExecutados: ['DIVIDA_ATIVA', 'PRESCRICAO', 'DECADENCIA', 'CAPAG', 'TRANSACAO'],
-      regrasAplicadas: [
-        { id: 'DA_001', descricao: 'Classificação das CDAs',              resultado: `${cdasDecadentes.length} decadentes | ${cdasPrescritas.length} prescritas | ${cdasAtivas.length} ativas` },
-        { id: 'DA_002', descricao: 'Motor de Prescrição executado',       resultado: resultPrescricao?.status || 'N/A' },
-        { id: 'DA_003', descricao: 'Motor de Decadência executado',       resultado: resultDecadencia?.status || 'N/A' },
-        { id: 'DA_004', descricao: 'Motor de CAPAG executado',            resultado: resultCAPAG?.status || 'N/A' },
-        { id: 'DA_005', descricao: 'Motor de Transação executado',        resultado: resultTransacao?.status || 'N/A' },
-        { id: 'DA_006', descricao: 'Valor total extinguível calculado',   resultado: `R$ ${fmtVal(valorExtinguivel)}` },
+      motoresExecutados:['DIVIDA_ATIVA','PRESCRICAO','DECADENCIA',...(valorAtivo>0?['CAPAG','TRANSACAO']:[])],
+      regrasAplicadas:[
+        { id:'DA_001', descricao:'Normalização de CDAs', resultado:`${cdasEntrada.length} CDA(s)` },
+        { id:'DA_002', descricao:'Prescrição/decadência antes da transação', resultado:`${cdasDecadentes.length} decadentes | ${cdasPrescritas.length} prescritas | ${cdasAtivas.length} ativas` },
+        { id:'DA_003', descricao:'Transação somente do saldo ativo', resultado:`R$ ${valorAtivo.toFixed(2)}` },
+        { id:'DA_004', descricao:'Composição documental enviada ao motor', resultado:`P ${compAtiva.principal.toFixed(2)} | M ${compAtiva.multas.toFixed(2)} | J ${compAtiva.juros.toFixed(2)} | E ${compAtiva.encargos.toFixed(2)}` },
       ],
-      documentosUtilizados: cdas.map(c => ({
-        tipo:          'CDA',
-        identificador: c.numero || 'não identificado',
-        competencia:   c.competencia || '',
-      })),
-      legislacaoVersao: BaseTributaria.versao.codigo,
-      execucoes: [],
-
-      // Sub-resultados completos para debug
-      subMotores: {
-        prescricao: resultPrescricao,
-        decadencia: resultDecadencia,
-        capag:      resultCAPAG,
-        transacao:  resultTransacao,
-      },
+      documentosUtilizados:cdasEntrada.map(c=>({tipo:'CDA',identificador:c.numero,competencia:c.competencia||''})),
+      legislacaoVersao:BaseTributaria?.versao?.codigo || 'N/I',
+      execucoes:[],
+      subMotores:{ prescricao:resultPrescricao, decadencia:resultDecadencia, capag:resultCAPAG, transacao:resultTransacao },
     }
 
-    // ── 13. Status final ────────────────────────────────────────
-    resultado.status = oportunidades.length > 0
-      ? STATUS_ANALISE.CONCLUIDA
-      : STATUS_ANALISE.CONCLUIDA_PARCIAL
-
+    resultado.status = oportunidades.length ? STATUS_ANALISE.CONCLUIDA : STATUS_ANALISE.CONCLUIDA_PARCIAL
     return finalizarResultado(resultado, inicio, {
-      totalNFes:         nfes?.length  || 0,
-      regime:            cliente?.regime || '',
-      clienteCNPJ:       cliente?.cnpj   || '',
-      totalCDAs:         cdas.length,
-      valorTotal:        totalDivida,
+      totalNFes:nfes?.length || 0,
+      regime:cliente?.regime || '',
+      clienteCNPJ:cliente?.cnpj || '',
+      totalCDAs:cdasEntrada.length,
+      valorTotal:totalDividaDocumental,
       valorExtinguivel,
-      oportunidades:     oportunidades.length,
+      valorAtivo,
+      oportunidades:oportunidades.length,
     })
-
   } catch (erro) {
     return resultadoErro(modulo, `Erro no Motor de Dívida Ativa: ${erro.message}`)
   }
