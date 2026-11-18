@@ -8,6 +8,8 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { rascunhosImportacao } from '../../utils/rascunhosImportacao'
+import JSZip from 'jszip'
 import { supabase } from '../../supabase'
 import { parseXMLNFe } from '../../utils/parseXMLNFe'
 import { parseXMLCFe } from '../../utils/parseXMLCFe'
@@ -56,7 +58,21 @@ function normalizarCompetencia(valor) {
 
   return s
 }
-const FORMATOS = '.xml'
+const FORMATOS = '.xml,.zip'
+// Rascunhos por cliente, preservados em memoria e em sessionStorage apos F5.
+// Sem envio a nuvem e sem armazenamento dos arquivos XML originais.
+// Compartilhado com Classificacao e Segregacao.
+const somenteDigitos = v => String(v || '').replace(/\D/g, '')
+function vinculoDocumento(nfe, cnpjCliente) {
+  const cnpj = somenteDigitos(cnpjCliente)
+  const emit = somenteDigitos(nfe.emitCNPJ)
+  const dest = somenteDigitos(nfe.destCNPJ)
+  if (cnpj.length !== 14) return { valido: false, motivo: 'CNPJ do cliente ativo ausente ou invalido' }
+  if (emit === cnpj) return { valido: true, papel: 'emitente' }
+  if (dest === cnpj) return { valido: true, papel: 'destinatario' }
+  return { valido: false, motivo: 'Emitente e destinatario nao correspondem ao CNPJ do cliente ativo' }
+}
+
 
 const NCM_PREFIXOS = [
   '2701','2702','2703','2704','2705','2706','2707','2708','2709','2710','2711','2712','2713','2714','2715',
@@ -716,9 +732,10 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const [aba, setAba] = useState('importar')
   const [arquivos, setArquivos] = useState([])
   const [processando, setProcessando] = useState(false)
-  const [itens, setItens] = useState([])
-  const [processados, setProcessados] = useState([])
+  const [itens, setItens] = useState(() => rascunhosImportacao.get(cliente?.id)?.itens || [])
+  const [processados, setProcessados] = useState(() => rascunhosImportacao.get(cliente?.id)?.processados || [])
   const [erro, setErro] = useState('')
+  const [documentosSemVinculo, setDocumentosSemVinculo] = useState(() => rascunhosImportacao.get(cliente?.id)?.documentosSemVinculo || [])
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const [pagina, setPagina] = useState(1)
@@ -748,6 +765,25 @@ export default function AbaMonofasicos({ cliente, regime }) {
   const inputRef = useRef(null)
   const diagAbertoRef = useRef(null)
   const nfeCanceladasRef = useRef(new Set())
+  const clienteRascunhoRef = useRef(cliente?.id)
+  // A tela e desmontada ao navegar. Recuperar dados temporarios sem marcar como salvos.
+  useEffect(() => {
+    if (clienteRascunhoRef.current === cliente?.id) return
+    clienteRascunhoRef.current = cliente?.id
+    const anterior = rascunhosImportacao.get(cliente?.id)
+    setItens(anterior?.itens || [])
+    setProcessados(anterior?.processados || [])
+    setDocumentosSemVinculo(anterior?.documentosSemVinculo || [])
+    setArquivos(anterior?.arquivos || [])
+  }, [cliente?.id])
+  useEffect(() => {
+    if (!cliente?.id || clienteRascunhoRef.current !== cliente.id) return
+    if (itens.length || processados.length || arquivos.length || documentosSemVinculo.length) {
+      rascunhosImportacao.set(cliente.id, { itens, processados, arquivos, documentosSemVinculo })
+    } else {
+      rascunhosImportacao.delete(cliente.id)
+    }
+  }, [cliente?.id, itens, processados, arquivos, documentosSemVinculo])
 
   function toggleDiagnosticoSelecionado(id) {
   setDiagnosticosSelecionados(prev =>
@@ -2834,6 +2870,12 @@ classificacao_origem: item.classificacaoOrigem || 'xml',
     }
   }
     setDiagnosticoSalvoId(diagCriado.id)
+    // Somente apos o diagnostico ser confirmado e salvo, cadastrar itens fiscais.
+    try {
+      await upsertItensFiscais(itens, user?.id)
+    } catch (cadastroErro) {
+      console.warn('Diagnostico salvo; cadastro de produtos pendente:', cadastroErro)
+    }
 
     await carregarHistorico()
 
@@ -3118,7 +3160,8 @@ setProcessados(processadosSalvos)
     segregou: false,
   })
 
-  setItens([]); setArquivos([]); setProcessados([]); setPgdasResult(null); setPgdasSupabase(null)
+  rascunhosImportacao.delete(cliente?.id)
+  setItens([]); setArquivos([]); setProcessados([]); setDocumentosSemVinculo([]); setPgdasResult(null); setPgdasSupabase(null)
     setDiagAberto(null); setSelecionados([]); setErro(''); setUpsertInfo(null); setItemDetalhe(null)
     setPagina(1); setBusca(''); setFiltro('todos')
     if (inputRef.current) inputRef.current.value = ''
@@ -3211,8 +3254,30 @@ for (const item of todosItens) {
 
   const novos = []
   const repetidos = []
-
+  const arquivosParaProcessar = []
+  const avisosZip = []
   for (const f of files) {
+    if (f.name.toLowerCase().endsWith('.zip')) {
+      try {
+        const zip = await JSZip.loadAsync(f)
+        const entradas = Object.values(zip.files).filter(e => !e.dir && e.name.toLowerCase().endsWith('.xml'))
+        if (entradas.length > 20000) throw new Error('ZIP excedeu limite de 20.000 XMLs')
+        let totalBytes = 0
+        for (const entrada of entradas) {
+          const bytes = await entrada.async('uint8array')
+          totalBytes += bytes.length
+          if (totalBytes > 250 * 1024 * 1024) throw new Error('ZIP excedeu limite de 250 MB descompactados')
+          arquivosParaProcessar.push(new File([bytes], `${f.name} / ${entrada.name}`, { type: 'application/xml', lastModified: f.lastModified }))
+        }
+        if (!entradas.length) avisosZip.push(`${f.name}: nenhum XML encontrado`)
+      } catch (ex) { avisosZip.push(`${f.name}: ${ex.message}`) }
+    } else if (f.name.toLowerCase().endsWith('.xml')) {
+      arquivosParaProcessar.push(f)
+    } else { avisosZip.push(`${f.name}: formato nao aceito`) }
+  }
+  if (avisosZip.length) setErro(avisosZip.join(' | '))
+
+  for (const f of arquivosParaProcessar) {
     const assinatura =
       `${f.name}|${f.size}|${f.lastModified}`
 
@@ -3266,6 +3331,7 @@ for (const item of todosItens) {
 	diagAbertoRef.current = null
     setProcessando(true); setErro(''); setDiagAberto(null); setSelecionados([])
     const novosProcessados = [], todosItens = []
+    const rejeitadosPorVinculo = []
     const nfeJaImportadas = new Set()
     const itensJaImportados = new Set()
     const xmlDuplicados = []
@@ -3318,6 +3384,19 @@ if (nfe.tipoDocumento === 'evento') {
 }
 
 if (!nfe.competencia) continue
+              const vinculo = vinculoDocumento(nfe, cliente?.cnpj)
+              // A origem e o destinatario sao validados ANTES de calcular receita e cadastrar produtos.
+              // Por seguranca, somente saidas emitidas pelo proprio cliente entram neste motor.
+              if (!vinculo.valido || vinculo.papel !== 'emitente' || nfe.tipoOperacao !== 'saida') {
+                rejeitadosPorVinculo.push({
+                  arquivo: arq.nome, numero: nfe.nNF || '—',
+                  emitente: nfe.emitNome || '—', emitenteCNPJ: nfe.emitCNPJ || '—',
+                  destinatario: nfe.destNome || '—', destinatarioCNPJ: nfe.destCNPJ || '—',
+                  natureza: nfe.naturezaOperacao || nfe.tipoOperacao || '—',
+                  motivo: !vinculo.valido ? vinculo.motivo : 'Documento nao e uma saida emitida pelo cliente ativo',
+                })
+                continue
+              }
 			  const chaveDocumento =
   nfe.chNFe ||
   `${nfe.emitCNPJ || ''}-${nfe.nNF || ''}-${nfe.serie || ''}`
@@ -3639,17 +3718,14 @@ setProcessados(
   )
 )
     setItens(todosItens)
+    setDocumentosSemVinculo(rejeitadosPorVinculo)
     setPgdasResult(null)
     setPgdasSupabase(null)
 	setProcessando(false)
     setPagina(1)
     if (inputRef.current) inputRef.current.value = ''
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      await upsertItensFiscais(todosItens, user?.id)
-    } catch (e) {
-      console.warn('upsert itens_fiscais falhou silenciosamente:', e.message)
-    }
+    // IMP-05: nao gravar automaticamente itens_fiscais antes de Salvar Diagnostico.
+    // A persistencia definitiva sera disparada apenas apos confirmacao explicita.
   }
 
   function escHTML(valor) {
@@ -5596,7 +5672,7 @@ const valorEventosFiscais =
           )}
           <div style={{ background: S.white, border: `1px solid ${S.border}`, borderRadius: 10, padding: '14px 18px', minWidth: 260, textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: S.navy, marginBottom: 4 }}>Importar XMLs Fiscais</div>
-            <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.xml (NF-e, NFC-e e CF-e)</strong></div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Aceita: <strong style={{ color: S.text }}>.xml e .zip (NF-e, NFC-e e CF-e)</strong></div>
             <input ref={inputRef} type="file" multiple accept={FORMATOS} onChange={onDrop} style={{ display: 'none' }} />
             <button
   onClick={() => inputRef.current?.click()}
@@ -5643,6 +5719,17 @@ const valorEventosFiscais =
         </div>
       </div>
 
+      {documentosSemVinculo.length > 0 && (
+        <div role="alert" style={{ padding: 12, background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 8, marginBottom: 12 }}>
+          <strong>{documentosSemVinculo.length} documento(s) separado(s) da apuracao.</strong>
+          <div>Emitente/destinatario ou natureza da operacao nao corresponde a saida do cliente ativo. Nenhum desses documentos entrou na receita.</div>
+          <details><summary>Conferir emitentes, destinatarios e motivos</summary>
+            {documentosSemVinculo.map((d, index) => <div key={index} style={{ padding: 6, borderBottom: '1px solid #FED7AA' }}>
+              NF {d.numero} — {d.emitente} ({d.emitenteCNPJ}) → {d.destinatario} ({d.destinatarioCNPJ}) — {d.natureza}. <strong>{d.motivo}</strong>
+            </div>)}
+          </details>
+        </div>
+      )}
       {upsertInfo && (
         <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, color: '#166534' }}>

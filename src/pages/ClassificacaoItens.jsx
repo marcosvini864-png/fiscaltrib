@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import RascunhoClassificacao from './RascunhoClassificacao'
 
 const S = {
   navy: '#0B1F4D', blue: '#2563EB', green: '#16a34a',
@@ -97,11 +98,74 @@ const GHOST_ROWS = Array(8).fill(null).map((_, i) => ({
   status_ncm: 'encontrada',
 }))
 
-function ModalClassificar({ itens, onSalvar, onFechar }) {
+function competenciaTexto(data) {
+  if (!data) return 'sem limite'
+  const [ano, mes] = data.slice(0, 7).split('-')
+  return `${mes}/${ano}`
+}
+
+function AvisoFiscal({ aviso, onFechar }) {
+  if (!aviso) return null
+  return (
+    <div role="alertdialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ width: 520, maxWidth: '95vw', background: S.white, borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.25)', padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: aviso.erro ? S.red : S.navy, marginBottom: 12 }}>{aviso.titulo || 'Classificação fiscal'}</div>
+        <div style={{ fontSize: 13, color: S.text, whiteSpace: 'pre-line', lineHeight: 1.65 }}>{aviso.texto}</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+          <button autoFocus onClick={onFechar} style={{ padding: '9px 20px', background: S.navy, color: S.white, border: 0, borderRadius: 7, cursor: 'pointer' }}>Entendi</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModalEncerrarVigencia({ item, historico, onSalvar, onFechar }) {
+  const [fim, setFim] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const atual = historico?.find(h => !h.data_fim && h.classificacao === item.class_pis_cofins_considerado)
+  async function confirmar() {
+    if (!fim || !atual) return
+    setSalvando(true)
+    try { await onSalvar(atual, fim) } finally { setSalvando(false) }
+  }
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 11000, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ padding: 24, width: 510, maxWidth: '95vw', borderRadius: 12, background: S.white }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: S.navy, marginBottom: 12 }}>Encerrar vigência da classificação</div>
+        <div style={{ fontSize: 13, marginBottom: 12 }}><strong>{item.codigo} — {item.descricao}</strong></div>
+        {atual ? <>
+          <div style={{ fontSize: 13, background: S.bg, padding: 12, borderRadius: 8, marginBottom: 14 }}>
+            Classificação: <strong>{atual.classificacao}</strong><br />Vigência atual: {competenciaTexto(atual.data_inicio)} até sem limite
+          </div>
+          <label style={{ display: 'block', fontSize: 12, marginBottom: 6 }}>Último mês de vigência (inclusive)</label>
+          <input type="month" value={fim} onChange={e => setFim(e.target.value)} style={{ padding: 10, border: `1px solid ${S.border}`, borderRadius: 6, width: '100%', boxSizing: 'border-box' }} />
+          <div style={{ fontSize: 12, color: S.muted, marginTop: 10 }}>O histórico será preservado. Uma nova classificação poderá começar no mês seguinte.</div>
+        </> : <div style={{ color: S.red, fontSize: 13 }}>Nenhuma vigência aberta correspondente à classificação atual foi encontrada. Nenhuma alteração será feita.</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button onClick={onFechar} disabled={salvando} style={{ padding: '9px 16px', border: `1px solid ${S.border}`, borderRadius: 6, background: S.white }}>Cancelar</button>
+          <button onClick={confirmar} disabled={!fim || !atual || salvando} style={{ padding: '9px 16px', border: 0, borderRadius: 6, background: S.blue, color: S.white, opacity: (!fim || !atual || salvando) ? .5 : 1 }}>{salvando ? 'Salvando...' : 'Encerrar vigência'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModalClassificar({ itens, onSalvar, onFechar, historicos = [], carregandoHistorico = false }) {
   const [considerarReceita, setConsiderarReceita] = useState(true)
   const [classificacao, setClassificacao] = useState('')
   const [periodos, setPeriodos] = useState([{ data_inicio: '', data_fim: '' }])
   const [salvando, setSalvando] = useState(false)
+  const [avisoLocal, setAvisoLocal] = useState(null)
+  const unico = itens.length === 1
+  const historicoAtual = unico ? historicos.filter(h => h.item_id === itens[0]?.id) : []
+  const vigente = historicoAtual.find(h => h.classificacao === itens[0]?.class_pis_cofins_considerado && !h.data_fim) || historicoAtual[0]
+
+  useEffect(() => {
+    if (!unico || !vigente) return
+    setClassificacao(vigente.classificacao || '')
+    setConsiderarReceita(vigente.considerar_receita !== false)
+    setPeriodos([{ data_inicio: vigente.data_inicio?.slice(0, 7) || '', data_fim: vigente.data_fim?.slice(0, 7) || '' }])
+  }, [unico, vigente?.id])
 
   function addPeriodo() { setPeriodos(prev => [...prev, { data_inicio: '', data_fim: '' }]) }
   function removePeriodo(i) { setPeriodos(prev => prev.filter((_, idx) => idx !== i)) }
@@ -110,10 +174,10 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
   }
 
   async function salvar() {
-    if (!classificacao) { alert('Selecione uma classificacao'); return }
+    if (!classificacao) { setAvisoLocal({ titulo: 'Campo obrigatório', texto: 'Selecione uma classificação fiscal.', erro: true }); return }
     setSalvando(true)
-    await onSalvar({ classificacao, considerarReceita, periodos })
-    setSalvando(false)
+    try { await onSalvar({ classificacao, considerarReceita, periodos }) }
+    finally { setSalvando(false) }
   }
 
   return (
@@ -125,6 +189,11 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
           <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: S.muted }}>X</button>
         </div>
         <div style={{ fontSize: 12, color: S.muted, marginBottom: 16 }}>{itens.length} produto(s) selecionado(s)</div>
+        {carregandoHistorico && <div style={{ fontSize: 12, padding: 10, marginBottom: 12, color: S.muted }}>Consultando histórico fiscal...</div>}
+        {unico && vigente && <div style={{ padding: 12, border: '1px solid #fcd34d', borderRadius: 8, background: '#fffbeb', fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
+          <strong>Produto já classificado.</strong><br />Classificação registrada: <strong>{vigente.classificacao}</strong><br />Vigência: {competenciaTexto(vigente.data_inicio)} até {competenciaTexto(vigente.data_fim)}<br />
+          Os campos abaixo mostram o registro encontrado. Para encerrar a vigência, use a opção específica no menu do produto. Uma classificação repetida não cria novo histórico.
+        </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: S.bg, borderRadius: 8, padding: '10px 14px', marginBottom: 16, border: `1px solid ${S.border}` }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: S.text }}>Considerar receita?</span>
           <button onClick={() => setConsiderarReceita(v => !v)}
@@ -173,6 +242,7 @@ function ModalClassificar({ itens, onSalvar, onFechar }) {
           </button>
         </div>
       </div>
+      <AvisoFiscal aviso={avisoLocal} onFechar={() => setAvisoLocal(null)} />
     </div>
   )
 }
@@ -193,6 +263,11 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   const [carregandoConflito, setCarregandoConflito] = useState(false)
 
   const [modalAberto, setModalAberto] = useState(false)
+  const [historicoModal, setHistoricoModal] = useState([])
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+  const [encerrarItem, setEncerrarItem] = useState(null)
+  const [historicoEncerrar, setHistoricoEncerrar] = useState([])
+  const [avisoFiscal, setAvisoFiscal] = useState(null)
   const [aprovando, setAprovando] = useState(false)
   const [confirmandoDemais, setConfirmandoDemais] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -206,6 +281,69 @@ export default function ClassificacaoItens({ clienteId, cliente }) {
   }, [])
 
   useEffect(() => { if (clienteId) carregar() }, [clienteId])
+
+  async function buscarHistorico(itemIds) {
+    const { data, error } = await supabase.from('itens_classificacoes')
+      .select('id,item_id,classificacao,considerar_receita,fonte,data_inicio,data_fim')
+      .in('item_id', itemIds)
+      .order('data_inicio', { ascending: false })
+    if (error) throw error
+    return data || []
+  }
+
+  async function abrirClassificacaoManual(ids) {
+    setMenuAberto(null)
+    setSelecionados(ids)
+    setCarregandoHistorico(true)
+    try {
+      const registros = await buscarHistorico(ids)
+      setHistoricoModal(registros)
+      setModalAberto(true)
+    } catch (e) {
+      setAvisoFiscal({ titulo: 'Histórico indisponível', texto: 'Não foi possível consultar as classificações anteriores. Nenhuma classificação será aberta.\n' + e.message, erro: true })
+    } finally { setCarregandoHistorico(false) }
+  }
+
+  async function abrirEncerramento(item) {
+    setMenuAberto(null)
+    try {
+      const registros = await buscarHistorico([item.id])
+      setHistoricoEncerrar(registros)
+      setEncerrarItem(item)
+    } catch (e) {
+      setAvisoFiscal({ titulo: 'Falha ao consultar histórico', texto: e.message, erro: true })
+    }
+  }
+
+  async function encerrarVigencia(registro, fimMes) {
+    if (!encerrarItem || !registro) return
+    const fim = fimMes + '-01'
+    if (registro.data_inicio && fim < registro.data_inicio) {
+      setAvisoFiscal({ titulo: 'Período inválido', texto: 'O término não pode ser anterior ao início da classificação.', erro: true })
+      return
+    }
+    try {
+      // Não permite encerrar sobre outro registro: preserva o histórico existente.
+      const registros = await buscarHistorico([encerrarItem.id])
+      const atual = registros.find(h => h.id === registro.id)
+      if (!atual || atual.data_fim) throw new Error('A vigência já foi alterada. Atualize os dados antes de continuar.')
+      const { error } = await supabase.from('itens_classificacoes')
+        .update({ data_fim: fim })
+        .eq('id', registro.id).eq('item_id', encerrarItem.id).is('data_fim', null)
+      if (error) throw error
+      const agora = new Date()
+      const mesAtual = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
+      if (fimMes < mesAtual) {
+        const { error: erroItem } = await supabase.from('itens_fiscais')
+          .update({ class_pis_cofins_considerado: null, updated_at: new Date().toISOString() })
+          .eq('id', encerrarItem.id)
+        if (erroItem) throw erroItem
+      }
+      setEncerrarItem(null)
+      await carregar()
+      setAvisoFiscal({ titulo: 'Vigência encerrada', texto: `O histórico foi preservado até ${competenciaTexto(fim)}. Uma nova classificação pode começar no mês seguinte, sem sobreposição.` })
+    } catch (e) { setAvisoFiscal({ titulo: 'Erro ao encerrar vigência', texto: e.message, erro: true }) }
+  }
 
   async function carregar() {
     setLoading(true)
@@ -478,7 +616,7 @@ function selecionarTodos() {
   )
 
   if (periodoInvalido) {
-    alert('A data inicial não pode ser posterior à data final.')
+    setAvisoFiscal({ titulo: 'Período inválido', texto: 'A data inicial não pode ser posterior à data final.', erro: true })
     return
   }
 
@@ -545,10 +683,7 @@ for (let i = 0; i < periodosNormalizados.length; i++) {
         periodoB.dataFim
       )
     ) {
-      alert(
-        'Os períodos de vigência informados se sobrepõem. ' +
-        'Ajuste os períodos antes de classificar.'
-      )
+      setAvisoFiscal({ titulo: 'Períodos sobrepostos', texto: 'Os períodos informados no formulário se sobrepõem. Ajuste os períodos antes de classificar.', erro: true })
       return
     }
   }
@@ -570,11 +705,18 @@ for (const item of itensSelecionados) {
       .eq('item_id', item.id)
 
   if (erroHistoricos) throw erroHistoricos
-  for (const novoPeriodo of periodosNormalizados) {const novoTemVigencia =
-      novoPeriodo.dataInicio || novoPeriodo.dataFim
+  for (const novoPeriodo of periodosNormalizados) {
 
-    if (!novoTemVigencia) continue
-
+    const duplicata = (historicosExistentes || []).find(h =>
+      h.classificacao === classificacao &&
+      h.considerar_receita === considerarReceita && h.fonte === 'manual' &&
+      (h.data_inicio || null) === novoPeriodo.dataInicio &&
+      (h.data_fim || null) === novoPeriodo.dataFim
+    )
+    if (duplicata) {
+      setAvisoFiscal({ titulo: 'Produto já classificado', texto: `${item.codigo} — ${item.descricao} já possui exatamente essa classificação e vigência. Nenhum registro adicional foi criado.` })
+      return
+    }
     const conflito = (historicosExistentes || []).find(historico => {
       const existenteTemVigencia =
         historico.data_inicio || historico.data_fim
@@ -607,14 +749,11 @@ for (const item of itensSelecionados) {
         return `${mes}/${ano}`
       }
 
-      alert(
-        'Já existe uma classificação para este produto em período sobreposto.\n\n' +
-        `Classificação existente: ${conflito.classificacao}\n` +
-        `Vigência existente: ${formatarCompetencia(conflito.data_inicio)} até ${formatarCompetencia(conflito.data_fim)}\n\n` +
-        `Nova classificação: ${classificacao}\n` +
-        `Nova vigência: ${formatarCompetencia(novoPeriodo.dataInicio)} até ${formatarCompetencia(novoPeriodo.dataFim)}\n\n` +
-        'Ajuste a vigência antes de salvar.'
-      )
+      setAvisoFiscal({
+        titulo: 'Conflito de vigência fiscal',
+        texto: `Produto: ${item.codigo} — ${item.descricao}\nClassificação existente: ${conflito.classificacao}\nVigência existente: ${formatarCompetencia(conflito.data_inicio)} até ${formatarCompetencia(conflito.data_fim)}\n\nNova classificação: ${classificacao}\nNova vigência: ${formatarCompetencia(novoPeriodo.dataInicio)} até ${formatarCompetencia(novoPeriodo.dataFim)}\n\nAjuste a vigência antes de salvar.`,
+        erro: true
+      })
 
       return
     }
@@ -698,7 +837,7 @@ for (const item of itensSelecionados) {
     setModalAberto(false)
 
   } catch (e) {
-    alert('Erro: ' + e.message)
+    setAvisoFiscal({ titulo: 'Erro ao classificar', texto: e.message, erro: true })
   } finally {
     setSalvando(false)
   }
@@ -1013,11 +1152,30 @@ async function removerClassificacao(item) {
 
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', color: S.text }} onClick={() => setMenuAberto(null)}>
+      <RascunhoClassificacao clienteId={clienteId} />
+
+      {encerrarItem && (
+        <ModalEncerrarVigencia
+          item={encerrarItem}
+          historico={historicoEncerrar}
+          onSalvar={encerrarVigencia}
+          onFechar={() => setEncerrarItem(null)}
+        />
+      )}
+
+      {avisoFiscal && (
+        <AvisoFiscal
+          aviso={avisoFiscal}
+          onFechar={() => setAvisoFiscal(null)}
+        />
+      )}
 
       {modalAberto && (
         <ModalClassificar
           itens={itensSelecionadosObj}
           onSalvar={salvarClassificacaoManual}
+          historicos={historicoModal}
+          carregandoHistorico={carregandoHistorico}
           onFechar={() => setModalAberto(false)}
         />
       )}
@@ -1510,7 +1668,7 @@ async function removerClassificacao(item) {
                   style={{ padding: '6px 14px', background: '#f0fdf4', color: S.green, border: `1px solid #86efac`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   Confirmar conforme Motor NCM
                 </button>
-                <button onClick={() => setModalAberto(true)}
+                <button onClick={() => abrirClassificacaoManual(selecionados)}
                   style={{ padding: '6px 14px', background: '#eff6ff', color: S.blue, border: `1px solid #bfdbfe`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   Classificar manualmente
                 </button>
@@ -1689,7 +1847,7 @@ async function removerClassificacao(item) {
 
     const rect = e.currentTarget.getBoundingClientRect()
     const larguraMenu = 200
-    const alturaMenu = temConf ? 160 : 125
+    const alturaMenu = temConf ? 205 : 125
     const margem = 8
 
     const left = Math.min(
@@ -1770,12 +1928,18 @@ async function removerClassificacao(item) {
                               style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
                               Confirmar conforme Motor NCM
                             </button>
-                            <button onClick={() => { setSelecionados([item.id]); setMenuAberto(null); setModalAberto(true) }}
+                            <button onClick={() => abrirClassificacaoManual([item.id])}
                               style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', borderBottom: `1px solid ${S.border}` }}>
                               Classificar manualmente
                             </button>
 							  </>
 )}
+                            {temConf && (
+                              <button onClick={() => abrirEncerramento(item)}
+                                style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer', color: S.blue, borderBottom: `1px solid ${S.border}` }}>
+                                Encerrar vigência
+                              </button>
+                            )}
                             {temConf && (
                              <button
 							 onClick={() => removerClassificacao(item)}
